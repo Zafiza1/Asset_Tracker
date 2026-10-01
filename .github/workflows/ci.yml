@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: asset_tracker_test
+          POSTGRES_USER: asset_tracker
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: pdo, pdo_pgsql, bcmath, gd, zip
+        coverage: xdebug
+
+    - name: Copy environment file
+      working-directory: ./backend
+      run: cp .env.example .env
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: composer install --prefer-dist --no-progress --no-interaction
+
+    - name: Generate application key
+      working-directory: ./backend
+      run: php artisan key:generate
+
+    - name: Run migrations
+      working-directory: ./backend
+      run: php artisan migrate --force
+      env:
+        DB_CONNECTION: pgsql
+        DB_HOST: 127.0.0.1
+        DB_PORT: 5432
+        DB_DATABASE: asset_tracker_test
+        DB_USERNAME: asset_tracker
+        DB_PASSWORD: secret
+
+    - name: Run tests
+      working-directory: ./backend
+      run: vendor/bin/phpunit --coverage-clover=coverage.xml
+      env:
+        DB_CONNECTION: pgsql
+        DB_HOST: 127.0.0.1
+        DB_PORT: 5432
+        DB_DATABASE: asset_tracker_test
+        DB_USERNAME: asset_tracker
+        DB_PASSWORD: secret
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: ./frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run linter
+      working-directory: ./frontend
+      run: npm run lint
+
+    - name: Run type check
+      working-directory: ./frontend
+      run: npx tsc --noEmit
+
+    - name: Build
+      working-directory: ./frontend
+      run: npm run build
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Build Docker images
+      run: |
+        docker-compose build
+
+    - name: Test Docker composition
+      run: |
+        docker-compose up -d
+        docker-compose ps
+        docker-compose down
