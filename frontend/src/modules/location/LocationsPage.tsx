@@ -1,6 +1,6 @@
 import { useCallback, useState, type FormEvent } from 'react'
-import { ApiError, type ApiClient, type Location } from '../core/api/client'
-import { ErrorMessage, useLoad } from './shared'
+import { ApiError, type ApiClient, type Location } from '../../core/api/client'
+import { ErrorMessage, useLoad } from '../../pages/shared'
 
 const blank = { name: '', type: '', address: '' }
 

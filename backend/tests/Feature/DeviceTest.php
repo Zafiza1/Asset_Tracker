@@ -256,6 +256,34 @@ class DeviceTest extends TestCase
         ]);
     }
 
+    public function test_device_can_be_bound_by_asset_system_id_within_its_project_only(): void
+    {
+        $organization = Organization::factory()->create();
+        $project = Project::factory()->create(['organization_id' => $organization->id]);
+        $otherProject = Project::factory()->create(['organization_id' => $organization->id]);
+        $deviceType = DeviceType::factory()->create();
+        $this->actingAsProjectUser($project, 'project-admin');
+
+        $device = Device::factory()->create([
+            'organization_id' => $organization->id,
+            'project_id' => $project->id,
+            'device_type_id' => $deviceType->id,
+        ]);
+        $asset = Asset::factory()->create(['organization_id' => $organization->id, 'project_id' => $project->id]);
+        $foreignAsset = Asset::factory()->create(['organization_id' => $organization->id, 'project_id' => $otherProject->id]);
+
+        $this->withHeaders($this->tenantHeaders($project))
+            ->postJson("/api/v1/devices/{$device->system_id}/bind", ['asset_system_id' => $foreignAsset->system_id])
+            ->assertStatus(422);
+
+        $this->withHeaders($this->tenantHeaders($project))
+            ->postJson("/api/v1/devices/{$device->system_id}/bind", ['asset_system_id' => $asset->system_id])
+            ->assertStatus(200)
+            ->assertJsonPath('data.asset_system_id', $asset->system_id);
+
+        $this->assertDatabaseHas('device_bindings', ['device_id' => $device->id, 'asset_id' => $asset->id, 'unbound_at' => null]);
+    }
+
     public function test_user_can_unbind_device(): void
     {
         $organization = Organization::factory()->create();

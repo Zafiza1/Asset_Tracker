@@ -148,6 +148,33 @@ docker-compose exec frontend npm install
 The stack runs nginx → php-fpm (`backend`), a queue `worker` (queues
 `webhooks,default`) and a `scheduler` (webhook retries every 5 minutes).
 
+### Demo data
+
+`db:seed` creates three demo tenants with projects built from templates,
+modules, RFID/GPS integrations, devices bound to assets, locations, movement
+history and custom fields (`DemoDataSeeder`). All demo passwords are `password`:
+
+| Account | Organization / project |
+|---|---|
+| `admin@platform.com` | Platform admin (all tenants) |
+| `admin@suryaintigas.com` (also `manager@`, `operator@`) | PT Surya Inti Gas — Cylinder Asset Tracker |
+| `admin@abclogistics.com` (also `manager@`) | PT ABC Logistics — Vehicle Tracker |
+| `admin@xyzmanufacturing.com` | PT XYZ Manufacturing — Factory Equipment / Warehouse Tracker |
+
+New users can sign up at `/register`: step 1 creates the account, step 2 the
+first organization and a project from a template.
+
+### Web console
+
+| Area | Pages |
+|---|---|
+| Runtime | Dashboard, Assets (list/detail), Locations, Movements, Devices (bind/unbind), Integrations (connect/test/health) |
+| Project setup | Modules (install/enable/disable/configure/upgrade/uninstall), Builder (Field Builder; other builders planned), Webhooks (deliveries, test, secret), API keys, Members & roles, Audit log, Health |
+| Platform | Organizations & projects (create from template), Templates (versions and modules) |
+
+Navigation follows the user's permissions in the selected project; the API
+enforces them regardless.
+
 ## Development Phases
 
 This project follows a phased development approach:

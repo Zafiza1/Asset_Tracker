@@ -4,8 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Organization;
 use App\Models\Project;
+use App\Models\ProjectModule;
 use App\Models\Template;
+use App\Models\TemplateModule;
+use App\Models\TemplateVersion;
 use App\Models\User;
+use App\Services\ModuleRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -66,6 +70,34 @@ class ProjectApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.membership', 'admin')
             ->assertJsonPath('data.0.roles', ['project-admin']);
+    }
+
+    public function test_project_from_template_installs_its_modules_at_the_pinned_version(): void
+    {
+        $registry = app(ModuleRegistry::class);
+        $asset = $registry->register(['slug' => 'asset', 'name' => 'Asset', 'category' => 'core', 'is_core' => true, 'versions' => [['version' => '1.0.0']]]);
+        $maintenance = $registry->register(['slug' => 'maintenance', 'name' => 'Maintenance', 'versions' => [['version' => '1.2.0'], ['version' => '2.0.0']]]);
+        $inspection = $registry->register(['slug' => 'inspection', 'name' => 'Inspection', 'versions' => [['version' => '1.0.0']]]);
+
+        $template = Template::factory()->create();
+        $version = TemplateVersion::factory()->create(['template_id' => $template->id, 'version' => '1.0.0']);
+        $template->update(['current_version_id' => $version->id]);
+        foreach ([[$asset, null, true], [$maintenance, '^1.0', true], [$inspection, null, false]] as $order => [$module, $constraint, $required]) {
+            TemplateModule::create(['template_version_id' => $version->id, 'module_id' => $module->id, 'version_constraint' => $constraint, 'required' => $required, 'default_config' => [], 'sort_order' => $order]);
+        }
+
+        $organization = Organization::factory()->create();
+        Sanctum::actingAs($this->orgMember($organization, 'organization-owner'));
+
+        $projectId = $this->postJson("/api/v1/organizations/{$organization->id}/projects", ['name' => 'Fleet', 'template_id' => $template->id])
+            ->assertCreated()->json('data.id');
+
+        $this->assertSame($version->id, Project::find($projectId)->template_version_id);
+        $installed = ProjectModule::with('module', 'moduleVersion')->where('project_id', $projectId)->get()->keyBy('module.slug');
+        $this->assertFalse($installed->has('asset'), 'Core modules are never installed per project');
+        $this->assertSame('enabled', $installed['maintenance']->status);
+        $this->assertSame('1.2.0', $installed['maintenance']->moduleVersion->version, 'The template constraint pins the major version');
+        $this->assertSame('installed', $installed['inspection']->status, 'Optional modules wait for the customer to enable them');
     }
 
     public function test_project_slug_is_unique_within_organization_only(): void

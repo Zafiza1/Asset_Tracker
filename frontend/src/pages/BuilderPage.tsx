@@ -1,13 +1,22 @@
-import { useCallback, useState, type FormEvent } from 'react'
 import type { ApiClient } from '../core/api/client'
-import { ErrorMessage, useLoad } from './shared'
+import { FieldBuilder } from '../builder/field-builder/FieldBuilder'
+import { dashboardBuilder } from '../builder/dashboard-builder'
+import { moduleBuilder } from '../builder/module-builder'
+import { workflowBuilder } from '../builder/workflow-builder'
+import { PageHeader } from './shared'
 
-const types = ['text', 'number', 'decimal', 'boolean', 'date', 'datetime', 'select', 'multiselect', 'textarea', 'json', 'relation']
+const planned = [moduleBuilder, workflowBuilder, dashboardBuilder]
+
+/** Level 2 customization (custom fields) today; Level 3 builders arrive once Core is stable. */
 export function BuilderPage({ api }: { api: ApiClient }) {
-  const load = useCallback(() => api.customFields(), [api]); const { value, error, reload } = useLoad(load)
-  const [label, setLabel] = useState(''); const [key, setKey] = useState(''); const [type, setType] = useState('text'); const [required, setRequired] = useState(false); const [message, setMessage] = useState(''); const [keyEdited, setKeyEdited] = useState(false)
-  const toKey = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^[^a-z]+|_+$/g, '')
-  const submit = async (event: FormEvent) => { event.preventDefault(); setMessage(''); try { await api.createCustomField({ label, key, type, required }); setMessage('Field created.'); setLabel(''); setKey(''); setKeyEdited(false); setRequired(false); reload() } catch (exception) { setMessage(exception instanceof Error ? exception.message : 'Unable to create field') } }
-  const remove = async (id: number) => { if (!window.confirm('Remove this field definition? Existing asset metadata is retained.')) return; try { await api.deleteCustomField(id); reload() } catch (exception) { setMessage(exception instanceof Error ? exception.message : 'Unable to remove field') } }
-  return <><h2 className="text-2xl font-bold">Module Builder</h2><p className="mt-1 text-slate-600">Field Builder creates project-scoped metadata definitions. Runtime module publishing remains guarded.</p><div className="mt-6 grid gap-6 lg:grid-cols-2"><form onSubmit={submit} className="space-y-4 rounded-lg border bg-white p-5"><h3 className="font-semibold">Field Builder</h3><label className="block text-sm">Label<input required className="mt-1 w-full rounded border p-2" value={label} onChange={event => { setLabel(event.target.value); if (!keyEdited) setKey(toKey(event.target.value)) }} /></label><label className="block text-sm">Key<input required pattern="[a-z][a-z0-9_]*" className="mt-1 w-full rounded border p-2 font-mono" value={key} onChange={event => { setKey(event.target.value); setKeyEdited(event.target.value !== '') }} /></label><label className="block text-sm">Type<select className="mt-1 w-full rounded border p-2" value={type} onChange={event => setType(event.target.value)}>{types.map(item => <option key={item}>{item}</option>)}</select></label><label className="flex gap-2 text-sm"><input type="checkbox" checked={required} onChange={event => setRequired(event.target.checked)} /> Required</label><button className="rounded bg-blue-600 px-4 py-2 text-white">Create field</button>{message && <p className="text-sm text-slate-600">{message}</p>}</form><section className="rounded-lg border bg-white p-5"><h3 className="font-semibold">Project fields</h3><ErrorMessage error={error} /><ul className="mt-3 divide-y">{value?.map(field => <li key={field.id} className="flex items-center justify-between py-3 text-sm"><span><strong>{field.label}</strong> <span className="font-mono text-slate-500">{field.key}</span></span><span className="flex items-center gap-3">{field.type}{field.required ? ' · required' : ''}<button className="text-red-600" onClick={() => remove(field.id)}>Remove</button></span></li>)}{!value?.length && !error && <li className="py-3 text-sm text-slate-500">No field definitions yet.</li>}</ul></section></div></>
+  return <>
+    <PageHeader title="Builder" description="Customize this project without code changes. Field Builder is available now; the other builders are planned." />
+    <h3 className="mt-6 text-lg font-semibold">Field Builder</h3>
+    <div className="mt-3"><FieldBuilder api={api} /></div>
+    <h3 className="mt-8 text-lg font-semibold">Planned</h3>
+    <div className="mt-3 grid gap-4 sm:grid-cols-3">{planned.map(builder => <article key={builder.name} className="rounded-lg border border-dashed bg-white p-5">
+      <p className="font-medium">{builder.name}</p><p className="mt-1 text-sm text-slate-600">{builder.description}</p>
+      <span className="mt-3 inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">Future phase</span>
+    </article>)}</div>
+  </>
 }

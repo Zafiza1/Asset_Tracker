@@ -320,6 +320,38 @@ class TemplateSeeder extends Seeder
             'sort_order' => 3,
         ]);
 
+        // Business modules each blueprint brings, after the core ones and in
+        // dependency order (delivery needs customer). Pinned to major v1.
+        $businessModules = [
+            'industrial-asset-tracker' => ['customer', 'delivery', 'maintenance'],
+            'vehicle-tracker' => ['maintenance'],
+            'warehouse-asset-tracker' => ['inventory', 'inspection'],
+            'equipment-tracker' => ['maintenance', 'inspection'],
+        ];
+
+        foreach ($businessModules as $templateSlug => $moduleSlugs) {
+            $template = Template::where('slug', $templateSlug)->first();
+            $version = $template?->currentVersion;
+            if (!$version) {
+                continue;
+            }
+
+            $modules = Module::whereIn('slug', $moduleSlugs)->where('is_core', false)->get()->keyBy('slug');
+            foreach ($moduleSlugs as $index => $slug) {
+                if (!isset($modules[$slug])) {
+                    continue;
+                }
+                TemplateModule::firstOrCreate(
+                    ['template_version_id' => $version->id, 'module_id' => $modules[$slug]->id],
+                    ['version_constraint' => '^1.0', 'required' => true, 'default_config' => [], 'sort_order' => 10 + $index]
+                );
+            }
+
+            $defaults = array_values(array_unique(array_merge($version->default_modules ?? [], $moduleSlugs)));
+            $version->update(['default_modules' => $defaults]);
+            $template->update(['default_modules' => $defaults]);
+        }
+
         $this->command->info('Templates seeded successfully.');
     }
 }

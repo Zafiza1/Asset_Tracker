@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\Template;
 use App\Models\TemplateModule;
 use App\Models\TemplateVersion;
+use App\Support\VersionConstraint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -196,21 +197,55 @@ class TemplateService
                 'template_version_id' => $version->id,
             ])->save();
 
+            // Listed by sort_order, which the template keeps in dependency order.
             foreach ($version->modules as $module) {
+                // Core modules are part of every project; nothing to install.
+                if ($module->is_core) {
+                    continue;
+                }
+
                 $pivot = $module->pivot;
+                // Pivot attributes are not cast: default_config is raw JSON.
+                $defaultConfig = is_string($pivot->default_config)
+                    ? (json_decode($pivot->default_config, true) ?: [])
+                    : ($pivot->default_config ?? []);
 
-                // Install module in project
-                $moduleService->installModule($project, $module, [
-                    'configuration' => $pivot->default_config ?? [],
-                    'version_constraint' => $pivot->version_constraint,
-                ]);
+                $projectModule = $moduleService->install(
+                    $project,
+                    $module->slug,
+                    $this->resolveModuleVersion($module, $pivot->version_constraint),
+                    $defaultConfig
+                );
 
-                // Enable required modules immediately
+                // Required modules start enabled; optional ones stay installed
+                // for the customer to configure and enable.
                 if ($pivot->required) {
-                    $moduleService->enableModule($project, $module);
+                    $moduleService->enable($projectModule);
                 }
             }
         });
+    }
+
+    /**
+     * Highest published version matching the template's constraint; null
+     * (latest published) when the template does not constrain it.
+     */
+    protected function resolveModuleVersion(Module $module, ?string $constraint): ?string
+    {
+        if (!$constraint) {
+            return null;
+        }
+
+        $match = $module->versions()->get()
+            ->filter(fn ($version) => $version->isPublished() && VersionConstraint::satisfies($version->version, $constraint))
+            ->sort(fn ($a, $b) => version_compare($b->version, $a->version))
+            ->first();
+
+        if (!$match) {
+            throw ApiException::invalid("No published version of module {$module->slug} satisfies {$constraint}");
+        }
+
+        return $match->version;
     }
 
     /**

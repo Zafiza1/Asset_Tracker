@@ -121,14 +121,20 @@ class DeviceController extends Controller
         $this->authorize('update', $device);
 
         $validated = $request->validate([
-            'asset_id' => 'required|integer',
+            // Internal id (original contract) or the public system_id (AST-...).
+            'asset_id' => 'required_without:asset_system_id|integer',
+            'asset_system_id' => 'required_without:asset_id|string|max:64',
             'replace' => 'sometimes|boolean',
             'reason' => 'nullable|string|max:255',
         ]);
 
         // Resolve within the device's project only — never a bare find().
         $asset = Asset::where('project_id', $device->project_id)
-            ->whereKey($validated['asset_id'])
+            ->when(
+                isset($validated['asset_id']),
+                fn ($query) => $query->whereKey($validated['asset_id']),
+                fn ($query) => $query->where('system_id', $validated['asset_system_id'])
+            )
             ->first();
 
         if (!$asset) {
@@ -153,6 +159,7 @@ class DeviceController extends Controller
             'data' => [
                 'device_id' => $device->id,
                 'asset_id' => $asset->id,
+                'asset_system_id' => $asset->system_id,
                 'bound_at' => $binding->bound_at->toIso8601String(),
             ],
             'message' => 'Device bound to asset successfully',

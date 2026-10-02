@@ -250,7 +250,8 @@ See [modules.md](../architecture/modules.md) for the lifecycle rules.
 ### Devices — binding
 
 `POST /v1/devices/{systemId}/bind` (`device.update` + `asset.update`). Body:
-`asset_id`, `replace?` (default `false`), `reason?`.
+`asset_system_id` (the asset's public `AST-…` ID) or `asset_id` (internal id),
+`replace?` (default `false`), `reason?`. The response includes both ids.
 
 A device that is already bound to a different asset is **not** moved
 silently: the request fails with `409` unless `replace: true` is sent (a
