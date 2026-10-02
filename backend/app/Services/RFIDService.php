@@ -7,11 +7,13 @@ use App\Models\DeviceType;
 use App\Models\Integration;
 use App\Models\EventLog;
 use App\Models\Asset;
+use App\Events\AssetDetected;
+use App\Integrations\Contracts\IngestsReadings;
 use App\Integrations\RFID\RFIDIntegration;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
-class RFIDService
+class RFIDService implements IngestsReadings
 {
     protected RFIDIntegration $rfidIntegration;
 
@@ -91,6 +93,11 @@ class RFIDService
         ]);
     }
 
+    public function ingest(Integration $integration, array $reading): EventLog
+    {
+        return $this->processTagRead($integration, $reading);
+    }
+
     /**
      * Process RFID tag read event
      */
@@ -104,30 +111,25 @@ class RFIDService
         // Ingest the event
         $eventLog = $this->rfidIntegration->ingestTagRead($integration, $tagData);
 
-        // Resolve asset from tag
-        $asset = $this->rfidIntegration->resolveAssetFromTag($tagData['tag_id'], $integration);
+        // Resolve tag → device → active binding → asset
+        $device = Device::where('serial_number', $tagData['tag_id'])
+            ->where('project_id', $integration->project_id)
+            ->first();
+        $asset = $device?->boundAsset();
+
+        $device?->update(['status' => 'online', 'last_seen_at' => now()]);
+
+        // An unresolved read stays processed with a null asset_id.
+        $eventLog->update([
+            'device_id' => $device?->id,
+            'asset_id' => $asset?->id,
+            'status' => 'processed',
+            'processed_at' => now(),
+        ]);
 
         if ($asset) {
-            // Update event log with asset reference
-            $eventLog->update(['asset_id' => $asset->id]);
-
-            // Update device last seen
-            $device = Device::where('serial_number', $tagData['tag_id'])
-                ->where('project_id', $integration->project_id)
-                ->first();
-
-            if ($device) {
-                $device->update([
-                    'status' => 'online',
-                    'last_seen_at' => now(),
-                ]);
-            }
-
-            Log::info('RFID tag read resolved to asset', [
-                'event_log_id' => $eventLog->id,
-                'asset_id' => $asset->id,
-                'tag_id' => $tagData['tag_id'],
-            ]);
+            $asset->touchLastSeen();
+            AssetDetected::dispatch($asset, $device, 'rfid', $eventLog->id);
         } else {
             Log::warning('RFID tag read could not resolve to asset', [
                 'event_log_id' => $eventLog->id,
@@ -159,7 +161,7 @@ class RFIDService
     /**
      * Get RFID devices for an integration
      */
-    public function getRFIDDevices(Integration $integration, string $deviceType = null)
+    public function getRFIDDevices(Integration $integration, ?string $deviceType = null)
     {
         $query = Device::where('integration_id', $integration->id)
             ->where('project_id', $integration->project_id);

@@ -24,7 +24,13 @@ class Webhook extends Model
         'metadata',
     ];
 
+    protected $hidden = [
+        'secret',
+    ];
+
     protected $casts = [
+        // Encrypted at rest; still needed in clear to sign deliveries.
+        'secret' => 'encrypted',
         'events' => 'array',
         'active' => 'boolean',
         'retry_policy' => 'array',

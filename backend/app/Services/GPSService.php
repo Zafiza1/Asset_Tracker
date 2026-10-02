@@ -10,18 +10,18 @@ use App\Models\Asset;
 use App\Models\Location;
 use App\Models\AssetLocation;
 use App\Models\Movement;
+use Illuminate\Support\Carbon;
+use App\Integrations\Contracts\IngestsReadings;
 use App\Integrations\GPS\GPSIntegration;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Exception;
 
-class GPSService
+class GPSService implements IngestsReadings
 {
-    protected GPSIntegration $gpsIntegration;
-
-    public function __construct(GPSIntegration $gpsIntegration)
-    {
-        $this->gpsIntegration = $gpsIntegration;
+    public function __construct(
+        protected GPSIntegration $gpsIntegration,
+        protected MovementService $movements
+    ) {
     }
 
     /**
@@ -60,6 +60,11 @@ class GPSService
         ]);
     }
 
+    public function ingest(Integration $integration, array $reading): EventLog
+    {
+        return $this->processLocationUpdate($integration, $reading);
+    }
+
     /**
      * Process GPS location update event
      */
@@ -70,47 +75,31 @@ class GPSService
             throw new Exception('device_id is required');
         }
 
-        if (empty($locationData['latitude']) || empty($locationData['longitude'])) {
+        // 0 is a valid coordinate (equator / prime meridian) — only reject missing values.
+        if (!isset($locationData['latitude'], $locationData['longitude'])
+            || !is_numeric($locationData['latitude']) || !is_numeric($locationData['longitude'])) {
             throw new Exception('latitude and longitude are required');
         }
 
         // Validate coordinates
-        if (!$this->validateCoordinates($locationData['latitude'], $locationData['longitude'])) {
+        if (!$this->validateCoordinates((float) $locationData['latitude'], (float) $locationData['longitude'])) {
             throw new Exception('Invalid latitude or longitude values');
         }
 
         // Ingest the event
         $eventLog = $this->gpsIntegration->ingestLocationUpdate($integration, $locationData);
 
-        // Resolve asset from device
-        $asset = $this->gpsIntegration->resolveAssetFromDevice($locationData['device_id'], $integration);
+        // Resolve device → active binding → asset
+        $device = Device::where('serial_number', $locationData['device_id'])
+            ->where('project_id', $integration->project_id)
+            ->first();
+        $asset = $device?->boundAsset();
+
+        $device?->update(['status' => 'online', 'last_seen_at' => now()]);
 
         if ($asset) {
-            // Update event log with asset reference
-            $eventLog->update(['asset_id' => $asset->id]);
-
-            // Update device last seen
-            $device = Device::where('serial_number', $locationData['device_id'])
-                ->where('project_id', $integration->project_id)
-                ->first();
-
-            if ($device) {
-                $device->update([
-                    'status' => 'online',
-                    'last_seen_at' => now(),
-                ]);
-            }
-
-            // Update asset location
+            $asset->touchLastSeen();
             $this->updateAssetLocation($asset, $locationData, $integration);
-
-            Log::info('GPS location update processed for asset', [
-                'event_log_id' => $eventLog->id,
-                'asset_id' => $asset->id,
-                'device_id' => $locationData['device_id'],
-                'latitude' => $locationData['latitude'],
-                'longitude' => $locationData['longitude'],
-            ]);
         } else {
             Log::warning('GPS location update could not resolve to asset', [
                 'event_log_id' => $eventLog->id,
@@ -118,79 +107,49 @@ class GPSService
             ]);
         }
 
+        // An unresolved update stays processed with a null asset_id.
+        $eventLog->update([
+            'device_id' => $device?->id,
+            'asset_id' => $asset?->id,
+            'status' => 'processed',
+            'processed_at' => now(),
+        ]);
+
         return $eventLog;
     }
 
     /**
-     * Update asset location and create movement record if needed
+     * Move the asset to the location nearest the GPS fix. Goes through
+     * MovementService so GPS updates produce the same movement history,
+     * current-location pointer and asset.location.updated event as any other
+     * source — the integration never writes Core tables directly.
      */
     protected function updateAssetLocation(Asset $asset, array $locationData, Integration $integration): void
     {
-        DB::beginTransaction();
-        try {
-            // Get or create location based on coordinates
-            $location = $this->resolveOrCreateLocation($locationData, $integration);
+        $location = $this->resolveOrCreateLocation($locationData, $integration);
+        $current = AssetLocation::where('asset_id', $asset->id)->first();
 
-            // Get current asset location (only one exists due to unique constraint)
-            $currentAssetLocation = AssetLocation::where('asset_id', $asset->id)->first();
+        $locationChanged = !$current
+            || $current->location_id !== $location->id
+            || $this->significantLocationChange($current, $locationData);
 
-            // Check if location changed
-            $locationChanged = !$currentAssetLocation ||
-                $currentAssetLocation->location_id !== $location->id ||
-                $this->significantLocationChange($currentAssetLocation, $locationData);
-
-            if ($locationChanged) {
-                // Delete previous location (unique constraint ensures only one)
-                $fromLocationId = null;
-                if ($currentAssetLocation) {
-                    $fromLocationId = $currentAssetLocation->location_id;
-                    $currentAssetLocation->delete();
-
-                    // Create movement record
-                    Movement::create([
-                        'organization_id' => $asset->organization_id,
-                        'project_id' => $asset->project_id,
-                        'asset_id' => $asset->id,
-                        'from_location_id' => $fromLocationId,
-                        'to_location_id' => $location->id,
-                        'occurred_at' => $locationData['timestamp'] ?? now(),
-                        'source' => 'gps',
-                        'metadata' => [
-                            'integration_id' => $integration->id,
-                            'device_id' => $locationData['device_id'],
-                            'latitude' => $locationData['latitude'],
-                            'longitude' => $locationData['longitude'],
-                            'speed' => $locationData['speed'] ?? null,
-                        ],
-                    ]);
-                }
-
-                // Create new asset location
-                AssetLocation::create([
-                    'organization_id' => $asset->organization_id,
-                    'project_id' => $asset->project_id,
-                    'asset_id' => $asset->id,
-                    'location_id' => $location->id,
-                    'source' => 'gps',
-                    'arrived_at' => $locationData['timestamp'] ?? now(),
-                    'metadata' => [
-                        'latitude' => $locationData['latitude'],
-                        'longitude' => $locationData['longitude'],
-                    ],
-                ]);
-            } else {
-                // No location change, do nothing
-            }
-
-            DB::commit();
-        } catch (Exception $e) {
-            DB::rollBack();
-            Log::error('Failed to update asset location', [
-                'asset_id' => $asset->id,
-                'error' => $e->getMessage(),
-            ]);
-            throw $e;
+        if (!$locationChanged) {
+            return;
         }
+
+        $this->movements->recordMovement($asset, [
+            'to_location_id' => $location->id,
+            'source' => 'gps',
+            'occurred_at' => $locationData['timestamp'] ?? now(),
+            'metadata' => [
+                'integration_id' => $integration->id,
+                'device_id' => $locationData['device_id'],
+                'latitude' => (float) $locationData['latitude'],
+                'longitude' => (float) $locationData['longitude'],
+                'speed' => $locationData['speed'] ?? null,
+                'accuracy' => $locationData['accuracy'] ?? null,
+            ],
+        ]);
     }
 
     /**
@@ -242,15 +201,19 @@ class GPSService
      */
     protected function significantLocationChange(AssetLocation $currentLocation, array $newData): bool
     {
-        if (!$currentLocation->latitude || !$currentLocation->longitude) {
+        // The last GPS fix is stored on the pointer's metadata.
+        $lat = $currentLocation->metadata['latitude'] ?? null;
+        $lng = $currentLocation->metadata['longitude'] ?? null;
+
+        if (!is_numeric($lat) || !is_numeric($lng)) {
             return true;
         }
 
         $distance = $this->gpsIntegration->calculateDistance(
-            $currentLocation->latitude,
-            $currentLocation->longitude,
-            $newData['latitude'],
-            $newData['longitude']
+            (float) $lat,
+            (float) $lng,
+            (float) $newData['latitude'],
+            (float) $newData['longitude']
         );
 
         return $distance > 10; // 10 meters threshold
@@ -385,55 +348,53 @@ class GPSService
     }
 
     /**
-     * Get current location of an asset via GPS
+     * Current location of an asset (from the current-location pointer).
      */
     public function getAssetCurrentLocation(Asset $asset): ?array
     {
         $assetLocation = AssetLocation::where('asset_id', $asset->id)
-            ->where('is_current', true)
             ->with('location')
             ->first();
 
-        if (!$assetLocation) {
+        if (!$assetLocation || !$assetLocation->location) {
             return null;
         }
+
+        $metadata = $assetLocation->metadata ?? [];
 
         return [
             'location_id' => $assetLocation->location_id,
             'location_name' => $assetLocation->location->name,
-            'latitude' => $assetLocation->latitude,
-            'longitude' => $assetLocation->longitude,
-            'accuracy' => $assetLocation->accuracy,
-            'recorded_at' => $assetLocation->recorded_at->toIso8601String(),
+            'latitude' => $metadata['latitude'] ?? $assetLocation->location->latitude,
+            'longitude' => $metadata['longitude'] ?? $assetLocation->location->longitude,
+            'accuracy' => $metadata['accuracy'] ?? null,
+            'source' => $assetLocation->source,
+            'recorded_at' => $assetLocation->arrived_at?->toIso8601String(),
         ];
     }
 
     /**
-     * Get location history for an asset
+     * Movement history for an asset, newest first.
      */
     public function getAssetLocationHistory(Asset $asset, int $limit = 100): array
     {
         $movements = Movement::where('asset_id', $asset->id)
             ->with(['fromLocation', 'toLocation'])
-            ->orderBy('timestamp', 'desc')
+            ->orderByDesc('occurred_at')
             ->limit($limit)
             ->get();
 
-        return $movements->map(function ($movement) {
-            return [
-                'movement_id' => $movement->id,
-                'from_location' => $movement->fromLocation ? [
-                    'id' => $movement->fromLocation->id,
-                    'name' => $movement->fromLocation->name,
-                ] : null,
-                'to_location' => $movement->toLocation ? [
-                    'id' => $movement->toLocation->id,
-                    'name' => $movement->toLocation->name,
-                ] : null,
-                'timestamp' => $movement->timestamp->toIso8601String(),
-                'source' => $movement->source,
-                'metadata' => $movement->metadata,
-            ];
-        })->toArray();
+        return $movements->map(fn (Movement $movement) => [
+            'movement_id' => $movement->id,
+            'from_location' => $movement->fromLocation
+                ? ['id' => $movement->fromLocation->id, 'name' => $movement->fromLocation->name]
+                : null,
+            'to_location' => $movement->toLocation
+                ? ['id' => $movement->toLocation->id, 'name' => $movement->toLocation->name]
+                : null,
+            'timestamp' => Carbon::parse($movement->occurred_at)->toIso8601String(),
+            'source' => $movement->source,
+            'metadata' => $movement->metadata,
+        ])->toArray();
     }
 }

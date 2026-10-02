@@ -58,7 +58,7 @@ class GPSIntegrationTest extends TestCase
         ]);
 
         // Direct service call for this test
-        $gpsService = new \App\Services\GPSService(new \App\Integrations\GPS\GPSIntegration());
+        $gpsService = app(GPSService::class);
         $device = $gpsService->registerTracker([
             'device_id' => 'GPS-001',
             'name' => 'Test GPS Tracker',
@@ -75,7 +75,7 @@ class GPSIntegrationTest extends TestCase
 
     public function test_invalid_device_id_format_is_rejected(): void
     {
-        $gpsService = new \App\Services\GPSService(new \App\Integrations\GPS\GPSIntegration());
+        $gpsService = app(GPSService::class);
         
         $this->assertFalse($gpsService->validateDeviceId('invalid@device#id'));
         $this->assertTrue($gpsService->validateDeviceId('GPS-001'));
@@ -94,7 +94,7 @@ class GPSIntegrationTest extends TestCase
         ]);
 
         // Direct service call
-        $gpsService = new \App\Services\GPSService(new \App\Integrations\GPS\GPSIntegration());
+        $gpsService = app(GPSService::class);
         $eventLog = $gpsService->processLocationUpdate($integration, [
             'device_id' => 'GPS-001',
             'latitude' => 40.7128,
@@ -115,7 +115,7 @@ class GPSIntegrationTest extends TestCase
 
     public function test_invalid_coordinates_are_rejected(): void
     {
-        $gpsService = new \App\Services\GPSService(new \App\Integrations\GPS\GPSIntegration());
+        $gpsService = app(GPSService::class);
         
         $this->assertFalse($gpsService->validateCoordinates(91, -74.0060)); // Invalid latitude
         $this->assertFalse($gpsService->validateCoordinates(40.7128, 181)); // Invalid longitude
@@ -164,7 +164,7 @@ class GPSIntegrationTest extends TestCase
         ]);
 
         // Ingest location update via service
-        $gpsService = new \App\Services\GPSService(new \App\Integrations\GPS\GPSIntegration());
+        $gpsService = app(GPSService::class);
         $eventLog = $gpsService->processLocationUpdate($integration, [
             'device_id' => 'GPS-001',
             'latitude' => 40.7128,
@@ -191,7 +191,7 @@ class GPSIntegrationTest extends TestCase
         ]);
 
         // Direct service call
-        $gpsService = new \App\Services\GPSService(new \App\Integrations\GPS\GPSIntegration());
+        $gpsService = app(GPSService::class);
         $results = $gpsService->bulkRegisterTrackers([
             ['device_id' => 'GPS-001', 'name' => 'Tracker 1'],
             ['device_id' => 'GPS-002', 'name' => 'Tracker 2'],
@@ -227,7 +227,7 @@ class GPSIntegrationTest extends TestCase
         ]);
 
         // Direct service call
-        $gpsService = new \App\Services\GPSService(new \App\Integrations\GPS\GPSIntegration());
+        $gpsService = app(GPSService::class);
         $devices = $gpsService->getGPSDevices($integration);
 
         $this->assertCount(1, $devices);
@@ -247,7 +247,7 @@ class GPSIntegrationTest extends TestCase
         ]);
 
         // Bypass policy for this test - direct service call
-        $gpsService = new \App\Services\GPSService(new \App\Integrations\GPS\GPSIntegration());
+        $gpsService = app(GPSService::class);
         $stats = $gpsService->getLocationUpdateStats($integration, 24);
 
         $this->assertEquals(0, $stats['total_updates']);
@@ -268,7 +268,7 @@ class GPSIntegrationTest extends TestCase
         ]);
 
         // Direct service call for this test
-        $gpsService = new \App\Services\GPSService(new \App\Integrations\GPS\GPSIntegration());
+        $gpsService = app(GPSService::class);
         $results = $gpsService->bulkIngestLocationUpdates([
             ['device_id' => 'GPS-001', 'latitude' => 40.7128, 'longitude' => -74.0060],
             ['device_id' => 'GPS-002', 'latitude' => 40.7130, 'longitude' => -74.0065],

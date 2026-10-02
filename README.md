@@ -128,7 +128,12 @@ docker-compose up -d
 docker-compose exec backend composer install
 docker-compose exec backend php artisan key:generate
 docker-compose exec backend php artisan migrate
+docker-compose exec backend php artisan db:seed      # roles, permissions, demo tenants
+docker-compose exec backend php artisan modules:sync # publish the module catalog
 ```
+
+`APP_KEY` also encrypts integration and webhook secrets at rest: keep it
+stable, and list old keys in `APP_PREVIOUS_KEYS` when rotating.
 
 5. Install frontend dependencies:
 ```bash
@@ -138,7 +143,10 @@ docker-compose exec frontend npm install
 6. Access the application:
 - Frontend: http://localhost
 - API: http://localhost/api/v1
-- Health check: http://localhost/health
+- Health check: http://localhost/health (database, Redis, queue)
+
+The stack runs nginx → php-fpm (`backend`), a queue `worker` (queues
+`webhooks,default`) and a `scheduler` (webhook retries every 5 minutes).
 
 ## Development Phases
 
@@ -159,7 +167,11 @@ This project follows a phased development approach:
 - **Phase 13**: Audit Logging
 - **Phase 14**: Custom Fields
 - **Phase 15**: Dashboard
-- **Phase 16**: Module Builder (Future)
+- **Phase 16**: Module Builder (Future; Field Builder available as a foundation)
+
+Phases 1–15 are implemented and covered by the backend test suite
+(`cd backend && vendor/bin/phpunit`). Catalog modules such as Maintenance
+have lifecycle and versioning but no business features yet.
 
 ## Documentation
 
@@ -168,6 +180,9 @@ This project follows a phased development approach:
 - [Tenancy rules](docs/architecture/tenancy.md)
 - [Integration architecture](docs/architecture/integrations.md)
 - [Module architecture](docs/architecture/modules.md)
+- [Module Builder foundation](docs/architecture/module-builder.md)
+- [Writing modules](docs/modules/README.md)
+- [RFID integration](docs/integrations/rfid.md) · [GPS integration](docs/integrations/gps.md)
 - [Implementation documentation and validation record](docs/phase14-documentation.md)
 
 ## Security
@@ -175,6 +190,9 @@ This project follows a phased development approach:
 - All data is scoped by organization and project
 - Role-based access control (RBAC)
 - API token authentication via Laravel Sanctum
+- Project-scoped API keys for gateways and external systems (hashed, revocable, scoped)
+- Integration and webhook secrets encrypted at rest and never returned after creation
+- Webhooks signed with HMAC-SHA256 over the exact request body
 - Input validation on all endpoints
 - Rate limiting on API endpoints
 - Audit logging for sensitive operations

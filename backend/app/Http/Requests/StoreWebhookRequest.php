@@ -19,7 +19,9 @@ class StoreWebhookRequest extends FormRequest
             'endpoint' => ['required', 'url', 'max:2048'],
             'secret' => ['nullable', 'string', 'min:16', 'max:255'],
             'events' => ['required', 'array', 'min:1'],
-            'events.*' => ['required', 'string', 'in:asset.created,asset.updated,asset.deleted,asset.location.updated,asset.status.changed,project.module.installed,project.module.configured,project.module.enabled,project.module.disabled,project.module.uninstalled,project.module.upgraded'],
+            'events.*' => ['required', 'string', 'max:100', 'regex:/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/'],
+            // Any well-formed event name: modules and integrations add their
+            // own (asset.detected, integration.degraded, maintenance.completed…).
             'active' => ['boolean'],
             'retry_policy' => ['nullable', 'array'],
             'retry_policy.max_attempts' => ['nullable', 'integer', 'min:1', 'max:10'],
@@ -33,7 +35,7 @@ class StoreWebhookRequest extends FormRequest
     {
         return [
             'events.required' => 'At least one event must be selected',
-            'events.*.in' => 'Invalid event type selected',
+            'events.*.regex' => 'Event names look like "asset.created" or "maintenance.completed"',
             'endpoint.url' => 'Endpoint must be a valid URL',
             'secret.min' => 'Secret must be at least 16 characters',
         ];

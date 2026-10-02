@@ -1,11 +1,16 @@
 <?php
 
+use App\Http\Controllers\ApiKeyController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuditController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\GPSController;
 use App\Http\Controllers\IntegrationController;
+use App\Http\Controllers\IntegrationIngestController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\MovementController;
@@ -21,16 +26,19 @@ use App\Http\Controllers\CustomFieldController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
-Route::get('/health', function () {
-    return response()->json([
-        'status' => 'healthy',
-        'timestamp' => now()->toIso8601String(),
-    ]);
-});
+Route::get('/health', [HealthController::class, 'platform']);
 
 Route::middleware('throttle:auth')->group(function () {
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::post('/auth/register', [AuthController::class, 'register']);
+});
+
+// Ingestion routes — callable by gateways/external systems with an X-Api-Key
+// (the key defines the tenant) or by users with a Sanctum token + tenant
+// context (see App\Middleware\MachineOrUserMiddleware).
+Route::prefix('v1')->middleware(['machine', 'throttle:integration'])->group(function () {
+    Route::post('events', [EventController::class, 'store']);
+    Route::post('integrations/{integration}/ingest', IntegrationIngestController::class);
 });
 
 // Protected routes
@@ -90,6 +98,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('assets', [AssetController::class, 'store'])->middleware('throttle:api-write');
         Route::put('assets/{asset}', [AssetController::class, 'update'])->middleware('throttle:api-write');
         Route::delete('assets/{asset}', [AssetController::class, 'destroy'])->middleware('throttle:api-write');
+        Route::get('assets/{asset}/activity', [AssetController::class, 'activity'])->middleware('throttle:api');
         Route::get('assets/{asset}/movements', [MovementController::class, 'index'])->middleware('throttle:api');
         Route::post('assets/{asset}/movements', [MovementController::class, 'store'])->middleware('throttle:api-write');
 
@@ -113,7 +122,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('project-modules/{module}/upgrade', [ProjectModuleController::class, 'upgrade'])->middleware('throttle:api-write');
         Route::delete('project-modules/{module}', [ProjectModuleController::class, 'destroy'])->middleware('throttle:api-write');
 
-        // Integration management
+        // Integration management. Static paths must precede {integration}.
+        Route::get('integrations/available', [IntegrationController::class, 'getAvailableIntegrations'])->middleware('throttle:api');
+        Route::post('integrations/validate-config', [IntegrationController::class, 'validateConfig'])->middleware('throttle:api-write');
         Route::get('integrations', [IntegrationController::class, 'index'])->middleware('throttle:api');
         Route::get('integrations/{integration}', [IntegrationController::class, 'show'])->middleware('throttle:api');
         Route::post('integrations', [IntegrationController::class, 'store'])->middleware('throttle:api-write');
@@ -123,8 +134,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('integrations/{integration}/disconnect', [IntegrationController::class, 'disconnect'])->middleware('throttle:api-write');
         Route::post('integrations/{integration}/test', [IntegrationController::class, 'testConnection'])->middleware('throttle:api-write');
         Route::get('integrations/{integration}/health', [IntegrationController::class, 'healthCheck'])->middleware('throttle:api');
-        Route::get('integrations/available', [IntegrationController::class, 'getAvailableIntegrations'])->middleware('throttle:api');
-        Route::post('integrations/validate-config', [IntegrationController::class, 'validateConfig'])->middleware('throttle:api-write');
 
         // RFID integration endpoints
         Route::prefix('integrations/{integration}/rfid')->middleware('throttle:integration')->group(function () {
@@ -179,6 +188,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('webhooks/{webhook}/regenerate-secret', [WebhookController::class, 'regenerateSecret'])->middleware('throttle:api-write');
         Route::post('webhooks/{webhook}/retry-deliveries', [WebhookController::class, 'retryDeliveries'])->middleware('throttle:api-write');
         Route::post('webhooks/{webhook}/toggle-active', [WebhookController::class, 'toggleActive'])->middleware('throttle:api-write');
+
+        // Project dashboard & integration health
+        Route::get('dashboard', DashboardController::class)->middleware('throttle:api');
+        Route::get('health/integrations', [HealthController::class, 'integrations'])->middleware('throttle:api');
+
+        // API keys for gateways and external systems
+        Route::get('api-keys', [ApiKeyController::class, 'index'])->middleware('throttle:api');
+        Route::post('api-keys', [ApiKeyController::class, 'store'])->middleware('throttle:api-write');
+        Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy'])->middleware('throttle:api-write');
 
         // Audit logs
         Route::get('audit/activity-logs', [AuditController::class, 'indexActivityLogs'])->middleware('throttle:api');

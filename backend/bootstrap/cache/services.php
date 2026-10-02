@@ -33,6 +33,7 @@
     29 => 'Laravel\\Sanctum\\SanctumServiceProvider',
     30 => 'App\\Providers\\AppServiceProvider',
     31 => 'App\\Providers\\AuthServiceProvider',
+    32 => 'App\\Providers\\EventServiceProvider',
   ),
   'eager' => 
   array (
@@ -54,6 +55,7 @@
     15 => 'Laravel\\Sanctum\\SanctumServiceProvider',
     16 => 'App\\Providers\\AppServiceProvider',
     17 => 'App\\Providers\\AuthServiceProvider',
+    18 => 'App\\Providers\\EventServiceProvider',
   ),
   'deferred' => 
   array (

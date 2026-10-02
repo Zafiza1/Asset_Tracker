@@ -19,7 +19,7 @@ class IntegrationResource extends JsonResource
             'status' => $this->status,
             'metadata' => $this->metadata,
             'config' => $this->whenLoaded('configs', function () {
-                return $this->configs->pluck('value', 'key');
+                return $this->configs->mapWithKeys(fn ($config) => [$config->key => $config->displayValue()]);
             }),
             'last_connected_at' => $this->last_connected_at?->toIso8601String(),
             'last_health_check_at' => $this->last_health_check_at?->toIso8601String(),

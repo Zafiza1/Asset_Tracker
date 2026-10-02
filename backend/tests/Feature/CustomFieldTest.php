@@ -19,4 +19,8 @@ class CustomFieldTest extends TestCase
         $this->postJson('/api/v1/assets',['name'=>'Pump','serial_number'=>'P-1'],$this->headers)->assertCreated()->assertJsonPath('data.metadata.condition','good');
         $this->postJson('/api/v1/assets',['name'=>'Pump 2','serial_number'=>'P-2','metadata'=>['condition'=>'bad']],$this->headers)->assertUnprocessable()->assertJsonValidationErrors('metadata.condition');
     }
+    public function test_definition_accepts_a_partial_update(): void {
+        $id=$this->postJson('/api/v1/custom-fields',['key'=>'priority','label'=>'Priority','type'=>'text'],$this->headers)->assertCreated()->json('data.id');
+        $this->putJson("/api/v1/custom-fields/{$id}",['label'=>'Asset priority'],$this->headers)->assertOk()->assertJsonPath('data.label','Asset priority')->assertJsonPath('data.key','priority');
+    }
 }

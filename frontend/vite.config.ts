@@ -12,5 +12,13 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    // The app calls same-origin /api; in development forward it to the
+    // backend (nginx in Docker, or `php artisan serve` locally).
+    proxy: {
+      '/api': {
+        target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
   },
 })

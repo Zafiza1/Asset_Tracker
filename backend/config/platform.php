@@ -34,4 +34,34 @@ return [
         'integration' => (int) env('RATE_LIMIT_INTEGRATION', 120),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Integration Ingestors
+    |--------------------------------------------------------------------------
+    |
+    | Integration type => class implementing
+    | App\Integrations\Contracts\IngestsReadings. Used by the generic
+    | POST /api/v1/integrations/{integration}/ingest endpoint. Adding a new
+    | technology (BLE, LoRaWAN, ...) means adding an entry here — Core is
+    | untouched.
+    |
+    */
+
+    'ingestors' => [
+        'rfid' => App\Services\RFIDService::class,
+        'gps' => App\Services\GPSService::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboard
+    |--------------------------------------------------------------------------
+    |
+    | An asset with bound devices counts as offline when it has not been seen
+    | by any integration for this many minutes.
+    |
+    */
+
+    'offline_after_minutes' => (int) env('PLATFORM_OFFLINE_AFTER_MINUTES', 60),
+
 ];

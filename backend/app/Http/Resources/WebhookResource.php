@@ -15,7 +15,10 @@ class WebhookResource extends JsonResource
             'project_id' => $this->project_id,
             'name' => $this->name,
             'endpoint' => $this->endpoint,
-            'secret' => $this->when($request->routeIs('api.v1.webhooks.show'), $this->secret),
+            // The signing secret is returned once, on creation (and by
+            // regenerate-secret); afterwards only a hint is exposed.
+            'secret' => $this->when($this->resource->wasRecentlyCreated, $this->secret),
+            'has_secret' => $this->secret !== null,
             'events' => $this->events,
             'active' => $this->active,
             'retry_policy' => $this->retry_policy,

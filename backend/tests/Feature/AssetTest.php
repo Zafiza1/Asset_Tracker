@@ -187,4 +187,22 @@ class AssetTest extends TestCase
         $this->getJson("/api/v1/assets/{$assetB->system_id}", $this->tenantHeaders($projectA))
             ->assertNotFound();
     }
+
+    public function test_created_asset_reports_default_status_and_null_status_is_rejected(): void
+    {
+        $project = Project::factory()->create();
+        $this->actingAsProjectUser($project, 'project-admin');
+
+        $created = $this->postJson('/api/v1/assets', ['serial_number' => 'SN-STATUS', 'name' => 'A'], $this->tenantHeaders($project))
+            ->assertStatus(201)
+            ->assertJsonPath('data.status', 'active');
+
+        $this->postJson('/api/v1/assets', ['serial_number' => 'SN-NULL', 'name' => 'B', 'status' => null], $this->tenantHeaders($project))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['status']);
+
+        $this->putJson('/api/v1/assets/' . $created->json('data.system_id'), ['status' => null], $this->tenantHeaders($project))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['status']);
+    }
 }

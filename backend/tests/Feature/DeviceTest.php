@@ -379,10 +379,11 @@ class DeviceTest extends TestCase
             'bound_at' => now(),
         ]);
 
-        // Bind to second asset
+        // Rebinding a bound device needs an explicit replace (hardware swap)
         $this->withHeaders($this->tenantHeaders($project))
             ->postJson("/api/v1/devices/{$device->system_id}/bind", [
                 'asset_id' => $asset2->id,
+                'replace' => true,
             ])
             ->assertStatus(200);
 

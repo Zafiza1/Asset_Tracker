@@ -48,6 +48,10 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function rateLimitKey(Request $request): string
     {
+        if ($apiKey = $request->attributes->get('api_key')) {
+            return 'api-key:' . $apiKey->id;
+        }
+
         return (string) ($request->user()?->id ?: $request->ip());
     }
 }

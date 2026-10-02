@@ -172,6 +172,11 @@ class RoleAndPermissionSeeder extends Seeder
             ['name' => 'Delete Webhooks', 'slug' => 'webhook.delete', 'module' => 'webhook', 'description' => 'Delete webhooks'],
             ['name' => 'Test Webhooks', 'slug' => 'webhook.test', 'module' => 'webhook', 'description' => 'Test webhook delivery'],
             ['name' => 'Manage Webhooks', 'slug' => 'webhook.manage', 'module' => 'webhook', 'description' => 'Manage webhook deliveries and retries'],
+
+            // Machine access & standard event ingestion
+            ['name' => 'View API Keys', 'slug' => 'api-key.view', 'module' => 'api-key', 'description' => 'View project API keys (never their secrets)'],
+            ['name' => 'Manage API Keys', 'slug' => 'api-key.manage', 'module' => 'api-key', 'description' => 'Create and revoke project API keys'],
+            ['name' => 'Ingest Events', 'slug' => 'event.ingest', 'module' => 'event', 'description' => 'Publish standard events via POST /api/v1/events'],
         ];
 
         $createdPermissions = [];
@@ -203,6 +208,7 @@ class RoleAndPermissionSeeder extends Seeder
             'report.view', 'report.create', 'report.export',
             'audit.view', 'audit.view-activity', 'audit.view-events',
             'webhook.view', 'webhook.create', 'webhook.update', 'webhook.delete', 'webhook.test', 'webhook.manage',
+            'api-key.view', 'api-key.manage', 'event.ingest',
         ];
         $createdRoles['organization-owner']->permissions()->sync(
             collect($orgOwnerPermissions)->map(fn($slug) => $createdPermissions[$slug]->id)->toArray()
@@ -222,6 +228,8 @@ class RoleAndPermissionSeeder extends Seeder
             'role.view', 'role.assign',
             'report.view', 'report.create', 'report.export',
             'audit.view', 'audit.view-activity',
+            'webhook.view', 'webhook.create', 'webhook.update', 'webhook.delete', 'webhook.test', 'webhook.manage',
+            'api-key.view', 'api-key.manage', 'event.ingest',
         ];
         $createdRoles['project-admin']->permissions()->sync(
             collect($projectAdminPermissions)->map(fn($slug) => $createdPermissions[$slug]->id)->toArray()
@@ -277,6 +285,7 @@ class RoleAndPermissionSeeder extends Seeder
             'device.view', 'device.create', 'device.update', 'device.delete', 'device.manage-bindings',
             'integration.view', 'integration.connect', 'integration.disconnect', 'integration.configure', 'integration.test',
             'audit.view-events',
+            'api-key.view', 'api-key.manage', 'event.ingest',
         ];
         $createdRoles['integration-manager']->permissions()->sync(
             collect($integrationManagerPermissions)->map(fn($slug) => $createdPermissions[$slug]->id)->toArray()

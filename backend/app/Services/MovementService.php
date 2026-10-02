@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Events\AssetLocationUpdated;
 use App\Models\Asset;
 use App\Models\AssetLocation;
+use App\Models\Location;
 use App\Models\Movement;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Records asset movements and keeps AssetLocation (the current-location
@@ -32,30 +35,39 @@ class MovementService
         $occurredAt = isset($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
         $source = $data['source'] ?? 'manual';
 
-        $movement = Movement::create([
-            'organization_id' => $asset->organization_id,
-            'project_id' => $asset->project_id,
-            'asset_id' => $asset->id,
-            'from_location_id' => $fromLocationId,
-            'to_location_id' => $toLocationId,
-            'source' => $source,
-            'recorded_by' => $data['recorded_by'] ?? null,
-            'metadata' => $data['metadata'] ?? [],
-            'occurred_at' => $occurredAt,
-        ]);
-
-        AssetLocation::updateOrCreate(
-            ['asset_id' => $asset->id],
-            [
+        return DB::transaction(function () use ($asset, $data, $toLocationId, $fromLocationId, $occurredAt, $source) {
+            $movement = Movement::create([
                 'organization_id' => $asset->organization_id,
                 'project_id' => $asset->project_id,
-                'location_id' => $toLocationId,
+                'asset_id' => $asset->id,
+                'from_location_id' => $fromLocationId,
+                'to_location_id' => $toLocationId,
                 'source' => $source,
+                'recorded_by' => $data['recorded_by'] ?? null,
                 'metadata' => $data['metadata'] ?? [],
-                'arrived_at' => $occurredAt,
-            ]
-        );
+                'occurred_at' => $occurredAt,
+            ]);
 
-        return $movement;
+            AssetLocation::updateOrCreate(
+                ['asset_id' => $asset->id],
+                [
+                    'organization_id' => $asset->organization_id,
+                    'project_id' => $asset->project_id,
+                    'location_id' => $toLocationId,
+                    'source' => $source,
+                    'metadata' => $data['metadata'] ?? [],
+                    'arrived_at' => $occurredAt,
+                ]
+            );
+
+            $asset->unsetRelation('locationAssignment');
+
+            if ($toLocationId && ($location = Location::find($toLocationId))) {
+                // Dispatched after commit (WebhookTriggerable).
+                AssetLocationUpdated::dispatch($asset, $location, $source);
+            }
+
+            return $movement;
+        });
     }
 }

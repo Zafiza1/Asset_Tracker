@@ -9,6 +9,7 @@ use App\Http\Resources\WebhookResource;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
 use App\Services\WebhookService;
+use App\Tenancy\TenantScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -24,8 +25,17 @@ class WebhookController extends Controller
     {
         $this->authorize('viewAny', Webhook::class);
 
-        $organizationId = $request->header('X-Organization-Id');
-        $projectId = $request->header('X-Project-Id');
+        // Use the context TenantMiddleware validated (headers or the user's
+        // default organization/project), never raw request input.
+        $organizationId = TenantScope::getCurrentOrganizationId();
+        $projectId = TenantScope::getCurrentProjectId();
+
+        if (!$organizationId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An organization context is required',
+            ], 422);
+        }
 
         $query = Webhook::query();
 

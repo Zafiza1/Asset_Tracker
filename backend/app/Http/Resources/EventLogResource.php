@@ -35,7 +35,8 @@ class EventLogResource extends JsonResource
             'device_id' => $this->device_id,
             'device' => $this->whenLoaded('device', fn() => [
                 'id' => $this->device->id,
-                'identifier' => $this->device->identifier,
+                'serial_number' => $this->device->serial_number,
+                'system_id' => $this->device->system_id,
             ]),
             'integration_id' => $this->integration_id,
             'integration' => $this->whenLoaded('integration', fn() => [

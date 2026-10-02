@@ -103,7 +103,8 @@ class WebhookService
             ],
         ];
 
-        $signature = $this->generateSignature($testPayload, $webhook->secret);
+        $body = $this->encodePayload($testPayload);
+        $signature = $this->signBody($body, $webhook->secret);
 
         try {
             $response = \Illuminate\Support\Facades\Http::withHeaders([
@@ -111,7 +112,7 @@ class WebhookService
                 'X-Webhook-Signature' => $signature,
                 'X-Webhook-Event' => 'webhook.test',
                 'X-Webhook-Id' => $webhook->id,
-            ])->post($webhook->endpoint, $testPayload);
+            ])->timeout(10)->withBody($body, 'application/json')->post($webhook->endpoint);
 
             return [
                 'success' => $response->successful(),
@@ -129,12 +130,21 @@ class WebhookService
 
     public function generateSignature(array $payload, ?string $secret): string
     {
-        if (!$secret) {
-            return '';
-        }
+        return $this->signBody($this->encodePayload($payload), $secret);
+    }
 
-        $payloadJson = json_encode($payload);
-        return hash_hmac('sha256', $payloadJson, $secret);
+    /**
+     * Canonical JSON body for a delivery — the bytes that are signed are the
+     * bytes that are sent.
+     */
+    public function encodePayload(array $payload): string
+    {
+        return json_encode($payload, JSON_THROW_ON_ERROR);
+    }
+
+    public function signBody(string $body, ?string $secret): string
+    {
+        return $secret ? hash_hmac('sha256', $body, $secret) : '';
     }
 
     public function verifySignature(array $payload, string $signature, string $secret): bool

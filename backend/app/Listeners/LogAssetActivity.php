@@ -4,44 +4,40 @@ namespace App\Listeners;
 
 use App\Events\AssetCreated;
 use App\Events\AssetDeleted;
+use App\Events\AssetLocationUpdated;
+use App\Events\AssetStatusChanged;
 use App\Events\AssetUpdated;
 use App\Services\AuditService;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 
-class LogAssetActivity implements ShouldQueue
+/**
+ * Writes the activity log row for asset lifecycle events.
+ *
+ * Runs synchronously (not queued) so the acting user, IP and user agent of
+ * the originating request are still available to AuditService.
+ */
+class LogAssetActivity
 {
-    use InteractsWithQueue;
+    public function __construct(
+        protected AuditService $auditService
+    ) {}
 
-    protected AuditService $auditService;
-
-    public function __construct(AuditService $auditService)
-    {
-        $this->auditService = $auditService;
-    }
-
-    public function handle(AssetCreated|AssetUpdated|AssetDeleted $event): void
+    public function handle(AssetCreated|AssetUpdated|AssetDeleted|AssetStatusChanged|AssetLocationUpdated $event): void
     {
         $action = match ($event::class) {
             AssetCreated::class => 'create',
             AssetUpdated::class => 'update',
             AssetDeleted::class => 'delete',
-            default => 'unknown',
+            AssetStatusChanged::class => 'status_change',
+            AssetLocationUpdated::class => 'location_update',
         };
 
         $this->auditService->logActivity(
             action: $action,
             resourceType: 'Asset',
-            resourceId: $event->asset->id,
-            metadata: [
-                'system_id' => $event->asset->system_id,
-                'serial_number' => $event->asset->serial_number,
-                'name' => $event->asset->name,
-                'organization_id' => $event->asset->organization_id,
-                'project_id' => $event->asset->project_id,
-            ],
-            organizationId: $event->asset->organization_id,
-            projectId: $event->asset->project_id
+            resourceId: $event->payload['asset_id'] ?? null,
+            metadata: $event->payload,
+            organizationId: $event->organizationId,
+            projectId: $event->projectId
         );
     }
 }

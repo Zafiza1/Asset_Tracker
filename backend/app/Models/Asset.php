@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use App\Events\AssetCreated;
+use App\Events\AssetDeleted;
+use App\Events\AssetStatusChanged;
+use App\Events\AssetUpdated;
 use App\Traits\TenantScoping;
 use Database\Factories\AssetFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -38,6 +42,15 @@ class Asset extends Model
 
     protected $casts = [
         'metadata' => 'array',
+        'last_seen_at' => 'datetime',
+    ];
+
+    /**
+     * Mirrors the column default so a freshly created asset (and its
+     * asset.created event) reports its status without a reload.
+     */
+    protected $attributes = [
+        'status' => 'active',
     ];
 
     protected static function booted(): void
@@ -47,6 +60,20 @@ class Asset extends Model
                 $asset->system_id = 'AST-' . strtoupper((string) Str::ulid());
             }
         });
+
+        // Standard events (docs/architecture/events.md) fire from the model so
+        // every write path — API, integrations, modules — emits them.
+        static::created(fn (self $asset) => AssetCreated::dispatch($asset));
+
+        static::updated(function (self $asset) {
+            AssetUpdated::dispatch($asset);
+
+            if ($asset->wasChanged('status')) {
+                AssetStatusChanged::dispatch($asset, (string) $asset->getOriginal('status'), (string) $asset->status);
+            }
+        });
+
+        static::deleted(fn (self $asset) => AssetDeleted::dispatch($asset));
     }
 
     /**
@@ -98,6 +125,23 @@ class Asset extends Model
     public function scopeOfType($query, string $assetType)
     {
         return $query->where('asset_type', $assetType);
+    }
+
+    /**
+     * Device binding history; active bindings have a null unbound_at.
+     */
+    public function deviceBindings(): HasMany
+    {
+        return $this->hasMany(DeviceBinding::class)->orderByDesc('bound_at');
+    }
+
+    /**
+     * Record integration activity without emitting asset.updated — a
+     * detection is reported through its own event (asset.detected etc.).
+     */
+    public function touchLastSeen(): void
+    {
+        $this->forceFill(['last_seen_at' => now()])->saveQuietly();
     }
 
     public function isActive(): bool

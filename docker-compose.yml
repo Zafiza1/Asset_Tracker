@@ -69,8 +69,9 @@ services:
         condition: service_healthy
     networks:
       - asset_tracker_network
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
+    # php-fpm listens on 9000 inside the network; nginx is the HTTP entrypoint.
+    expose:
+      - "9000"
 
   # Laravel Queue Worker
   worker:
@@ -102,7 +103,38 @@ services:
         condition: service_healthy
     networks:
       - asset_tracker_network
-    command: php artisan queue:work --sleep=3 --tries=3
+    # Webhook deliveries run on their own queue.
+    command: php artisan queue:work --queue=webhooks,default --sleep=3 --tries=3
+
+  # Laravel Scheduler (periodic webhook retries)
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: asset_tracker_scheduler
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-asset_tracker}
+      DB_USERNAME: ${DB_USERNAME:-asset_tracker}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QUEUE_CONNECTION: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - asset_tracker_network
+    command: php artisan schedule:work
 
   # React Frontend
   frontend:
@@ -116,7 +148,10 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
+      # The browser calls same-origin /api; Vite (direct :5173 access) and
+      # nginx both forward it to the backend.
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+      VITE_PROXY_TARGET: ${VITE_PROXY_TARGET:-http://nginx}
     depends_on:
       - backend
     networks:

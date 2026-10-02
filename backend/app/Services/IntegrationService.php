@@ -2,15 +2,13 @@
 
 namespace App\Services;
 
+use App\Events\IntegrationStatusChanged;
 use App\Integrations\Contracts\IntegrationContract;
 use App\Integrations\RFID\RFIDIntegration;
 use App\Integrations\GPS\GPSIntegration;
 use App\Models\Integration;
 use App\Models\IntegrationConfig;
 use App\Models\EventLog;
-use App\Models\Device;
-use App\Models\DeviceBinding;
-use App\Models\Asset;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Exception;
@@ -115,10 +113,7 @@ class IntegrationService
             $result = $integrationContract->connect($integration);
 
             if ($result) {
-                $integration->update([
-                    'status' => 'connected',
-                    'last_connected_at' => now(),
-                ]);
+                $this->transition($integration, 'connected', ['last_connected_at' => now()]);
 
                 return [
                     'success' => true,
@@ -158,9 +153,7 @@ class IntegrationService
             $result = $integrationContract->disconnect($integration);
 
             if ($result) {
-                $integration->update([
-                    'status' => 'disconnected',
-                ]);
+                $this->transition($integration, 'disconnected');
 
                 return [
                     'success' => true,
@@ -233,10 +226,12 @@ class IntegrationService
         try {
             $result = $integrationContract->healthCheck($integration);
 
-            $integration->update([
-                'status' => $result['status'] === 'healthy' ? 'connected' : 'degraded',
-                'last_health_check_at' => now(),
-            ]);
+            // A health check never connects a disconnected integration; it only
+            // moves a live one between connected and degraded (Section: ERROR HANDLING).
+            $integration->update(['last_health_check_at' => now()]);
+            if ($integration->status !== 'disconnected') {
+                $this->transition($integration, $result['status'] === 'healthy' ? 'connected' : 'degraded');
+            }
 
             return $result;
         } catch (Exception $e) {
@@ -284,34 +279,18 @@ class IntegrationService
         });
     }
 
-    public function bindDevice(Device $device, Asset $asset): DeviceBinding
+    /**
+     * Change an integration's status and publish integration.<status> when
+     * it actually changed.
+     */
+    protected function transition(Integration $integration, string $status, array $extra = []): void
     {
-        // Unbind any existing binding
-        $device->currentBinding()->update([
-            'unbound_at' => now(),
-        ]);
+        $previous = $integration->status;
+        $integration->update(array_merge($extra, ['status' => $status]));
 
-        return DeviceBinding::create([
-            'device_id' => $device->id,
-            'asset_id' => $asset->id,
-            'project_id' => $device->project_id,
-            'bound_at' => now(),
-        ]);
-    }
-
-    public function unbindDevice(Device $device): bool
-    {
-        $binding = $device->currentBinding()->first();
-
-        if (!$binding) {
-            return false;
+        if ($previous !== $status) {
+            IntegrationStatusChanged::dispatch($integration, $previous);
         }
-
-        $binding->update([
-            'unbound_at' => now(),
-        ]);
-
-        return true;
     }
 
     public function getIntegrationConfig(Integration $integration, bool $includeSecrets = false): array

@@ -121,14 +121,32 @@ class DeviceController extends Controller
         $this->authorize('update', $device);
 
         $validated = $request->validate([
-            'asset_id' => 'required|exists:assets,id',
+            'asset_id' => 'required|integer',
+            'replace' => 'sometimes|boolean',
+            'reason' => 'nullable|string|max:255',
         ]);
 
-        $asset = Asset::findOrFail($validated['asset_id']);
+        // Resolve within the device's project only — never a bare find().
+        $asset = Asset::where('project_id', $device->project_id)
+            ->whereKey($validated['asset_id'])
+            ->first();
+
+        if (!$asset) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => ['asset_id' => ['The selected asset is invalid.']],
+            ], 422);
+        }
 
         $this->authorize('update', $asset);
 
-        $binding = $this->deviceService->bindDevice($device, $asset);
+        $binding = $this->deviceService->bindDevice(
+            $device,
+            $asset,
+            (bool) ($validated['replace'] ?? false),
+            $validated['reason'] ?? null
+        );
 
         return response()->json([
             'success' => true,

@@ -3,10 +3,16 @@
 namespace App\Events;
 
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-abstract class WebhookTriggerable
+/**
+ * Base for standard platform events (docs/architecture/events.md) that fan out
+ * to webhooks and the audit log. Dispatched only once the surrounding DB
+ * transaction commits, so subscribers never see a rolled-back change.
+ */
+abstract class WebhookTriggerable implements ShouldDispatchAfterCommit
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 

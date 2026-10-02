@@ -37,10 +37,10 @@ class DeliverWebhookJob implements ShouldQueue
         try {
             $this->delivery->markForRetry();
 
-            $signature = $webhookService->generateSignature(
-                $this->delivery->payload,
-                $webhook->secret
-            );
+            // Sign and send the exact same bytes so receivers can verify
+            // HMAC-SHA256(body, secret) against X-Webhook-Signature.
+            $body = $webhookService->encodePayload($this->delivery->payload);
+            $signature = $webhookService->signBody($body, $webhook->secret);
 
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
@@ -50,7 +50,7 @@ class DeliverWebhookJob implements ShouldQueue
                 'X-Webhook-Delivery-Id' => $this->delivery->id,
                 'X-Webhook-Timestamp' => now()->toIso8601String(),
                 'User-Agent' => 'AssetTracker-Webhook/1.0',
-            ])->timeout(30)->post($webhook->endpoint, $this->delivery->payload);
+            ])->timeout(30)->withBody($body, 'application/json')->post($webhook->endpoint);
 
             if ($response->successful()) {
                 $this->delivery->markAsDelivered(

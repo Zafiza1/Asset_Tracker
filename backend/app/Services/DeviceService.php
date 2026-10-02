@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\ApiException;
 use App\Models\Device;
 use App\Models\DeviceType;
 use App\Models\Asset;
@@ -64,26 +65,55 @@ class DeviceService
         });
     }
 
-    public function bindDevice(Device $device, Asset $asset): DeviceBinding
+    /**
+     * Bind a device to an asset (Device → Device Binding → Asset).
+     *
+     * A device bound to a different asset is never silently moved: the caller
+     * must unbind it first or pass $replace = true (an explicit hardware swap),
+     * which closes the old binding and records why.
+     */
+    public function bindDevice(Device $device, Asset $asset, bool $replace = false, ?string $reason = null): DeviceBinding
     {
-        // Check if device is already bound to this asset
-        $existingBinding = $device->currentBinding()->where('asset_id', $asset->id)->first();
-
-        if ($existingBinding) {
-            return $existingBinding;
+        if ($device->project_id !== $asset->project_id) {
+            throw ApiException::invalid('Validation failed', [
+                'asset_id' => ['Device and asset must belong to the same project'],
+            ]);
         }
 
-        // Unbind from any other asset
-        $device->currentBinding()->update([
-            'unbound_at' => now(),
-        ]);
+        return DB::transaction(function () use ($device, $asset, $replace, $reason) {
+            // Serialize concurrent bind attempts on the same device.
+            Device::withoutGlobalScopes()->whereKey($device->id)->lockForUpdate()->first();
 
-        return DeviceBinding::create([
-            'device_id' => $device->id,
-            'asset_id' => $asset->id,
-            'project_id' => $device->project_id,
-            'bound_at' => now(),
-        ]);
+            $current = $device->currentBinding()->first();
+
+            if ($current && $current->asset_id === $asset->id) {
+                return $current;
+            }
+
+            if ($current && !$replace) {
+                throw ApiException::conflict(
+                    'Device is already bound to another asset. Unbind it first or pass "replace": true.'
+                );
+            }
+
+            if ($current) {
+                $current->update([
+                    'unbound_at' => now(),
+                    'metadata' => array_merge($current->metadata ?? [], [
+                        'unbind_reason' => $reason ?? 'replaced',
+                        'replaced_by_asset_id' => $asset->id,
+                    ]),
+                ]);
+            }
+
+            return DeviceBinding::create([
+                'device_id' => $device->id,
+                'asset_id' => $asset->id,
+                'project_id' => $device->project_id,
+                'bound_at' => now(),
+                'metadata' => $reason ? ['reason' => $reason] : null,
+            ]);
+        });
     }
 
     public function unbindDevice(Device $device): bool

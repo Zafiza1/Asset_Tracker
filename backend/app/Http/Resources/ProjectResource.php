@@ -16,6 +16,7 @@ class ProjectResource extends JsonResource
             'slug' => $this->slug,
             'description' => $this->description,
             'status' => $this->status,
+            'template_version_id' => $this->template_version_id,
             'template' => $this->whenLoaded('template', fn () => $this->template ? [
                 'id' => $this->template->id,
                 'slug' => $this->template->slug,

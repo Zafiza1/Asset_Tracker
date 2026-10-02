@@ -187,8 +187,14 @@ class TemplateService
             throw ApiException::invalid('Template has no available version');
         }
 
-        DB::transaction(function () use ($version, $project) {
+        DB::transaction(function () use ($template, $version, $project) {
             $moduleService = app(ModuleService::class);
+
+            // Pin the version: later template releases don't touch this project.
+            $project->forceFill([
+                'template_id' => $template->id,
+                'template_version_id' => $version->id,
+            ])->save();
 
             foreach ($version->modules as $module) {
                 $pivot = $module->pivot;

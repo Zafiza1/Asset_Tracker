@@ -7,7 +7,7 @@ use App\Models\Location;
 
 class AssetLocationUpdated extends WebhookTriggerable
 {
-    public function __construct(Asset $asset, Location $location)
+    public function __construct(Asset $asset, Location $location, string $source = 'manual')
     {
         parent::__construct(
             'asset.location.updated',
@@ -20,6 +20,9 @@ class AssetLocationUpdated extends WebhookTriggerable
                 'location_id' => $location->id,
                 'location_name' => $location->name,
                 'location_type' => $location->type,
+                'latitude' => $location->latitude,
+                'longitude' => $location->longitude,
+                'source' => $source,
             ]
         );
     }

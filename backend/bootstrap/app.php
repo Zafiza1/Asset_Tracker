@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Listeners are declared explicitly in App\Providers\EventServiceProvider;
+    // discovery would attach some of them a second time (double audit rows).
+    ->withEvents(discover: false)
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'tenant' => \App\Middleware\TenantMiddleware::class,
@@ -24,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Middleware\RoleMiddleware::class,
             'module' => \App\Middleware\EnsureModuleEnabled::class,
             'control-plane' => \App\Middleware\ControlPlaneMiddleware::class,
+            'machine' => \App\Middleware\MachineOrUserMiddleware::class,
         ]);
 
         // TenantMiddleware must run before SubstituteBindings: route-model
@@ -40,6 +44,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(
             before: \Illuminate\Routing\Middleware\SubstituteBindings::class,
             prepend: \App\Middleware\ControlPlaneMiddleware::class,
+        );
+        $middleware->prependToPriorityList(
+            before: \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            prepend: \App\Middleware\MachineOrUserMiddleware::class,
         );
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -31,7 +31,7 @@ class StoreAssetRequest extends FormRequest
             ],
             'description' => ['nullable', 'string'],
             'asset_type' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', 'string', 'max:50'],
+            'status' => ['sometimes', 'filled', 'string', 'max:50'],
             'metadata' => ['nullable', 'array'],
         ];
     }

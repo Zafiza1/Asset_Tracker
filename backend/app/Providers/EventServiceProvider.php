@@ -4,9 +4,12 @@ namespace App\Providers;
 
 use App\Events\AssetCreated;
 use App\Events\AssetDeleted;
+use App\Events\AssetDetected;
 use App\Events\AssetLocationUpdated;
 use App\Events\AssetStatusChanged;
 use App\Events\AssetUpdated;
+use App\Events\IntegrationStatusChanged;
+use App\Events\StandardEventPublished;
 use App\Events\ModuleLifecycleChanged;
 use App\Listeners\DispatchWebhookDeliveries;
 use App\Listeners\LogAssetActivity;
@@ -54,10 +57,24 @@ class EventServiceProvider extends ServiceProvider
         ],
 
         AssetLocationUpdated::class => [
+            LogAssetActivity::class,
             DispatchWebhookDeliveries::class,
         ],
 
         AssetStatusChanged::class => [
+            LogAssetActivity::class,
+            DispatchWebhookDeliveries::class,
+        ],
+
+        AssetDetected::class => [
+            DispatchWebhookDeliveries::class,
+        ],
+
+        StandardEventPublished::class => [
+            DispatchWebhookDeliveries::class,
+        ],
+
+        IntegrationStatusChanged::class => [
             DispatchWebhookDeliveries::class,
         ],
 
