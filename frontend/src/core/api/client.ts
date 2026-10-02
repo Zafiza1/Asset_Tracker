@@ -86,6 +86,8 @@ export class ApiClient {
   moveAsset(systemId: string, toLocationId: number) { return this.request<Movement>(`/v1/assets/${encodeURIComponent(systemId)}/movements`, this.json('POST', { to_location_id: toLocationId })) }
 
   locations() { return this.list<Location>('/v1/locations?per_page=100') }
+  createLocation(input: Omit<Location, 'id'>) { return this.request<Location>('/v1/locations', this.json('POST', input)) }
+  deleteLocation(id: number) { return this.request<void>(`/v1/locations/${id}`, { method: 'DELETE' }) }
 
   customFields() { return this.request<CustomField[]>('/v1/custom-fields') }
   createCustomField(field: Pick<CustomField, 'key' | 'label' | 'type' | 'required'>) { return this.request<CustomField>('/v1/custom-fields', this.json('POST', field)) }

@@ -48,12 +48,21 @@ class DashboardController extends Controller
             ->with('user:id,name')
             ->latest('occurred_at')
             ->limit(10)
-            ->get()
+            ->get();
+
+        // Not every action's metadata carries the asset name (status and
+        // location changes don't), so resolve current names in one query.
+        // withTrashed keeps deleted assets labelled.
+        $assetNames = Asset::withTrashed()
+            ->whereIn('id', $recent->pluck('resource_id')->filter()->unique())
+            ->pluck('name', 'id');
+
+        $recent = $recent
             ->map(fn (ActivityLog $log) => [
                 'id' => $log->id,
                 'action' => $log->action,
                 'asset_system_id' => $log->metadata['system_id'] ?? null,
-                'asset_name' => $log->metadata['name'] ?? null,
+                'asset_name' => $assetNames[$log->resource_id] ?? $log->metadata['name'] ?? null,
                 'user' => $log->user?->name,
                 'occurred_at' => $log->occurred_at?->toIso8601String(),
             ]);

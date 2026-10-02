@@ -29,7 +29,7 @@ function ProtectedApp({ session, onLogout, onSessionChange }: { session: Session
 export default function App() {
   const [session, setSession] = useState(getSession)
   const update = (next: Session | null) => { saveSession(next); setSession(next) }
-  return <BrowserRouter>{session
+  return <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{session
     ? <ProtectedApp session={session} onLogout={() => update(null)} onSessionChange={update} />
     : <Routes><Route path="*" element={<LoginPage onAuthenticated={setSession} />} /></Routes>
   }</BrowserRouter>
