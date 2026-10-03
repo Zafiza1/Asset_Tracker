@@ -16,7 +16,7 @@ class MovementController extends Controller
         $this->authorize('view', $asset);
         $this->authorize('viewAny', [Movement::class, $asset->project]);
 
-        $perPage = min((int) $request->query('per_page', 25), 100);
+        $perPage = $this->perPage($request);
         $movements = $asset->movements()->with(['fromLocation:id,name', 'toLocation:id,name'])->paginate($perPage);
 
         return response()->json([

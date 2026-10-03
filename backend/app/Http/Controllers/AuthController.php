@@ -42,7 +42,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $this->safeMessage($e),
             ], 401);
         }
     }
@@ -73,7 +73,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $this->safeMessage($e),
             ], 400);
         }
     }
@@ -93,7 +93,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $this->safeMessage($e),
             ], 500);
         }
     }
@@ -113,7 +113,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $this->safeMessage($e),
             ], 500);
         }
     }
@@ -137,7 +137,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $this->safeMessage($e),
             ], 500);
         }
     }
@@ -166,7 +166,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $this->safeMessage($e),
             ], 500);
         }
     }
@@ -194,7 +194,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $this->safeMessage($e),
             ], 403);
         }
     }
@@ -222,7 +222,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $this->safeMessage($e),
             ], 403);
         }
     }

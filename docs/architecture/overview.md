@@ -95,7 +95,7 @@ Standardized events representing state changes (e.g., asset.created, asset.locat
 ## Technology Stack
 
 ### Backend
-- **Framework**: Laravel 10 (PHP 8.2)
+- **Framework**: Laravel 12 (PHP 8.4)
 - **Database**: PostgreSQL 15
 - **Cache/Queue**: Redis 7
 - **Authentication**: Laravel Sanctum

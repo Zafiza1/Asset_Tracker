@@ -50,7 +50,7 @@ class WebhookController extends Controller
             });
         }
 
-        $webhooks = $query->paginate($request->input('per_page', 25));
+        $webhooks = $query->paginate($this->perPage($request));
 
         return WebhookResource::collection($webhooks);
     }
@@ -125,7 +125,7 @@ class WebhookController extends Controller
         }
 
         $deliveries = $query->orderBy('created_at', 'desc')
-            ->paginate($request->input('per_page', 25));
+            ->paginate($this->perPage($request));
 
         return WebhookDeliveryResource::collection($deliveries);
     }

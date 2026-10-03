@@ -332,21 +332,28 @@ class GPSIntegration implements IntegrationContract
     }
 
     /**
-     * Check if point is inside polygon using ray casting algorithm
+     * Check if point is inside polygon using ray casting algorithm.
+     * x = longitude, y = latitude for both the vertices and the point.
      */
     protected function isPointInPolygon(float $lat, float $lng, array $polygon): bool
     {
         $inside = false;
-        $j = count($polygon) - 1;
+        $count = count($polygon);
 
-        for ($i = 0; $i < count($polygon); $i++) {
-            $xi = $polygon[$i]['longitude'];
-            $yi = $polygon[$i]['latitude'];
-            $xj = $polygon[$j]['longitude'];
-            $yj = $polygon[$j]['latitude'];
+        if ($count < 3) {
+            return false;
+        }
 
-            if (($yi > $lng) != ($yj > $lng) &&
-                $lat < ($xj - $xi) * ($lng - $yi) / ($yj - $yi) + $xi) {
+        $j = $count - 1;
+
+        for ($i = 0; $i < $count; $i++) {
+            $xi = (float) $polygon[$i]['longitude'];
+            $yi = (float) $polygon[$i]['latitude'];
+            $xj = (float) $polygon[$j]['longitude'];
+            $yj = (float) $polygon[$j]['latitude'];
+
+            if (($yi > $lat) !== ($yj > $lat) &&
+                $lng < ($xj - $xi) * ($lat - $yi) / ($yj - $yi) + $xi) {
                 $inside = !$inside;
             }
 

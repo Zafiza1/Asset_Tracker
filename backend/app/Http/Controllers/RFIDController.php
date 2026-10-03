@@ -120,7 +120,7 @@ class RFIDController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $this->safeMessage($e),
             ], 400);
         }
     }
@@ -154,7 +154,7 @@ class RFIDController extends Controller
                 $results['failed']++;
                 $results['errors'][] = [
                     'tag_id' => $readData['tag_id'] ?? 'unknown',
-                    'error' => $e->getMessage(),
+                    'error' => $this->safeMessage($e),
                 ];
             }
         }

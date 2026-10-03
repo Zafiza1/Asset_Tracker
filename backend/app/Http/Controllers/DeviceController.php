@@ -30,7 +30,7 @@ class DeviceController extends Controller
             ->when($request->type, fn($q) => $q->ofType($request->type))
             ->when($request->status, fn($q) => $q->ofStatus($request->status))
             ->when($request->with_asset, fn($q) => $q->withAsset())
-            ->paginate($request->per_page ?? 25);
+            ->paginate($this->perPage($request));
 
         return response()->json([
             'success' => true,
@@ -221,7 +221,7 @@ class DeviceController extends Controller
     public function indexTypes(Request $request): JsonResponse
     {
         $types = DeviceType::when($request->search, fn($q) => $q->where('name', 'like', "%{$request->search}%"))
-            ->paginate($request->per_page ?? 25);
+            ->paginate($this->perPage($request));
 
         return response()->json([
             'success' => true,
@@ -293,7 +293,7 @@ class DeviceController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $this->safeMessage($e),
             ], 400);
         }
     }

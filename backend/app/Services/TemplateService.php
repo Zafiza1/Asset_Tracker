@@ -184,8 +184,13 @@ class TemplateService
     public function applyToProject(Template $template, Project $project): void
     {
         $version = $template->getCurrentVersion();
+
+        // A template without a released version has no modules to install;
+        // the project just stays linked to it.
         if (!$version) {
-            throw ApiException::invalid('Template has no available version');
+            $project->forceFill(['template_id' => $template->id])->save();
+
+            return;
         }
 
         DB::transaction(function () use ($template, $version, $project) {

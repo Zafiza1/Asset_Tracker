@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Module;
 use App\Models\ModuleVersion;
 use App\Models\Permission;
+use App\Models\Role;
 use App\Modules\BaseModule;
 use App\Modules\Contracts\ModuleContract;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,7 @@ class ModuleRegistry
      * @param array{
      *   slug: string, name: string, description?: string, category?: string,
      *   author?: string, is_core?: bool, status?: string, metadata?: array,
+     *   default_role_permissions?: array<string, array<int, string>>,
      *   versions: array<int, array{
      *     version: string, changelog?: string, dependencies?: array<string, string>,
      *     config_schema?: array<string, array>, permissions?: array<int, string>,
@@ -61,6 +63,8 @@ class ModuleRegistry
             foreach ($manifest['versions'] as $definition) {
                 $this->registerVersion($module, $definition);
             }
+
+            $this->grantDefaultRolePermissions($manifest['default_role_permissions'] ?? []);
 
             return $module->load('versions');
         });
@@ -133,7 +137,8 @@ class ModuleRegistry
 
     /**
      * Make a module's permission slugs available for role assignment. Roles
-     * are not granted them automatically — that stays an explicit decision.
+     * only receive them through the manifest's default_role_permissions or an
+     * explicit assignment.
      */
     protected function registerPermissions(Module $module, array $slugs): void
     {
@@ -146,6 +151,26 @@ class ModuleRegistry
                     'description' => "Provided by the {$module->name} module",
                     'is_system' => true,
                 ]
+            );
+        }
+    }
+
+    /**
+     * The module author's recommended grants for the system roles, from the
+     * manifest's default_role_permissions (role slug => permission slugs).
+     * Additive only: syncing never revokes a permission from a role.
+     */
+    protected function grantDefaultRolePermissions(array $grants): void
+    {
+        foreach ($grants as $roleSlug => $permissionSlugs) {
+            $role = Role::where('slug', $roleSlug)->first();
+
+            if (!$role) {
+                continue;
+            }
+
+            $role->permissions()->syncWithoutDetaching(
+                Permission::whereIn('slug', $permissionSlugs)->pluck('id')->all()
             );
         }
     }

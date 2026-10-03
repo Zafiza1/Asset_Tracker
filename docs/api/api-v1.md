@@ -52,7 +52,7 @@ Rate limit headers are included in the response:
 
 ### Lists
 
-List endpoints accept `page`, `per_page` (default 25, max 100), `search`,
+List endpoints accept `page`, `per_page` (default 25, clamped to 1–100), `search`,
 `sort` (field name; prefix `-` for descending) and endpoint-specific filters.
 They return:
 
@@ -96,7 +96,7 @@ organization) or at project level. See
 | POST | `/auth/logout` | Revoke the current token. Rate limited: 60/minute |
 | POST | `/auth/logout-all` | Revoke all tokens. Rate limited: 60/minute |
 | POST | `/auth/refresh` | Replace the current token. Rate limited: 60/minute |
-| GET | `/auth/me` | User, memberships, roles and permissions for the current context. Rate limited: 60/minute |
+| GET | `/auth/me` | User, memberships, roles and permissions for the current context, plus `project_modules` (slugs of the modules enabled in the current project). Rate limited: 60/minute |
 | POST | `/auth/switch-organization` | `organization_id`. Sets the default context. Rate limited: 60/minute |
 | POST | `/auth/switch-project` | `project_id`. Sets the default context. Rate limited: 60/minute |
 
@@ -247,6 +247,20 @@ location), `source?`, `occurred_at?`, `metadata?`.
 
 See [modules.md](../architecture/modules.md) for the lifecycle rules.
 
+### Maintenance (module)
+
+Only routed while the `maintenance` module is enabled for the project;
+otherwise every endpoint returns `403`. See
+[maintenance.md](../modules/maintenance.md).
+
+| Method | Path | Permission |
+|---|---|---|
+| GET | `/v1/maintenance` | `maintenance.view`. Filters: `status`, `asset_id` (system ID), `overdue=1`, `search`; sort: `scheduled_at`, `completed_at`, `created_at`, `status`, `title` |
+| POST | `/v1/maintenance` | `maintenance.create`. Body: `asset_id` (system ID), `title`, `type?`, `description?`, `scheduled_at?` (default: now + `default_interval_days`), `notes?`, `cost?`, `metadata?` |
+| GET | `/v1/maintenance/{id}` | `maintenance.view` |
+| PUT | `/v1/maintenance/{id}` | `maintenance.update`. Body: details, or `status` = `scheduled` / `in_progress` / `cancelled`. Completed or cancelled records return `409` |
+| POST | `/v1/maintenance/{id}/complete` | `maintenance.complete`. Body: `completed_at?`, `notes?`, `cost?`. Response adds `next`: the follow-up record when `auto_schedule` is on |
+
 ### Devices — binding
 
 `POST /v1/devices/{systemId}/bind` (`device.update` + `asset.update`). Body:
@@ -394,7 +408,8 @@ The following event types are available for subscription:
 - `project.module.upgraded` - When a module is upgraded
 - `asset.detected` - When an integration (RFID, BLE, …) or `POST /v1/events` detects an asset
 - `integration.connected` / `integration.disconnected` / `integration.degraded` - When an integration's status changes
-- Any custom event published through `POST /v1/events` (e.g. `maintenance.completed`)
+- `maintenance.created` / `maintenance.completed` - From the Maintenance module
+- Any custom event published through `POST /v1/events`
 
 Event names are validated by format (`segment.segment[.segment…]`, lowercase),
 not against a closed list, so modules and integrations can introduce new ones.

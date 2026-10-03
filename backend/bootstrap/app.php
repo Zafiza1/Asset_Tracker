@@ -83,4 +83,18 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return response()->json(['success' => false, 'message' => $message], $e->getStatusCode(), $e->getHeaders());
         });
+
+        // Anything else is a server fault: same envelope, and no internals
+        // (SQL, paths, class names) unless APP_DEBUG is on. Still reported.
+        $exceptions->render(function (\Throwable $e, Request $request) use ($isApi) {
+            // HttpResponseException already carries its response.
+            if (!$isApi($request) || $e instanceof \Illuminate\Http\Exceptions\HttpResponseException) {
+                return null;
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => config('app.debug') ? $e->getMessage() : 'Server Error',
+            ], 500);
+        });
     })->create();

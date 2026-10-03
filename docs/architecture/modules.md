@@ -145,8 +145,9 @@ Organization Owner and Module Manager hold all of them. Project Admin can view,
 configure, enable and disable, but cannot install, upgrade or uninstall.
 
 Permissions a module declares (for example `maintenance.view`) are created
-when its version is registered. They are **not** granted to any role
-automatically; assigning them stays an explicit decision.
+when its version is registered. They reach roles only through the manifest's
+`default_role_permissions` (the module author's recommended grants for the
+system roles, applied additively by `modules:sync`) or an explicit assignment.
 
 The catalog (`GET /api/v1/modules`) is platform data. Any authenticated user can
 browse it.

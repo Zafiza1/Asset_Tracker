@@ -39,6 +39,23 @@ class AssetTest extends TestCase
         ];
     }
 
+    public function test_list_endpoints_clamp_per_page(): void
+    {
+        $project = Project::factory()->create();
+        $this->actingAsProjectUser($project, 'project-admin');
+        $headers = $this->tenantHeaders($project);
+
+        // A negative LIMIT used to reach PostgreSQL and fail with a 500.
+        $this->getJson('/api/v1/assets?per_page=-5', $headers)->assertOk()->assertJsonPath('meta.per_page', 1);
+        $this->getJson('/api/v1/locations?per_page=-5', $headers)->assertOk();
+        $this->getJson('/api/v1/devices?per_page=-5', $headers)->assertOk();
+        $this->getJson('/api/v1/webhooks?per_page=-5', $headers)->assertOk();
+
+        // Unbounded pages are capped at 100.
+        $this->getJson('/api/v1/assets?per_page=100000', $headers)->assertOk()->assertJsonPath('meta.per_page', 100);
+        $this->getJson('/api/v1/integrations?per_page=100000', $headers)->assertOk();
+    }
+
     public function test_manager_can_create_view_update_and_delete_asset(): void
     {
         $project = Project::factory()->create();

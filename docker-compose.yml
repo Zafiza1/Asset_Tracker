@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -44,11 +42,17 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        # Development stack: include dev dependencies (phpunit, pint).
+        COMPOSER_ARGS: ""
     container_name: asset_tracker_backend
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
       - ./backend:/var/www/html
+      # vendor/ comes from the image, not the host (it is not committed).
+      # After changing composer.json: docker compose up -d --build -V
+      - /var/www/html/vendor
       - ./infrastructure/docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
     environment:
       APP_ENV: ${APP_ENV:-local}
@@ -81,11 +85,15 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        # Development stack: include dev dependencies (phpunit, pint).
+        COMPOSER_ARGS: ""
     container_name: asset_tracker_worker
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
       - ./backend:/var/www/html
+      - /var/www/html/vendor
     environment:
       APP_ENV: ${APP_ENV:-local}
       APP_DEBUG: ${APP_DEBUG:-true}
@@ -114,11 +122,15 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        # Development stack: include dev dependencies (phpunit, pint).
+        COMPOSER_ARGS: ""
     container_name: asset_tracker_scheduler
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
       - ./backend:/var/www/html
+      - /var/www/html/vendor
     environment:
       APP_ENV: ${APP_ENV:-local}
       DB_CONNECTION: pgsql

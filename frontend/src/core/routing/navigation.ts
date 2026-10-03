@@ -1,9 +1,10 @@
 /**
  * Sidebar navigation. `permission` hides an entry the user cannot use;
- * `project: false` marks control-plane pages that work without a selected
+ * `module` hides it unless that business module is enabled for the selected
+ * project; `project: false` marks control-plane pages that work without a selected
  * project (everything else runs inside the selected project).
  */
-export type NavItem = { to: string; label: string; permission?: string; project?: false }
+export type NavItem = { to: string; label: string; permission?: string; module?: string; project?: false }
 export type NavGroup = { title: string; items: NavItem[] }
 
 export const navigation: NavGroup[] = [
@@ -16,6 +17,12 @@ export const navigation: NavGroup[] = [
       { to: '/movements', label: 'Movements', permission: 'movement.view' },
       { to: '/devices', label: 'Devices', permission: 'device.view' },
       { to: '/integrations', label: 'Integrations', permission: 'integration.view' },
+    ],
+  },
+  {
+    title: 'Modules',
+    items: [
+      { to: '/maintenance', label: 'Maintenance', permission: 'maintenance.view', module: 'maintenance' },
     ],
   },
   {

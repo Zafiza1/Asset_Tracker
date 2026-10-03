@@ -24,11 +24,11 @@ function ProjectSwitcher({ session, onChange }: { session: Session; onChange: (s
 }
 
 export function AppLayout({ children, session, onLogout, onSessionChange }: { children: ReactNode; session: Session; onLogout: () => void; onSessionChange: (session: Session) => void }) {
-  const { can, ready } = useAccess()
+  const { can, hasModule, ready } = useAccess()
   const { pathname } = useLocation()
   const needsProject = !projectFreePaths.some(path => pathname === path || pathname.startsWith(`${path}/`))
   const groups = navigation
-    .map(group => ({ ...group, items: group.items.filter(item => !item.permission || (ready && session.projectId && can(item.permission))) }))
+    .map(group => ({ ...group, items: group.items.filter(item => (!item.permission || (ready && session.projectId && can(item.permission))) && (!item.module || (ready && hasModule(item.module)))) }))
     .filter(group => group.items.length)
 
   return <div className="min-h-screen bg-slate-50 text-slate-900">

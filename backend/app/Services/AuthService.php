@@ -112,6 +112,15 @@ class AuthService
             $data['current_project'] = $user->projects()->where('projects.id', $projectId)->first();
             $data['project_roles'] = $user->getRolesForContext($organizationId, $projectId);
             $data['project_permissions'] = $user->getPermissionsForContext($organizationId, $projectId);
+            // Enabled business modules, so clients can show module features.
+            $data['project_modules'] = $user->canAccessProject($projectId)
+                ? \App\Models\ProjectModule::withoutGlobalScopes()
+                    ->where('project_modules.project_id', $projectId)
+                    ->where('project_modules.status', 'enabled')
+                    ->join('modules', 'modules.id', '=', 'project_modules.module_id')
+                    ->pluck('modules.slug')
+                    ->all()
+                : [];
         }
 
         return $data;

@@ -77,6 +77,13 @@ return [
                     'permissions' => ['maintenance.view', 'maintenance.create', 'maintenance.update', 'maintenance.complete'],
                 ],
             ],
+            'default_role_permissions' => [
+                'organization-owner' => ['maintenance.view', 'maintenance.create', 'maintenance.update', 'maintenance.complete'],
+                'project-admin' => ['maintenance.view', 'maintenance.create', 'maintenance.update', 'maintenance.complete'],
+                'manager' => ['maintenance.view', 'maintenance.create', 'maintenance.update', 'maintenance.complete'],
+                'operator' => ['maintenance.view', 'maintenance.complete'],
+                'viewer' => ['maintenance.view'],
+            ],
         ],
         [
             'slug' => 'inspection',
@@ -180,6 +187,22 @@ return [
 
     'handlers' => [
         //
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Module Service Providers
+    |--------------------------------------------------------------------------
+    |
+    | Modules with their own runtime (tables, routes, policies, events)
+    | register it through a provider. Their routes must use the
+    | `module:{slug}` middleware so they only answer for projects that have
+    | the module enabled.
+    |
+    */
+
+    'providers' => [
+        App\Modules\Maintenance\MaintenanceServiceProvider::class,
     ],
 
 ];

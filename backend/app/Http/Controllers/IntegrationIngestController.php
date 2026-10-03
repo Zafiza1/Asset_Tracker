@@ -61,7 +61,7 @@ class IntegrationIngestController extends Controller
             try {
                 $accepted[] = new EventLogResource($ingestor->ingest($integration, $reading));
             } catch (Exception $e) {
-                $errors[] = ['index' => $index, 'error' => $e->getMessage()];
+                $errors[] = ['index' => $index, 'error' => $this->safeMessage($e)];
             }
         }
 

@@ -28,7 +28,7 @@ class IntegrationController extends Controller
         }])
             ->when($request->type, fn($q) => $q->ofType($request->type))
             ->when($request->status, fn($q) => $q->ofStatus($request->status))
-            ->paginate($request->per_page ?? 25);
+            ->paginate($this->perPage($request));
 
         return response()->json([
             'success' => true,

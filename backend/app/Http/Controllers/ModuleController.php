@@ -35,7 +35,7 @@ class ModuleController extends Controller
             $query->orderBy($column, $direction);
         }
 
-        $perPage = min((int) $request->query('per_page', 25), 100);
+        $perPage = $this->perPage($request);
         $modules = $query->paginate($perPage);
 
         return response()->json([

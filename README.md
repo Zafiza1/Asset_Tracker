@@ -39,7 +39,7 @@ Asset Tracker PaaS provides a core platform for organizations to create their ow
 ## Tech Stack
 
 ### Backend
-- Laravel 11 (PHP 8.2+)
+- Laravel 12 (PHP 8.4+)
 - PostgreSQL 15
 - Redis 7
 - Laravel Sanctum (Authentication)
@@ -113,34 +113,30 @@ git clone <repository-url>
 cd Asset_Tracker
 ```
 
-2. Copy environment file:
+2. Run the setup script (copies `.env` files, builds and starts the stack,
+   generates `APP_KEY`, migrates and seeds roles, the module catalog and demo
+   tenants):
 ```bash
-cp .env.example .env
+infrastructure/scripts/setup.sh            # or: setup.sh --no-seed (no demo tenants)
 ```
 
-3. Start services:
+   Or step by step:
 ```bash
-docker-compose up -d
+cp .env.example .env && cp backend/.env.example backend/.env
+docker compose up -d --build
+docker compose exec backend php artisan key:generate
+docker compose exec backend php artisan migrate
+docker compose exec backend php artisan db:seed      # roles, permissions, modules, demo tenants
 ```
 
-4. Install backend dependencies:
-```bash
-docker-compose exec backend composer install
-docker-compose exec backend php artisan key:generate
-docker-compose exec backend php artisan migrate
-docker-compose exec backend php artisan db:seed      # roles, permissions, demo tenants
-docker-compose exec backend php artisan modules:sync # publish the module catalog
-```
+   PHP dependencies live in the image (`vendor/` is not committed). After
+   changing `composer.json`, rebuild with `docker compose up -d --build -V`.
+   Run the test suites with `infrastructure/scripts/test.sh`.
 
 `APP_KEY` also encrypts integration and webhook secrets at rest: keep it
 stable, and list old keys in `APP_PREVIOUS_KEYS` when rotating.
 
-5. Install frontend dependencies:
-```bash
-docker-compose exec frontend npm install
-```
-
-6. Access the application:
+3. Access the application:
 - Frontend: http://localhost
 - API: http://localhost/api/v1
 - Health check: http://localhost/health (database, Redis, queue)
@@ -169,6 +165,7 @@ first organization and a project from a template.
 | Area | Pages |
 |---|---|
 | Runtime | Dashboard, Assets (list/detail), Locations, Movements, Devices (bind/unbind), Integrations (connect/test/health) |
+| Modules | Maintenance (shown when the module is enabled for the project) |
 | Project setup | Modules (install/enable/disable/configure/upgrade/uninstall), Builder (Field Builder; other builders planned), Webhooks (deliveries, test, secret), API keys, Members & roles, Audit log, Health |
 | Platform | Organizations & projects (create from template), Templates (versions and modules) |
 
@@ -197,8 +194,11 @@ This project follows a phased development approach:
 - **Phase 16**: Module Builder (Future; Field Builder available as a foundation)
 
 Phases 1–15 are implemented and covered by the backend test suite
-(`cd backend && vendor/bin/phpunit`). Catalog modules such as Maintenance
-have lifecycle and versioning but no business features yet.
+(`cd backend && vendor/bin/phpunit`). **Maintenance** is the reference
+business module (`backend/app/Modules/Maintenance`, see
+[docs/modules/maintenance.md](docs/modules/maintenance.md)); the other catalog
+modules (Inspection, Customer, Delivery, Inventory, Rental) have lifecycle and
+versioning but no business features yet.
 
 ## Documentation
 

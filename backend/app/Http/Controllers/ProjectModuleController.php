@@ -39,7 +39,7 @@ class ProjectModuleController extends Controller
             $query->active();
         }
 
-        $perPage = min((int) $request->query('per_page', 25), 100);
+        $perPage = $this->perPage($request);
         $projectModules = $query->orderBy('installed_at')->paginate($perPage);
 
         return response()->json([

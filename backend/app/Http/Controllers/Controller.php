@@ -15,6 +15,22 @@ class Controller extends BaseController
     use AuthorizesRequests, ValidatesRequests;
 
     /**
+     * A caught exception's message, safe to show an API client. Domain errors
+     * (validation, wrong state) pass through; database and engine errors are
+     * reported and replaced, so SQL, table names and stack details never leak.
+     */
+    protected function safeMessage(\Throwable $e): string
+    {
+        if ($e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException || $e instanceof \Error) {
+            report($e);
+
+            return 'The request could not be processed';
+        }
+
+        return $e->getMessage();
+    }
+
+    /**
      * per_page from the query string, capped at 100 (Section 54).
      */
     protected function perPage(Request $request): int

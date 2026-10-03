@@ -16,6 +16,12 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(TenantContext::class);
+
+        // Business modules plug in their routes, policies and listeners
+        // through their own provider (config/modules.php `providers`).
+        foreach (config('modules.providers', []) as $provider) {
+            $this->app->register($provider);
+        }
     }
 
     /**

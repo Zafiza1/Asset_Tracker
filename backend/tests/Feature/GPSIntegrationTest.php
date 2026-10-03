@@ -380,11 +380,90 @@ class GPSIntegrationTest extends TestCase
 
     public function test_gps_geofence_polygon_check(): void
     {
-        $this->markTestSkipped('Polygon geofence testing skipped for MVP - will be implemented in future phase');
+        $gpsIntegration = app(GPSIntegration::class);
+
+        // A tall, narrow (non-symmetric) rectangle: lat -6.30..-6.10, lng 106.80..106.85.
+        // Swapping the lat/lng axes would give the wrong answer for these points.
+        $geofence = [
+            'type' => 'polygon',
+            'coordinates' => [
+                ['latitude' => -6.30, 'longitude' => 106.80],
+                ['latitude' => -6.30, 'longitude' => 106.85],
+                ['latitude' => -6.10, 'longitude' => 106.85],
+                ['latitude' => -6.10, 'longitude' => 106.80],
+            ],
+        ];
+
+        $this->assertTrue($gpsIntegration->isWithinGeofence(-6.20, 106.82, $geofence));
+        $this->assertTrue($gpsIntegration->isWithinGeofence(-6.29, 106.81, $geofence));
+        $this->assertFalse($gpsIntegration->isWithinGeofence(-6.20, 106.90, $geofence));
+        $this->assertFalse($gpsIntegration->isWithinGeofence(-6.40, 106.82, $geofence));
+
+        // Degenerate polygons never contain a point.
+        $this->assertFalse($gpsIntegration->isWithinGeofence(-6.20, 106.82, [
+            'type' => 'polygon',
+            'coordinates' => [['latitude' => -6.20, 'longitude' => 106.82]],
+        ]));
     }
 
     public function test_location_update_creates_movement_on_significant_change(): void
     {
-        $this->markTestSkipped('Movement creation test skipped for MVP - requires full location resolution');
+        $organization = Organization::factory()->create();
+        $project = Project::factory()->create(['organization_id' => $organization->id]);
+        $this->actingAsProjectUser($project, 'project-admin');
+
+        $integration = Integration::factory()->create([
+            'organization_id' => $organization->id,
+            'project_id' => $project->id,
+            'type' => 'gps',
+        ]);
+
+        $deviceType = \App\Models\DeviceType::factory()->create(['slug' => 'gps_tracker']);
+        $gpsDevice = Device::factory()->create([
+            'organization_id' => $organization->id,
+            'project_id' => $project->id,
+            'serial_number' => 'GPS-MOVE-1',
+            'integration_id' => $integration->id,
+            'device_type_id' => $deviceType->id,
+        ]);
+        $asset = Asset::factory()->create([
+            'organization_id' => $organization->id,
+            'project_id' => $project->id,
+        ]);
+        DeviceBinding::create([
+            'device_id' => $gpsDevice->id,
+            'asset_id' => $asset->id,
+            'project_id' => $project->id,
+            'bound_at' => now(),
+        ]);
+
+        $gpsService = app(GPSService::class);
+        $fix = fn (float $lat, float $lng) => $gpsService->processLocationUpdate($integration, [
+            'device_id' => 'GPS-MOVE-1',
+            'latitude' => $lat,
+            'longitude' => $lng,
+        ]);
+
+        // First fix: the asset gets a location and a movement.
+        $fix(-6.2000, 106.8166);
+        $this->assertSame(1, \App\Models\Movement::where('asset_id', $asset->id)->count());
+        $first = \App\Models\AssetLocation::where('asset_id', $asset->id)->first();
+        $this->assertNotNull($first->location_id);
+
+        // Jitter under 10 m: no new movement.
+        $fix(-6.20003, 106.81662);
+        $this->assertSame(1, \App\Models\Movement::where('asset_id', $asset->id)->count());
+
+        // ~5 km away: a new location and a movement from the first one.
+        $fix(-6.2450, 106.8166);
+        $movements = \App\Models\Movement::where('asset_id', $asset->id)->orderBy('id')->get();
+        $this->assertCount(2, $movements);
+        $this->assertSame('gps', $movements[1]->source);
+        $this->assertSame($first->location_id, $movements[1]->from_location_id);
+        $this->assertNotSame($first->location_id, $movements[1]->to_location_id);
+        $this->assertSame(
+            $movements[1]->to_location_id,
+            \App\Models\AssetLocation::where('asset_id', $asset->id)->value('location_id')
+        );
     }
 }

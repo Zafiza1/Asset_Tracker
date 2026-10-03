@@ -23,6 +23,14 @@ export type AssetQuery = { page?: number; per_page?: number; search?: string; st
 export type Location = { id: number; name: string; type?: string; address?: string }
 export type Movement = { id: number; asset?: { name: string; system_id: string }; from_location?: { name: string } | null; to_location?: { name: string } | null; occurred_at: string; source?: string }
 export type ActivityEntry = { kind: 'activity' | 'event'; type: string; actor?: string | null; source?: string | null; occurred_at: string }
+export type MaintenanceRecord = {
+  id: number; asset_id: number; asset?: { system_id: string; serial_number: string; name: string } | null
+  title: string; description?: string | null; type: string; status: string; overdue: boolean
+  scheduled_at?: string | null; started_at?: string | null; completed_at?: string | null
+  notes?: string | null; cost?: string | null; previous_record_id?: number | null; created_at?: string
+}
+export type MaintenanceInput = { asset_id: string; title: string; type?: string; description?: string; scheduled_at?: string }
+export type MaintenanceQuery = { page?: number; status?: string; asset_id?: string; overdue?: number; search?: string }
 export type CustomField = { id: number; key: string; label: string; type: string; required: boolean; active: boolean; options?: string[] | null }
 export type CustomFieldInput = { key: string; label: string; type: string; required: boolean; options?: string[]; default_value?: unknown; visibility?: string; sort_order?: number }
 export type Dashboard = {
@@ -44,7 +52,7 @@ export type Module = { slug: string; name: string; description?: string | null; 
 export type ProjectModule = { module: string; name: string; category?: string | null; version: string; latest_version?: string | null; upgrade_available: boolean; status: string; configuration: Record<string, unknown>; config_schema: Record<string, unknown>; installed_at?: string | null; enabled_at?: string | null }
 export type TemplateVersion = { id: number; version: string; description?: string | null; status: string; released_at?: string | null; modules?: (Module & { version_constraint?: string; required?: boolean })[] }
 export type Template = { id: number; name: string; slug: string; description?: string | null; category?: string | null; version: string; status: string; default_modules?: string[] | null; current_version?: TemplateVersion | null }
-export type Me = { user: { id: number; name: string; email: string; roles?: { slug: string; pivot?: { organization_id: number | null; project_id: number | null } }[] }; organization_permissions?: string[]; project_permissions?: string[] }
+export type Me = { user: { id: number; name: string; email: string; roles?: { slug: string; pivot?: { organization_id: number | null; project_id: number | null } }[] }; organization_permissions?: string[]; project_permissions?: string[]; project_modules?: string[] }
 
 // Runtime plane
 export type Integration = { id: number; name: string; type: string; provider?: string | null; status: string; config?: Record<string, unknown>; last_connected_at?: string | null; last_health_check_at?: string | null; created_at: string }
@@ -196,6 +204,12 @@ export class ApiClient {
   auditStats() { return this.raw<AuditStats>('/v1/audit/stats') }
   platformHealth() { return fetch(`${baseUrl}/health`, { headers: { Accept: 'application/json' } }).then(r => r.json() as Promise<PlatformHealth>) }
   integrationsHealth() { return this.request<IntegrationHealth>('/v1/health/integrations') }
+
+  // Maintenance module (only routed while the module is enabled)
+  maintenance(query: MaintenanceQuery = {}) { return this.list<MaintenanceRecord>(`/v1/maintenance${toQuery({ per_page: 25, ...query })}`) }
+  createMaintenance(input: MaintenanceInput) { return this.request<MaintenanceRecord>('/v1/maintenance', this.json('POST', input)) }
+  updateMaintenance(id: number, input: { status?: string; title?: string; scheduled_at?: string; notes?: string }) { return this.request<MaintenanceRecord>(`/v1/maintenance/${id}`, this.json('PUT', input)) }
+  completeMaintenance(id: number, input: { notes?: string; cost?: number } = {}) { return this.request<MaintenanceRecord>(`/v1/maintenance/${id}/complete`, this.json('POST', input)) }
 
   customFields() { return this.request<CustomField[]>('/v1/custom-fields') }
   createCustomField(field: CustomFieldInput) { return this.request<CustomField>('/v1/custom-fields', this.json('POST', field)) }

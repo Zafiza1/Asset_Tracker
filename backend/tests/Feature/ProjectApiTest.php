@@ -100,6 +100,27 @@ class ProjectApiTest extends TestCase
         $this->assertSame('installed', $installed['inspection']->status, 'Optional modules wait for the customer to enable them');
     }
 
+    public function test_template_that_cannot_be_applied_rolls_back_project_creation(): void
+    {
+        $registry = app(ModuleRegistry::class);
+        $maintenance = $registry->register(['slug' => 'maintenance', 'name' => 'Maintenance', 'versions' => [['version' => '1.0.0']]]);
+
+        $template = Template::factory()->create();
+        $version = TemplateVersion::factory()->create(['template_id' => $template->id, 'version' => '1.0.0']);
+        $template->update(['current_version_id' => $version->id]);
+        // No published maintenance release satisfies ^9.0.
+        TemplateModule::create(['template_version_id' => $version->id, 'module_id' => $maintenance->id, 'version_constraint' => '^9.0', 'required' => true, 'default_config' => [], 'sort_order' => 0]);
+
+        $organization = Organization::factory()->create();
+        Sanctum::actingAs($this->orgMember($organization, 'organization-owner'));
+
+        $this->postJson("/api/v1/organizations/{$organization->id}/projects", ['name' => 'Broken', 'template_id' => $template->id])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertDatabaseMissing('projects', ['organization_id' => $organization->id, 'name' => 'Broken']);
+    }
+
     public function test_project_slug_is_unique_within_organization_only(): void
     {
         $organization = Organization::factory()->create();

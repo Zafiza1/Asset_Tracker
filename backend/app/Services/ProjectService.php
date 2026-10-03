@@ -10,7 +10,6 @@ use App\Models\Template;
 use App\Models\User;
 use App\Services\TemplateService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -51,22 +50,11 @@ class ProjectService
                 $creator->assignRole(self::ADMIN_ROLE, $organization->id, $project->id);
             }
 
-            // Apply template if provided
-            if (isset($data['template_id']) && $data['template_id']) {
-                $template = Template::find($data['template_id']);
-                if ($template) {
-                    try {
-                        $this->templateService->applyToProject($template, $project);
-                    } catch (\Exception $e) {
-                        Log::error('Failed to apply template to project', [
-                            'template_id' => $template->id,
-                            'project_id' => $project->id,
-                            'error' => $e->getMessage(),
-                        ]);
-                        // Don't fail project creation if template application fails
-                        // The project is created, just without template modules
-                    }
-                }
+            // Apply the template (Phase 7). A failure (e.g. an unsatisfiable
+            // module constraint) rolls back the whole creation, so the customer
+            // never gets a project silently missing its template modules.
+            if (!empty($data['template_id']) && ($template = Template::find($data['template_id']))) {
+                $this->templateService->applyToProject($template, $project);
             }
 
             return $project;
