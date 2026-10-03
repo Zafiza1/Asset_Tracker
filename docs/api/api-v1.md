@@ -297,6 +297,25 @@ otherwise every endpoint returns `403`. See
 | POST | `/v1/inspections/checklists` | `inspection.update`. Body: `name`, `description?`, `asset_type?`, `items` (`key`, `label`, `type`: `pass_fail`/`number`/`text`, `required?`) |
 | PUT | `/v1/inspections/checklists/{id}` | `inspection.update`. Same fields, plus `active` |
 
+### Inventory (module)
+
+Only routed while the `inventory` module is enabled for the project;
+otherwise every endpoint returns `403`. See
+[inventory.md](../modules/inventory.md).
+
+| Method | Path | Permission |
+|---|---|---|
+| GET | `/v1/inventory/stock` | `inventory.view`. Filters: `location_id`, `asset_type`, `low=1`. Rows: `location_id`, `location_name`, `asset_type`, `all_types`, `quantity`, `min_quantity`, `low` (not paginated) |
+| GET | `/v1/inventory/levels` | `inventory.view` |
+| PUT | `/v1/inventory/levels` | `inventory.adjust`. Body: `location_id`, `asset_type?` (empty = all types), `min_quantity`. Creates or replaces |
+| DELETE | `/v1/inventory/levels/{id}` | `inventory.adjust` |
+| GET | `/v1/inventory/counts` | `inventory.view`. Filters: `status`, `location_id` |
+| POST | `/v1/inventory/counts` | `inventory.adjust`. Body: `location_id`, `notes?`. `409` if the location already has an open count |
+| GET | `/v1/inventory/counts/{id}` | `inventory.view`. Includes `items` with their `outcome` |
+| POST | `/v1/inventory/counts/{id}/scan` | `inventory.adjust`. Body: `asset_ids` (system IDs) and/or `serial_numbers`. Returns `scanned`, `unknown`, `summary`. Integration rate limit |
+| POST | `/v1/inventory/counts/{id}/complete` | `inventory.adjust`. Body: `reconcile?` (move unexpected assets to the counted location) |
+| POST | `/v1/inventory/counts/{id}/cancel` | `inventory.adjust` |
+
 ### Maintenance (module)
 
 Only routed while the `maintenance` module is enabled for the project;
@@ -461,6 +480,7 @@ The following event types are available for subscription:
 - `customer.created` / `customer.updated` / `customer.deleted` - From the Customer module
 - `delivery.created` / `delivery.dispatched` / `delivery.delivered` / `delivery.returned` / `delivery.cancelled` - From the Delivery module
 - `inspection.created` / `inspection.completed` / `inspection.cancelled` - From the Inspection module (`result` is `pass` or `fail`)
+- `inventory.low_stock` / `inventory.count.completed` - From the Inventory module
 - `maintenance.created` / `maintenance.completed` - From the Maintenance module
 - Any custom event published through `POST /v1/events`
 

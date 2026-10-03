@@ -17,9 +17,11 @@ to the `modules` / `module_versions` tables with `php artisan modules:sync`.
 Every catalog entry provides the lifecycle (install / configure / enable /
 disable / upgrade / uninstall), versioning and configuration schema.
 **Maintenance** ([maintenance.md](maintenance.md)), **Customer**
-([customer.md](customer.md)), **Delivery** ([delivery.md](delivery.md)) and
-**Inspection** ([inspection.md](inspection.md)) also ship their business
-features; Inventory and Rental are catalog entries waiting for theirs. Shared helpers: `App\Modules\ModulePolicy` (permission check),
+([customer.md](customer.md)), **Delivery** ([delivery.md](delivery.md)),
+**Inspection** ([inspection.md](inspection.md)) and **Inventory**
+([inventory.md](inventory.md)) also ship their business features; Rental is
+a catalog entry waiting for its own. Inventory also shows a module reacting
+to a Core event (`asset.location.updated`) with its own listener. Shared helpers: `App\Modules\ModulePolicy` (permission check),
 `App\Modules\ModuleSettings` (a project's module configuration) and
 `App\Modules\Concerns\ChecksProjectLocations`.
 

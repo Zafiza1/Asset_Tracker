@@ -177,6 +177,14 @@ return [
                     'permissions' => ['inventory.view', 'inventory.adjust'],
                 ],
             ],
+            'default_role_permissions' => [
+                'organization-owner' => ['inventory.view', 'inventory.adjust'],
+                'project-admin' => ['inventory.view', 'inventory.adjust'],
+                'manager' => ['inventory.view', 'inventory.adjust'],
+                // Warehouse staff run stock counts.
+                'operator' => ['inventory.view', 'inventory.adjust'],
+                'viewer' => ['inventory.view'],
+            ],
         ],
         [
             'slug' => 'rental',
@@ -230,6 +238,7 @@ return [
         App\Modules\Customer\CustomerServiceProvider::class,
         App\Modules\Delivery\DeliveryServiceProvider::class,
         App\Modules\Inspection\InspectionServiceProvider::class,
+        App\Modules\Inventory\InventoryServiceProvider::class,
     ],
 
 ];

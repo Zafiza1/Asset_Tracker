@@ -54,6 +54,13 @@ export type Inspection = {
   status: string; result?: 'pass' | 'fail' | null; overdue: boolean; scheduled_at?: string | null; performed_at?: string | null; next_due_at?: string | null
   checklist_snapshot?: ChecklistItem[] | null; answers?: InspectionAnswers | null; notes?: string | null; created_at?: string
 }
+export type StockRow = { location_id: number; location_name?: string | null; asset_type?: string | null; all_types: boolean; quantity: number; min_quantity?: number | null; low: boolean }
+export type InventoryLevel = { id: number; location_id: number; location_name?: string | null; asset_type?: string | null; min_quantity: number }
+export type CountSummary = { expected: number; found: number; missing: number; unexpected: number; reconciled: number }
+export type InventoryCount = {
+  id: number; location_id: number; location_name?: string | null; status: string; summary: CountSummary; notes?: string | null; created_at?: string; completed_at?: string | null
+  items?: { system_id: string; serial_number: string; name: string; asset_type?: string | null; outcome: 'found' | 'missing' | 'unexpected'; recorded_location?: string | null; reconciled: boolean }[]
+}
 export type CustomField = { id: number; key: string; label: string; type: string; required: boolean; active: boolean; options?: string[] | null }
 export type CustomFieldInput = { key: string; label: string; type: string; required: boolean; options?: string[]; default_value?: unknown; visibility?: string; sort_order?: number }
 export type Dashboard = {
@@ -258,6 +265,18 @@ export class ApiClient {
   inspectionChecklists() { return this.request<InspectionChecklist[]>('/v1/inspections/checklists') }
   createInspectionChecklist(input: { name: string; asset_type?: string; items: ChecklistItem[] }) { return this.request<InspectionChecklist>('/v1/inspections/checklists', this.json('POST', input)) }
   updateInspectionChecklist(id: number, input: Partial<{ name: string; asset_type: string | null; items: ChecklistItem[]; active: boolean }>) { return this.request<InspectionChecklist>(`/v1/inspections/checklists/${id}`, this.json('PUT', input)) }
+
+  // Inventory module (only routed while the module is enabled)
+  stock(query: { location_id?: number; asset_type?: string; low?: number } = {}) { return this.request<StockRow[]>(`/v1/inventory/stock${toQuery(query)}`) }
+  inventoryLevels() { return this.request<InventoryLevel[]>('/v1/inventory/levels') }
+  setInventoryLevel(input: { location_id: number; asset_type?: string; min_quantity: number }) { return this.request<InventoryLevel>('/v1/inventory/levels', this.json('PUT', input)) }
+  deleteInventoryLevel(id: number) { return this.request<void>(`/v1/inventory/levels/${id}`, { method: 'DELETE' }) }
+  inventoryCounts(query: { page?: number; status?: string } = {}) { return this.list<InventoryCount>(`/v1/inventory/counts${toQuery({ per_page: 10, ...query })}`) }
+  inventoryCount(id: number) { return this.request<InventoryCount>(`/v1/inventory/counts/${id}`) }
+  openInventoryCount(locationId: number) { return this.request<InventoryCount>('/v1/inventory/counts', this.json('POST', { location_id: locationId })) }
+  scanInventoryCount(id: number, input: { asset_ids?: string[]; serial_numbers?: string[] }) { return this.request<{ scanned: number; unknown: string[]; summary: CountSummary }>(`/v1/inventory/counts/${id}/scan`, this.json('POST', input)) }
+  completeInventoryCount(id: number, reconcile: boolean) { return this.request<InventoryCount>(`/v1/inventory/counts/${id}/complete`, this.json('POST', { reconcile })) }
+  cancelInventoryCount(id: number) { return this.request<InventoryCount>(`/v1/inventory/counts/${id}/cancel`, this.json('POST', {})) }
 
   customFields() { return this.request<CustomField[]>('/v1/custom-fields') }
   createCustomField(field: CustomFieldInput) { return this.request<CustomField>('/v1/custom-fields', this.json('POST', field)) }

@@ -12,6 +12,7 @@ use App\Modules\Customer\CustomerService;
 use App\Modules\Customer\Models\Customer;
 use App\Modules\Delivery\DeliveryService;
 use App\Modules\Inspection\InspectionService;
+use App\Modules\Inventory\InventoryService;
 use App\Services\DeviceService;
 use App\Services\IntegrationService;
 use App\Services\MovementService;
@@ -25,7 +26,7 @@ use Illuminate\Database\Seeder;
  */
 class DemoDataSeeder extends Seeder
 {
-    public function run(IntegrationService $integrations, DeviceService $devices, MovementService $movements, CustomerService $customers, DeliveryService $deliveries, InspectionService $inspections): void
+    public function run(IntegrationService $integrations, DeviceService $devices, MovementService $movements, CustomerService $customers, DeliveryService $deliveries, InspectionService $inspections, InventoryService $inventory): void
     {
         foreach ($this->plan() as $projectSlug => $plan) {
             $project = Project::where('slug', $projectSlug)->first();
@@ -117,6 +118,14 @@ class DemoDataSeeder extends Seeder
                 }
             }
 
+            // Minimum stock per location (Inventory module).
+            if (!empty($plan['inventory_levels']) && $project->hasModuleEnabled('inventory')) {
+                foreach ($plan['inventory_levels'] as [$locationName, $assetType, $min]) {
+                    $location = collect($locations)->firstWhere('name', $locationName);
+                    $inventory->setLevel($project, $location->id, $assetType, $min);
+                }
+            }
+
             // Checklists and recorded inspections (Inspection module).
             if (!empty($plan['checklists']) && $project->hasModuleEnabled('inspection')) {
                 foreach ($plan['checklists'] as [$name, $assetType, $items]) {
@@ -133,7 +142,7 @@ class DemoDataSeeder extends Seeder
     }
 
     /**
-     * @return array<string, array{fields: array, locations: array, integrations: string[], customers?: array, deliveries?: array, checklists?: array, inspections?: array, assets: array}>
+     * @return array<string, array{fields: array, locations: array, integrations: string[], customers?: array, deliveries?: array, checklists?: array, inspections?: array, inventory_levels?: array, assets: array}>
      */
     protected function plan(): array
     {
@@ -226,6 +235,10 @@ class DemoDataSeeder extends Seeder
                     ['Shipping Dock', 'dock', null, null, null],
                 ],
                 'integrations' => ['rfid'],
+                'inventory_levels' => [
+                    ['Rack Zone A', 'pallet', 2],
+                    ['Shipping Dock', null, 1],
+                ],
                 'assets' => [
                     ['PLT-0001', 'Pallet 0001', 'pallet', 'active', ['zone' => 'A']],
                     ['PLT-0002', 'Pallet 0002', 'pallet', 'active', ['zone' => 'B']],
