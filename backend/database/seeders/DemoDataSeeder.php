@@ -8,6 +8,7 @@ use App\Models\Device;
 use App\Models\DeviceType;
 use App\Models\Location;
 use App\Models\Project;
+use App\Modules\Customer\CustomerService;
 use App\Services\DeviceService;
 use App\Services\IntegrationService;
 use App\Services\MovementService;
@@ -21,7 +22,7 @@ use Illuminate\Database\Seeder;
  */
 class DemoDataSeeder extends Seeder
 {
-    public function run(IntegrationService $integrations, DeviceService $devices, MovementService $movements): void
+    public function run(IntegrationService $integrations, DeviceService $devices, MovementService $movements, CustomerService $customers): void
     {
         foreach ($this->plan() as $projectSlug => $plan) {
             $project = Project::where('slug', $projectSlug)->first();
@@ -94,13 +95,21 @@ class DemoDataSeeder extends Seeder
                     'last_seen_at' => now(),
                 ]);
             }
+
+            // Customers (with their delivery site) for projects running the Customer module.
+            if (!empty($plan['customers']) && $project->hasModuleEnabled('customer')) {
+                foreach ($plan['customers'] as [$code, $name, $siteName]) {
+                    $site = collect($locations)->firstWhere('name', $siteName);
+                    $customers->create($project, ['code' => $code, 'name' => $name, 'location_id' => $site?->id]);
+                }
+            }
         }
 
         $this->command?->info('Demo data seeded successfully.');
     }
 
     /**
-     * @return array<string, array{fields: array, locations: array, integrations: string[], assets: array}>
+     * @return array<string, array{fields: array, locations: array, integrations: string[], customers?: array, assets: array}>
      */
     protected function plan(): array
     {
@@ -117,6 +126,10 @@ class DemoDataSeeder extends Seeder
                     ['Delivery Truck 01', 'vehicle', null, null, null],
                 ],
                 'integrations' => ['rfid', 'gps'],
+                'customers' => [
+                    ['CUST-001', 'Bengkel Las Maju', 'Customer Site A'],
+                    ['CUST-002', 'RS Medika Sehat', null],
+                ],
                 'assets' => [
                     ['C2H2-3KG-00001', 'Acetylene Cylinder 3KG #1', 'C2H2', 'active', ['capacity' => '3 KG', 'last_refill' => '2026-09-20']],
                     ['C2H2-3KG-00002', 'Acetylene Cylinder 3KG #2', 'C2H2', 'active', ['capacity' => '3 KG', 'last_refill' => '2026-09-21']],

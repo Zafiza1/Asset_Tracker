@@ -117,6 +117,13 @@ return [
                     'permissions' => ['customer.view', 'customer.create', 'customer.update', 'customer.delete'],
                 ],
             ],
+            'default_role_permissions' => [
+                'organization-owner' => ['customer.view', 'customer.create', 'customer.update', 'customer.delete'],
+                'project-admin' => ['customer.view', 'customer.create', 'customer.update', 'customer.delete'],
+                'manager' => ['customer.view', 'customer.create', 'customer.update'],
+                'operator' => ['customer.view'],
+                'viewer' => ['customer.view'],
+            ],
         ],
         [
             'slug' => 'delivery',
@@ -203,6 +210,7 @@ return [
 
     'providers' => [
         App\Modules\Maintenance\MaintenanceServiceProvider::class,
+        App\Modules\Customer\CustomerServiceProvider::class,
     ],
 
 ];

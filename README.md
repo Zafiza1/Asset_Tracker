@@ -165,7 +165,7 @@ first organization and a project from a template.
 | Area | Pages |
 |---|---|
 | Runtime | Dashboard, Assets (list/detail), Locations, Movements, Devices (bind/unbind), Integrations (connect/test/health) |
-| Modules | Maintenance (shown when the module is enabled for the project) |
+| Modules | Customers, Maintenance (each shown when its module is enabled for the project) |
 | Project setup | Modules (install/enable/disable/configure/upgrade/uninstall), Builder (Field Builder; other builders planned), Webhooks (deliveries, test, secret), API keys, Members & roles, Audit log, Health |
 | Platform | Organizations & projects (create from template), Templates (versions and modules) |
 
@@ -194,10 +194,10 @@ This project follows a phased development approach:
 - **Phase 16**: Module Builder (Future; Field Builder available as a foundation)
 
 Phases 1–15 are implemented and covered by the backend test suite
-(`cd backend && vendor/bin/phpunit`). **Maintenance** is the reference
-business module (`backend/app/Modules/Maintenance`, see
-[docs/modules/maintenance.md](docs/modules/maintenance.md)); the other catalog
-modules (Inspection, Customer, Delivery, Inventory, Rental) have lifecycle and
+(`cd backend && vendor/bin/phpunit`). Business modules with features:
+**Maintenance** ([docs](docs/modules/maintenance.md)) and **Customer**
+([docs](docs/modules/customer.md)), under `backend/app/Modules`. The other
+catalog modules (Delivery, Inspection, Inventory, Rental) have lifecycle and
 versioning but no business features yet.
 
 ## Documentation

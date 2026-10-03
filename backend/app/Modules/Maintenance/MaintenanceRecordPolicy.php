@@ -5,12 +5,13 @@ namespace App\Modules\Maintenance;
 use App\Models\Project;
 use App\Models\User;
 use App\Modules\Maintenance\Models\MaintenanceRecord;
+use App\Modules\ModulePolicy;
 
 /**
  * Permission-based access to maintenance records, using the permissions the
  * module declares in its manifest (config/modules.php).
  */
-class MaintenanceRecordPolicy
+class MaintenanceRecordPolicy extends ModulePolicy
 {
     public function viewAny(User $user, Project $project): bool
     {
@@ -35,15 +36,5 @@ class MaintenanceRecordPolicy
     public function complete(User $user, MaintenanceRecord $record): bool
     {
         return $this->allowed($user, 'maintenance.complete', $record->organization_id, $record->project_id);
-    }
-
-    protected function allowed(User $user, string $permission, int $organizationId, int $projectId): bool
-    {
-        if ($user->isPlatformAdmin()) {
-            return true;
-        }
-
-        return $user->canAccessProject($projectId)
-            && $user->hasPermission($permission, $organizationId, $projectId);
     }
 }

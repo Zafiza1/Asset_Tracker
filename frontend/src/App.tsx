@@ -22,6 +22,7 @@ import { AssetDetailPage } from './modules/asset/AssetDetailPage'
 import { LocationsPage } from './modules/location/LocationsPage'
 import { MovementsPage } from './modules/movement/MovementsPage'
 import { MaintenancePage } from './modules/maintenance/MaintenancePage'
+import { CustomersPage } from './modules/customer/CustomersPage'
 import { IntegrationsPage } from './integrations/IntegrationsPage'
 import { DevicesPage } from './integrations/DevicesPage'
 
@@ -47,6 +48,7 @@ function ProtectedApp({ session, onLogout, onSessionChange }: { session: Session
         <Route path="/assets/:systemId" element={<AssetDetailPage api={api} />} />
         <Route path="/locations" element={<LocationsPage api={api} />} />
         <Route path="/movements" element={<MovementsPage api={api} />} />
+        <Route path="/customers" element={<CustomersPage api={api} />} />
         <Route path="/maintenance" element={<MaintenancePage api={api} />} />
         <Route path="/devices" element={<DevicesPage api={api} />} />
         <Route path="/integrations" element={<IntegrationsPage api={api} />} />

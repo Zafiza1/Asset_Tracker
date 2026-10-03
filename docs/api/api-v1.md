@@ -247,6 +247,20 @@ location), `source?`, `occurred_at?`, `metadata?`.
 
 See [modules.md](../architecture/modules.md) for the lifecycle rules.
 
+### Customers (module)
+
+Only routed while the `customer` module is enabled for the project;
+otherwise every endpoint returns `403`. See
+[customer.md](../modules/customer.md).
+
+| Method | Path | Permission |
+|---|---|---|
+| GET | `/v1/customers` | `customer.view`. Filters: `status`, `search` (name, code, contact); sort: `name`, `code`, `status`, `created_at` |
+| POST | `/v1/customers` | `customer.create`. Body: `code`, `name`, `contact_name?`, `email?`, `phone?`, `address?`, `location_id?` (a location of this project), `status?`, `metadata?`. `code` is unique per project (`422`) |
+| GET | `/v1/customers/{id}` | `customer.view` |
+| PUT | `/v1/customers/{id}` | `customer.update`. Same fields, all optional |
+| DELETE | `/v1/customers/{id}` | `customer.delete`. Soft delete; the code can be reused |
+
 ### Maintenance (module)
 
 Only routed while the `maintenance` module is enabled for the project;
@@ -408,6 +422,7 @@ The following event types are available for subscription:
 - `project.module.upgraded` - When a module is upgraded
 - `asset.detected` - When an integration (RFID, BLE, …) or `POST /v1/events` detects an asset
 - `integration.connected` / `integration.disconnected` / `integration.degraded` - When an integration's status changes
+- `customer.created` / `customer.updated` / `customer.deleted` - From the Customer module
 - `maintenance.created` / `maintenance.completed` - From the Maintenance module
 - Any custom event published through `POST /v1/events`
 

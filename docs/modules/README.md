@@ -16,9 +16,10 @@ to the `modules` / `module_versions` tables with `php artisan modules:sync`.
 
 Every catalog entry provides the lifecycle (install / configure / enable /
 disable / upgrade / uninstall), versioning and configuration schema.
-**Maintenance** also ships its business features and is the reference
-implementation ([maintenance.md](maintenance.md)); the others are catalog
-entries waiting for theirs.
+**Maintenance** ([maintenance.md](maintenance.md)) and **Customer**
+([customer.md](customer.md)) also ship their business features; the others
+are catalog entries waiting for theirs. Shared policy logic lives in
+`App\Modules\ModulePolicy`.
 
 ## Anatomy of a module
 

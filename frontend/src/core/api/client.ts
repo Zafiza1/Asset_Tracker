@@ -31,6 +31,12 @@ export type MaintenanceRecord = {
 }
 export type MaintenanceInput = { asset_id: string; title: string; type?: string; description?: string; scheduled_at?: string }
 export type MaintenanceQuery = { page?: number; status?: string; asset_id?: string; overdue?: number; search?: string }
+export type Customer = {
+  id: number; code: string; name: string; contact_name?: string | null; email?: string | null; phone?: string | null
+  address?: string | null; location_id?: number | null; location?: { id: number; name: string; type?: string | null } | null
+  status: string; created_at?: string
+}
+export type CustomerInput = { code: string; name: string; contact_name?: string; email?: string; phone?: string; address?: string; location_id?: number | null; status?: string }
 export type CustomField = { id: number; key: string; label: string; type: string; required: boolean; active: boolean; options?: string[] | null }
 export type CustomFieldInput = { key: string; label: string; type: string; required: boolean; options?: string[]; default_value?: unknown; visibility?: string; sort_order?: number }
 export type Dashboard = {
@@ -210,6 +216,12 @@ export class ApiClient {
   createMaintenance(input: MaintenanceInput) { return this.request<MaintenanceRecord>('/v1/maintenance', this.json('POST', input)) }
   updateMaintenance(id: number, input: { status?: string; title?: string; scheduled_at?: string; notes?: string }) { return this.request<MaintenanceRecord>(`/v1/maintenance/${id}`, this.json('PUT', input)) }
   completeMaintenance(id: number, input: { notes?: string; cost?: number } = {}) { return this.request<MaintenanceRecord>(`/v1/maintenance/${id}/complete`, this.json('POST', input)) }
+
+  // Customer module (only routed while the module is enabled)
+  customers(query: { page?: number; search?: string; status?: string } = {}) { return this.list<Customer>(`/v1/customers${toQuery({ per_page: 25, sort: 'name', ...query })}`) }
+  createCustomer(input: CustomerInput) { return this.request<Customer>('/v1/customers', this.json('POST', input)) }
+  updateCustomer(id: number, input: Partial<CustomerInput>) { return this.request<Customer>(`/v1/customers/${id}`, this.json('PUT', input)) }
+  deleteCustomer(id: number) { return this.request<void>(`/v1/customers/${id}`, { method: 'DELETE' }) }
 
   customFields() { return this.request<CustomField[]>('/v1/custom-fields') }
   createCustomField(field: CustomFieldInput) { return this.request<CustomField>('/v1/custom-fields', this.json('POST', field)) }
