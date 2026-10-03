@@ -142,6 +142,14 @@ return [
                     'permissions' => ['delivery.view', 'delivery.create', 'delivery.update'],
                 ],
             ],
+            'default_role_permissions' => [
+                'organization-owner' => ['delivery.view', 'delivery.create', 'delivery.update'],
+                'project-admin' => ['delivery.view', 'delivery.create', 'delivery.update'],
+                'manager' => ['delivery.view', 'delivery.create', 'delivery.update'],
+                // Drivers/field staff dispatch, deliver and take returns.
+                'operator' => ['delivery.view', 'delivery.update'],
+                'viewer' => ['delivery.view'],
+            ],
         ],
         [
             'slug' => 'inventory',
@@ -211,6 +219,7 @@ return [
     'providers' => [
         App\Modules\Maintenance\MaintenanceServiceProvider::class,
         App\Modules\Customer\CustomerServiceProvider::class,
+        App\Modules\Delivery\DeliveryServiceProvider::class,
     ],
 
 ];

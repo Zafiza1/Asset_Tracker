@@ -4,13 +4,12 @@ namespace App\Modules\Maintenance;
 
 use App\Exceptions\ApiException;
 use App\Models\Asset;
-use App\Models\Module;
 use App\Models\Project;
-use App\Models\ProjectModule;
 use App\Models\User;
 use App\Modules\Maintenance\Events\MaintenanceCompleted;
 use App\Modules\Maintenance\Events\MaintenanceCreated;
 use App\Modules\Maintenance\Models\MaintenanceRecord;
+use App\Modules\ModuleSettings;
 use App\Services\AuditService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +23,7 @@ class MaintenanceService
 {
     public const MODULE_SLUG = 'maintenance';
 
-    public function __construct(protected AuditService $audit)
+    public function __construct(protected AuditService $audit, protected ModuleSettings $settings)
     {
     }
 
@@ -127,18 +126,7 @@ class MaintenanceService
      */
     public function setting(Project $project, string $key, mixed $default = null): mixed
     {
-        $moduleId = Module::where('slug', self::MODULE_SLUG)->value('id');
-
-        $configuration = ProjectModule::withoutGlobalScopes()
-            ->where('project_id', $project->id)
-            ->where('module_id', $moduleId)
-            ->value('configuration');
-
-        if (is_string($configuration)) {
-            $configuration = json_decode($configuration, true);
-        }
-
-        return $configuration[$key] ?? $default;
+        return $this->settings->get($project, self::MODULE_SLUG, $key, $default);
     }
 
     protected function assertAssetInProject(Project $project, Asset $asset): void

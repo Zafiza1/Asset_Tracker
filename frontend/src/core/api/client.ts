@@ -37,6 +37,14 @@ export type Customer = {
   status: string; created_at?: string
 }
 export type CustomerInput = { code: string; name: string; contact_name?: string; email?: string; phone?: string; address?: string; location_id?: number | null; status?: string }
+export type DeliveryItem = { asset_id: number; system_id: string; serial_number: string; name: string; status: string; delivered_at?: string | null; returned_at?: string | null }
+export type Delivery = {
+  id: number; reference?: string | null; status: string; customer?: { id: number; code: string; name: string } | null
+  destination?: { id: number; name: string } | null; destination_location_id?: number | null
+  items?: DeliveryItem[]; items_count?: number; scheduled_at?: string | null; dispatched_at?: string | null
+  delivered_at?: string | null; returned_at?: string | null; cancelled_at?: string | null; received_by?: string | null; notes?: string | null; created_at?: string
+}
+export type DeliveryInput = { customer_id: number; asset_ids: string[]; reference?: string; destination_location_id?: number; scheduled_at?: string; notes?: string }
 export type CustomField = { id: number; key: string; label: string; type: string; required: boolean; active: boolean; options?: string[] | null }
 export type CustomFieldInput = { key: string; label: string; type: string; required: boolean; options?: string[]; default_value?: unknown; visibility?: string; sort_order?: number }
 export type Dashboard = {
@@ -218,10 +226,19 @@ export class ApiClient {
   completeMaintenance(id: number, input: { notes?: string; cost?: number } = {}) { return this.request<MaintenanceRecord>(`/v1/maintenance/${id}/complete`, this.json('POST', input)) }
 
   // Customer module (only routed while the module is enabled)
-  customers(query: { page?: number; search?: string; status?: string } = {}) { return this.list<Customer>(`/v1/customers${toQuery({ per_page: 25, sort: 'name', ...query })}`) }
+  customers(query: { page?: number; per_page?: number; search?: string; status?: string } = {}) { return this.list<Customer>(`/v1/customers${toQuery({ per_page: 25, sort: 'name', ...query })}`) }
   createCustomer(input: CustomerInput) { return this.request<Customer>('/v1/customers', this.json('POST', input)) }
   updateCustomer(id: number, input: Partial<CustomerInput>) { return this.request<Customer>(`/v1/customers/${id}`, this.json('PUT', input)) }
   deleteCustomer(id: number) { return this.request<void>(`/v1/customers/${id}`, { method: 'DELETE' }) }
+
+  // Delivery module (only routed while the module is enabled)
+  deliveries(query: { page?: number; status?: string; search?: string } = {}) { return this.list<Delivery>(`/v1/deliveries${toQuery({ per_page: 25, ...query })}`) }
+  delivery(id: number) { return this.request<Delivery>(`/v1/deliveries/${id}`) }
+  createDelivery(input: DeliveryInput) { return this.request<Delivery>('/v1/deliveries', this.json('POST', input)) }
+  dispatchDelivery(id: number, viaLocationId?: number) { return this.request<Delivery>(`/v1/deliveries/${id}/dispatch`, this.json('POST', { via_location_id: viaLocationId })) }
+  deliverDelivery(id: number, receivedBy?: string) { return this.request<Delivery>(`/v1/deliveries/${id}/deliver`, this.json('POST', { received_by: receivedBy })) }
+  returnDelivery(id: number, toLocationId: number, assetIds?: string[]) { return this.request<Delivery>(`/v1/deliveries/${id}/return`, this.json('POST', { to_location_id: toLocationId, asset_ids: assetIds })) }
+  cancelDelivery(id: number, reason?: string) { return this.request<Delivery>(`/v1/deliveries/${id}/cancel`, this.json('POST', { reason })) }
 
   customFields() { return this.request<CustomField[]>('/v1/custom-fields') }
   createCustomField(field: CustomFieldInput) { return this.request<CustomField>('/v1/custom-fields', this.json('POST', field)) }

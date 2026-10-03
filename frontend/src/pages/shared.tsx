@@ -32,9 +32,9 @@ export function Card({ label, value, hint }: { label: string; value: string | nu
 const good = 'bg-green-100 text-green-800', warn = 'bg-amber-100 text-amber-800', bad = 'bg-red-100 text-red-800', idle = 'bg-slate-200 text-slate-700'
 const statusColors: Record<string, string> = {
   active: good, online: good, connected: good, enabled: good, healthy: good, delivered: good, processed: good, available: good, completed: good,
-  degraded: warn, maintenance: warn, installed: warn, configured: warn, pending: warn, retrying: warn, warning: warn, deprecated: warn, scheduled: warn, in_progress: warn,
+  degraded: warn, maintenance: warn, installed: warn, configured: warn, pending: warn, retrying: warn, warning: warn, deprecated: warn, scheduled: warn, in_progress: warn, in_transit: warn,
   error: bad, failed: bad, unhealthy: bad, critical: bad, revoked: bad, suspended: bad, overdue: bad,
-  offline: idle, disconnected: idle, disabled: idle, inactive: idle, unavailable: idle, cancelled: idle,
+  offline: idle, disconnected: idle, disabled: idle, inactive: idle, unavailable: idle, cancelled: idle, returned: idle,
 }
 export function StatusBadge({ status }: { status: string }) {
   return <span className={`rounded-full px-2 py-0.5 text-xs ${statusColors[status] ?? 'bg-slate-100 text-slate-700'}`}>{label(status)}</span>

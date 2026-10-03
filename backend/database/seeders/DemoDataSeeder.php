@@ -9,6 +9,8 @@ use App\Models\DeviceType;
 use App\Models\Location;
 use App\Models\Project;
 use App\Modules\Customer\CustomerService;
+use App\Modules\Customer\Models\Customer;
+use App\Modules\Delivery\DeliveryService;
 use App\Services\DeviceService;
 use App\Services\IntegrationService;
 use App\Services\MovementService;
@@ -22,7 +24,7 @@ use Illuminate\Database\Seeder;
  */
 class DemoDataSeeder extends Seeder
 {
-    public function run(IntegrationService $integrations, DeviceService $devices, MovementService $movements, CustomerService $customers): void
+    public function run(IntegrationService $integrations, DeviceService $devices, MovementService $movements, CustomerService $customers, DeliveryService $deliveries): void
     {
         foreach ($this->plan() as $projectSlug => $plan) {
             $project = Project::where('slug', $projectSlug)->first();
@@ -103,13 +105,23 @@ class DemoDataSeeder extends Seeder
                     $customers->create($project, ['code' => $code, 'name' => $name, 'location_id' => $site?->id]);
                 }
             }
+
+            // Deliveries already received by a customer (Delivery module).
+            if (!empty($plan['deliveries']) && $project->hasModuleEnabled('delivery')) {
+                foreach ($plan['deliveries'] as [$reference, $customerCode, $serials, $receivedBy]) {
+                    $customer = Customer::withoutGlobalScopes()->where('project_id', $project->id)->where('code', $customerCode)->first();
+                    $assets = Asset::withoutGlobalScopes()->where('project_id', $project->id)->whereIn('serial_number', $serials)->get();
+                    $delivery = $deliveries->create($project, $customer, $assets, ['reference' => $reference]);
+                    $deliveries->deliver($delivery, ['received_by' => $receivedBy]);
+                }
+            }
         }
 
         $this->command?->info('Demo data seeded successfully.');
     }
 
     /**
-     * @return array<string, array{fields: array, locations: array, integrations: string[], customers?: array, assets: array}>
+     * @return array<string, array{fields: array, locations: array, integrations: string[], customers?: array, deliveries?: array, assets: array}>
      */
     protected function plan(): array
     {
@@ -129,6 +141,9 @@ class DemoDataSeeder extends Seeder
                 'customers' => [
                     ['CUST-001', 'Bengkel Las Maju', 'Customer Site A'],
                     ['CUST-002', 'RS Medika Sehat', null],
+                ],
+                'deliveries' => [
+                    ['DO-2026-0001', 'CUST-001', ['C2H2-3KG-00001', 'C2H2-3KG-00002'], 'Pak Budi'],
                 ],
                 'assets' => [
                     ['C2H2-3KG-00001', 'Acetylene Cylinder 3KG #1', 'C2H2', 'active', ['capacity' => '3 KG', 'last_refill' => '2026-09-20']],

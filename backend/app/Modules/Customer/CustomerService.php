@@ -3,9 +3,9 @@
 namespace App\Modules\Customer;
 
 use App\Exceptions\ApiException;
-use App\Models\Location;
 use App\Models\Project;
 use App\Models\User;
+use App\Modules\Concerns\ChecksProjectLocations;
 use App\Modules\Customer\Events\CustomerChanged;
 use App\Modules\Customer\Models\Customer;
 use App\Services\AuditService;
@@ -16,6 +16,8 @@ use App\Services\AuditService;
  */
 class CustomerService
 {
+    use ChecksProjectLocations;
+
     public const MODULE_SLUG = 'customer';
 
     public function __construct(protected AuditService $audit)
@@ -76,23 +78,6 @@ class CustomerService
 
         if ($taken) {
             throw ApiException::invalid('Validation failed', ['code' => ['This code is already used by another customer in this project']]);
-        }
-    }
-
-    protected function assertLocationInProject(Project $project, ?int $locationId): void
-    {
-        if ($locationId === null) {
-            return;
-        }
-
-        $exists = Location::withoutGlobalScopes()
-            ->where('id', $locationId)
-            ->where('project_id', $project->id)
-            ->whereNull('deleted_at')
-            ->exists();
-
-        if (!$exists) {
-            throw ApiException::invalid('Validation failed', ['location_id' => ['The location does not exist in this project']]);
         }
     }
 

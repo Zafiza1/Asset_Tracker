@@ -23,6 +23,7 @@ export const navigation: NavGroup[] = [
     title: 'Modules',
     items: [
       { to: '/customers', label: 'Customers', permission: 'customer.view', module: 'customer' },
+      { to: '/deliveries', label: 'Deliveries', permission: 'delivery.view', module: 'delivery' },
       { to: '/maintenance', label: 'Maintenance', permission: 'maintenance.view', module: 'maintenance' },
     ],
   },

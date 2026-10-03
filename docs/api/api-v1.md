@@ -261,6 +261,25 @@ otherwise every endpoint returns `403`. See
 | PUT | `/v1/customers/{id}` | `customer.update`. Same fields, all optional |
 | DELETE | `/v1/customers/{id}` | `customer.delete`. Soft delete; the code can be reused |
 
+### Deliveries (module)
+
+Only routed while the `delivery` module is enabled for the project (it
+requires the Customer module); otherwise every endpoint returns `403`. See
+[delivery.md](../modules/delivery.md).
+
+| Method | Path | Permission |
+|---|---|---|
+| GET | `/v1/deliveries` | `delivery.view`. Filters: `status`, `customer_id`, `asset_id` (system ID), `search` (reference, customer); sort: `created_at`, `scheduled_at`, `delivered_at`, `status`, `reference` |
+| POST | `/v1/deliveries` | `delivery.create`. Body: `customer_id`, `asset_ids` (system IDs), `reference?`, `destination_location_id?` (default: the customer's site), `scheduled_at?`, `notes?`, `metadata?`. `409` if an asset is already in an open delivery |
+| GET | `/v1/deliveries/{id}` | `delivery.view`. Includes `items` |
+| PUT | `/v1/deliveries/{id}` | `delivery.update`. `reference`, `destination_location_id`, `scheduled_at`, `notes`, `metadata`; only while `pending` |
+| POST | `/v1/deliveries/{id}/dispatch` | `delivery.update`. Body: `via_location_id?` |
+| POST | `/v1/deliveries/{id}/deliver` | `delivery.update`. Body: `received_by?` (required with `require_proof_of_delivery`), `delivered_at?`, `notes?` |
+| POST | `/v1/deliveries/{id}/return` | `delivery.update`. Body: `to_location_id`, `asset_ids?` (default: all still at the customer) |
+| POST | `/v1/deliveries/{id}/cancel` | `delivery.update`. Body: `reason?`; only before delivery |
+
+A step that does not fit the current status returns `409`.
+
 ### Maintenance (module)
 
 Only routed while the `maintenance` module is enabled for the project;
@@ -423,6 +442,7 @@ The following event types are available for subscription:
 - `asset.detected` - When an integration (RFID, BLE, …) or `POST /v1/events` detects an asset
 - `integration.connected` / `integration.disconnected` / `integration.degraded` - When an integration's status changes
 - `customer.created` / `customer.updated` / `customer.deleted` - From the Customer module
+- `delivery.created` / `delivery.dispatched` / `delivery.delivered` / `delivery.returned` / `delivery.cancelled` - From the Delivery module
 - `maintenance.created` / `maintenance.completed` - From the Maintenance module
 - Any custom event published through `POST /v1/events`
 
