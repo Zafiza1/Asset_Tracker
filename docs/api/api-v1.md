@@ -280,6 +280,23 @@ requires the Customer module); otherwise every endpoint returns `403`. See
 
 A step that does not fit the current status returns `409`.
 
+### Inspections (module)
+
+Only routed while the `inspection` module is enabled for the project;
+otherwise every endpoint returns `403`. See
+[inspection.md](../modules/inspection.md).
+
+| Method | Path | Permission |
+|---|---|---|
+| GET | `/v1/inspections` | `inspection.view`. Filters: `status`, `result`, `asset_id` (system ID), `overdue=1`; sort: `scheduled_at`, `performed_at`, `next_due_at`, `created_at`, `status`, `result` |
+| POST | `/v1/inspections` | `inspection.create`. Body: `asset_id` (system ID), `checklist_id?`, `scheduled_at?`, `notes?`, `metadata?`. With `answers` (or `result`) the inspection is recorded immediately |
+| GET | `/v1/inspections/{id}` | `inspection.view` |
+| PUT | `/v1/inspections/{id}` | `inspection.update`. `scheduled_at`, `checklist_id`, `notes`, `metadata`, or `status: cancelled`; only while scheduled |
+| POST | `/v1/inspections/{id}/record` | `inspection.create`. Body: `answers` (object keyed by check key), `result?` (only without a checklist), `performed_at?`, `notes?` |
+| GET | `/v1/inspections/checklists` | `inspection.view`. Filters: `active`, `asset_type` (also returns generic checklists) |
+| POST | `/v1/inspections/checklists` | `inspection.update`. Body: `name`, `description?`, `asset_type?`, `items` (`key`, `label`, `type`: `pass_fail`/`number`/`text`, `required?`) |
+| PUT | `/v1/inspections/checklists/{id}` | `inspection.update`. Same fields, plus `active` |
+
 ### Maintenance (module)
 
 Only routed while the `maintenance` module is enabled for the project;
@@ -443,6 +460,7 @@ The following event types are available for subscription:
 - `integration.connected` / `integration.disconnected` / `integration.degraded` - When an integration's status changes
 - `customer.created` / `customer.updated` / `customer.deleted` - From the Customer module
 - `delivery.created` / `delivery.dispatched` / `delivery.delivered` / `delivery.returned` / `delivery.cancelled` - From the Delivery module
+- `inspection.created` / `inspection.completed` / `inspection.cancelled` - From the Inspection module (`result` is `pass` or `fail`)
 - `maintenance.created` / `maintenance.completed` - From the Maintenance module
 - Any custom event published through `POST /v1/events`
 

@@ -45,6 +45,15 @@ export type Delivery = {
   delivered_at?: string | null; returned_at?: string | null; cancelled_at?: string | null; received_by?: string | null; notes?: string | null; created_at?: string
 }
 export type DeliveryInput = { customer_id: number; asset_ids: string[]; reference?: string; destination_location_id?: number; scheduled_at?: string; notes?: string }
+export type ChecklistItem = { key: string; label: string; type: 'pass_fail' | 'number' | 'text'; required?: boolean }
+export type InspectionChecklist = { id: number; name: string; description?: string | null; asset_type?: string | null; items: ChecklistItem[]; active: boolean }
+export type InspectionAnswers = Record<string, boolean | number | string>
+export type Inspection = {
+  id: number; asset?: { system_id: string; serial_number: string; name: string; asset_type?: string | null } | null
+  checklist_id?: number | null; checklist?: { id: number; name: string; items?: ChecklistItem[] | null } | null
+  status: string; result?: 'pass' | 'fail' | null; overdue: boolean; scheduled_at?: string | null; performed_at?: string | null; next_due_at?: string | null
+  checklist_snapshot?: ChecklistItem[] | null; answers?: InspectionAnswers | null; notes?: string | null; created_at?: string
+}
 export type CustomField = { id: number; key: string; label: string; type: string; required: boolean; active: boolean; options?: string[] | null }
 export type CustomFieldInput = { key: string; label: string; type: string; required: boolean; options?: string[]; default_value?: unknown; visibility?: string; sort_order?: number }
 export type Dashboard = {
@@ -239,6 +248,16 @@ export class ApiClient {
   deliverDelivery(id: number, receivedBy?: string) { return this.request<Delivery>(`/v1/deliveries/${id}/deliver`, this.json('POST', { received_by: receivedBy })) }
   returnDelivery(id: number, toLocationId: number, assetIds?: string[]) { return this.request<Delivery>(`/v1/deliveries/${id}/return`, this.json('POST', { to_location_id: toLocationId, asset_ids: assetIds })) }
   cancelDelivery(id: number, reason?: string) { return this.request<Delivery>(`/v1/deliveries/${id}/cancel`, this.json('POST', { reason })) }
+
+  // Inspection module (only routed while the module is enabled)
+  inspections(query: { page?: number; status?: string; result?: string; overdue?: number; asset_id?: string } = {}) { return this.list<Inspection>(`/v1/inspections${toQuery({ per_page: 25, ...query })}`) }
+  inspection(id: number) { return this.request<Inspection>(`/v1/inspections/${id}`) }
+  scheduleInspection(input: { asset_id: string; checklist_id?: number; scheduled_at?: string; notes?: string }) { return this.request<Inspection>('/v1/inspections', this.json('POST', input)) }
+  recordInspection(id: number, input: { answers?: InspectionAnswers; result?: string; notes?: string }) { return this.request<Inspection>(`/v1/inspections/${id}/record`, this.json('POST', input)) }
+  cancelInspection(id: number) { return this.request<Inspection>(`/v1/inspections/${id}`, this.json('PUT', { status: 'cancelled' })) }
+  inspectionChecklists() { return this.request<InspectionChecklist[]>('/v1/inspections/checklists') }
+  createInspectionChecklist(input: { name: string; asset_type?: string; items: ChecklistItem[] }) { return this.request<InspectionChecklist>('/v1/inspections/checklists', this.json('POST', input)) }
+  updateInspectionChecklist(id: number, input: Partial<{ name: string; asset_type: string | null; items: ChecklistItem[]; active: boolean }>) { return this.request<InspectionChecklist>(`/v1/inspections/checklists/${id}`, this.json('PUT', input)) }
 
   customFields() { return this.request<CustomField[]>('/v1/custom-fields') }
   createCustomField(field: CustomFieldInput) { return this.request<CustomField>('/v1/custom-fields', this.json('POST', field)) }

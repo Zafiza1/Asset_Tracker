@@ -24,6 +24,7 @@ export const navigation: NavGroup[] = [
     items: [
       { to: '/customers', label: 'Customers', permission: 'customer.view', module: 'customer' },
       { to: '/deliveries', label: 'Deliveries', permission: 'delivery.view', module: 'delivery' },
+      { to: '/inspections', label: 'Inspections', permission: 'inspection.view', module: 'inspection' },
       { to: '/maintenance', label: 'Maintenance', permission: 'maintenance.view', module: 'maintenance' },
     ],
   },

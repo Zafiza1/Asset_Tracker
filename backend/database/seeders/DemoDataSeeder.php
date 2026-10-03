@@ -11,6 +11,7 @@ use App\Models\Project;
 use App\Modules\Customer\CustomerService;
 use App\Modules\Customer\Models\Customer;
 use App\Modules\Delivery\DeliveryService;
+use App\Modules\Inspection\InspectionService;
 use App\Services\DeviceService;
 use App\Services\IntegrationService;
 use App\Services\MovementService;
@@ -24,7 +25,7 @@ use Illuminate\Database\Seeder;
  */
 class DemoDataSeeder extends Seeder
 {
-    public function run(IntegrationService $integrations, DeviceService $devices, MovementService $movements, CustomerService $customers, DeliveryService $deliveries): void
+    public function run(IntegrationService $integrations, DeviceService $devices, MovementService $movements, CustomerService $customers, DeliveryService $deliveries, InspectionService $inspections): void
     {
         foreach ($this->plan() as $projectSlug => $plan) {
             $project = Project::where('slug', $projectSlug)->first();
@@ -115,13 +116,24 @@ class DemoDataSeeder extends Seeder
                     $deliveries->deliver($delivery, ['received_by' => $receivedBy]);
                 }
             }
+
+            // Checklists and recorded inspections (Inspection module).
+            if (!empty($plan['checklists']) && $project->hasModuleEnabled('inspection')) {
+                foreach ($plan['checklists'] as [$name, $assetType, $items]) {
+                    $inspections->createChecklist($project, ['name' => $name, 'asset_type' => $assetType, 'items' => $items]);
+                }
+                foreach ($plan['inspections'] ?? [] as [$serial, $answers, $notes]) {
+                    $asset = Asset::withoutGlobalScopes()->where('project_id', $project->id)->where('serial_number', $serial)->first();
+                    $inspections->perform($project, $asset, $answers, ['notes' => $notes, 'performed_at' => now()->subDays(2)]);
+                }
+            }
         }
 
         $this->command?->info('Demo data seeded successfully.');
     }
 
     /**
-     * @return array<string, array{fields: array, locations: array, integrations: string[], customers?: array, deliveries?: array, assets: array}>
+     * @return array<string, array{fields: array, locations: array, integrations: string[], customers?: array, deliveries?: array, checklists?: array, inspections?: array, assets: array}>
      */
     protected function plan(): array
     {
@@ -186,6 +198,22 @@ class DemoDataSeeder extends Seeder
                     ['MACHINE-001', 'CNC Lathe', 'cnc', 'active', ['department' => 'Machining', 'inspection_interval' => 30]],
                     ['MACHINE-002', 'Hydraulic Press', 'press', 'active', ['department' => 'Forming', 'inspection_interval' => 14]],
                     ['MACHINE-003', 'Forklift 01', 'forklift', 'maintenance', ['department' => 'Logistics', 'inspection_interval' => 7]],
+                ],
+                'checklists' => [
+                    ['Machine safety check', null, [
+                        ['key' => 'guards', 'label' => 'Safety guards in place', 'type' => 'pass_fail', 'required' => true],
+                        ['key' => 'emergency_stop', 'label' => 'Emergency stop works', 'type' => 'pass_fail', 'required' => true],
+                        ['key' => 'remarks', 'label' => 'Remarks', 'type' => 'text', 'required' => false],
+                    ]],
+                    ['Forklift daily check', 'forklift', [
+                        ['key' => 'brakes', 'label' => 'Brakes', 'type' => 'pass_fail', 'required' => true],
+                        ['key' => 'hydraulics', 'label' => 'Hydraulics (no leaks)', 'type' => 'pass_fail', 'required' => true],
+                        ['key' => 'hour_meter', 'label' => 'Hour meter', 'type' => 'number', 'required' => false],
+                    ]],
+                ],
+                'inspections' => [
+                    ['MACHINE-001', ['guards' => true, 'emergency_stop' => true], 'All good'],
+                    ['MACHINE-003', ['brakes' => true, 'hydraulics' => false, 'hour_meter' => 2140], 'Oil leak at the lift cylinder'],
                 ],
             ],
             'warehouse-tracker' => [

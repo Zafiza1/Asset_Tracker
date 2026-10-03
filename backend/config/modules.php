@@ -103,6 +103,15 @@ return [
                     'permissions' => ['inspection.view', 'inspection.create', 'inspection.update'],
                 ],
             ],
+            // create = perform inspections (schedule, record results);
+            // update = manage (reschedule/cancel, edit checklists).
+            'default_role_permissions' => [
+                'organization-owner' => ['inspection.view', 'inspection.create', 'inspection.update'],
+                'project-admin' => ['inspection.view', 'inspection.create', 'inspection.update'],
+                'manager' => ['inspection.view', 'inspection.create', 'inspection.update'],
+                'operator' => ['inspection.view', 'inspection.create'],
+                'viewer' => ['inspection.view'],
+            ],
         ],
         [
             'slug' => 'customer',
@@ -220,6 +229,7 @@ return [
         App\Modules\Maintenance\MaintenanceServiceProvider::class,
         App\Modules\Customer\CustomerServiceProvider::class,
         App\Modules\Delivery\DeliveryServiceProvider::class,
+        App\Modules\Inspection\InspectionServiceProvider::class,
     ],
 
 ];
