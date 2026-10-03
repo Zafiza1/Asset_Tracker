@@ -316,6 +316,24 @@ otherwise every endpoint returns `403`. See
 | POST | `/v1/inventory/counts/{id}/complete` | `inventory.adjust`. Body: `reconcile?` (move unexpected assets to the counted location) |
 | POST | `/v1/inventory/counts/{id}/cancel` | `inventory.adjust` |
 
+### Rentals (module)
+
+Only routed while the `rental` module is enabled for the project (it
+requires the Customer module); otherwise every endpoint returns `403`. See
+[rental.md](../modules/rental.md).
+
+| Method | Path | Permission |
+|---|---|---|
+| GET | `/v1/rentals` | `rental.view`. Filters: `status`, `customer_id`, `asset_id` (system ID), `overdue=1`, `search` (reference, customer, asset); sort: `created_at`, `starts_at`, `due_at`, `returned_at`, `status`, `reference` |
+| POST | `/v1/rentals` | `rental.create`. Body: `customer_id`, `asset_id` (system ID), `reference?`, `starts_at?`, `due_at?` (default: start + `default_rental_period_days`), `destination_location_id?`, `daily_rate?`, `late_fee_per_day?`, `notes?`, `metadata?`, `checkout?` (hand over at once; also needs `rental.update`). `409` if the asset is in an open rental |
+| GET | `/v1/rentals/{id}` | `rental.view` |
+| POST | `/v1/rentals/{id}/checkout` | `rental.update`. Body: `checked_out_at?` |
+| POST | `/v1/rentals/{id}/extend` | `rental.update`. Body: `due_at` |
+| POST | `/v1/rentals/{id}/return` | `rental.update`. Body: `to_location_id`, `returned_at?`, `notes?`. Response includes `rented_days`, `days_late`, `rental_amount`, `late_fee` |
+| POST | `/v1/rentals/{id}/cancel` | `rental.update`. Body: `reason?`; reservations only |
+
+A step that does not fit the current status returns `409`.
+
 ### Maintenance (module)
 
 Only routed while the `maintenance` module is enabled for the project;
@@ -481,6 +499,7 @@ The following event types are available for subscription:
 - `delivery.created` / `delivery.dispatched` / `delivery.delivered` / `delivery.returned` / `delivery.cancelled` - From the Delivery module
 - `inspection.created` / `inspection.completed` / `inspection.cancelled` - From the Inspection module (`result` is `pass` or `fail`)
 - `inventory.low_stock` / `inventory.count.completed` - From the Inventory module
+- `rental.created` / `rental.checked_out` / `rental.extended` / `rental.returned` / `rental.cancelled` - From the Rental module
 - `maintenance.created` / `maintenance.completed` - From the Maintenance module
 - Any custom event published through `POST /v1/events`
 

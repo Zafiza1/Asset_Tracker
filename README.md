@@ -165,7 +165,7 @@ first organization and a project from a template.
 | Area | Pages |
 |---|---|
 | Runtime | Dashboard, Assets (list/detail), Locations, Movements, Devices (bind/unbind), Integrations (connect/test/health) |
-| Modules | Customers, Deliveries, Inspections, Inventory, Maintenance (each shown when its module is enabled for the project) |
+| Modules | Customers, Deliveries, Inspections, Inventory, Rentals, Maintenance (each shown when its module is enabled for the project) |
 | Project setup | Modules (install/enable/disable/configure/upgrade/uninstall), Builder (Field Builder; other builders planned), Webhooks (deliveries, test, secret), API keys, Members & roles, Audit log, Health |
 | Platform | Organizations & projects (create from template), Templates (versions and modules) |
 
@@ -198,9 +198,10 @@ Phases 1–15 are implemented and covered by the backend test suite
 **Maintenance** ([docs](docs/modules/maintenance.md)), **Customer**
 ([docs](docs/modules/customer.md)), **Delivery**
 ([docs](docs/modules/delivery.md)), **Inspection**
-([docs](docs/modules/inspection.md)) and **Inventory**
-([docs](docs/modules/inventory.md)), under `backend/app/Modules`. Rental has
-lifecycle and versioning but no business features yet.
+([docs](docs/modules/inspection.md)), **Inventory**
+([docs](docs/modules/inventory.md)) and **Rental**
+([docs](docs/modules/rental.md)), under `backend/app/Modules` — every module
+in the catalog.
 
 ## Documentation
 

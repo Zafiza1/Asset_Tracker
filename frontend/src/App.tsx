@@ -26,6 +26,7 @@ import { CustomersPage } from './modules/customer/CustomersPage'
 import { DeliveriesPage } from './modules/delivery/DeliveriesPage'
 import { InspectionsPage } from './modules/inspection/InspectionsPage'
 import { InventoryPage } from './modules/inventory/InventoryPage'
+import { RentalsPage } from './modules/rental/RentalsPage'
 import { IntegrationsPage } from './integrations/IntegrationsPage'
 import { DevicesPage } from './integrations/DevicesPage'
 
@@ -55,6 +56,7 @@ function ProtectedApp({ session, onLogout, onSessionChange }: { session: Session
         <Route path="/deliveries" element={<DeliveriesPage api={api} />} />
         <Route path="/inspections" element={<InspectionsPage api={api} />} />
         <Route path="/inventory" element={<InventoryPage api={api} />} />
+        <Route path="/rentals" element={<RentalsPage api={api} />} />
         <Route path="/maintenance" element={<MaintenancePage api={api} />} />
         <Route path="/devices" element={<DevicesPage api={api} />} />
         <Route path="/integrations" element={<IntegrationsPage api={api} />} />

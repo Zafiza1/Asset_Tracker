@@ -18,9 +18,9 @@ Every catalog entry provides the lifecycle (install / configure / enable /
 disable / upgrade / uninstall), versioning and configuration schema.
 **Maintenance** ([maintenance.md](maintenance.md)), **Customer**
 ([customer.md](customer.md)), **Delivery** ([delivery.md](delivery.md)),
-**Inspection** ([inspection.md](inspection.md)) and **Inventory**
-([inventory.md](inventory.md)) also ship their business features; Rental is
-a catalog entry waiting for its own. Inventory also shows a module reacting
+**Inspection** ([inspection.md](inspection.md)), **Inventory**
+([inventory.md](inventory.md)) and **Rental** ([rental.md](rental.md)) also
+ship their business features — every module in the catalog does. Inventory also shows a module reacting
 to a Core event (`asset.location.updated`) with its own listener. Shared helpers: `App\Modules\ModulePolicy` (permission check),
 `App\Modules\ModuleSettings` (a project's module configuration) and
 `App\Modules\Concerns\ChecksProjectLocations`.

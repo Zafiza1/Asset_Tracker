@@ -26,6 +26,7 @@ export const navigation: NavGroup[] = [
       { to: '/deliveries', label: 'Deliveries', permission: 'delivery.view', module: 'delivery' },
       { to: '/inspections', label: 'Inspections', permission: 'inspection.view', module: 'inspection' },
       { to: '/inventory', label: 'Inventory', permission: 'inventory.view', module: 'inventory' },
+      { to: '/rentals', label: 'Rentals', permission: 'rental.view', module: 'rental' },
       { to: '/maintenance', label: 'Maintenance', permission: 'maintenance.view', module: 'maintenance' },
     ],
   },

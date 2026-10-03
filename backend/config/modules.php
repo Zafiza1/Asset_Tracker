@@ -204,6 +204,14 @@ return [
                     'permissions' => ['rental.view', 'rental.create', 'rental.update'],
                 ],
             ],
+            'default_role_permissions' => [
+                'organization-owner' => ['rental.view', 'rental.create', 'rental.update'],
+                'project-admin' => ['rental.view', 'rental.create', 'rental.update'],
+                'manager' => ['rental.view', 'rental.create', 'rental.update'],
+                // Counter staff hand assets over and take them back.
+                'operator' => ['rental.view', 'rental.update'],
+                'viewer' => ['rental.view'],
+            ],
         ],
     ],
 
@@ -239,6 +247,7 @@ return [
         App\Modules\Delivery\DeliveryServiceProvider::class,
         App\Modules\Inspection\InspectionServiceProvider::class,
         App\Modules\Inventory\InventoryServiceProvider::class,
+        App\Modules\Rental\RentalServiceProvider::class,
     ],
 
 ];

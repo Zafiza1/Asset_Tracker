@@ -61,6 +61,13 @@ export type InventoryCount = {
   id: number; location_id: number; location_name?: string | null; status: string; summary: CountSummary; notes?: string | null; created_at?: string; completed_at?: string | null
   items?: { system_id: string; serial_number: string; name: string; asset_type?: string | null; outcome: 'found' | 'missing' | 'unexpected'; recorded_location?: string | null; reconciled: boolean }[]
 }
+export type Rental = {
+  id: number; reference?: string | null; status: string; overdue: boolean
+  customer?: { id: number; code: string; name: string } | null; asset?: { system_id: string; serial_number: string; name: string } | null
+  destination?: { id: number; name: string } | null; starts_at: string; due_at: string; checked_out_at?: string | null; returned_at?: string | null
+  daily_rate?: string | null; late_fee_per_day?: string | null; rented_days?: number | null; days_late?: number | null; rental_amount?: string | null; late_fee?: string | null; notes?: string | null
+}
+export type RentalInput = { customer_id: number; asset_id: string; reference?: string; due_at?: string; daily_rate?: number; late_fee_per_day?: number; checkout?: boolean }
 export type CustomField = { id: number; key: string; label: string; type: string; required: boolean; active: boolean; options?: string[] | null }
 export type CustomFieldInput = { key: string; label: string; type: string; required: boolean; options?: string[]; default_value?: unknown; visibility?: string; sort_order?: number }
 export type Dashboard = {
@@ -277,6 +284,14 @@ export class ApiClient {
   scanInventoryCount(id: number, input: { asset_ids?: string[]; serial_numbers?: string[] }) { return this.request<{ scanned: number; unknown: string[]; summary: CountSummary }>(`/v1/inventory/counts/${id}/scan`, this.json('POST', input)) }
   completeInventoryCount(id: number, reconcile: boolean) { return this.request<InventoryCount>(`/v1/inventory/counts/${id}/complete`, this.json('POST', { reconcile })) }
   cancelInventoryCount(id: number) { return this.request<InventoryCount>(`/v1/inventory/counts/${id}/cancel`, this.json('POST', {})) }
+
+  // Rental module (only routed while the module is enabled)
+  rentals(query: { page?: number; status?: string; overdue?: number; search?: string } = {}) { return this.list<Rental>(`/v1/rentals${toQuery({ per_page: 25, ...query })}`) }
+  createRental(input: RentalInput) { return this.request<Rental>('/v1/rentals', this.json('POST', input)) }
+  checkoutRental(id: number) { return this.request<Rental>(`/v1/rentals/${id}/checkout`, this.json('POST', {})) }
+  extendRental(id: number, dueAt: string) { return this.request<Rental>(`/v1/rentals/${id}/extend`, this.json('POST', { due_at: dueAt })) }
+  returnRental(id: number, toLocationId: number) { return this.request<Rental>(`/v1/rentals/${id}/return`, this.json('POST', { to_location_id: toLocationId })) }
+  cancelRental(id: number, reason?: string) { return this.request<Rental>(`/v1/rentals/${id}/cancel`, this.json('POST', { reason })) }
 
   customFields() { return this.request<CustomField[]>('/v1/custom-fields') }
   createCustomField(field: CustomFieldInput) { return this.request<CustomField>('/v1/custom-fields', this.json('POST', field)) }
