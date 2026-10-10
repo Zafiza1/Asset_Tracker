@@ -11,6 +11,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
+    // Sanctum only treats SANCTUM_STATEFUL_DOMAINS as first-party; silently falling back to
+    // 5174 would drop the session cookie and make every authenticated request 401.
+    strictPort: true,
     proxy: {
       '/api': { target: backend, changeOrigin: false },
       '/sanctum': { target: backend, changeOrigin: false },

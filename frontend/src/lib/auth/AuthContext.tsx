@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { hashKey, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import { api, ApiError, onUnauthorized } from '../api/client'
 import type { Profile, Resource } from '../api/types'
@@ -22,7 +22,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(
     () =>
       onUnauthorized(() => {
-        queryClient.clear()
+        // Keep the session query itself: clearing it while /auth/me is still in flight (the
+        // 401 on first load) strands its observer on a removed query and the app never leaves
+        // the loading state.
+        queryClient.removeQueries({ predicate: (q) => q.queryHash !== hashKey(ME_KEY) })
         setProfile(null)
       }),
     [queryClient, setProfile],
