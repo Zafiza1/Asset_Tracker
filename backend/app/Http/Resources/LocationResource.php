@@ -16,8 +16,6 @@ class LocationResource extends JsonResource
             'code' => $this->code,
             'name' => $this->name,
             'address' => $this->address,
-            'branch_id' => $this->branch_id,
-            'branch' => $this->whenLoaded('branch', fn () => Ref::of($this->branch)),
             'parent_id' => $this->parent_id,
             'parent' => $this->whenLoaded('parent', fn () => Ref::of($this->parent)),
             'location_type_id' => $this->location_type_id,

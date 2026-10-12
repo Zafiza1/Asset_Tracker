@@ -39,7 +39,7 @@ export interface MasterFilter {
 export interface MasterListConfig<T extends MasterRecord> {
   title: string
   description?: string
-  /** API path, e.g. "/branches". */
+  /** API path, e.g. "/departments". */
   endpoint: string
   columns: Column<T>[]
   fields: MasterField[]

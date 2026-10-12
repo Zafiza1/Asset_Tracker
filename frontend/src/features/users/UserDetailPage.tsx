@@ -186,13 +186,12 @@ function RolesCard({ user, editable }: { user: User; editable: boolean }) {
 function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
   const mutation = useUserMutation<{ scopes: DataScopeEntry[] }>(user, 'put', '/scopes')
   const scopes = user.data_scopes ?? []
-  const [type, setType] = useState<ScopeType>('branch')
+  const [type, setType] = useState<ScopeType>('location')
   const [refId, setRefId] = useState('')
-  const sources: Record<Exclude<ScopeType, 'organization'>, string> = { branch: '/branches', department: '/departments', location: '/locations' }
-  const branches = useOptions('/branches', { status: undefined })
+  const sources: Record<Exclude<ScopeType, 'organization'>, string> = { department: '/departments', location: '/locations' }
   const departments = useOptions('/departments', { status: undefined })
   const locations = useOptions('/locations', { status: undefined })
-  const lists = { branch: branches.data, department: departments.data, location: locations.data }
+  const lists = { department: departments.data, location: locations.data }
   const nameOf = (s: DataScopeEntry) => {
     if (s.scope_type === 'organization' || !s.ref_id) return null
     const row = lists[s.scope_type]?.find((r) => r.id === s.ref_id)

@@ -3,6 +3,7 @@
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Exceptions\ApiExceptionRenderer;
 use App\Http\Middleware\AssignRequestId;
+use App\Http\Middleware\EnsureModuleAvailable;
 use App\Http\Middleware\RequirePermission;
 use App\Http\Middleware\ResolvePlatform;
 use App\Http\Middleware\ResolveTenant;
@@ -31,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant' => ResolveTenant::class,
             'platform' => ResolvePlatform::class,
             'permission' => RequirePermission::class,
+            'module' => EnsureModuleAvailable::class,
         ]);
 
         // Context and permission checks must run before route model binding, so bindings are

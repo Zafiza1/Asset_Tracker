@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Domain\Assets\AssetMasterUsage;
+use App\Domain\Shared\Masters\MasterUsage;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(Tenancy::class);
+        $this->app->bind(MasterUsage::class, AssetMasterUsage::class);
     }
 
     public function boot(): void

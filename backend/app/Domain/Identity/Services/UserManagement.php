@@ -9,7 +9,6 @@ use App\Domain\Authorization\PermissionResolver;
 use App\Domain\Authorization\Services\OrgAdminGuard;
 use App\Domain\Authorization\Services\RoleManagement;
 use App\Domain\Identity\Models\User;
-use App\Domain\Organization\Models\Branch;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Exceptions\ApiException;
@@ -19,12 +18,12 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Tenant user administration. Always runs inside a tenant context; every referenced
- * role/branch/department/location is resolved through tenant-scoped queries, and the
+ * role/department/location is resolved through tenant-scoped queries, and the
  * composite foreign keys reject anything that slips through.
  */
 final class UserManagement
 {
-    private const PROFILE_FIELDS = ['name', 'email', 'employee_number', 'job_title', 'phone', 'home_branch_id', 'home_department_id'];
+    private const PROFILE_FIELDS = ['name', 'email', 'employee_number', 'job_title', 'phone', 'home_department_id'];
 
     public function __construct(
         private readonly Tenancy $tenancy,
@@ -199,7 +198,6 @@ final class UserManagement
 
             $model = match ($type) {
                 'organization' => null,
-                'branch' => Branch::class,
                 'department' => Department::class,
                 'location' => Location::class,
                 default => throw ApiException::unprocessable('INVALID_SCOPE', 'Jenis data scope tidak valid.'),
@@ -215,9 +213,6 @@ final class UserManagement
     /** @param array<string, mixed> $data */
     private function assertReferences(array $data): void
     {
-        if (! empty($data['home_branch_id']) && ! Branch::query()->whereKey($data['home_branch_id'])->exists()) {
-            throw ApiException::unprocessable('INVALID_REFERENCE', 'Cabang tidak ditemukan.');
-        }
         if (! empty($data['home_department_id']) && ! Department::query()->whereKey($data['home_department_id'])->exists()) {
             throw ApiException::unprocessable('INVALID_REFERENCE', 'Departemen tidak ditemukan.');
         }

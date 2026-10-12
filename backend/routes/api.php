@@ -9,7 +9,6 @@ use App\Http\Controllers\Platform\GenericVersionController;
 use App\Http\Controllers\Platform\OrganizationController as PlatformOrganizationController;
 use App\Http\Controllers\Platform\PlatformAuditLogController;
 use App\Http\Controllers\Tenant\AuditLogController;
-use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\ConditionController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\GenericCatalogController;
@@ -139,7 +138,6 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     $update = 'permission:master.tenant.update';
     $archive = 'permission:master.tenant.archive';
     $masters = [
-        'branches' => [BranchController::class, 'branch'],
         'departments' => [DepartmentController::class, 'department'],
         'locations' => [LocationController::class, 'location'],
         'tenant-masters/categories' => [TenantCategoryController::class, 'tenantCategory'],
@@ -167,4 +165,9 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     Route::put('/asset-definition-versions/{tenantVersion}/overrides', [TenantVersionController::class, 'syncOverrides'])->middleware($update);
     Route::patch('/asset-definition-attributes/{tenantAttribute}', [TenantVersionController::class, 'updateAttribute'])->middleware($update);
     Route::delete('/asset-definition-attributes/{tenantAttribute}', [TenantVersionController::class, 'destroyAttribute'])->middleware($update);
+
+    // Operational modules, one route file each; see config/modules.php for maintenance switches.
+    require __DIR__.'/modules/assets.php';
+    require __DIR__.'/modules/transactions.php';
+    require __DIR__.'/modules/analytics.php';
 });

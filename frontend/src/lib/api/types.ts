@@ -33,7 +33,7 @@ export interface OrganizationSettings {
 }
 
 export type UserStatus = 'invited' | 'active' | 'suspended' | 'deactivated'
-export type ScopeType = 'organization' | 'branch' | 'department' | 'location'
+export type ScopeType = 'organization' | 'department' | 'location'
 
 export interface DataScopeEntry {
   scope_type: ScopeType
@@ -48,7 +48,6 @@ export interface User {
   employee_number: string | null
   job_title: string | null
   phone: string | null
-  home_branch_id: string | null
   home_department_id: string | null
   must_change_password: boolean
   last_login_at: string | null
@@ -105,7 +104,7 @@ export interface Profile {
   }
   organization: Organization | null
   permissions: string[]
-  data_scope: { organization_wide: boolean; branch_ids: string[]; department_ids: string[]; location_ids: string[] } | null
+  data_scope: { organization_wide: boolean; department_ids: string[]; location_ids: string[] } | null
 }
 
 // ---------------------------------------------------------------- Master data
@@ -130,20 +129,10 @@ export interface MasterRecord {
   updated_at: string
 }
 
-export interface Branch extends MasterRecord {
-  address: string | null
-  phone: string | null
-}
-
-export interface Department extends MasterRecord {
-  branch_id: string | null
-  branch?: Ref | null
-}
+export type Department = MasterRecord
 
 export interface Location extends MasterRecord {
   address: string | null
-  branch_id: string
-  branch?: Ref | null
   parent_id: string | null
   parent?: Ref | null
   location_type_id: string

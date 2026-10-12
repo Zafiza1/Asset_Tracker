@@ -1,6 +1,6 @@
-# Asset Tracker Enterprise
+# Asset Tracker
 
-Platform pengelolaan aset multi-tenant (V1.0). Desain lengkap ada di [docs/](docs/README.md).
+Aplikasi pengelolaan aset multi-tenant yang sederhana: pendataan aset, transaksi aset, dan dashboard analisis, semuanya dengan input manual. Arah terkini ada di [docs/08-asset-tracker-sederhana.md](docs/08-asset-tracker-sederhana.md); desain awal di [docs/](docs/README.md).
 
 | Bagian | Teknologi |
 |---|---|
@@ -14,11 +14,10 @@ Platform pengelolaan aset multi-tenant (V1.0). Desain lengkap ada di [docs/](doc
 |---|---|
 | 1. Requirement & arsitektur | ✅ Selesai (`docs/`) |
 | 2. Foundation: auth, tenancy, RLS, RBAC, audit, provisioning organisasi, manajemen user/role | ✅ Selesai |
-| 3. Master Data: Generic Master + versioning, Tenant Custom Master (adopsi, atribut tambahan, override, effective schema), cabang/departemen/lokasi, kategori, kondisi | ✅ Selesai ([catatan](docs/07-implementation-plan.md#4-catatan-penyelesaian-fase), [API](docs/api/master-data.md)) |
-| 4. Asset Container & Inventory | ⏳ Berikutnya |
-| 5–8. Transaksi & workflow, laporan, integrasi frontend, QA | Belum dimulai |
+| 3. Master Data: Generic Master + versioning, Tenant Custom Master (adopsi, atribut tambahan, override, effective schema), departemen/lokasi (cabang dihapus 2026-10-12), kategori, kondisi | ✅ Selesai ([catatan](docs/07-implementation-plan.md#4-catatan-penyelesaian-fase), [API](docs/api/master-data.md)) |
+| 4. Pendataan Aset, Transaksi Aset, Dashboard Analisis (versi sederhana, tanpa workflow approval) | ✅ Selesai ([rincian](docs/08-asset-tracker-sederhana.md)) |
 
-Menu aplikasi hanya menampilkan modul yang sudah berfungsi.
+Menu aplikasi hanya menampilkan modul yang sudah berfungsi. Data internal (Generic Data) tidak menjadi menu user; developer menelusurinya dengan `php artisan asset:inspect`. Satu modul dapat dimatikan sementara untuk maintenance dengan `MODULES_DISABLED` tanpa memengaruhi modul lain.
 
 ## Menjalankan secara lokal
 

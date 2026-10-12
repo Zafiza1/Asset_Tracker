@@ -2,6 +2,8 @@
 
 namespace Tests;
 
+use App\Domain\Assets\Models\Asset;
+use App\Domain\AssetTransactions\Models\AssetTransaction;
 use App\Domain\Authorization\Models\PlatformRole;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\Models\UserDataScope;
@@ -11,7 +13,6 @@ use App\Domain\GenericMaster\Models\GenericAssetDefinition;
 use App\Domain\GenericMaster\Models\GenericDefinitionVersion;
 use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\User;
-use App\Domain\Organization\Models\Branch;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
@@ -123,19 +124,17 @@ abstract class TestCase extends BaseTestCase
 
     /**
      * One record of every tenant master type for an organization, created directly (system context):
-     * branch, department, location, category, condition, adopted definition GEN-UMUM with draft v1 + attribute.
+     * department, location, category, condition, adopted definition GEN-UMUM with draft v1 + attribute.
      *
-     * @return array{branch: Branch, department: Department, location: Location, category: TenantAssetCategory,
+     * @return array{department: Department, location: Location, category: TenantAssetCategory,
      *     condition: AssetCondition, definition: TenantAssetDefinition, version: TenantDefinitionVersion, attribute: TenantAttributeDefinition}
      */
     protected function createMasterFixtures(Organization $organization, string $suffix = '1'): array
     {
         $org = ['organization_id' => $organization->id];
-        $branch = (new Branch)->forceFill([...$org, 'code' => "BR{$suffix}", 'name' => "Cabang {$suffix}"]);
-        $branch->save();
-        $department = (new Department)->forceFill([...$org, 'code' => "DEP{$suffix}", 'name' => "Departemen {$suffix}", 'branch_id' => $branch->id]);
+        $department = (new Department)->forceFill([...$org, 'code' => "DEP{$suffix}", 'name' => "Departemen {$suffix}"]);
         $department->save();
-        $location = (new Location)->forceFill([...$org, 'code' => "LOC{$suffix}", 'name' => "Gudang {$suffix}", 'branch_id' => $branch->id,
+        $location = (new Location)->forceFill([...$org, 'code' => "LOC{$suffix}", 'name' => "Gudang {$suffix}",
             'location_type_id' => LocationType::query()->where('code', 'GUDANG')->value('id')]);
         $location->save();
         $category = (new TenantAssetCategory)->forceFill([...$org, 'code' => "CAT{$suffix}", 'name' => "Kategori {$suffix}",
@@ -154,7 +153,6 @@ abstract class TestCase extends BaseTestCase
         $attribute->save();
 
         return [
-            'branch' => $branch,
             'department' => $department,
             'location' => $location,
             'category' => $category,
@@ -163,6 +161,30 @@ abstract class TestCase extends BaseTestCase
             'version' => $version,
             'attribute' => $attribute,
         ];
+    }
+
+    /**
+     * An asset with its registration transaction, created directly (system context).
+     *
+     * @param  array{location: Location, category: TenantAssetCategory, condition: AssetCondition}  $masters
+     * @return array{asset: Asset, transaction: AssetTransaction}
+     */
+    protected function createAssetFixture(Organization $organization, array $masters, string $suffix = '1'): array
+    {
+        $asset = (new Asset)->forceFill([
+            'organization_id' => $organization->id, 'asset_number' => "FIX-{$suffix}", 'name' => "Aset {$suffix}",
+            'category_id' => $masters['category']->id, 'location_id' => $masters['location']->id,
+            'condition_id' => $masters['condition']->id, 'status' => 'available',
+        ]);
+        $asset->save();
+        $transaction = (new AssetTransaction)->forceFill([
+            'organization_id' => $organization->id, 'transaction_number' => "REG-FIX-{$suffix}", 'asset_id' => $asset->id,
+            'type' => 'registration', 'transaction_date' => now()->toDateString(),
+            'to_location_id' => $asset->location_id, 'to_status' => 'available', 'to_condition_id' => $asset->condition_id,
+        ]);
+        $transaction->save();
+
+        return ['asset' => $asset, 'transaction' => $transaction];
     }
 
     protected function roleId(Organization $organization, string $code): string

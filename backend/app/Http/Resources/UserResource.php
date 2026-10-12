@@ -20,7 +20,6 @@ class UserResource extends JsonResource
             'employee_number' => $this->employee_number,
             'job_title' => $this->job_title,
             'phone' => $this->phone,
-            'home_branch_id' => $this->home_branch_id,
             'home_department_id' => $this->home_department_id,
             'must_change_password' => $this->must_change_password,
             'last_login_at' => $this->last_login_at?->toIso8601String(),

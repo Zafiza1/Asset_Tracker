@@ -13,7 +13,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property string $id
  * @property string $organization_id
- * @property string $branch_id
  * @property string|null $parent_id
  * @property string $location_type_id
  * @property string $code
@@ -26,7 +25,7 @@ class Location extends Model
     /** @use HasFactory<LocationFactory> */
     use BelongsToOrganization, HasFactory, HasUuids;
 
-    protected $fillable = ['branch_id', 'parent_id', 'location_type_id', 'code', 'name', 'address', 'status'];
+    protected $fillable = ['parent_id', 'location_type_id', 'code', 'name', 'address', 'status'];
 
     protected static function newFactory(): LocationFactory
     {
@@ -40,11 +39,6 @@ class Location extends Model
             $parentPath = $location->parent_id ? self::query()->whereKey($location->parent_id)->value('path') : null;
             $location->path = ($parentPath ?: '/').$location->id.'/';
         });
-    }
-
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class);
     }
 
     public function parent(): BelongsTo

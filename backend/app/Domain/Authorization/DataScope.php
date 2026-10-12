@@ -9,28 +9,25 @@ namespace App\Domain\Authorization;
 final readonly class DataScope
 {
     /**
-     * @param  list<string>  $branchIds
      * @param  list<string>  $departmentIds
      * @param  list<string>  $locationIds
      */
     public function __construct(
         public bool $organizationWide,
-        public array $branchIds = [],
         public array $departmentIds = [],
         public array $locationIds = [],
     ) {}
 
     public function isEmpty(): bool
     {
-        return ! $this->organizationWide && $this->branchIds === [] && $this->departmentIds === [] && $this->locationIds === [];
+        return ! $this->organizationWide && $this->departmentIds === [] && $this->locationIds === [];
     }
 
-    /** @return array{organization_wide: bool, branch_ids: list<string>, department_ids: list<string>, location_ids: list<string>} */
+    /** @return array{organization_wide: bool, department_ids: list<string>, location_ids: list<string>} */
     public function toArray(): array
     {
         return [
             'organization_wide' => $this->organizationWide,
-            'branch_ids' => $this->branchIds,
             'department_ids' => $this->departmentIds,
             'location_ids' => $this->locationIds,
         ];

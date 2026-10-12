@@ -1,10 +1,12 @@
-import { Building2, FileClock, ShieldCheck, Users } from 'lucide-react'
+import { ArrowLeftRight, Boxes, Building2, FileClock, ShieldCheck, Users } from 'lucide-react'
 import { Link } from 'react-router'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { useAuth } from '../../lib/auth/context'
 import { formatDateTime, scopeTypeLabel } from '../../lib/format'
 
 const shortcuts = [
+  { to: '/aset', label: 'Pendataan aset', icon: Boxes, permission: 'asset.view' },
+  { to: '/transaksi', label: 'Transaksi aset', icon: ArrowLeftRight, permission: 'transaction.view' },
   { to: '/organisasi', label: 'Profil organisasi', icon: Building2, permission: 'organization.view' },
   { to: '/pengguna', label: 'Kelola pengguna', icon: Users, permission: 'user.view' },
   { to: '/role', label: 'Role & permission', icon: ShieldCheck, permission: 'role.view' },
@@ -12,8 +14,8 @@ const shortcuts = [
 ]
 
 /**
- * Landing page. Inventory figures appear here once the asset modules exist; until then the
- * page shows only real account information — no placeholder statistics.
+ * Landing page for users without dashboard access (report.view): account information and
+ * shortcuts only — no placeholder statistics.
  */
 export function HomePage() {
   const { profile, can } = useAuth()
@@ -37,7 +39,6 @@ export function HomePage() {
                 {scope?.organization_wide
                   ? scopeTypeLabel.organization
                   : [
-                      scope?.branch_ids.length ? `${scope.branch_ids.length} cabang` : null,
                       scope?.department_ids.length ? `${scope.department_ids.length} departemen` : null,
                       scope?.location_ids.length ? `${scope.location_ids.length} lokasi` : null,
                     ]

@@ -6,7 +6,7 @@ use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Authorization\Models\Permission;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Identity\Models\User;
-use App\Domain\Organization\Models\Branch;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Organization;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -25,7 +25,7 @@ class UserManagementTest extends TestCase
 
     public function test_admin_creates_user_with_roles_scopes_and_temporary_password(): void
     {
-        $branch = $this->branch($this->org, 'JKT');
+        $department = $this->department($this->org, 'OPS');
         $this->actingAs($this->admin, 'web');
 
         $response = $this->postJson('/api/users', [
@@ -33,16 +33,16 @@ class UserManagementTest extends TestCase
             'email' => 'budi@alpha.test',
             'password' => 'Sementara-Rahasia-1',
             'employee_number' => 'EMP-001',
-            'home_branch_id' => $branch->id,
+            'home_department_id' => $department->id,
             'role_ids' => [$this->roleId($this->org, 'OPERATOR')],
-            'scopes' => [['scope_type' => 'branch', 'ref_id' => $branch->id]],
+            'scopes' => [['scope_type' => 'department', 'ref_id' => $department->id]],
         ]);
 
         $response->assertCreated()
             ->assertJsonPath('data.email', 'budi@alpha.test')
             ->assertJsonPath('data.must_change_password', true)
             ->assertJsonPath('data.roles.0.code', 'OPERATOR')
-            ->assertJsonPath('data.data_scopes.0.scope_type', 'branch')
+            ->assertJsonPath('data.data_scopes.0.scope_type', 'department')
             ->assertJsonMissingPath('data.password');
 
         $user = User::query()->where('email', 'budi@alpha.test')->sole();
@@ -89,12 +89,12 @@ class UserManagementTest extends TestCase
     public function test_scope_reference_from_another_organization_is_rejected(): void
     {
         ['organization' => $orgB] = $this->createOrganization('BETA');
-        $branchB = $this->branch($orgB, 'SBY');
+        $departmentB = $this->department($orgB, 'DIST');
         $user = $this->createTenantUser($this->org, ['VIEWER']);
         $this->actingAs($this->admin, 'web');
 
         $this->assertErrorCode(
-            $this->putJson("/api/users/{$user->id}/scopes", ['scopes' => [['scope_type' => 'branch', 'ref_id' => $branchB->id]]]),
+            $this->putJson("/api/users/{$user->id}/scopes", ['scopes' => [['scope_type' => 'department', 'ref_id' => $departmentB->id]]]),
             422, 'INVALID_SCOPE',
         );
         $this->assertSame(['organization'], $user->dataScopes()->pluck('scope_type')->all());
@@ -102,16 +102,16 @@ class UserManagementTest extends TestCase
 
     public function test_scopes_are_replaced_and_audited(): void
     {
-        $branch = $this->branch($this->org, 'JKT');
+        $department = $this->department($this->org, 'OPS');
         $user = $this->createTenantUser($this->org, ['VIEWER']);
         $this->actingAs($this->admin, 'web');
 
-        $this->putJson("/api/users/{$user->id}/scopes", ['scopes' => [['scope_type' => 'branch', 'ref_id' => $branch->id]]])
-            ->assertOk()->assertJsonPath('data.data_scopes', [['scope_type' => 'branch', 'ref_id' => $branch->id]]);
+        $this->putJson("/api/users/{$user->id}/scopes", ['scopes' => [['scope_type' => 'department', 'ref_id' => $department->id]]])
+            ->assertOk()->assertJsonPath('data.data_scopes', [['scope_type' => 'department', 'ref_id' => $department->id]]);
 
         $log = AuditLog::query()->where('action', 'user.scopes_changed')->sole();
         $this->assertSame(['organization'], $log->before['scopes']);
-        $this->assertSame(["branch:{$branch->id}"], $log->after['scopes']);
+        $this->assertSame(["department:{$department->id}"], $log->after['scopes']);
     }
 
     public function test_last_organization_admin_cannot_be_removed(): void
@@ -228,12 +228,12 @@ class UserManagementTest extends TestCase
         $this->getJson('/api/users?per_page=1000')->assertOk()->assertJsonPath('meta.per_page', 100);
     }
 
-    private function branch(Organization $org, string $code): Branch
+    private function department(Organization $org, string $code): Department
     {
-        $branch = new Branch(['code' => $code, 'name' => "Cabang {$code}"]);
-        $branch->forceFill(['organization_id' => $org->id])->save();
+        $department = new Department(['code' => $code, 'name' => "Departemen {$code}"]);
+        $department->forceFill(['organization_id' => $org->id])->save();
 
-        return $branch;
+        return $department;
     }
 
     /** @param list<string> $permissions */

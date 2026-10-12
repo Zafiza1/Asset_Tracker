@@ -123,7 +123,6 @@ class UserController extends Controller
             'employee_number' => ['nullable', 'string', 'max:50'],
             'job_title' => ['nullable', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:30'],
-            'home_branch_id' => ['nullable', 'uuid'],
             'home_department_id' => ['nullable', 'uuid'],
         ];
     }

@@ -84,11 +84,13 @@ class RouteSecurityTest extends TestCase
     private function foreignIds(Organization $orgB, User $adminB): array
     {
         $masters = $this->createMasterFixtures($orgB);
+        ['asset' => $asset, 'transaction' => $transaction] = $this->createAssetFixture($orgB, $masters);
 
         return [
+            'asset' => $asset->id,
+            'assetTransaction' => $transaction->id,
             'user' => $adminB->id,
             'role' => $this->roleId($orgB, 'VIEWER'),
-            'branch' => $masters['branch']->id,
             'department' => $masters['department']->id,
             'location' => $masters['location']->id,
             'tenantCategory' => $masters['category']->id,

@@ -105,12 +105,9 @@ class MasterDataSecurityTest extends TestCase
     public function test_references_to_another_tenants_masters_are_rejected_by_the_service(): void
     {
         $this->actingAs($this->adminA, 'web');
-        $branchA = $this->postJson('/api/branches', ['code' => 'A1', 'name' => 'A1'])->json('data.id');
         $typeId = $this->mastersB['location']->location_type_id;
 
-        $this->assertErrorCode($this->postJson('/api/departments', ['code' => 'D', 'name' => 'D', 'branch_id' => $this->mastersB['branch']->id]), 422, 'INVALID_REFERENCE');
-        $this->assertErrorCode($this->postJson('/api/locations', ['code' => 'L', 'name' => 'L', 'branch_id' => $this->mastersB['branch']->id, 'location_type_id' => $typeId]), 422, 'INVALID_REFERENCE');
-        $this->assertErrorCode($this->postJson('/api/locations', ['code' => 'L', 'name' => 'L', 'branch_id' => $branchA, 'parent_id' => $this->mastersB['location']->id, 'location_type_id' => $typeId]), 422, 'INVALID_REFERENCE');
+        $this->assertErrorCode($this->postJson('/api/locations', ['code' => 'L', 'name' => 'L', 'parent_id' => $this->mastersB['location']->id, 'location_type_id' => $typeId]), 422, 'INVALID_REFERENCE');
         $this->assertErrorCode($this->postJson('/api/tenant-masters/categories', ['code' => 'C', 'name' => 'C', 'parent_id' => $this->mastersB['category']->id]), 422, 'INVALID_REFERENCE');
         $this->assertErrorCode($this->postJson('/api/asset-definitions', [
             'generic_definition_id' => GenericAssetDefinition::query()->where('code', 'GEN-UMUM')->value('id'),
@@ -153,7 +150,7 @@ class MasterDataSecurityTest extends TestCase
     {
         $this->asTenantA(function () {
             foreach (['tenant_asset_categories', 'tenant_asset_definitions', 'tenant_asset_definition_versions',
-                'tenant_attribute_definitions', 'branches', 'locations'] as $table) {
+                'tenant_attribute_definitions', 'departments', 'locations'] as $table) {
                 $this->assertSame(0, DB::table($table)->count(), $table);
             }
             $this->assertSame(4, DB::table('asset_conditions')->count());

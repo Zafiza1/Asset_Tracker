@@ -7,7 +7,7 @@ import { tenantNavigation } from '../app/navigation'
 import { AttributeValueInput } from '../features/master/attributes'
 import { narrowableKeys, parseValidationValue } from '../features/master/attributeRules'
 import { MasterListPage } from '../features/master/MasterListPage'
-import type { AttributeValue, Branch, Profile } from '../lib/api/types'
+import type { AttributeValue, Department, Profile } from '../lib/api/types'
 import { AuthContext, type AuthState } from '../lib/auth/context'
 import { formatAttributeValue } from '../lib/format'
 
@@ -72,13 +72,11 @@ describe('AttributeValueInput', () => {
 })
 
 describe('MasterListPage', () => {
-  const branch: Branch = {
+  const department: Department = {
     id: '01900000-0000-7000-8000-000000000001',
-    code: 'JKT',
-    name: 'Cabang Jakarta',
+    code: 'OPS',
+    name: 'Departemen Operasional',
     status: 'active',
-    address: null,
-    phone: null,
     created_at: '2026-10-12T00:00:00Z',
     updated_at: '2026-10-12T00:00:00Z',
   }
@@ -86,7 +84,7 @@ describe('MasterListPage', () => {
   function renderPage(permissions: string[]) {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(JSON.stringify({ data: [branch], meta: { current_page: 1, last_page: 1, per_page: 25, total: 1, from: 1, to: 1 } }), { status: 200 })),
+      vi.fn(async () => new Response(JSON.stringify({ data: [department], meta: { current_page: 1, last_page: 1, per_page: 25, total: 1, from: 1, to: 1 } }), { status: 200 })),
     )
     const can = (p: string) => permissions.includes(p)
     const auth: AuthState = { profile: { permissions } as unknown as Profile, isLoading: false, can, login: vi.fn(), logout: vi.fn(), setProfile: vi.fn() }
@@ -94,9 +92,9 @@ describe('MasterListPage', () => {
       <QueryClientProvider client={new QueryClient()}>
         <AuthContext.Provider value={auth}>
           <MemoryRouter>
-            <MasterListPage<Branch>
-              title="Cabang"
-              endpoint="/branches"
+            <MasterListPage<Department>
+              title="Departemen"
+              endpoint="/departments"
               canCreate={can('master.tenant.create')}
               canUpdate={can('master.tenant.update')}
               canArchive={can('master.tenant.archive')}
@@ -111,15 +109,15 @@ describe('MasterListPage', () => {
 
   it('lists records from the API with actions for managers', async () => {
     renderPage(['master.tenant.view', 'master.tenant.create', 'master.tenant.update', 'master.tenant.archive'])
-    expect(await screen.findByText('Cabang Jakarta')).toBeInTheDocument()
+    expect(await screen.findByText('Departemen Operasional')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Tambah/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Arsipkan Cabang Jakarta' })).toBeInTheDocument()
-    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('/api/branches')
+    expect(screen.getByRole('button', { name: 'Arsipkan Departemen Operasional' })).toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('/api/departments')
   })
 
   it('hides write actions for read-only users', async () => {
     renderPage(['master.tenant.view'])
-    expect(await screen.findByText('Cabang Jakarta')).toBeInTheDocument()
+    expect(await screen.findByText('Departemen Operasional')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Tambah/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Arsipkan/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('columnheader', { name: 'Aksi' })).not.toBeInTheDocument()

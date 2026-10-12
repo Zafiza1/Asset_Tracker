@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
 import type { Column } from '../../components/ui/Table'
 import { api } from '../../lib/api/client'
-import type { Branch, Department, GenericCategory, Location, ReferenceItem, TenantCategory } from '../../lib/api/types'
+import type { Department, Location, ReferenceItem, TenantCategory } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { errorMessage } from '../../lib/forms'
 import { MasterListPage } from './MasterListPage'
@@ -29,115 +29,77 @@ function useMasterPermissions() {
   return { canCreate: can('master.tenant.create'), canUpdate: can('master.tenant.update'), canArchive: can('master.tenant.archive') }
 }
 
-export function BranchesPage() {
-  return (
-    <MasterListPage<Branch>
-      title="Cabang"
-      description="Cabang atau unit wilayah organisasi. Lokasi dan departemen dapat dikaitkan ke cabang."
-      endpoint="/branches"
-      {...useMasterPermissions()}
-      columns={[
-        code<Branch>(),
-        { key: 'name', header: 'Nama', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
-        { key: 'phone', header: 'Telepon', cell: (r) => r.phone ?? '—', hideOnMobile: true },
-      ]}
-      fields={[
-        codeField,
-        { name: 'name', label: 'Nama', required: true },
-        { name: 'phone', label: 'Telepon' },
-        { name: 'address', label: 'Alamat', type: 'textarea' },
-      ]}
-    />
-  )
-}
-
 export function DepartmentsPage() {
-  const branches = toOptions(useOptions('/branches').data)
   return (
     <MasterListPage<Department>
       title="Departemen"
       description="Unit kerja penanggung jawab aset."
       endpoint="/departments"
       {...useMasterPermissions()}
-      filters={[{ name: 'branch_id', label: 'Cabang', options: branches }]}
       columns={[
         code<Department>(),
         { key: 'name', header: 'Nama', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
-        { key: 'branch', header: 'Cabang', cell: (r) => r.branch?.name ?? '—', hideOnMobile: true },
       ]}
-      fields={[codeField, { name: 'name', label: 'Nama', required: true }, { name: 'branch_id', label: 'Cabang', type: 'select', options: branches, emptyOption: '— Tanpa cabang —' }]}
+      fields={[codeField, { name: 'name', label: 'Nama', required: true }]}
     />
   )
 }
 
 export function LocationsPage() {
-  const branches = toOptions(useOptions('/branches').data)
   const locations = useOptions<Location>('/locations').data
   const types = toOptions(useOptions('/generic-masters/location-types').data)
   return (
     <MasterListPage<Location>
       title="Lokasi"
-      description="Lokasi fisik aset, dapat bertingkat (gedung → lantai → ruangan). Sub-lokasi harus berada di cabang yang sama dengan induknya."
+      description="Lokasi fisik aset, dapat bertingkat (gedung → lantai → ruangan). Memfilter lokasi induk ikut menampilkan aset di sub-lokasinya."
       endpoint="/locations"
       {...useMasterPermissions()}
       filters={[
-        { name: 'branch_id', label: 'Cabang', options: branches },
         { name: 'location_type_id', label: 'Jenis', options: types },
       ]}
       columns={[
         { key: 'name', header: 'Nama', cell: treeName },
         code<Location>(),
         { key: 'type', header: 'Jenis', cell: (r) => r.location_type?.name ?? '—', hideOnMobile: true },
-        { key: 'branch', header: 'Cabang', cell: (r) => r.branch?.name ?? '—', hideOnMobile: true },
       ]}
       fields={[
         codeField,
         { name: 'name', label: 'Nama', required: true },
-        { name: 'branch_id', label: 'Cabang', type: 'select', required: true, options: branches },
         {
           name: 'parent_id',
           label: 'Lokasi induk',
           type: 'select',
           emptyOption: '— Lokasi utama —',
-          options: (locations ?? []).map((l) => ({ value: l.id, label: `${'  '.repeat(l.depth)}${l.name} (${l.branch?.code ?? ''})` })),
+          options: (locations ?? []).map((l) => ({ value: l.id, label: `${'  '.repeat(l.depth)}${l.name} (${l.code})` })),
         },
         { name: 'location_type_id', label: 'Jenis lokasi', type: 'select', required: true, options: types },
         { name: 'address', label: 'Alamat', type: 'textarea' },
       ]}
-      emptyHint="Buat cabang terlebih dahulu, lalu tambahkan lokasi."
+      emptyHint="Tambahkan lokasi pertama, misalnya gudang atau kantor."
     />
   )
 }
 
 export function TenantCategoriesPage() {
-  const generic = toOptions(useOptions<GenericCategory>('/generic-masters/categories').data)
   const categories = toOptions(useOptions<TenantCategory>('/tenant-masters/categories').data)
   return (
     <MasterListPage<TenantCategory>
       title="Kategori Aset"
-      description="Kategori khusus perusahaan. Setiap kategori utama mengkhususkan satu kategori Generic Master; subkategori mewarisi induknya."
+      description="Kelompok aset organisasi, dipakai sebagai filter utama di Pendataan Aset. Kategori dapat bertingkat; memfilter kategori induk ikut menampilkan aset di subkategorinya."
       endpoint="/tenant-masters/categories"
       {...useMasterPermissions()}
-      filters={[{ name: 'generic_category_id', label: 'Kategori generik', options: generic }]}
       columns={[
         { key: 'name', header: 'Nama', cell: treeName },
         code<TenantCategory>(),
-        { key: 'generic', header: 'Kategori generik', cell: (r) => r.generic_category?.name ?? '—', hideOnMobile: true },
+        { key: 'description', header: 'Deskripsi', cell: (r) => r.description ?? '—', hideOnMobile: true },
       ]}
       fields={[
         codeField,
         { name: 'name', label: 'Nama', required: true },
         { name: 'parent_id', label: 'Kategori induk', type: 'select', options: categories, emptyOption: '— Kategori utama —' },
-        {
-          name: 'generic_category_id',
-          label: 'Kategori Generic Master',
-          type: 'select',
-          createOnly: true,
-          options: generic,
-          hint: 'Wajib untuk kategori utama; subkategori otomatis mengikuti induknya.',
-        },
         { name: 'description', label: 'Deskripsi', type: 'textarea' },
       ]}
+      emptyHint="Tambahkan kategori pertama, misalnya Perangkat IT, Kendaraan, atau Furnitur."
     />
   )
 }
@@ -147,7 +109,7 @@ export function ConditionsPage() {
   return (
     <MasterListPage<ReferenceItem>
       title="Kondisi Aset"
-      description="Kondisi fisik aset. Kondisi standar disalin dari Generic Master dan dapat disesuaikan tanpa mengubah standar platform."
+      description="Kondisi fisik aset. Tingkat keparahan 1 = terbaik; aset dengan tingkat 3 atau lebih ditandai perlu perhatian di dashboard."
       endpoint="/tenant-masters/conditions"
       {...permissions}
       headerActions={permissions.canCreate && <ImportGenericConditions />}
@@ -179,7 +141,7 @@ function ImportGenericConditions() {
       {mutation.isSuccess && <span className="text-sm text-slate-600">{mutation.data.meta.created} kondisi disalin.</span>}
       {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
       <Button variant="secondary" loading={mutation.isPending} onClick={() => mutation.mutate()}>
-        <CopyPlus className="size-4" aria-hidden /> Salin kondisi standar
+        <CopyPlus className="size-4" aria-hidden /> Tambahkan kondisi standar
       </Button>
     </div>
   )

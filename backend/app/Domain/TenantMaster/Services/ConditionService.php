@@ -4,7 +4,9 @@ namespace App\Domain\TenantMaster\Services;
 
 use App\Domain\Audit\AuditLogger;
 use App\Domain\GenericMaster\Models\GenericCondition;
+use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
+use App\Domain\Shared\Masters\MasterUsage;
 use App\Domain\Shared\Masters\MasterWriter;
 use App\Domain\TenantMaster\Models\AssetCondition;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +23,7 @@ final class ConditionService
     public function __construct(
         private readonly MasterWriter $writer,
         private readonly AuditLogger $audit,
+        private readonly MasterUsage $usage,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -37,6 +40,10 @@ final class ConditionService
 
     public function archive(AssetCondition $condition, ?string $reason): AssetCondition
     {
+        if ($this->usage->inUse(MasterUsage::CONDITION, $condition->id)) {
+            throw ApiException::conflict('CONDITION_IN_USE', 'Kondisi masih dipakai oleh aset aktif.');
+        }
+
         return $this->writer->archive($condition, 'asset_condition.archived', $reason);
     }
 

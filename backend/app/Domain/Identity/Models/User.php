@@ -4,7 +4,6 @@ namespace App\Domain\Identity\Models;
 
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\Models\UserDataScope;
-use App\Domain\Organization\Models\Branch;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\MissingTenantContext;
@@ -49,7 +48,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'email', 'password', 'employee_number', 'job_title', 'phone',
-        'home_branch_id', 'home_department_id', 'must_change_password',
+        'home_department_id', 'must_change_password',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -112,11 +111,6 @@ class User extends Authenticatable
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
-    }
-
-    public function homeBranch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class, 'home_branch_id');
     }
 
     public function homeDepartment(): BelongsTo

@@ -7,7 +7,7 @@ use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Authorization\Models\PlatformRole;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Identity\Models\User;
-use App\Domain\Organization\Models\Branch;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\MissingTenantContext;
 use App\Domain\Shared\Tenancy\TenancyState;
@@ -76,7 +76,7 @@ class DatabaseIsolationTest extends TestCase
     public function test_row_level_security_rejects_writes_into_another_tenant(): void
     {
         $this->asTenantA(function () {
-            $this->expectQueryError('42501', fn () => DB::table('branches')->insert([
+            $this->expectQueryError('42501', fn () => DB::table('departments')->insert([
                 'id' => (string) Str::uuid7(),
                 'organization_id' => $this->orgB->id,
                 'code' => 'X', 'name' => 'X', 'created_at' => now(), 'updated_at' => now(),
@@ -87,22 +87,22 @@ class DatabaseIsolationTest extends TestCase
     public function test_model_creation_for_another_tenant_is_rejected_by_the_application(): void
     {
         $this->asTenantA(function () {
-            $branch = new Branch(['code' => 'B1', 'name' => 'Cabang']);
-            $branch->organization_id = $this->orgB->id;
+            $department = new Department(['code' => 'D1', 'name' => 'Departemen']);
+            $department->organization_id = $this->orgB->id;
 
             $this->expectException(LogicException::class);
-            $branch->save();
+            $department->save();
         });
     }
 
     public function test_organization_id_of_a_record_cannot_be_changed(): void
     {
-        $branch = new Branch(['code' => 'B1', 'name' => 'Cabang']);
-        $branch->forceFill(['organization_id' => $this->orgA->id])->save();
+        $department = new Department(['code' => 'D1', 'name' => 'Departemen']);
+        $department->forceFill(['organization_id' => $this->orgA->id])->save();
 
-        $branch->organization_id = $this->orgB->id;
+        $department->organization_id = $this->orgB->id;
         $this->expectException(LogicException::class);
-        $branch->save();
+        $department->save();
     }
 
     public function test_composite_foreign_keys_reject_cross_tenant_relations(): void
@@ -118,13 +118,13 @@ class DatabaseIsolationTest extends TestCase
             'organization_id' => $this->orgB->id, 'user_id' => $this->adminA->id, 'role_id' => $roleB,
         ]));
 
-        $branchB = new Branch(['code' => 'B1', 'name' => 'Cabang B']);
-        $branchB->forceFill(['organization_id' => $this->orgB->id])->save();
+        $departmentB = new Department(['code' => 'D1', 'name' => 'Departemen B']);
+        $departmentB->forceFill(['organization_id' => $this->orgB->id])->save();
         $this->expectQueryError('23503', fn () => DB::table('user_data_scopes')->insert([
             'id' => (string) Str::uuid7(), 'organization_id' => $this->orgA->id, 'user_id' => $this->adminA->id,
-            'scope_type' => 'branch', 'branch_id' => $branchB->id,
+            'scope_type' => 'department', 'department_id' => $departmentB->id,
         ]));
-        $this->expectQueryError('23503', fn () => DB::table('users')->where('id', $this->adminA->id)->update(['home_branch_id' => $branchB->id]));
+        $this->expectQueryError('23503', fn () => DB::table('users')->where('id', $this->adminA->id)->update(['home_department_id' => $departmentB->id]));
     }
 
     public function test_user_organization_and_type_are_immutable(): void

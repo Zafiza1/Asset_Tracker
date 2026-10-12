@@ -24,7 +24,6 @@ export const orgStatusLabel: Record<string, string> = {
 
 export const scopeTypeLabel: Record<string, string> = {
   organization: 'Seluruh organisasi',
-  branch: 'Cabang',
   department: 'Departemen',
   location: 'Lokasi',
 }

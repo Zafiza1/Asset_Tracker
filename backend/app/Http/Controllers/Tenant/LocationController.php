@@ -15,7 +15,7 @@ use Illuminate\Validation\Rule;
 
 class LocationController extends Controller
 {
-    private const RELATIONS = ['branch', 'parent', 'locationType'];
+    private const RELATIONS = ['parent', 'locationType'];
 
     public function __construct(private readonly OrganizationStructureService $structure) {}
 
@@ -23,12 +23,10 @@ class LocationController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $request->validate([
-            'branch_id' => ['nullable', 'uuid'],
             'parent_id' => ['nullable', 'uuid'],
             'location_type_id' => ['nullable', 'uuid'],
         ]);
         $query = Location::query()->with(self::RELATIONS)
-            ->when($request->query('branch_id'), fn ($q, $id) => $q->where('branch_id', $id))
             ->when($request->query('parent_id'), fn ($q, $id) => $q->where('parent_id', $id))
             ->when($request->query('location_type_id'), fn ($q, $id) => $q->where('location_type_id', $id));
 
@@ -43,7 +41,6 @@ class LocationController extends Controller
             'code' => [...MasterRequests::codeRules(), Rule::unique('locations', 'code')->where('organization_id', $tenancy->organizationId())],
             'name' => ['required', 'string', 'max:150'],
             'address' => ['nullable', 'string', 'max:1000'],
-            'branch_id' => ['required', 'uuid'],
             'parent_id' => ['nullable', 'uuid'],
             'location_type_id' => ['required', 'uuid'],
         ]);
@@ -61,7 +58,6 @@ class LocationController extends Controller
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:150'],
             'address' => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'branch_id' => ['sometimes', 'required', 'uuid'],
             'parent_id' => ['sometimes', 'nullable', 'uuid'],
             'location_type_id' => ['sometimes', 'required', 'uuid'],
             'status' => ['sometimes', Rule::in(MasterStatus::EDITABLE)],

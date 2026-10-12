@@ -5,21 +5,29 @@ namespace App\Domain\TenantMaster\Services;
 use App\Domain\GenericMaster\Models\GenericAssetCategory;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
+use App\Domain\Shared\Masters\MasterUsage;
 use App\Domain\Shared\Masters\MasterWriter;
 use App\Domain\Shared\Masters\MaterializedPath;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantAssetDefinition;
 
 /**
- * Organization categories. A root category picks the generic category it specializes;
- * subcategories inherit that anchor from their parent, so a tree never mixes generic
- * categories. The anchor and code never change (also enforced by a DB trigger).
+ * Organization categories. Every category is anchored to one generic category (internal
+ * reference data, not shown to users): a root category without an explicit anchor gets the
+ * general one (UMUM), subcategories inherit the anchor of their parent. The anchor and code
+ * never change (also enforced by a DB trigger).
  */
 final class TenantCategoryService
 {
     private const AUDIT = ['parent_id', 'generic_category_id', 'code', 'name', 'description', 'status'];
 
-    public function __construct(private readonly MasterWriter $writer) {}
+    /** Generic anchor of root categories created without one. */
+    public const DEFAULT_GENERIC_CATEGORY = 'UMUM';
+
+    public function __construct(
+        private readonly MasterWriter $writer,
+        private readonly MasterUsage $usage,
+    ) {}
 
     /** @param array<string, mixed> $data */
     public function create(array $data): TenantAssetCategory
@@ -31,7 +39,7 @@ final class TenantCategoryService
             }
             $data['generic_category_id'] = $parent->generic_category_id;
         } elseif (empty($data['generic_category_id'])) {
-            throw ApiException::unprocessable('VALIDATION_FAILED', 'Data yang dikirim tidak valid.', ['fields' => ['generic_category_id' => ['Kategori generik wajib dipilih untuk kategori utama.']]]);
+            $data['generic_category_id'] = GenericAssetCategory::query()->where('code', self::DEFAULT_GENERIC_CATEGORY)->value('id');
         }
 
         if (! GenericAssetCategory::query()->whereKey($data['generic_category_id'])->where('status', MasterStatus::ACTIVE)->exists()) {
@@ -66,6 +74,9 @@ final class TenantCategoryService
     public function archive(TenantAssetCategory $category, ?string $reason): TenantAssetCategory
     {
         $this->assertUnused($category);
+        if ($this->usage->inUse(MasterUsage::CATEGORY, $category->id)) {
+            throw ApiException::conflict('CATEGORY_IN_USE', 'Kategori masih dipakai oleh aset aktif. Pindahkan asetnya ke kategori lain terlebih dahulu.');
+        }
 
         return $this->writer->archive($category, 'tenant_category.archived', $reason);
     }

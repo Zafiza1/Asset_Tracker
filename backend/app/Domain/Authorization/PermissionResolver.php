@@ -54,11 +54,10 @@ final class PermissionResolver
         $rows = DB::table('user_data_scopes')
             ->where('user_id', $user->id)
             ->where('organization_id', $user->organization_id)
-            ->get(['scope_type', 'branch_id', 'department_id', 'location_id']);
+            ->get(['scope_type', 'department_id', 'location_id']);
 
         return new DataScope(
             organizationWide: $rows->contains('scope_type', 'organization'),
-            branchIds: $rows->whereNotNull('branch_id')->pluck('branch_id')->values()->all(),
             departmentIds: $rows->whereNotNull('department_id')->pluck('department_id')->values()->all(),
             locationIds: $rows->whereNotNull('location_id')->pluck('location_id')->values()->all(),
         );

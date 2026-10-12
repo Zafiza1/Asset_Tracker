@@ -3,12 +3,14 @@ import { Boxes, ChevronRight, LogOut, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../lib/auth/context'
+import { ModuleBoundary } from './ModuleBoundary'
 import { breadcrumbLabels, breadcrumbTextOnly, platformNavigation, tenantNavigation, type NavSection } from './navigation'
 
 export function AppLayout() {
   const { profile, can, logout } = useAuth()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { pathname } = useLocation()
   if (!profile) return null
 
   const isPlatform = profile.user.user_type === 'platform'
@@ -68,7 +70,10 @@ export function AppLayout() {
 
         <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
           <Breadcrumb />
-          <Outlet />
+          {/* Keyed by path: an error in one page never follows the user to another menu. */}
+          <ModuleBoundary key={pathname}>
+            <Outlet />
+          </ModuleBoundary>
         </main>
       </div>
     </div>

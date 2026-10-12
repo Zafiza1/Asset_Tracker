@@ -1,4 +1,4 @@
-import { BookOpen, Building2, FileClock, FolderTree, GitBranch, Home, KeyRound, Layers, Library, MapPin, Network, Settings, ShieldCheck, Stethoscope, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, BookOpen, Boxes, Building2, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, Network, Settings, ShieldCheck, Stethoscope, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -14,22 +14,26 @@ export interface NavSection {
 }
 
 /**
- * Only modules that are actually implemented appear here. Further modules
- * (assets, transactions, reports) are added as their phases ship.
- * Attributes are managed inside each definition version, not as a separate menu.
+ * Tenant menu: one entry per module (container). Only implemented modules appear.
+ * Internal/generic data (generic catalog, definitions, technical ids) is deliberately not
+ * a user menu; developers inspect it with `php artisan asset:inspect`.
  */
 export const tenantNavigation: NavSection[] = [
-  { items: [{ to: '/', label: 'Beranda', icon: Home }] },
+  { items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard }] },
+  {
+    title: 'Aset',
+    items: [
+      { to: '/aset', label: 'Pendataan Aset', icon: Boxes, permission: 'asset.view' },
+      { to: '/transaksi', label: 'Transaksi Aset', icon: ArrowLeftRight, permission: 'transaction.view' },
+    ],
+  },
   {
     title: 'Master Data',
     items: [
       { to: '/master/kategori', label: 'Kategori Aset', icon: FolderTree, permission: 'master.tenant.view' },
-      { to: '/master/definisi', label: 'Definisi Aset', icon: Layers, permission: 'master.tenant.view' },
-      { to: '/master/katalog', label: 'Katalog Generic Master', icon: Library, permission: 'catalog.generic.view' },
       { to: '/master/lokasi', label: 'Lokasi', icon: MapPin, permission: 'master.tenant.view' },
-      { to: '/master/cabang', label: 'Cabang', icon: GitBranch, permission: 'master.tenant.view' },
-      { to: '/master/departemen', label: 'Departemen', icon: Network, permission: 'master.tenant.view' },
       { to: '/master/kondisi', label: 'Kondisi Aset', icon: Stethoscope, permission: 'master.tenant.view' },
+      { to: '/master/departemen', label: 'Departemen', icon: Network, permission: 'master.tenant.view' },
     ],
   },
   {
@@ -74,18 +78,17 @@ export const breadcrumbLabels: Record<string, string> = {
   platform: 'Platform',
   baru: 'Baru',
   'ubah-password': 'Ubah Password',
+  aset: 'Pendataan Aset',
+  transaksi: 'Transaksi Aset',
   master: 'Master Data',
   kategori: 'Kategori',
   definisi: 'Definisi',
-  'definisi-versi': 'Versi Definisi',
   versi: 'Versi',
-  katalog: 'Katalog Generic Master',
   lokasi: 'Lokasi',
-  cabang: 'Cabang',
   departemen: 'Departemen',
   kondisi: 'Kondisi Aset',
   referensi: 'Referensi',
 }
 
 /** Intermediate path segments without a page of their own: shown as text, not links. */
-export const breadcrumbTextOnly = new Set(['/platform', '/master', '/platform/master', '/master/definisi-versi', '/platform/master/versi'])
+export const breadcrumbTextOnly = new Set(['/platform', '/master', '/platform/master', '/platform/master/versi'])

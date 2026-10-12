@@ -2,11 +2,9 @@ import { createBrowserRouter } from 'react-router'
 import { AuditLogPage } from '../features/audit/AuditLogPage'
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
 import { LoginPage } from '../features/auth/LoginPage'
-import { HomePage } from '../features/home/HomePage'
-import { GenericCatalogDetailPage, GenericCatalogPage } from '../features/master/CatalogPages'
-import { BranchesPage, ConditionsPage, DepartmentsPage, LocationsPage, TenantCategoriesPage } from '../features/master/StructurePages'
-import { TenantDefinitionDetailPage, TenantDefinitionsPage } from '../features/master/TenantDefinitionPages'
-import { TenantVersionPage } from '../features/master/TenantVersionPage'
+import { AssetDetailPage } from '../features/assets/AssetDetailPage'
+import { AssetsPage } from '../features/assets/AssetsPage'
+import { ConditionsPage, DepartmentsPage, LocationsPage, TenantCategoriesPage } from '../features/master/StructurePages'
 import { OrganizationPage } from '../features/organization/OrganizationPage'
 import { SettingsPage } from '../features/organization/SettingsPage'
 import {
@@ -19,11 +17,13 @@ import {
 import { PlatformOrganizationDetailPage } from '../features/platform/PlatformOrganizationDetailPage'
 import { PlatformOrganizationsPage } from '../features/platform/PlatformOrganizationsPage'
 import { RoleFormPage } from '../features/roles/RoleFormPage'
+import { TransactionsPage } from '../features/transactions/TransactionsPage'
 import { RolesPage } from '../features/roles/RolesPage'
 import { UserCreatePage } from '../features/users/UserCreatePage'
 import { UserDetailPage } from '../features/users/UserDetailPage'
 import { UsersPage } from '../features/users/UsersPage'
 import { AppLayout } from './AppLayout'
+import { Landing } from './Landing'
 import { NotFound, RequireAuth, RequirePermission, RequireUserType } from './guards'
 
 const tenant = (permission: string | null, element: React.ReactNode) => (
@@ -43,7 +43,10 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: '/', element: tenant(null, <HomePage />) },
+          { path: '/', element: tenant(null, <Landing />) },
+          { path: '/aset', element: tenant('asset.view', <AssetsPage />) },
+          { path: '/aset/:id', element: tenant('asset.view', <AssetDetailPage />) },
+          { path: '/transaksi', element: tenant('transaction.view', <TransactionsPage />) },
           { path: '/ubah-password', element: <ChangePasswordPage /> },
           { path: '/organisasi', element: tenant('organization.view', <OrganizationPage />) },
           { path: '/pengaturan', element: tenant('settings.manage', <SettingsPage />) },
@@ -55,13 +58,7 @@ export const router = createBrowserRouter([
           { path: '/role/:id', element: tenant('role.view', <RoleFormPage />) },
           { path: '/audit', element: tenant('audit.view', <AuditLogPage endpoint="/audit-logs" title="Audit Trail" />) },
           { path: '/master/kategori', element: tenant('master.tenant.view', <TenantCategoriesPage />) },
-          { path: '/master/definisi', element: tenant('master.tenant.view', <TenantDefinitionsPage />) },
-          { path: '/master/definisi/:id', element: tenant('master.tenant.view', <TenantDefinitionDetailPage />) },
-          { path: '/master/definisi-versi/:id', element: tenant('master.tenant.view', <TenantVersionPage />) },
-          { path: '/master/katalog', element: tenant('catalog.generic.view', <GenericCatalogPage />) },
-          { path: '/master/katalog/:id', element: tenant('catalog.generic.view', <GenericCatalogDetailPage />) },
           { path: '/master/lokasi', element: tenant('master.tenant.view', <LocationsPage />) },
-          { path: '/master/cabang', element: tenant('master.tenant.view', <BranchesPage />) },
           { path: '/master/departemen', element: tenant('master.tenant.view', <DepartmentsPage />) },
           { path: '/master/kondisi', element: tenant('master.tenant.view', <ConditionsPage />) },
           { path: '/platform/organisasi', element: platform('platform.organization.view', <PlatformOrganizationsPage />) },
