@@ -100,6 +100,9 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Laravel writes timestamps without offset in the app timezone (UTC); the session
+            // must use the same zone or timestamptz values shift by the server's offset.
+            'timezone' => 'UTC',
         ],
 
         // Table-owner connection for migrations and seeding only. The runtime
@@ -116,6 +119,7 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'timezone' => 'UTC',
         ],
 
         'sqlsrv' => [

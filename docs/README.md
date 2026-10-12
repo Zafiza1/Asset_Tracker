@@ -8,6 +8,7 @@
 | [04-data-ownership-matrix.md](04-data-ownership-matrix.md) | Kepemilikan & penegakan isolasi per tabel |
 | [05-rbac-matrix.md](05-rbac-matrix.md) | Permission platform & tenant, role template, data scope |
 | [06-lifecycle-and-workflow.md](06-lifecycle-and-workflow.md) | Lifecycle aset/container, state machine transaksi, jenis transaksi |
-| [07-implementation-plan.md](07-implementation-plan.md) | Fase + acceptance criteria, rencana test, risiko, roadmap |
+| [07-implementation-plan.md](07-implementation-plan.md) | Fase + acceptance criteria, rencana test, risiko, roadmap, catatan penyelesaian fase |
+| [api/master-data.md](api/master-data.md) | API Master Data: pola list/tulis, Generic Master, Tenant Custom Master, skema atribut, aturan override, effective schema |
 
-Status: Fase 1 — menunggu review sebelum Fase 2 (Foundation).
+Status: Fase 1–3 selesai; berikutnya Fase 4 (Asset Container & Inventory).

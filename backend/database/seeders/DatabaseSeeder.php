@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             $this->call([
                 PermissionSeeder::class,
                 GenericReferenceSeeder::class,
+                GenericCatalogSeeder::class,
                 PlatformAdminSeeder::class,
             ]);
         });

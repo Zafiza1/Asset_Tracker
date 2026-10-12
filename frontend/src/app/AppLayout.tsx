@@ -3,7 +3,7 @@ import { Boxes, ChevronRight, LogOut, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../lib/auth/context'
-import { breadcrumbLabels, platformNavigation, tenantNavigation, type NavSection } from './navigation'
+import { breadcrumbLabels, breadcrumbTextOnly, platformNavigation, tenantNavigation, type NavSection } from './navigation'
 
 export function AppLayout() {
   const { profile, can, logout } = useAuth()
@@ -128,6 +128,8 @@ function Breadcrumb() {
                 <span aria-current="page" className="text-slate-700">
                   {label}
                 </span>
+              ) : breadcrumbTextOnly.has(to) ? (
+                <span>{label}</span>
               ) : (
                 <Link to={to} className="hover:text-brand-700">
                   {label}

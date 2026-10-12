@@ -7,13 +7,14 @@ import { statusTone } from '../../components/ui/badgeTones'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
-import { Field, Input } from '../../components/ui/Field'
+import { Field, Input, Select } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { api } from '../../lib/api/client'
-import type { Resource, User } from '../../lib/api/types'
+import type { DataScopeEntry, Resource, ScopeType, User } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { applyApiErrors, errorMessage, passwordRule } from '../../lib/forms'
 import { formatDateTime, scopeTypeLabel, userStatusLabel } from '../../lib/format'
+import { toOptions, useOptions } from '../master/options'
 import { useRoles } from './api'
 
 export function UserDetailPage() {
@@ -181,10 +182,24 @@ function RolesCard({ user, editable }: { user: User; editable: boolean }) {
   )
 }
 
+/** Data scope entries (union); a location scope includes its sub-locations. */
 function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
-  const mutation = useUserMutation<{ scopes: { scope_type: string }[] }>(user, 'put', '/scopes')
+  const mutation = useUserMutation<{ scopes: DataScopeEntry[] }>(user, 'put', '/scopes')
   const scopes = user.data_scopes ?? []
-  const organizationWide = scopes.some((s) => s.scope_type === 'organization')
+  const [type, setType] = useState<ScopeType>('branch')
+  const [refId, setRefId] = useState('')
+  const sources: Record<Exclude<ScopeType, 'organization'>, string> = { branch: '/branches', department: '/departments', location: '/locations' }
+  const branches = useOptions('/branches', { status: undefined })
+  const departments = useOptions('/departments', { status: undefined })
+  const locations = useOptions('/locations', { status: undefined })
+  const lists = { branch: branches.data, department: departments.data, location: locations.data }
+  const nameOf = (s: DataScopeEntry) => {
+    if (s.scope_type === 'organization' || !s.ref_id) return null
+    const row = lists[s.scope_type]?.find((r) => r.id === s.ref_id)
+    return row ? `${row.name} (${row.code})` : s.ref_id.slice(0, 8) + '…'
+  }
+  const save = (next: DataScopeEntry[]) => mutation.mutate({ scopes: next })
+  const choices = type === 'organization' ? [] : toOptions(lists[type])
 
   return (
     <Card title="Cakupan data">
@@ -193,27 +208,51 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
         {scopes.length === 0 ? (
           <p className="text-slate-500">Tidak ada cakupan data: pengguna tidak dapat melihat data aset dan transaksi.</p>
         ) : (
-          <ul className="list-inside list-disc text-slate-700">
+          <ul className="divide-y divide-slate-100 rounded-md ring-1 ring-slate-200">
             {scopes.map((s) => (
-              <li key={`${s.scope_type}:${s.ref_id}`}>
-                {scopeTypeLabel[s.scope_type]}
-                {s.ref_id && <span className="text-slate-500"> ({s.ref_id.slice(0, 8)}…)</span>}
+              <li key={`${s.scope_type}:${s.ref_id}`} className="flex items-center justify-between gap-2 px-3 py-2">
+                <span className="text-slate-700">
+                  {scopeTypeLabel[s.scope_type]}
+                  {nameOf(s) && <span className="text-slate-500">: {nameOf(s)}</span>}
+                </span>
+                {editable && (
+                  <Button size="sm" variant="ghost" loading={mutation.isPending} onClick={() => save(scopes.filter((x) => x !== s))} aria-label={`Hapus cakupan ${scopeTypeLabel[s.scope_type]}`}>
+                    Hapus
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
         )}
-        <p className="text-xs text-slate-500">Pembatasan per cabang, departemen, atau lokasi dapat diatur setelah data master tersebut dibuat.</p>
+        <p className="text-xs text-slate-500">Cakupan digabungkan; cakupan lokasi mencakup seluruh sub-lokasinya.</p>
         {editable && (
-          <div className="flex justify-end">
-            {organizationWide ? (
-              <Button variant="secondary" size="sm" loading={mutation.isPending} onClick={() => mutation.mutate({ scopes: [] })}>
-                Cabut akses seluruh organisasi
-              </Button>
-            ) : (
-              <Button variant="secondary" size="sm" loading={mutation.isPending} onClick={() => mutation.mutate({ scopes: [{ scope_type: 'organization' }] })}>
-                Beri akses seluruh organisasi
-              </Button>
+          <div className="flex flex-wrap items-end gap-2">
+            <Select value={type} onChange={(e) => (setType(e.target.value as ScopeType), setRefId(''))} className="w-auto" aria-label="Jenis cakupan">
+              {Object.entries(scopeTypeLabel).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+            {type !== 'organization' && (
+              <Select value={refId} onChange={(e) => setRefId(e.target.value)} className="min-w-40 flex-1" aria-label={`Pilih ${scopeTypeLabel[type]}`}>
+                <option value="">— Pilih {scopeTypeLabel[type].toLowerCase()} —</option>
+                {choices.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
             )}
+            <Button
+              variant="secondary"
+              loading={mutation.isPending}
+              disabled={type !== 'organization' && !refId}
+              title={type !== 'organization' && choices.length === 0 ? `Belum ada data di ${sources[type]}` : undefined}
+              onClick={() => save([...scopes, { scope_type: type, ref_id: type === 'organization' ? null : refId }])}
+            >
+              Tambah cakupan
+            </Button>
           </div>
         )}
       </div>

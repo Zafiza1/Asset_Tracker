@@ -7,4 +7,8 @@ export const statusTone: Record<string, BadgeTone> = {
   suspended: 'amber',
   deactivated: 'slate',
   archived: 'slate',
+  inactive: 'amber',
+  draft: 'blue',
+  released: 'green',
+  deprecated: 'slate',
 }

@@ -107,3 +107,221 @@ export interface Profile {
   permissions: string[]
   data_scope: { organization_wide: boolean; branch_ids: string[]; department_ids: string[]; location_ids: string[] } | null
 }
+
+// ---------------------------------------------------------------- Master data
+
+export type MasterStatus = 'active' | 'inactive' | 'archived'
+export type VersionStatus = 'draft' | 'released' | 'deprecated'
+
+/** Compact `{id, code, name}` reference embedded in other resources. */
+export interface Ref {
+  id: string
+  code: string
+  name: string
+}
+
+/** Fields shared by every master record. */
+export interface MasterRecord {
+  id: string
+  code: string
+  name: string
+  status: MasterStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface Branch extends MasterRecord {
+  address: string | null
+  phone: string | null
+}
+
+export interface Department extends MasterRecord {
+  branch_id: string | null
+  branch?: Ref | null
+}
+
+export interface Location extends MasterRecord {
+  address: string | null
+  branch_id: string
+  branch?: Ref | null
+  parent_id: string | null
+  parent?: Ref | null
+  location_type_id: string
+  location_type?: Ref | null
+  depth: number
+}
+
+/** Units, location types, conditions, transaction types. */
+export interface ReferenceItem extends MasterRecord {
+  symbol?: string
+  quantity?: string | null
+  description?: string | null
+  severity?: number
+  sort_order?: number
+  generic_condition_id?: string | null
+}
+
+export interface GenericCategory extends MasterRecord {
+  description: string | null
+  parent_id: string | null
+  parent?: Ref | null
+  depth: number
+  sort_order: number
+  definitions_count?: number
+}
+
+export interface TenantCategory extends MasterRecord {
+  description: string | null
+  parent_id: string | null
+  parent?: Ref | null
+  generic_category_id: string
+  generic_category?: Ref | null
+  depth: number
+}
+
+export type AttributeDataType = 'string' | 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'enum' | 'multi_enum'
+export type AttributeValue = string | number | boolean | string[] | null
+
+export interface AttributeOption {
+  value: string
+  label: string
+}
+
+export interface AttributeValidation {
+  min?: number | string
+  max?: number | string
+  min_length?: number
+  max_length?: number
+  pattern?: string
+  decimals?: number
+}
+
+export interface UnitSpec {
+  id: string
+  code: string
+  symbol: string
+}
+
+export interface AttributeDefinition {
+  id: string
+  key: string
+  label: string
+  help_text: string | null
+  data_type: AttributeDataType
+  is_required: boolean
+  validation: AttributeValidation
+  options: AttributeOption[] | null
+  unit_id: string | null
+  unit?: UnitSpec | null
+  default_value: AttributeValue
+  is_searchable: boolean
+  is_controlled: boolean
+  overridable: OverridableProperty[]
+  sort_order: number
+}
+
+export type OverridableProperty = 'label' | 'help_text' | 'required' | 'options' | 'validation' | 'default_value'
+
+export interface VersionRef {
+  id: string
+  version_number: number
+  released_at?: string | null
+  status?: VersionStatus
+}
+
+export interface GenericVersion {
+  id: string
+  definition_id: string
+  definition?: Ref & { status: MasterStatus }
+  version_number: number
+  status: VersionStatus
+  changelog: string | null
+  migration_notes: string | null
+  schema_hash: string | null
+  released_at: string | null
+  deprecated_at: string | null
+  attributes_count?: number
+  attributes?: AttributeDefinition[]
+  created_at: string
+  updated_at: string
+}
+
+export interface GenericDefinition extends MasterRecord {
+  description: string | null
+  category_id: string
+  category?: Ref | null
+  current_version?: VersionRef | null
+  versions?: GenericVersion[]
+}
+
+export interface AttributeOverride {
+  generic_attribute_key: string
+  overrides: Partial<{
+    label: string
+    help_text: string | null
+    required: boolean
+    options: string[]
+    validation: AttributeValidation
+    default_value: AttributeValue
+  }>
+}
+
+/** One attribute of an effective schema (generic + overrides + tenant attributes). */
+export interface EffectiveAttribute {
+  key: string
+  label: string
+  help_text: string | null
+  data_type: AttributeDataType
+  required: boolean
+  validation: AttributeValidation
+  options: AttributeOption[] | null
+  unit: UnitSpec | null
+  default_value: AttributeValue
+  searchable: boolean
+  controlled: boolean
+  sort_order: number
+  source: 'generic' | 'tenant'
+  overridden: OverridableProperty[]
+}
+
+export interface EffectiveSchema {
+  schema_version: number
+  generic: { definition_id: string; definition_code: string; version_id: string; version_number: number }
+  tenant: { definition_id: string; definition_code: string; version_id: string; version_number: number }
+  attributes: EffectiveAttribute[]
+}
+
+export interface TenantVersion {
+  id: string
+  tenant_definition_id: string
+  definition?: Ref & { status: MasterStatus }
+  version_number: number
+  status: VersionStatus
+  changelog: string | null
+  generic_definition_version_id: string
+  generic_version?: { id: string; version_number: number; status: VersionStatus }
+  schema_hash: string | null
+  effective_schema?: EffectiveSchema | null
+  released_at: string | null
+  deprecated_at: string | null
+  attributes?: AttributeDefinition[]
+  overrides?: AttributeOverride[]
+  created_at: string
+  updated_at: string
+}
+
+export interface TenantDefinition extends MasterRecord {
+  description: string | null
+  generic_definition_id: string
+  generic_definition?: Ref | null
+  tenant_category_id: string | null
+  category?: Ref | null
+  current_version?: VersionRef | null
+  draft_version?: VersionRef | null
+  versions?: TenantVersion[]
+}
+
+export interface SchemaPreview {
+  data: EffectiveSchema
+  meta: { schema_hash: string; issues: string[]; frozen: boolean }
+}

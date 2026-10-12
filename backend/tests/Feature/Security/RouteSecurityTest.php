@@ -59,6 +59,11 @@ class RouteSecurityTest extends TestCase
             if (str_starts_with($route->uri(), 'api/platform/') || $route->parameterNames() === []) {
                 continue;
             }
+            // The read-only Generic Master catalog is shared by all tenants by design
+            // (covered by MasterDataSecurityTest instead).
+            if (str_starts_with($route->uri(), 'api/generic-masters/')) {
+                continue;
+            }
             $uri = '/'.$route->uri();
             foreach ($route->parameterNames() as $name) {
                 $this->assertArrayHasKey($name, $foreignIds, "Add a foreign-tenant fixture for route parameter {{$name}} ({$uri})");
@@ -78,9 +83,19 @@ class RouteSecurityTest extends TestCase
     /** @return array<string, string> */
     private function foreignIds(Organization $orgB, User $adminB): array
     {
+        $masters = $this->createMasterFixtures($orgB);
+
         return [
             'user' => $adminB->id,
             'role' => $this->roleId($orgB, 'VIEWER'),
+            'branch' => $masters['branch']->id,
+            'department' => $masters['department']->id,
+            'location' => $masters['location']->id,
+            'tenantCategory' => $masters['category']->id,
+            'condition' => $masters['condition']->id,
+            'tenantDefinition' => $masters['definition']->id,
+            'tenantVersion' => $masters['version']->id,
+            'tenantAttribute' => $masters['attribute']->id,
         ];
     }
 

@@ -14,8 +14,9 @@ Platform pengelolaan aset multi-tenant (V1.0). Desain lengkap ada di [docs/](doc
 |---|---|
 | 1. Requirement & arsitektur | ✅ Selesai (`docs/`) |
 | 2. Foundation: auth, tenancy, RLS, RBAC, audit, provisioning organisasi, manajemen user/role | ✅ Selesai |
-| 3. Master Data (Generic Master, Tenant Custom Master, cabang/departemen/lokasi) | ⏳ Berikutnya |
-| 4–8. Aset, transaksi & workflow, laporan, integrasi frontend, QA | Belum dimulai |
+| 3. Master Data: Generic Master + versioning, Tenant Custom Master (adopsi, atribut tambahan, override, effective schema), cabang/departemen/lokasi, kategori, kondisi | ✅ Selesai ([catatan](docs/07-implementation-plan.md#4-catatan-penyelesaian-fase), [API](docs/api/master-data.md)) |
+| 4. Asset Container & Inventory | ⏳ Berikutnya |
+| 5–8. Transaksi & workflow, laporan, integrasi frontend, QA | Belum dimulai |
 
 Menu aplikasi hanya menampilkan modul yang sudah berfungsi.
 

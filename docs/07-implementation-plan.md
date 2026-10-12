@@ -42,5 +42,31 @@ Setiap fase ditutup dengan: seluruh test hijau, ringkasan perubahan, dan pembaru
 | R10 | Lingkungan dev Windows tanpa Docker | Rendah | Jalankan dengan PHP + PostgreSQL lokal; `docker-compose.dev.yml` tetap disediakan untuk tim lain |
 | R11 | Audit log dapat diubah DBA | Rendah | Didokumentasikan; append-only di level app/role DB; hash-chain sebagai kontrol tambahan di roadmap |
 
-## 4. Roadmap pasca V1.0 (bukan bagian implementasi)
+## 4. Catatan penyelesaian fase
+
+### Fase 3 — Master Data (selesai 2026-10-12)
+
+Bukti acceptance criteria (suite backend 151 test, frontend 16 test):
+
+| Kriteria | Test |
+|---|---|
+| Versi released tidak dapat diubah — aplikasi (409) & trigger DB (P0001) | `GenericMasterTest::test_released_version_is_immutable_*`, `TenantCustomMasterTest::test_released_tenant_version_is_immutable` |
+| Tenant tidak dapat memanggil endpoint generic manage (403) dan tidak dapat menulis tabel generik walau lewat SQL langsung (42501) | `MasterDataSecurityTest::test_tenant_cannot_use_generic_master_management_endpoints`, `…reject_writes_from_tenant_context_at_database_level` |
+| Tenant tidak dapat membaca/mengubah master tenant lain (404), FK lintas tenant ditolak DB, RLS menyembunyikan | `MasterDataSecurityTest`, `RouteSecurityTest` (semua route ber-ID diuji dengan ID milik tenant lain) |
+| Override di luar allowlist / melonggarkan ditolak | `OverridePolicyTest`, `TenantCustomMasterTest::test_overrides_outside_the_allowlist_or_loosening_are_rejected` |
+| Effective schema deterministik (hash sama, juga setelah round-trip `jsonb`) | `CanonicalJsonTest`, `TenantCustomMasterTest::test_effective_schema_hash_is_deterministic` |
+| Rilis generik baru tidak mengubah versi tenant; upgrade eksplisit | `TenantCustomMasterTest::test_new_generic_release_does_not_change_tenant_versions_until_explicit_upgrade` |
+
+Keputusan & asumsi yang ditetapkan saat implementasi:
+
+1. **Kategori perusahaan** selalu berinduk pada tepat satu kategori generik; subkategori mewarisi induknya; jangkar generik dan kode tidak dapat diubah (trigger). Definisi yang diadopsi hanya boleh masuk kategori perusahaan yang jangkarnya mencakup kategori definisi generik.
+2. **Kode master tidak dapat diubah** setelah dibuat (dipakai di laporan/ekspor); unik per organisasi (tenant) atau global (platform).
+3. **Override**: lihat [api/master-data.md](api/master-data.md#aturan-override-perusahaan). `pattern` tidak pernah dapat di-override karena penyempitan regex tidak dapat diverifikasi.
+4. **Atribut** dikelola di dalam versi definisi (tidak ada menu "Atribut" terpisah), karena atribut selalu milik versi tertentu.
+5. **Kondisi aset** disalin dari Generic Master saat organisasi dibuat; organisasi lama atau kondisi standar baru dapat ditarik dengan "Salin kondisi standar" (idempoten).
+6. **`tenant_transaction_types`** (konfigurasi jenis transaksi per tenant) dipindahkan ke Fase 5 bersama workflow yang memakainya; Fase 3 hanya menyediakan katalog jenis transaksi generik (kode tetap).
+7. Pemeriksaan "masih dipakai" sebelum arsip saat ini mencakup relasi antar-master; pemeriksaan terhadap aset ditambahkan di Fase 4.
+8. **Perbaikan Fase 2**: sesi PostgreSQL kini dipaksa `timezone = UTC`. Sebelumnya, server dengan zona waktu non-UTC menyimpan timestamp yang ditulis aplikasi bergeser sebesar offset server (diuji oleh `DatabaseTimezoneTest`). Data dev/demo yang dibuat sebelum perbaikan dapat memiliki timestamp bergeser; data baru benar.
+
+## 5. Roadmap pasca V1.0 (bukan bagian implementasi)
 MFA/SSO (SAML/OIDC), hash-chain audit, depresiasi, maintenance scheduling, notifikasi email, API token untuk integrasi, Module Management, GPS/RFID/BLE/IoT, integrasi ERP, analitik prediktif.

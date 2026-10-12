@@ -6,11 +6,23 @@ use App\Domain\Authorization\Models\PlatformRole;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\Models\UserDataScope;
 use App\Domain\Authorization\RoleTemplates;
+use App\Domain\GenericMaster\Models\GenericAssetCategory;
+use App\Domain\GenericMaster\Models\GenericAssetDefinition;
+use App\Domain\GenericMaster\Models\GenericDefinitionVersion;
+use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\User;
+use App\Domain\Organization\Models\Branch;
+use App\Domain\Organization\Models\Department;
+use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Platform\Services\OrganizationProvisioner;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\Shared\Tenancy\TenancyState;
+use App\Domain\TenantMaster\Models\AssetCondition;
+use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use App\Domain\TenantMaster\Models\TenantAssetDefinition;
+use App\Domain\TenantMaster\Models\TenantAttributeDefinition;
+use App\Domain\TenantMaster\Models\TenantDefinitionVersion;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -107,6 +119,50 @@ abstract class TestCase extends BaseTestCase
         }
 
         return $user;
+    }
+
+    /**
+     * One record of every tenant master type for an organization, created directly (system context):
+     * branch, department, location, category, condition, adopted definition GEN-UMUM with draft v1 + attribute.
+     *
+     * @return array{branch: Branch, department: Department, location: Location, category: TenantAssetCategory,
+     *     condition: AssetCondition, definition: TenantAssetDefinition, version: TenantDefinitionVersion, attribute: TenantAttributeDefinition}
+     */
+    protected function createMasterFixtures(Organization $organization, string $suffix = '1'): array
+    {
+        $org = ['organization_id' => $organization->id];
+        $branch = (new Branch)->forceFill([...$org, 'code' => "BR{$suffix}", 'name' => "Cabang {$suffix}"]);
+        $branch->save();
+        $department = (new Department)->forceFill([...$org, 'code' => "DEP{$suffix}", 'name' => "Departemen {$suffix}", 'branch_id' => $branch->id]);
+        $department->save();
+        $location = (new Location)->forceFill([...$org, 'code' => "LOC{$suffix}", 'name' => "Gudang {$suffix}", 'branch_id' => $branch->id,
+            'location_type_id' => LocationType::query()->where('code', 'GUDANG')->value('id')]);
+        $location->save();
+        $category = (new TenantAssetCategory)->forceFill([...$org, 'code' => "CAT{$suffix}", 'name' => "Kategori {$suffix}",
+            'generic_category_id' => GenericAssetCategory::query()->where('code', 'UMUM')->value('id')]);
+        $category->save();
+
+        $generic = GenericAssetDefinition::query()->where('code', 'GEN-UMUM')->firstOrFail();
+        $definition = (new TenantAssetDefinition)->forceFill([...$org, 'code' => "DEF{$suffix}", 'name' => "Definisi {$suffix}",
+            'generic_definition_id' => $generic->id, 'tenant_category_id' => $category->id]);
+        $definition->save();
+        $version = (new TenantDefinitionVersion)->forceFill([...$org, 'tenant_definition_id' => $definition->id, 'version_number' => 1,
+            'generic_definition_version_id' => $generic->versions()->where('status', GenericDefinitionVersion::RELEASED)->value('id')]);
+        $version->save();
+        $attribute = (new TenantAttributeDefinition)->forceFill([...$org, 'tenant_definition_version_id' => $version->id,
+            'key' => 'catatan_internal', 'label' => 'Catatan Internal', 'data_type' => 'string']);
+        $attribute->save();
+
+        return [
+            'branch' => $branch,
+            'department' => $department,
+            'location' => $location,
+            'category' => $category,
+            'condition' => AssetCondition::query()->where('organization_id', $organization->id)->orderBy('sort_order')->firstOrFail(),
+            'definition' => $definition,
+            'version' => $version,
+            'attribute' => $attribute,
+        ];
     }
 
     protected function roleId(Organization $organization, string $code): string

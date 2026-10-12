@@ -13,18 +13,21 @@ use App\Domain\Organization\Models\Organization;
 use App\Domain\Organization\Models\OrganizationSetting;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\Tenancy;
+use App\Domain\TenantMaster\Services\ConditionService;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
 /**
  * Creates a complete, usable organization in one database transaction:
- * organization + settings + roles from templates + first Organization Administrator.
+ * organization + settings + roles from templates + standard asset conditions copied from
+ * the Generic Master + first Organization Administrator.
  */
 final class OrganizationProvisioner
 {
     public function __construct(
         private readonly Tenancy $tenancy,
         private readonly AuditLogger $audit,
+        private readonly ConditionService $conditions,
     ) {}
 
     /**
@@ -46,6 +49,7 @@ final class OrganizationProvisioner
             $settings->forceFill(['organization_id' => $org->id])->save();
 
             $roles = $this->createRoles($org);
+            $this->conditions->importGeneric($org->id);
 
             $user = new User($admin);
             $user->forceFill([

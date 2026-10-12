@@ -13,7 +13,7 @@ Legenda penegakan: **G** = global scope aplikasi (`BelongsToOrganization`, fail-
 | permissions | Platform | — | Seeder/migrasi saja | Semua user login | I |
 | platform_roles, platform_user_roles | Platform | — | Platform Admin | Platform | P |
 | branches, departments, locations | Tenant | organization_id | `master.tenant.*` | Org (`master.tenant.view`) | G C R P |
-| generic_asset_categories, generic_asset_definitions, generic_asset_definition_versions, generic_attribute_definitions, units, location_types, generic_conditions, generic_transaction_types | Platform | — | Platform (`master.generic.manage`) | Semua tenant (`master.generic.view`) | P I (versi released) |
+| generic_asset_categories, generic_asset_definitions, generic_asset_definition_versions, generic_attribute_definitions, units, location_types, generic_conditions, generic_transaction_types | Platform | — | Platform (`master.generic.manage`, rilis: `master.generic.release`) | Semua tenant (`catalog.generic.view`; draft tidak pernah terlihat) | P I (versi released) + trigger statement-level: tulis hanya dalam konteks platform/sistem |
 | tenant_asset_categories, asset_conditions | Tenant | organization_id | `master.tenant.*` | Org | G C R P |
 | tenant_asset_definitions, tenant_asset_definition_versions, tenant_attribute_definitions, tenant_attribute_overrides | Tenant | organization_id | `master.tenant.*` | Org | G C R P I (versi released) |
 | tenant_transaction_types | Tenant | organization_id | `settings.manage` | Org | G C R P |
