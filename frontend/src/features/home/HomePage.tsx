@@ -39,7 +39,6 @@ export function HomePage() {
                 {scope?.organization_wide
                   ? scopeTypeLabel.organization
                   : [
-                      scope?.department_ids.length ? `${scope.department_ids.length} departemen` : null,
                       scope?.location_ids.length ? `${scope.location_ids.length} lokasi` : null,
                     ]
                       .filter(Boolean)

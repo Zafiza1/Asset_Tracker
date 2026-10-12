@@ -227,7 +227,8 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
         {editable && (
           <div className="flex flex-wrap items-end gap-2">
             <Select value={type} onChange={(e) => (setType(e.target.value as ScopeType), setRefId(''))} className="w-auto" aria-label="Jenis cakupan">
-              {Object.entries(scopeTypeLabel).map(([value, label]) => (
+              {/* Department scopes are hidden for now: assets have no department, so they grant nothing. */}
+              {Object.entries(scopeTypeLabel).filter(([value]) => value !== 'department').map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

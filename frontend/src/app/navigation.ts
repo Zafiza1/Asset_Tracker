@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BookOpen, Boxes, Building2, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, Network, Settings, ShieldCheck, Stethoscope, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, BookOpen, Boxes, Building2, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, Settings, ShieldCheck, Stethoscope, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -33,7 +33,6 @@ export const tenantNavigation: NavSection[] = [
       { to: '/master/kategori', label: 'Kategori Aset', icon: FolderTree, permission: 'master.tenant.view' },
       { to: '/master/lokasi', label: 'Lokasi', icon: MapPin, permission: 'master.tenant.view' },
       { to: '/master/kondisi', label: 'Kondisi Aset', icon: Stethoscope, permission: 'master.tenant.view' },
-      { to: '/master/departemen', label: 'Departemen', icon: Network, permission: 'master.tenant.view' },
     ],
   },
   {
@@ -85,7 +84,6 @@ export const breadcrumbLabels: Record<string, string> = {
   definisi: 'Definisi',
   versi: 'Versi',
   lokasi: 'Lokasi',
-  departemen: 'Departemen',
   kondisi: 'Kondisi Aset',
   referensi: 'Referensi',
 }

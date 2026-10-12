@@ -4,7 +4,7 @@ import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
 import { LoginPage } from '../features/auth/LoginPage'
 import { AssetDetailPage } from '../features/assets/AssetDetailPage'
 import { AssetsPage } from '../features/assets/AssetsPage'
-import { ConditionsPage, DepartmentsPage, LocationsPage, TenantCategoriesPage } from '../features/master/StructurePages'
+import { ConditionsPage, LocationsPage, TenantCategoriesPage } from '../features/master/StructurePages'
 import { OrganizationPage } from '../features/organization/OrganizationPage'
 import { SettingsPage } from '../features/organization/SettingsPage'
 import {
@@ -59,7 +59,6 @@ export const router = createBrowserRouter([
           { path: '/audit', element: tenant('audit.view', <AuditLogPage endpoint="/audit-logs" title="Audit Trail" />) },
           { path: '/master/kategori', element: tenant('master.tenant.view', <TenantCategoriesPage />) },
           { path: '/master/lokasi', element: tenant('master.tenant.view', <LocationsPage />) },
-          { path: '/master/departemen', element: tenant('master.tenant.view', <DepartmentsPage />) },
           { path: '/master/kondisi', element: tenant('master.tenant.view', <ConditionsPage />) },
           { path: '/platform/organisasi', element: platform('platform.organization.view', <PlatformOrganizationsPage />) },
           { path: '/platform/organisasi/:id', element: platform('platform.organization.view', <PlatformOrganizationDetailPage />) },
