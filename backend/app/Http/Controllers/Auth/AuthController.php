@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\SessionTerminator;
+use App\Domain\Platform\Services\OrganizationProvisioner;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\PlatformContext;
 use App\Domain\Shared\Tenancy\Tenancy;
@@ -16,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
@@ -58,6 +60,46 @@ class AuthController extends Controller
         $this->audit->record('auth.login', $user, organizationId: $user->organization_id, actor: $user);
 
         return response()->json(['data' => $this->profile($user)]);
+    }
+
+    /**
+     * Self-service sign-up: creates a new organization with the registrant as its
+     * Organization Administrator (same provisioning as the platform console), then logs in.
+     * Runs as system so the uniqueness checks and provisioning see every organization.
+     */
+    public function register(Request $request, OrganizationProvisioner $provisioner): JsonResponse
+    {
+        if (! config('auth.self_registration')) {
+            throw ApiException::forbidden('REGISTRATION_DISABLED', 'Pendaftaran mandiri tidak tersedia. Hubungi administrator.');
+        }
+
+        $request->merge(['organization_code' => strtoupper((string) $request->input('organization_code'))]);
+        $user = $this->tenancy->runAsSystem(function () use ($request, $provisioner) {
+            $data = $request->validate([
+                'organization_name' => ['required', 'string', 'max:150'],
+                'organization_code' => ['required', 'string', 'max:30', 'regex:/^[A-Za-z0-9][A-Za-z0-9_-]{1,29}$/', Rule::unique('organizations', 'code')],
+                'name' => ['required', 'string', 'max:150'],
+                'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')],
+                'password' => ['required', 'string', 'confirmed', 'max:200', Password::min(12)->letters()->mixedCase()->numbers()],
+            ], [
+                'organization_code.unique' => 'Kode organisasi sudah dipakai.',
+                'email.unique' => 'Email sudah terdaftar. Silakan masuk.',
+            ]);
+
+            return $provisioner->provision(
+                ['code' => $data['organization_code'], 'name' => $data['organization_name']],
+                ['name' => $data['name'], 'email' => $data['email'], 'password' => $data['password']],
+                adminMustChangePassword: false,
+            )['admin'];
+        });
+
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
+        $user->forceFill(['last_login_at' => now()])->save();
+
+        $this->audit->record('auth.registered', $user, organizationId: $user->organization_id, actor: $user);
+
+        return response()->json(['data' => $this->profile($user)], 201);
     }
 
     public function logout(Request $request): Response

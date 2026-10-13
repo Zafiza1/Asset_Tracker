@@ -1,12 +1,14 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Plus, Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
+import { ActiveFilters, FilterGrid, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
-import { Input, Select } from '../../components/ui/Field'
+import { Select } from '../../components/ui/Field'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { Paginated } from '../../lib/api/types'
@@ -29,9 +31,11 @@ export function AssetsPage() {
   const selectedCategories = (params.get('category_ids') ?? '').split(',').filter(Boolean)
 
   const categoryRows = useOptions('/tenant-masters/categories').data
-  const categories = toOptions(categoryRows).map((o, i) => ({ ...o, name: categoryRows![i].name }))
-  const locations = toOptions(useOptions('/locations').data)
-  const conditions = toOptions(useOptions('/tenant-masters/conditions').data)
+  const categories = toOptions(categoryRows)
+  const locationRows = useOptions('/locations').data
+  const locations = toOptions(locationRows)
+  const conditionRows = useOptions('/tenant-masters/conditions').data
+  const conditions = toOptions(conditionRows)
 
   const query = useQuery({
     queryKey: ['/assets', filters],
@@ -49,6 +53,18 @@ export function AssetsPage() {
     setParams(merged)
   }
   const hasFilters = FILTERS.some((k) => k !== 'page' && k !== 'sort' && params.get(k))
+
+  // Every applied filter as a removable chip, so the filter controls stay one tidy row.
+  const nameOf = (rows: { id: string; name: string }[] | undefined, id: string | null) => rows?.find((r) => r.id === id)?.name ?? '…'
+  const archived = params.get('archived')
+  const chips: FilterChip[] = [
+    ...searchChip(params.get('search'), () => (setSearch(''), update({ search: '' }))),
+    ...selectedCategories.map((id) => ({ key: `category:${id}`, label: nameOf(categoryRows, id), clear: () => update({ category_ids: selectedCategories.filter((c) => c !== id).join(',') }) })),
+    ...(params.get('location_id') ? [{ key: 'location', label: `Lokasi: ${nameOf(locationRows, params.get('location_id'))}`, clear: () => update({ location_id: '' }) }] : []),
+    ...(params.get('status') ? [{ key: 'status', label: `Status: ${assetStatusLabel[params.get('status') as AssetStatus] ?? params.get('status')}`, clear: () => update({ status: '' }) }] : []),
+    ...(params.get('condition_id') ? [{ key: 'condition', label: `Kondisi: ${nameOf(conditionRows, params.get('condition_id'))}`, clear: () => update({ condition_id: '' }) }] : []),
+    ...(archived ? [{ key: 'archived', label: archived === 'only' ? 'Aset nonaktif' : 'Aktif & nonaktif', clear: () => update({ archived: '' }) }] : []),
+  ]
 
   const columns: Column<Asset>[] = [
     {
@@ -95,26 +111,25 @@ export function AssetsPage() {
         }
       />
       <Card>
-        <div className="space-y-2 border-b border-slate-200 p-3">
-          <form
-            role="search"
-            className="flex flex-wrap gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              update({ search })
-            }}
-          >
-            <div className="relative min-w-48 flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-slate-400" aria-hidden />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama, nomor aset, atau nomor seri" className="pl-8" aria-label="Cari aset" />
-            </div>
-            <Button type="submit" variant="secondary">
-              Cari
-            </Button>
-          </form>
-          <div className="flex flex-wrap items-start gap-2">
+        <FilterPanel>
+          <SearchForm
+            value={search}
+            onChange={setSearch}
+            onSubmit={() => update({ search })}
+            placeholder="Cari nama, nomor aset, atau nomor seri"
+            label="Cari aset"
+            aside={
+              <Select value={params.get('sort') ?? ''} onChange={(e) => update({ sort: e.target.value })} className="sm:w-64" aria-label="Urutkan">
+                <option value="">Urutkan: terbaru ditambahkan</option>
+                <option value="asset_number">Urutkan: nomor aset</option>
+                <option value="name">Urutkan: nama (A–Z)</option>
+                <option value="-acquisition_date">Urutkan: tanggal perolehan terbaru</option>
+              </Select>
+            }
+          />
+          <FilterGrid>
             <CategoryFilter options={categories} selected={selectedCategories} onChange={(ids) => update({ category_ids: ids.join(',') })} />
-            <Select value={params.get('location_id') ?? ''} onChange={(e) => update({ location_id: e.target.value })} className="w-auto" aria-label="Filter lokasi">
+            <Select value={params.get('location_id') ?? ''} onChange={(e) => update({ location_id: e.target.value })} aria-label="Filter lokasi">
               <option value="">Lokasi: semua</option>
               {locations.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -122,7 +137,7 @@ export function AssetsPage() {
                 </option>
               ))}
             </Select>
-            <Select value={params.get('status') ?? ''} onChange={(e) => update({ status: e.target.value })} className="w-auto" aria-label="Filter status">
+            <Select value={params.get('status') ?? ''} onChange={(e) => update({ status: e.target.value })} aria-label="Filter status">
               <option value="">Status: semua</option>
               {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
                 <option key={s} value={s}>
@@ -130,7 +145,7 @@ export function AssetsPage() {
                 </option>
               ))}
             </Select>
-            <Select value={params.get('condition_id') ?? ''} onChange={(e) => update({ condition_id: e.target.value })} className="w-auto" aria-label="Filter kondisi">
+            <Select value={params.get('condition_id') ?? ''} onChange={(e) => update({ condition_id: e.target.value })} aria-label="Filter kondisi">
               <option value="">Kondisi: semua</option>
               {conditions.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -138,24 +153,14 @@ export function AssetsPage() {
                 </option>
               ))}
             </Select>
-            <Select value={params.get('archived') ?? ''} onChange={(e) => update({ archived: e.target.value })} className="w-auto" aria-label="Aset aktif atau nonaktif">
+            <Select value={params.get('archived') ?? ''} onChange={(e) => update({ archived: e.target.value })} aria-label="Aset aktif atau nonaktif">
               <option value="">Aset aktif</option>
               <option value="only">Aset nonaktif</option>
-              <option value="all">Semua aset</option>
+              <option value="all">Aktif &amp; nonaktif</option>
             </Select>
-            <Select value={params.get('sort') ?? ''} onChange={(e) => update({ sort: e.target.value })} className="w-auto" aria-label="Urutkan">
-              <option value="">Terbaru ditambahkan</option>
-              <option value="asset_number">Nomor aset</option>
-              <option value="name">Nama (A–Z)</option>
-              <option value="-acquisition_date">Tanggal perolehan terbaru</option>
-            </Select>
-            {hasFilters && (
-              <Button variant="ghost" onClick={() => (setSearch(''), setParams(new URLSearchParams()))}>
-                Reset filter
-              </Button>
-            )}
-          </div>
-        </div>
+          </FilterGrid>
+          <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams()))} />
+        </FilterPanel>
         {query.isLoading ? (
           <Spinner />
         ) : query.isError ? (

@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router'
 import { AuditLogPage } from '../features/audit/AuditLogPage'
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
 import { LoginPage } from '../features/auth/LoginPage'
+import { RegisterPage } from '../features/auth/RegisterPage'
 import { AssetDetailPage } from '../features/assets/AssetDetailPage'
 import { AssetsPage } from '../features/assets/AssetsPage'
 import { ConditionsPage, LocationsPage, TenantCategoriesPage } from '../features/master/StructurePages'
@@ -37,6 +38,7 @@ const platform = (permission: string, element: React.ReactNode) => (
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
+  { path: '/daftar', element: <RegisterPage /> },
   {
     element: <RequireAuth />,
     children: [

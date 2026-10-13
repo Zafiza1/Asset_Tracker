@@ -14,6 +14,7 @@ function withAuth(permissions: string[], ui: React.ReactNode) {
     isLoading: false,
     can: (p) => permissions.includes(p),
     login: vi.fn(),
+    signUp: vi.fn(),
     logout: vi.fn(),
     setProfile: vi.fn(),
   }

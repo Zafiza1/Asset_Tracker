@@ -15,7 +15,7 @@ use Tests\TestCase;
 class RouteSecurityTest extends TestCase
 {
     /** Routes reachable without a session. */
-    private const PUBLIC_ROUTES = ['api/health', 'api/health/ready', 'api/auth/login'];
+    private const PUBLIC_ROUTES = ['api/health', 'api/health/ready', 'api/auth/login', 'api/auth/register'];
 
     /** Authenticated routes that intentionally run without tenant/platform context. */
     private const SESSION_ONLY_ROUTES = ['api/auth/logout', 'api/auth/me', 'api/auth/password'];

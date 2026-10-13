@@ -9,6 +9,8 @@ import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
+import { ActiveFilters, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { searchChip } from '../../components/ui/filterChips'
 import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
@@ -51,19 +53,10 @@ export function PlatformOrganizationsPage() {
         }
       />
       <Card>
-        <form
-          role="search"
-          className="flex gap-2 border-b border-slate-200 p-3"
-          onSubmit={(e) => {
-            e.preventDefault()
-            setParams(search ? { search } : {})
-          }}
-        >
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari kode atau nama" aria-label="Cari organisasi" />
-          <Button type="submit" variant="secondary">
-            Cari
-          </Button>
-        </form>
+        <FilterPanel>
+          <SearchForm value={search} onChange={setSearch} onSubmit={() => setParams(search ? { search } : {})} placeholder="Cari kode atau nama" label="Cari organisasi" />
+          <ActiveFilters chips={searchChip(params.get('search'), () => (setSearch(''), setParams({})))} onReset={() => (setSearch(''), setParams({}))} />
+        </FilterPanel>
         {query.isLoading ? (
           <Spinner />
         ) : query.isError ? (

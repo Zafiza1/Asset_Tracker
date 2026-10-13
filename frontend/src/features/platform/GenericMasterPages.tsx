@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
@@ -9,6 +9,8 @@ import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
+import { ActiveFilters, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { searchChip } from '../../components/ui/filterChips'
 import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, ApiError, qs } from '../../lib/api/client'
@@ -158,22 +160,10 @@ export function PlatformDefinitionsPage() {
         }
       />
       <Card>
-        <form
-          role="search"
-          className="flex flex-wrap gap-2 border-b border-slate-200 p-3"
-          onSubmit={(e) => {
-            e.preventDefault()
-            setParams(search ? { search } : {})
-          }}
-        >
-          <div className="relative min-w-48 flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-slate-400" aria-hidden />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari kode atau nama" className="pl-8" aria-label="Cari definisi" />
-          </div>
-          <Button type="submit" variant="secondary">
-            Cari
-          </Button>
-        </form>
+        <FilterPanel>
+          <SearchForm value={search} onChange={setSearch} onSubmit={() => setParams(search ? { search } : {})} placeholder="Cari kode atau nama" label="Cari definisi" />
+          <ActiveFilters chips={searchChip(params.get('search'), () => (setSearch(''), setParams({})))} onReset={() => (setSearch(''), setParams({}))} />
+        </FilterPanel>
         {query.isLoading ? (
           <Spinner />
         ) : query.isError ? (

@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Pencil, Plus, Power, RotateCcw, Search } from 'lucide-react'
+import { Archive, Pencil, Plus, Power, RotateCcw } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { useSearchParams } from 'react-router'
@@ -9,6 +9,8 @@ import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
+import { ActiveFilters, FilterGrid, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
@@ -96,6 +98,18 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
     }
     setParams(merged)
   }
+  const status = params.get('status')
+  const chips: FilterChip[] = [
+    ...searchChip(params.get('search'), () => (setSearch(''), update({ search: '', page: '' }))),
+    ...(config.filters ?? [])
+      .filter((f) => filterValues[f.name])
+      .map((f) => ({
+        key: f.name,
+        label: `${f.label}: ${f.options.find((o) => o.value === filterValues[f.name])?.label.trim() ?? '…'}`,
+        clear: () => update({ [f.name]: '', page: '' }),
+      })),
+    ...(status ? [{ key: 'status', label: `Status: ${masterStatusLabel[status as keyof typeof masterStatusLabel] ?? status}`, clear: () => update({ status: '', page: '' }) }] : []),
+  ]
 
   const actionsColumn: Column<T> = {
     key: 'actions',
@@ -141,40 +155,30 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
 
   const body = (
     <Card>
-      <form
-        role="search"
-        className="flex flex-wrap gap-2 border-b border-slate-200 p-3"
-        onSubmit={(e) => {
-          e.preventDefault()
-          update({ search, page: '' })
-        }}
-      >
-        <div className="relative min-w-48 flex-1">
-          <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-slate-400" aria-hidden />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari kode atau nama" className="pl-8" aria-label={`Cari ${config.title}`} />
-        </div>
-        {config.filters?.map((f) => (
-          <Select key={f.name} value={filterValues[f.name]} onChange={(e) => update({ [f.name]: e.target.value, page: '' })} className="w-auto" aria-label={f.label}>
-            <option value="">{f.label}: semua</option>
-            {f.options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
+      <FilterPanel>
+        <SearchForm value={search} onChange={setSearch} onSubmit={() => update({ search, page: '' })} placeholder="Cari kode atau nama" label={`Cari ${config.title}`} />
+        <FilterGrid>
+          {config.filters?.map((f) => (
+            <Select key={f.name} value={filterValues[f.name]} onChange={(e) => update({ [f.name]: e.target.value, page: '' })} aria-label={f.label}>
+              <option value="">{f.label}: semua</option>
+              {f.options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          ))}
+          <Select value={params.get('status') ?? ''} onChange={(e) => update({ status: e.target.value, page: '' })} aria-label="Filter status">
+            <option value="">Status: semua</option>
+            {Object.entries(masterStatusLabel).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
               </option>
             ))}
           </Select>
-        ))}
-        <Select value={params.get('status') ?? ''} onChange={(e) => update({ status: e.target.value, page: '' })} className="w-auto" aria-label="Filter status">
-          <option value="">Aktif & nonaktif</option>
-          {Object.entries(masterStatusLabel).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </Select>
-        <Button type="submit" variant="secondary">
-          Cari
-        </Button>
-      </form>
+        </FilterGrid>
+        <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams()))} />
+      </FilterPanel>
       {statusChange.isError && (
         <div className="p-3">
           <Alert tone="error">{errorMessage(statusChange.error)}</Alert>
@@ -185,7 +189,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
       ) : query.isError ? (
         <ErrorState error={query.error} />
       ) : query.data!.data.length === 0 ? (
-        <EmptyState title="Belum ada data" description={config.emptyHint ?? 'Ubah kata kunci atau filter pencarian.'} />
+        <EmptyState title={chips.length > 0 ? 'Tidak ada data yang cocok' : 'Belum ada data'} description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : config.emptyHint} />
       ) : (
         <>
           <DataTable columns={columns} rows={query.data!.data} />

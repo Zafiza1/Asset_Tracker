@@ -1,15 +1,15 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
-import { Input } from '../../components/ui/Field'
+import { ActiveFilters, DateRangeFilter, FilterGrid, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { type FilterChip } from '../../components/ui/filterChips'
 import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { AuditLog, Paginated } from '../../lib/api/types'
-import { formatDateTime } from '../../lib/format'
+import { formatDate, formatDateTime } from '../../lib/format'
 
 const actorLabel = (log: AuditLog) => log.actor?.name ?? (log.actor_type === 'system' ? 'Sistem' : 'Anonim')
 
@@ -34,6 +34,12 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
     }
     setParams(merged)
   }
+  const chips: FilterChip[] = [
+    ...(params.get('action') ? [{ key: 'action', label: `Aksi: ${params.get('action')}`, clear: () => (setAction(''), update({ action: '', page: '' })) }] : []),
+    ...(params.get('from') ? [{ key: 'from', label: `Dari ${formatDate(params.get('from'))}`, clear: () => update({ from: '', page: '' }) }] : []),
+    ...(params.get('to') ? [{ key: 'to', label: `Sampai ${formatDate(params.get('to'))}`, clear: () => update({ to: '', page: '' }) }] : []),
+    ...(params.get('organization_id') ? [{ key: 'organization', label: 'Satu organisasi', clear: () => update({ organization_id: '', page: '' }) }] : []),
+  ]
 
   const columns: Column<AuditLog>[] = [
     { key: 'time', header: 'Waktu', cell: (l) => <span className="whitespace-nowrap">{formatDateTime(l.created_at)}</span> },
@@ -47,36 +53,19 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
     <>
       <PageHeader title={title} description="Catatan append-only atas aktivitas penting. Tidak dapat diubah atau dihapus." />
       <Card>
-        <form
-          role="search"
-          className="flex flex-wrap items-end gap-2 border-b border-slate-200 p-3"
-          onSubmit={(e) => {
-            e.preventDefault()
-            update({ action, page: '' })
-          }}
-        >
-          <label className="min-w-48 flex-1 text-sm">
-            <span className="mb-1 block text-slate-600">Aksi</span>
-            <Input value={action} onChange={(e) => setAction(e.target.value)} placeholder="mis. user.* atau auth.login" />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block text-slate-600">Dari</span>
-            <Input type="date" value={params.get('from') ?? ''} onChange={(e) => update({ from: e.target.value, page: '' })} />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block text-slate-600">Sampai</span>
-            <Input type="date" value={params.get('to') ?? ''} onChange={(e) => update({ to: e.target.value, page: '' })} />
-          </label>
-          <Button type="submit" variant="secondary">
-            Terapkan
-          </Button>
-        </form>
+        <FilterPanel>
+          <SearchForm value={action} onChange={setAction} onSubmit={() => update({ action, page: '' })} placeholder="Cari aksi, mis. user.* atau auth.login" label="Cari aksi" />
+          <FilterGrid>
+            <DateRangeFilter from={params.get('from') ?? ''} to={params.get('to') ?? ''} onChange={(from, to) => update({ from, to, page: '' })} />
+          </FilterGrid>
+          <ActiveFilters chips={chips} onReset={() => (setAction(''), setParams(new URLSearchParams()))} />
+        </FilterPanel>
         {query.isLoading ? (
           <Spinner />
         ) : query.isError ? (
           <ErrorState error={query.error} />
         ) : query.data!.data.length === 0 ? (
-          <EmptyState title="Tidak ada catatan" description="Tidak ada aktivitas yang cocok dengan filter." />
+          <EmptyState title={chips.length > 0 ? 'Tidak ada catatan yang cocok' : 'Belum ada catatan'} description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : undefined} />
         ) : (
           <>
             <DataTable columns={columns} rows={query.data!.data} onRowClick={setSelected} />

@@ -36,6 +36,8 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by('login:'.mb_strtolower((string) $request->input('email')).'|'.$request->ip()),
             Limit::perMinute(30)->by('login-ip:'.$request->ip()),
         ]);
+        // Each sign-up creates a whole organization: keep it rare per client.
+        RateLimiter::for('register', fn (Request $request) => Limit::perHour(3)->by('register:'.$request->ip()));
         RateLimiter::for('sensitive', fn (Request $request) => Limit::perMinute(5)->by('sensitive:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(240)->by('api:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
 

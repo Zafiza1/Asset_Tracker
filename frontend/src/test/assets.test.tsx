@@ -53,8 +53,8 @@ describe('transaction types per asset status', () => {
 
 describe('CategoryFilter', () => {
   const options = [
-    { value: 'a', label: 'Kendaraan (KEND)', name: 'Kendaraan' },
-    { value: 'b', label: '  Mobil (MOBIL)', name: 'Mobil' },
+    { value: 'a', label: 'Kendaraan (KEND)' },
+    { value: 'b', label: '  Mobil (MOBIL)' },
   ]
 
   it('adds and removes categories', () => {
@@ -65,7 +65,7 @@ describe('CategoryFilter', () => {
 
     rerender(<CategoryFilter options={options} selected={['a', 'b']} onChange={onChange} />)
     expect(screen.getByText('Kategori (2)')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Hapus filter Kendaraan' }))
+    fireEvent.click(screen.getByLabelText(/Kendaraan/))
     expect(onChange).toHaveBeenLastCalledWith(['b'])
   })
 })

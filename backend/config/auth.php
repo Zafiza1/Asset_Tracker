@@ -114,4 +114,11 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    | Self-service sign-up (POST /api/auth/register): anyone may create a new organization
+    | and become its administrator. Set to false to allow only platform-provisioned ones.
+    */
+
+    'self_registration' => (bool) env('SELF_REGISTRATION_ENABLED', true),
+
 ];

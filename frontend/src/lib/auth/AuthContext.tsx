@@ -44,6 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(profile)
         return profile
       },
+      signUp: async (data) => {
+        const profile = (await api.post<Resource<Profile>>('/auth/register', data)).data
+        queryClient.clear()
+        setProfile(profile)
+        return profile
+      },
       logout: async () => {
         try {
           await api.post('/auth/logout')

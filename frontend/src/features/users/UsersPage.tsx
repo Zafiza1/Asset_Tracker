@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Plus, Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -7,7 +7,9 @@ import { statusTone } from '../../components/ui/badgeTones'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
-import { Input, Select } from '../../components/ui/Field'
+import { Select } from '../../components/ui/Field'
+import { ActiveFilters, FilterGrid, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { Paginated, User } from '../../lib/api/types'
@@ -53,6 +55,10 @@ export function UsersPage() {
     }
     setParams(merged)
   }
+  const chips: FilterChip[] = [
+    ...searchChip(params.get('search'), () => (setSearch(''), update({ search: '', page: '' }))),
+    ...(status ? [{ key: 'status', label: `Status: ${userStatusLabel[status as keyof typeof userStatusLabel] ?? status}`, clear: () => update({ status: '', page: '' }) }] : []),
+  ]
 
   return (
     <>
@@ -71,36 +77,26 @@ export function UsersPage() {
         }
       />
       <Card>
-        <form
-          className="flex flex-wrap gap-2 border-b border-slate-200 p-3"
-          onSubmit={(e) => {
-            e.preventDefault()
-            update({ search, page: '' })
-          }}
-          role="search"
-        >
-          <div className="relative min-w-48 flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-slate-400" aria-hidden />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama, email, atau NIK" className="pl-8" aria-label="Cari pengguna" />
-          </div>
-          <Select value={status} onChange={(e) => update({ status: e.target.value, page: '' })} className="w-auto" aria-label="Filter status">
-            <option value="">Semua status</option>
-            {Object.entries(userStatusLabel).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-          <Button type="submit" variant="secondary">
-            Cari
-          </Button>
-        </form>
+        <FilterPanel>
+          <SearchForm value={search} onChange={setSearch} onSubmit={() => update({ search, page: '' })} placeholder="Cari nama, email, atau NIK" label="Cari pengguna" />
+          <FilterGrid>
+            <Select value={status} onChange={(e) => update({ status: e.target.value, page: '' })} aria-label="Filter status">
+              <option value="">Status: semua</option>
+              {Object.entries(userStatusLabel).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          </FilterGrid>
+          <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams()))} />
+        </FilterPanel>
         {query.isLoading ? (
           <Spinner />
         ) : query.isError ? (
           <ErrorState error={query.error} />
         ) : query.data!.data.length === 0 ? (
-          <EmptyState title="Tidak ada pengguna" description="Ubah kata kunci atau filter pencarian." />
+          <EmptyState title={chips.length > 0 ? 'Tidak ada pengguna yang cocok' : 'Belum ada pengguna'} description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : undefined} />
         ) : (
           <>
             <DataTable columns={columns} rows={query.data!.data} onRowClick={(u) => navigate(`/pengguna/${u.id}`)} />

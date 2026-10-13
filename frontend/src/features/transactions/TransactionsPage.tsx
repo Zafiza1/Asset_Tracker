@@ -1,12 +1,14 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Plus, Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { ActiveFilters, DateRangeFilter, FilterGrid, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
-import { Input, Select } from '../../components/ui/Field'
+import { Select } from '../../components/ui/Field'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { Paginated } from '../../lib/api/types'
@@ -41,6 +43,15 @@ export function TransactionsPage() {
     if (!('page' in next)) merged.delete('page')
     setParams(merged)
   }
+
+  // Every applied filter as a removable chip.
+  const type = params.get('type') as TransactionType | null
+  const chips: FilterChip[] = [
+    ...searchChip(params.get('search'), () => (setSearch(''), update({ search: '' }))),
+    ...(type ? [{ key: 'type', label: `Jenis: ${transactionTypeLabel[type] ?? type}`, clear: () => update({ type: '' }) }] : []),
+    ...(params.get('date_from') ? [{ key: 'from', label: `Dari ${formatDate(params.get('date_from')!)}`, clear: () => update({ date_from: '' }) }] : []),
+    ...(params.get('date_to') ? [{ key: 'to', label: `Sampai ${formatDate(params.get('date_to')!)}`, clear: () => update({ date_to: '' }) }] : []),
+  ]
 
   const columns: Column<AssetTransaction>[] = [
     {
@@ -83,38 +94,30 @@ export function TransactionsPage() {
         }
       />
       <Card>
-        <form
-          role="search"
-          className="flex flex-wrap gap-2 border-b border-slate-200 p-3"
-          onSubmit={(e) => {
-            e.preventDefault()
-            update({ search })
-          }}
-        >
-          <div className="relative min-w-48 flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-slate-400" aria-hidden />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nomor transaksi, aset, peminjam, catatan" className="pl-8" aria-label="Cari transaksi" />
-          </div>
-          <Select value={params.get('type') ?? ''} onChange={(e) => update({ type: e.target.value })} className="w-auto" aria-label="Jenis transaksi">
-            <option value="">Semua jenis</option>
-            {(Object.keys(transactionTypeLabel) as TransactionType[]).map((t) => (
-              <option key={t} value={t}>
-                {transactionTypeLabel[t]}
-              </option>
-            ))}
-          </Select>
-          <Input type="date" value={params.get('date_from') ?? ''} onChange={(e) => update({ date_from: e.target.value })} className="w-auto" aria-label="Dari tanggal" />
-          <Input type="date" value={params.get('date_to') ?? ''} onChange={(e) => update({ date_to: e.target.value })} className="w-auto" aria-label="Sampai tanggal" />
-          <Button type="submit" variant="secondary">
-            Cari
-          </Button>
-        </form>
+        <FilterPanel>
+          <SearchForm value={search} onChange={setSearch} onSubmit={() => update({ search })} placeholder="Cari nomor transaksi, aset, peminjam, catatan" label="Cari transaksi" />
+          <FilterGrid>
+            <Select value={params.get('type') ?? ''} onChange={(e) => update({ type: e.target.value })} aria-label="Jenis transaksi">
+              <option value="">Jenis: semua</option>
+              {(Object.keys(transactionTypeLabel) as TransactionType[]).map((t) => (
+                <option key={t} value={t}>
+                  {transactionTypeLabel[t]}
+                </option>
+              ))}
+            </Select>
+            <DateRangeFilter from={params.get('date_from') ?? ''} to={params.get('date_to') ?? ''} onChange={(from, to) => update({ date_from: from, date_to: to })} />
+          </FilterGrid>
+          <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams()))} />
+        </FilterPanel>
         {query.isLoading ? (
           <Spinner />
         ) : query.isError ? (
           <ErrorState error={query.error} />
         ) : query.data!.data.length === 0 ? (
-          <EmptyState title="Belum ada transaksi" description="Transaksi muncul di sini setelah aset ditambahkan atau dicatat aktivitasnya." />
+          <EmptyState
+            title={chips.length > 0 ? 'Tidak ada transaksi yang cocok' : 'Belum ada transaksi'}
+            description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : 'Transaksi muncul di sini setelah aset ditambahkan atau dicatat aktivitasnya.'}
+          />
         ) : (
           <>
             <DataTable columns={columns} rows={query.data!.data} />
