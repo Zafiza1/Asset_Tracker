@@ -45,12 +45,11 @@ erDiagram
 ```
 
 Catatan relasi penting:
-- **Satu user = satu perusahaan.** Tidak ada tabel membership; kepemilikan organisasi melekat langsung pada `users.organization_id`.
-- `users.user_type ∈ {tenant, platform}` dengan CHECK: `tenant` ⇒ `organization_id NOT NULL`; `platform` ⇒ `organization_id IS NULL`. User platform tidak dapat menerima role tenant; user tenant tidak dapat menerima role platform (trigger + validasi service).
-- `users.organization_id` **tidak dapat diubah** setelah dibuat (trigger). Karyawan yang pindah perusahaan = akun lama dinonaktifkan, akun baru dibuat di perusahaan baru (histori aset/transaksi tetap menunjuk akun lama).
-- `email` unik global (login cukup email + password, organisasi ditentukan dari akun). Konsekuensi: satu email tidak bisa dipakai di dua perusahaan; email akun yang dinonaktifkan dapat dilepas oleh Platform Admin (diaudit) bila diperlukan.
-- `UNIQUE (organization_id, id)` pada `users` agar `user_roles`, `user_data_scopes`, custodian, pemohon, dan approver memakai composite FK `(organization_id, user_id) → users(organization_id, id)`.
-- Status user `invited | active | suspended | deactivated`.
+- **Satu akun, banyak perusahaan** (sejak migrasi `0001_01_01_000700`). `users` hanya identitas global (nama, email, password, telepon, status akun, `last_organization_id`). Keanggotaan per organisasi ada di `organization_members (organization_id, user_id, status, employee_number, job_title, home_department_id)`, `UNIQUE (organization_id, user_id)`, ber-RLS, tidak pernah dihapus (keluar = `deactivated`), `organization_id`/`user_id` tidak dapat diubah (trigger).
+- `users.user_type ∈ {tenant, platform}` tidak dapat diubah (trigger). Hanya user tenant yang dapat menjadi anggota organisasi (trigger); user platform tidak dapat menerima role tenant dan sebaliknya.
+- `email` unik global: satu login untuk semua organisasi akun tersebut. Admin organisasi yang menambahkan email yang sudah terdaftar akan menambahkan akun itu sebagai anggota (password dan profilnya tetap). Data akun (nama, email, telepon, password) hanya dapat diubah admin bila akun itu hanya anggota organisasinya (`SHARED_ACCOUNT`).
+- `user_roles`, `user_data_scopes`, dan kolom pembuat/pengubah pada data tenant memakai composite FK `(organization_id, user_id) → organization_members(organization_id, user_id)`, sehingga hanya anggota organisasi yang sama yang dapat direferensikan.
+- Status `invited | active | suspended | deactivated` berlaku per keanggotaan; `users.status` adalah status akun global (memblokir semua organisasi).
 - `user_data_scopes.scope_type ∈ {organization, branch, department, location}`; `scope_ref_id` NULL hanya bila `organization`. Integritas `scope_ref_id` divalidasi oleh 3 composite FK parsial (kolom `branch_id`/`department_id`/`location_id` terpisah + CHECK tepat satu terisi) — bukan polymorphic bebas.
 - `roles` hanya tenant. Template role (Organization Administrator, Asset Manager, dst.) dikopi saat organisasi dibuat dengan `template_code` sebagai identitas sumber. Role `ORG_ADMIN` `is_locked` (permission inti tidak dapat dicabut) dan sistem menolak operasi yang membuat organisasi tanpa admin aktif.
 - `permissions.scope ∈ {platform, tenant}`; trigger/validasi menolak permission platform pada `role_permissions`.

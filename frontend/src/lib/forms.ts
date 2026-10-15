@@ -1,4 +1,5 @@
 import type { FieldValues, Path, UseFormSetError } from 'react-hook-form'
+import { z } from 'zod'
 import { ApiError } from './api/client'
 
 /**
@@ -27,3 +28,12 @@ export const passwordRule = {
   test: (v: string) => v.length >= 12 && /[a-z]/.test(v) && /[A-Z]/.test(v) && /\d/.test(v),
   message: 'Minimal 12 karakter, mengandung huruf besar, huruf kecil, dan angka.',
 }
+
+/** Organization code as accepted by the API: 2–30 letters, digits, underscore or dash. */
+export const organizationCodeRule = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{1,29}$/, '2–30 karakter: huruf, angka, garis bawah, atau strip.')
+
+/** Suggested organization code from its name, e.g. "PT Maju Jaya" → "PTMAJUJAYA". */
+export const suggestCode = (name: string) => name.toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 12)

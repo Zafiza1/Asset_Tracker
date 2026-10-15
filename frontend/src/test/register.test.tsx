@@ -6,7 +6,7 @@ import type { Profile } from '../lib/api/types'
 import { AuthContext, type AuthState } from '../lib/auth/context'
 
 function renderPage(signUp: AuthState['signUp']) {
-  const state: AuthState = { profile: null, isLoading: false, can: () => false, login: vi.fn(), signUp, logout: vi.fn(), setProfile: vi.fn() }
+  const state: AuthState = { profile: null, isLoading: false, can: () => false, login: vi.fn(), signUp, logout: vi.fn(), setProfile: vi.fn(), switchOrganization: vi.fn(), createOrganization: vi.fn() }
   return render(
     <AuthContext.Provider value={state}>
       <MemoryRouter>

@@ -7,6 +7,7 @@ import { AssetDetailPage } from '../features/assets/AssetDetailPage'
 import { AssetsPage } from '../features/assets/AssetsPage'
 import { ConditionsPage, LocationsPage, TenantCategoriesPage } from '../features/master/StructurePages'
 import { OrganizationPage } from '../features/organization/OrganizationPage'
+import { CreateOrganizationPage, SelectOrganizationPage } from '../features/organizations/OrganizationPages'
 import { SettingsPage } from '../features/organization/SettingsPage'
 import {
   PlatformCategoriesPage,
@@ -42,6 +43,9 @@ export const router = createBrowserRouter([
   {
     element: <RequireAuth />,
     children: [
+      // Outside the app layout: no organization may be active yet.
+      { path: '/pilih-organisasi', element: <SelectOrganizationPage /> },
+      { path: '/organisasi/baru', element: <CreateOrganizationPage /> },
       {
         element: <AppLayout />,
         children: [

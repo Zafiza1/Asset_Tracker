@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Platform;
 
 use App\Domain\Audit\AuditLogger;
+use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Platform\Services\OrganizationProvisioner;
 use App\Domain\Shared\Exceptions\ApiException;
@@ -41,6 +42,7 @@ class OrganizationController extends Controller
     public function store(Request $request, OrganizationProvisioner $provisioner): JsonResponse
     {
         $request->merge(['code' => strtoupper((string) $request->input('code'))]);
+        $existing = User::query()->where('email', (string) $request->input('admin.email'))->first();
         $data = $request->validate([
             'code' => ['required', 'string', 'max:30', 'regex:/^[A-Za-z0-9][A-Za-z0-9_-]{1,29}$/', Rule::unique('organizations', 'code')],
             'name' => ['required', 'string', 'max:150'],
@@ -50,12 +52,13 @@ class OrganizationController extends Controller
             'email' => ['nullable', 'email', 'max:150'],
             'phone' => ['nullable', 'string', 'max:30'],
             'address' => ['nullable', 'string', 'max:1000'],
-            'admin.name' => ['required', 'string', 'max:150'],
-            'admin.email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')],
-            'admin.password' => ['required', 'string', 'max:200', Password::min(12)->letters()->mixedCase()->numbers()],
+            'admin.name' => [Rule::requiredIf($existing === null), 'nullable', 'string', 'max:150'],
+            // An existing tenant account becomes the administrator (same login); otherwise a new account is created.
+            'admin.email' => ['required', 'email', 'max:150'],
+            'admin.password' => [Rule::requiredIf($existing === null), 'nullable', 'string', 'max:200', Password::min(12)->letters()->mixedCase()->numbers()],
         ]);
 
-        $admin = $data['admin'];
+        $admin = $existing ?? $data['admin'];
         unset($data['admin']);
         $result = $provisioner->provision(array_filter($data, fn ($v) => $v !== null), $admin);
 

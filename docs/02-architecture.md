@@ -90,7 +90,7 @@ sequenceDiagram
 ```
 
 Aturan:
-1. **Satu user = satu perusahaan.** Organisasi tenant **selalu diturunkan dari akun yang login** (`users.organization_id`), tidak pernah dari header, URL, atau body. Tidak ada fitur pindah organisasi; parameter `organization_id` apa pun dari browser diabaikan/ditolak oleh request validation.
+1. **Satu akun, banyak perusahaan.** Organisasi tenant aktif disimpan di **session server** dan hanya dapat diganti lewat `PUT /api/auth/organization` (atau otomatis: satu-satunya organisasi / organisasi terakhir dipakai). Setiap request memeriksa ulang bahwa akun, keanggotaan (`organization_members`), dan organisasi masih aktif. Header, URL, atau body tidak pernah memilih organisasi; header `X-Organization-Id` dari frontend hanya **menegaskan** organisasi yang sedang ditampilkan, dan bila berbeda dengan session (mis. tab lain sudah pindah) request ditolak `409 ORGANIZATION_MISMATCH`.
 2. Status user, status organisasi, permission, dan scope **dievaluasi ulang setiap request** (cache per request saja), sehingga pencabutan akses berlaku seketika.
 3. `TenantContext` adalah objek immutable yang diinjeksikan ke service; model tenant memakai global scope `BelongsToOrganization` yang **gagal tertutup** (exception) bila tidak ada konteks.
 4. Koneksi DB menjalankan `set_config('app.organization_id', ?, false)` di awal request dan di-*reset* di akhir (termasuk worker queue per job) untuk RLS.

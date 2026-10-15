@@ -16,11 +16,12 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
-            'status' => $this->status,
-            'employee_number' => $this->employee_number,
-            'job_title' => $this->job_title,
+            // Status and job data belong to the membership in the current organization.
+            'status' => $this->isActive() ? ($this->membership->status ?? $this->status) : $this->status,
+            'employee_number' => $this->membership?->employee_number,
+            'job_title' => $this->membership?->job_title,
             'phone' => $this->phone,
-            'home_department_id' => $this->home_department_id,
+            'home_department_id' => $this->membership?->home_department_id,
             'must_change_password' => $this->must_change_password,
             'last_login_at' => $this->last_login_at?->toIso8601String(),
             'roles' => $this->whenLoaded('roles', fn () => $this->roles->map(fn ($r) => [

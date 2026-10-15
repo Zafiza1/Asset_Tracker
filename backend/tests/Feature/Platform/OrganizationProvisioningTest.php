@@ -7,6 +7,7 @@ use App\Domain\Authorization\Models\Role;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Organization\Models\OrganizationSetting;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class OrganizationProvisioningTest extends TestCase
@@ -31,7 +32,7 @@ class OrganizationProvisioningTest extends TestCase
         $org = Organization::query()->where('code', 'GAMMA')->sole();
         $admin = User::query()->findOrFail($response->json('meta.admin_user_id'));
 
-        $this->assertSame($org->id, $admin->organization_id);
+        $this->assertTrue($admin->memberships()->where('organization_id', $org->id)->exists());
         $this->assertTrue($admin->must_change_password);
         $this->assertSame(['ORG_ADMIN'], $admin->roles()->pluck('code')->all());
         $this->assertSame(['organization'], $admin->dataScopes()->pluck('scope_type')->all());
@@ -58,14 +59,30 @@ class OrganizationProvisioningTest extends TestCase
 
     public function test_provisioning_is_atomic(): void
     {
-        ['admin' => $existing] = $this->createOrganization('ALPHA');
-        $this->actingAs($this->createPlatformAdmin(), 'web');
+        $this->createOrganization('ALPHA');
+        $platform = $this->createPlatformAdmin();
+        $this->actingAs($platform, 'web');
 
-        // Admin email already used: validation stops it, nothing is created.
-        $this->postJson('/api/platform/organizations', $this->payload(['admin' => ['email' => $existing->email]]))->assertStatus(422);
+        // A platform account cannot become an organization administrator: nothing is created.
+        $this->assertErrorCode($this->postJson('/api/platform/organizations', $this->payload(['admin' => ['email' => $platform->email]])), 422, 'INVALID_ADMIN');
         $this->assertFalse(Organization::query()->where('code', 'GAMMA')->exists());
 
         $this->postJson('/api/platform/organizations', $this->payload(['code' => 'alpha']))->assertStatus(422);
+    }
+
+    public function test_existing_tenant_account_becomes_admin_of_the_new_organization_with_the_same_login(): void
+    {
+        ['organization' => $alpha, 'admin' => $existing] = $this->createOrganization('ALPHA');
+        $this->actingAs($this->createPlatformAdmin(), 'web');
+
+        $response = $this->postJson('/api/platform/organizations', $this->payload(['admin' => ['email' => $existing->email]]));
+
+        $response->assertCreated()->assertJsonPath('meta.admin_user_id', $existing->id);
+        $gamma = Organization::query()->where('code', 'GAMMA')->sole();
+        $this->assertEqualsCanonicalizing([$alpha->id, $gamma->id], $existing->memberships()->pluck('organization_id')->all());
+        $this->assertSame(1, User::query()->where('email', $existing->email)->count());
+        $this->assertFalse($existing->fresh()->must_change_password);
+        $this->assertTrue(Hash::check(self::PASSWORD, $existing->fresh()->password));
     }
 
     public function test_platform_permission_is_required(): void

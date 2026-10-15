@@ -25,10 +25,14 @@ final class OrgAdminGuard
         $count = DB::table('user_roles')
             ->join('roles', 'roles.id', '=', 'user_roles.role_id')
             ->join('users', 'users.id', '=', 'user_roles.user_id')
+            ->join('organization_members', fn ($j) => $j
+                ->on('organization_members.organization_id', '=', 'user_roles.organization_id')
+                ->on('organization_members.user_id', '=', 'user_roles.user_id'))
             ->where('user_roles.organization_id', $organizationId)
             ->where('roles.template_code', RoleTemplates::ORG_ADMIN)
             ->where('roles.is_locked', true)
             ->where('users.status', User::STATUS_ACTIVE)
+            ->where('organization_members.status', User::STATUS_ACTIVE)
             ->distinct()
             ->count('users.id');
 

@@ -92,6 +92,12 @@ export interface AuditLog {
   created_at: string
 }
 
+export interface OrganizationSummary {
+  id: string
+  code: string
+  name: string
+}
+
 export interface Profile {
   user: {
     id: string
@@ -102,7 +108,10 @@ export interface Profile {
     must_change_password: boolean
     last_login_at: string | null
   }
+  /** Active organization of this session (null: the user must choose one). */
   organization: Organization | null
+  /** Every organization this account can work in (same login for all of them). */
+  organizations: OrganizationSummary[]
   permissions: string[]
   data_scope: { organization_wide: boolean; department_ids: string[]; location_ids: string[] } | null
 }

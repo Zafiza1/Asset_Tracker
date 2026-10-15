@@ -51,6 +51,24 @@ export function onUnauthorized(listener: () => void): () => void {
   return () => unauthorizedListeners.delete(listener)
 }
 
+/**
+ * The organization the UI believes is active. Sent as X-Organization-Id so the server
+ * refuses a request when the session switched organization elsewhere (e.g. another tab)
+ * instead of acting on a different organization. It never selects the organization.
+ */
+let activeOrganizationId: string | null = null
+export function setActiveOrganization(id: string | null): void {
+  activeOrganizationId = id
+}
+
+/** Errors meaning the active organization changed or is gone: the profile must be reloaded. */
+const ORGANIZATION_CHANGED = new Set(['ORGANIZATION_MISMATCH', 'ORGANIZATION_SELECTION_REQUIRED', 'ORGANIZATION_INACTIVE'])
+const organizationListeners = new Set<() => void>()
+export function onOrganizationChanged(listener: () => void): () => void {
+  organizationListeners.add(listener)
+  return () => organizationListeners.delete(listener)
+}
+
 export async function apiRequest<T>(method: Method, path: string, body?: unknown, retried = false): Promise<T> {
   if (method !== 'GET') await ensureCsrfCookie()
 
@@ -58,6 +76,7 @@ export async function apiRequest<T>(method: Method, path: string, body?: unknown
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   const xsrf = readCookie('XSRF-TOKEN')
   if (xsrf) headers['X-XSRF-TOKEN'] = xsrf
+  if (activeOrganizationId) headers['X-Organization-Id'] = activeOrganizationId
 
   let response: Response
   try {
@@ -83,6 +102,7 @@ export async function apiRequest<T>(method: Method, path: string, body?: unknown
     return apiRequest<T>(method, path, body, true)
   }
   if (response.status === 401) unauthorizedListeners.forEach((l) => l())
+  if (ORGANIZATION_CHANGED.has(error?.code)) organizationListeners.forEach((l) => l())
 
   throw new ApiError(
     response.status,

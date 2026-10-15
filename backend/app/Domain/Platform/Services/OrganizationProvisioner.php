@@ -8,6 +8,7 @@ use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\Models\UserDataScope;
 use App\Domain\Authorization\PermissionCatalog;
 use App\Domain\Authorization\RoleTemplates;
+use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Organization\Models\OrganizationSetting;
@@ -21,6 +22,9 @@ use LogicException;
  * Creates a complete, usable organization in one database transaction:
  * organization + settings + roles from templates + standard asset conditions copied from
  * the Generic Master + first Organization Administrator.
+ *
+ * The administrator is either a new account or an existing tenant account (one login for
+ * several organizations); an existing account keeps its password and profile.
  */
 final class OrganizationProvisioner
 {
@@ -32,13 +36,16 @@ final class OrganizationProvisioner
 
     /**
      * @param  array<string, mixed>  $organization  code + profile fields
-     * @param  array{name: string, email: string, password: string}  $admin
+     * @param  array{name: string, email: string, password: string}|User  $admin  new account data, or an existing tenant account
      * @return array{organization: Organization, admin: User}
      */
-    public function provision(array $organization, array $admin, bool $adminMustChangePassword = true): array
+    public function provision(array $organization, array|User $admin, bool $adminMustChangePassword = true): array
     {
         if (! $this->tenancy->isUnrestricted()) {
             throw ApiException::forbidden();
+        }
+        if ($admin instanceof User && ! $admin->isTenantUser()) {
+            throw ApiException::unprocessable('INVALID_ADMIN', 'Akun platform tidak dapat menjadi anggota organisasi.');
         }
 
         return DB::transaction(function () use ($organization, $admin, $adminMustChangePassword) {
@@ -51,12 +58,21 @@ final class OrganizationProvisioner
             $roles = $this->createRoles($org);
             $this->conditions->importGeneric($org->id);
 
-            $user = new User($admin);
-            $user->forceFill([
-                'user_type' => User::TYPE_TENANT,
+            $existing = $admin instanceof User;
+            if ($existing) {
+                $user = $admin;
+            } else {
+                $user = new User($admin);
+                $user->forceFill([
+                    'user_type' => User::TYPE_TENANT,
+                    'status' => User::STATUS_ACTIVE,
+                    'must_change_password' => $adminMustChangePassword,
+                ])->save();
+            }
+            (new OrganizationMember)->forceFill([
                 'organization_id' => $org->id,
+                'user_id' => $user->id,
                 'status' => User::STATUS_ACTIVE,
-                'must_change_password' => $adminMustChangePassword,
             ])->save();
             $user->roles()->attach($roles[RoleTemplates::ORG_ADMIN]->id, ['organization_id' => $org->id]);
             UserDataScope::grant($org->id, $user->id, 'organization');
@@ -66,6 +82,7 @@ final class OrganizationProvisioner
                 'name' => $org->name,
                 'admin_user_id' => $user->id,
                 'admin_email' => $user->email,
+                'admin_existing_account' => $existing,
             ], organizationId: $org->id);
 
             return ['organization' => $org, 'admin' => $user];

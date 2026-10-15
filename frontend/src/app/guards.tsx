@@ -4,7 +4,13 @@ import { Navigate, Outlet, useLocation } from 'react-router'
 import { Spinner } from '../components/ui/Feedback'
 import { useAuth } from '../lib/auth/context'
 
-/** Requires a session; users with a temporary password are sent to change it first. */
+/** Pages a tenant user can open before an organization is active. */
+const ORGANIZATION_FREE_PATHS = new Set(['/ubah-password', '/pilih-organisasi', '/organisasi/baru'])
+
+/**
+ * Requires a session; users with a temporary password are sent to change it first, and
+ * tenant users without an active organization (several to choose from) pick one first.
+ */
 export function RequireAuth() {
   const { profile, isLoading } = useAuth()
   const location = useLocation()
@@ -13,6 +19,9 @@ export function RequireAuth() {
   if (!profile) return <Navigate to="/login" replace state={{ from: location.pathname }} />
   if (profile.user.must_change_password && location.pathname !== '/ubah-password') {
     return <Navigate to="/ubah-password" replace />
+  }
+  if (profile.user.user_type === 'tenant' && !profile.organization && !ORGANIZATION_FREE_PATHS.has(location.pathname)) {
+    return <Navigate to="/pilih-organisasi" replace />
   }
   return <Outlet />
 }

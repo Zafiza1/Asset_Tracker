@@ -19,7 +19,8 @@ const schema = z.object({
   employee_number: z.string().max(50).optional(),
   job_title: z.string().max(100).optional(),
   phone: z.string().max(30).optional(),
-  password: z.string().refine(passwordRule.test, passwordRule.message),
+  // Empty when the email already has an account (it keeps its own password); the API requires it otherwise.
+  password: z.string().refine((v) => v === '' || passwordRule.test(v), passwordRule.message),
   role_ids: z.array(z.string()).min(1, 'Pilih minimal satu role.'),
 })
 type FormValues = z.infer<typeof schema>
@@ -33,7 +34,8 @@ export function UserCreatePage() {
 
   const mutation = useMutation({
     // New users start with organization-wide scope; it can be narrowed on the detail page.
-    mutationFn: (v: FormValues) => api.post<Resource<User>>('/users', { ...v, scopes: [{ scope_type: 'organization' }] }),
+    mutationFn: (v: FormValues) =>
+      api.post<Resource<User>>('/users', { ...v, password: v.password || undefined, scopes: [{ scope_type: 'organization' }] }),
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: ['users'] })
       navigate(`/pengguna/${res.data.id}`, { replace: true })
@@ -46,7 +48,10 @@ export function UserCreatePage() {
 
   return (
     <>
-      <PageHeader title="Tambah Pengguna" description="Pengguna wajib mengganti password sementara saat login pertama." />
+      <PageHeader
+        title="Tambah Pengguna"
+        description="Pengguna baru wajib mengganti password sementara saat login pertama. Email yang sudah punya akun di organisasi lain ditambahkan dengan login yang sama."
+      />
       <Card>
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} noValidate className="grid gap-4 p-4 sm:grid-cols-2">
           {formError && (
@@ -69,7 +74,11 @@ export function UserCreatePage() {
           <Field label="Telepon" error={formState.errors.phone?.message}>
             {(p) => <Input {...p} {...register('phone')} />}
           </Field>
-          <Field label="Password sementara" error={formState.errors.password?.message} hint={passwordRule.message} required>
+          <Field
+            label="Password sementara"
+            error={formState.errors.password?.message}
+            hint={`${passwordRule.message} Kosongkan bila email sudah terdaftar di organisasi lain.`}
+          >
             {(p) => <Input {...p} type="password" autoComplete="new-password" {...register('password')} />}
           </Field>
           <fieldset className="sm:col-span-2">

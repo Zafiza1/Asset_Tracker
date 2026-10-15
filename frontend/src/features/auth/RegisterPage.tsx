@@ -7,16 +7,13 @@ import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
 import { useAuth } from '../../lib/auth/context'
-import { applyApiErrors, passwordRule } from '../../lib/forms'
+import { applyApiErrors, organizationCodeRule, passwordRule, suggestCode } from '../../lib/forms'
 import { AuthShell } from './AuthShell'
 
 const schema = z
   .object({
     organization_name: z.string().trim().min(1, 'Nama organisasi wajib diisi.').max(150),
-    organization_code: z
-      .string()
-      .trim()
-      .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{1,29}$/, '2–30 karakter: huruf, angka, garis bawah, atau strip.'),
+    organization_code: organizationCodeRule,
     name: z.string().trim().min(1, 'Nama wajib diisi.').max(150),
     email: z.email('Masukkan email yang valid.'),
     password: z.string().refine(passwordRule.test, passwordRule.message),
@@ -24,9 +21,6 @@ const schema = z
   })
   .refine((v) => v.password === v.password_confirmation, { path: ['password_confirmation'], message: 'Konfirmasi password tidak sama.' })
 type FormValues = z.infer<typeof schema>
-
-/** Suggested organization code from its name, e.g. "PT Maju Jaya" → "PTMAJUJAYA". */
-const suggestCode = (name: string) => name.toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 12)
 
 /** Self-service sign-up: a new organization with the registrant as its administrator. */
 export function RegisterPage() {

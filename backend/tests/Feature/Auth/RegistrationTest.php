@@ -39,7 +39,7 @@ class RegistrationTest extends TestCase
         $org = Organization::query()->where('code', 'BARU')->sole();
         $user = User::query()->where('email', 'rina@baru.test')->sole();
         $this->assertSame('PT Baru Jaya', $org->name);
-        $this->assertSame($org->id, $user->organization_id);
+        $this->assertTrue($user->memberships()->where('organization_id', $org->id)->where('status', 'active')->exists());
         $this->assertAuthenticatedAs($user, 'web');
         $this->assertSame(6, Role::query()->where('organization_id', $org->id)->count());
         $this->assertTrue(AuditLog::query()->where('action', 'auth.registered')->where('actor_user_id', $user->id)->exists());
@@ -52,7 +52,7 @@ class RegistrationTest extends TestCase
         $response = $this->postJson('/api/auth/register', [...self::VALID, 'organization_code' => 'alpha', 'email' => $admin->email]);
 
         $response->assertStatus(422)->assertJsonPath('error.details.fields.organization_code.0', 'Kode organisasi sudah dipakai.');
-        $this->assertSame('Email sudah terdaftar. Silakan masuk.', $response->json('error.details.fields.email.0'));
+        $this->assertSame('Email sudah terdaftar. Silakan masuk, lalu buat organisasi baru dari menu organisasi.', $response->json('error.details.fields.email.0'));
         $this->assertSame(1, Organization::query()->count());
         $this->assertGuest('web');
     }

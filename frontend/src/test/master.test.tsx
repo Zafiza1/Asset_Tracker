@@ -87,7 +87,7 @@ describe('MasterListPage', () => {
       vi.fn(async () => new Response(JSON.stringify({ data: [department], meta: { current_page: 1, last_page: 1, per_page: 25, total: 1, from: 1, to: 1 } }), { status: 200 })),
     )
     const can = (p: string) => permissions.includes(p)
-    const auth: AuthState = { profile: { permissions } as unknown as Profile, isLoading: false, can, login: vi.fn(), signUp: vi.fn(), logout: vi.fn(), setProfile: vi.fn() }
+    const auth: AuthState = { profile: { permissions } as unknown as Profile, isLoading: false, can, login: vi.fn(), signUp: vi.fn(), logout: vi.fn(), setProfile: vi.fn(), switchOrganization: vi.fn(), createOrganization: vi.fn() }
     return render(
       <QueryClientProvider client={new QueryClient()}>
         <AuthContext.Provider value={auth}>

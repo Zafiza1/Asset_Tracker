@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Authorization\Models\UserDataScope;
+use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\UserManagement;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Http\Support\ListQuery;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
@@ -26,27 +28,33 @@ class UserController extends Controller
             'role_id' => ['nullable', 'uuid'],
         ]);
 
-        $query = User::query()->ofCurrentOrganization()->with('roles')
+        $query = User::query()->ofCurrentOrganization()->with('roles', 'membership')
             ->when($request->query('search'), fn ($q, $term) => $q->where(fn ($w) => $w
                 ->where('name', 'ilike', ListQuery::like($term))
                 ->orWhere('email', 'ilike', ListQuery::like($term))
-                ->orWhere('employee_number', 'ilike', ListQuery::like($term))))
-            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
+                ->orWhereHas('membership', fn ($m) => $m->where('employee_number', 'ilike', ListQuery::like($term)))))
+            // Effective status: a blocked account overrides the membership status.
+            ->when($request->query('status'), fn ($q, $status) => $status === User::STATUS_ACTIVE
+                ? $q->where('status', $status)->whereHas('membership', fn ($m) => $m->where('status', $status))
+                : $q->where(fn ($w) => $w->where('status', $status)->orWhereHas('membership', fn ($m) => $m->where('status', $status))))
             ->when($request->query('role_id'), fn ($q, $roleId) => $q->whereHas('roles', fn ($r) => $r->whereKey($roleId)));
 
         ListQuery::sort($query, $request, [
-            'name' => 'name', 'email' => 'email', 'status' => 'status', 'created_at' => 'created_at', 'last_login_at' => 'last_login_at',
+            'name' => 'name', 'email' => 'email',
+            'status' => OrganizationMember::query()->select('status')->whereColumn('organization_members.user_id', 'users.id'),
+            'created_at' => 'created_at', 'last_login_at' => 'last_login_at',
         ], 'name');
 
         return UserResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());
     }
 
-    public function store(Request $request): UserResource
+    public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
             ...$this->profileRules(),
-            'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'max:200', Password::min(12)->letters()->mixedCase()->numbers()],
+            // An email that already has an account adds that account to this organization.
+            'email' => ['required', 'email', 'max:150'],
+            'password' => [Rule::requiredIf(fn () => ! User::query()->where('email', (string) $request->input('email'))->exists()), 'nullable', 'string', 'max:200', Password::min(12)->letters()->mixedCase()->numbers()],
             'role_ids' => ['required', 'array', 'min:1'],
             'role_ids.*' => ['uuid'],
             ...$this->scopeRules(required: true),
@@ -54,12 +62,13 @@ class UserController extends Controller
 
         $user = $this->users->create($data, $data['role_ids'], $data['scopes']);
 
-        return new UserResource($user->load('roles', 'dataScopes'));
+        // 201 also when an existing account was added: a new membership was created.
+        return (new UserResource($user->load('roles', 'dataScopes', 'membership')))->response()->setStatusCode(201);
     }
 
     public function show(User $user): UserResource
     {
-        return new UserResource($user->load('roles', 'dataScopes'));
+        return new UserResource($user->load('roles', 'dataScopes', 'membership'));
     }
 
     public function update(Request $request, User $user): UserResource
@@ -69,22 +78,22 @@ class UserController extends Controller
             'email' => ['sometimes', 'required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($user->id)],
         ]);
 
-        return new UserResource($this->users->update($user, $data)->load('roles', 'dataScopes'));
+        return new UserResource($this->users->update($user, $data)->load('roles', 'dataScopes', 'membership'));
     }
 
     public function suspend(User $user): UserResource
     {
-        return new UserResource($this->users->changeStatus($user, User::STATUS_SUSPENDED));
+        return new UserResource($this->users->changeStatus($user, User::STATUS_SUSPENDED)->load('membership'));
     }
 
     public function activate(User $user): UserResource
     {
-        return new UserResource($this->users->changeStatus($user, User::STATUS_ACTIVE));
+        return new UserResource($this->users->changeStatus($user, User::STATUS_ACTIVE)->load('membership'));
     }
 
     public function deactivate(User $user): UserResource
     {
-        return new UserResource($this->users->changeStatus($user, User::STATUS_DEACTIVATED));
+        return new UserResource($this->users->changeStatus($user, User::STATUS_DEACTIVATED)->load('membership'));
     }
 
     public function syncRoles(Request $request, User $user): UserResource
@@ -94,14 +103,14 @@ class UserController extends Controller
             'role_ids.*' => ['uuid'],
         ]);
 
-        return new UserResource($this->users->syncRoles($user, $data['role_ids'])->load('roles', 'dataScopes'));
+        return new UserResource($this->users->syncRoles($user, $data['role_ids'])->load('roles', 'dataScopes', 'membership'));
     }
 
     public function syncScopes(Request $request, User $user): UserResource
     {
         $data = $request->validate($this->scopeRules(required: false));
 
-        return new UserResource($this->users->syncScopes($user, $data['scopes'])->load('roles', 'dataScopes'));
+        return new UserResource($this->users->syncScopes($user, $data['scopes'])->load('roles', 'dataScopes', 'membership'));
     }
 
     public function resetPassword(Request $request, User $user): Response

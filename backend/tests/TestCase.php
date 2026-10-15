@@ -12,6 +12,7 @@ use App\Domain\GenericMaster\Models\GenericAssetCategory;
 use App\Domain\GenericMaster\Models\GenericAssetDefinition;
 use App\Domain\GenericMaster\Models\GenericDefinitionVersion;
 use App\Domain\GenericMaster\Models\LocationType;
+use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
@@ -109,6 +110,14 @@ abstract class TestCase extends BaseTestCase
         }
 
         return $user;
+    }
+
+    /** Gives an existing tenant account access to another organization (same login). */
+    protected function addMembership(User $user, Organization $organization, string $roleCode, string $status = User::STATUS_ACTIVE): void
+    {
+        (new OrganizationMember)->forceFill(['organization_id' => $organization->id, 'user_id' => $user->id, 'status' => $status])->save();
+        $user->roles()->attach($this->roleId($organization, $roleCode), ['organization_id' => $organization->id]);
+        UserDataScope::grant($organization->id, $user->id, 'organization');
     }
 
     protected function createPlatformAdmin(bool $withRole = true): User

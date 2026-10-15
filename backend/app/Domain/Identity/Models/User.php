@@ -4,7 +4,6 @@ namespace App\Domain\Identity\Models;
 
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\Models\UserDataScope;
-use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\MissingTenantContext;
 use App\Domain\Shared\Tenancy\Tenancy;
@@ -15,15 +14,17 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 /**
- * One account = one company (tenant user) or a platform user without organization.
- * organization_id and user_type are immutable (enforced by a DB trigger).
+ * A global account. Tenant users belong to one or more organizations through
+ * organization_members (same login for every organization); platform users belong to none.
+ * user_type is immutable (enforced by a DB trigger).
  *
  * @property string $id
  * @property string $user_type
- * @property string|null $organization_id
+ * @property string|null $last_organization_id
  * @property string $name
  * @property string $email
  * @property string $status
@@ -47,8 +48,7 @@ class User extends Authenticatable
     public const STATUS_DEACTIVATED = 'deactivated';
 
     protected $fillable = [
-        'name', 'email', 'password', 'employee_number', 'job_title', 'phone',
-        'home_department_id', 'must_change_password',
+        'name', 'email', 'password', 'phone', 'must_change_password',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -84,16 +84,15 @@ class User extends Authenticatable
     }
 
     /**
-     * Users of the current tenant only. Users are not under the organization global scope
-     * (platform users have no organization, and login must find users before a tenant
+     * Members of the current tenant only. Users are not under the organization global scope
+     * (one account spans several organizations, and login must find users before a tenant
      * is known), so tenant code paths must go through this scope.
      */
     public function scopeOfCurrentOrganization(Builder $query): Builder
     {
         $tenancy = app(Tenancy::class);
         if ($tenancy->hasTenant()) {
-            return $query->where('users.organization_id', $tenancy->organizationId())
-                ->where('users.user_type', self::TYPE_TENANT);
+            return $query->where('users.user_type', self::TYPE_TENANT)->whereHas('membership');
         }
         if (! $tenancy->isUnrestricted()) {
             throw new MissingTenantContext;
@@ -102,20 +101,30 @@ class User extends Authenticatable
         return $query;
     }
 
-    /** Route model binding never resolves a user of another organization. */
+    /** Route model binding never resolves a user who is not a member of the current organization. */
     public function resolveRouteBindingQuery($query, $value, $field = null)
     {
         return parent::resolveRouteBindingQuery($query->ofCurrentOrganization(), $value, $field);
     }
 
-    public function organization(): BelongsTo
+    /**
+     * Membership in the current organization. Only meaningful inside a tenant context,
+     * where the organization global scope narrows it to exactly one row.
+     */
+    public function membership(): HasOne
     {
-        return $this->belongsTo(Organization::class);
+        return $this->hasOne(OrganizationMember::class);
     }
 
-    public function homeDepartment(): BelongsTo
+    /** Every membership of this account (unscoped only outside a tenant context). */
+    public function memberships(): HasMany
     {
-        return $this->belongsTo(Department::class, 'home_department_id');
+        return $this->hasMany(OrganizationMember::class);
+    }
+
+    public function lastOrganization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'last_organization_id');
     }
 
     public function roles(): BelongsToMany

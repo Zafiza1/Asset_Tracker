@@ -124,27 +124,36 @@ class DatabaseIsolationTest extends TestCase
             'id' => (string) Str::uuid7(), 'organization_id' => $this->orgA->id, 'user_id' => $this->adminA->id,
             'scope_type' => 'department', 'department_id' => $departmentB->id,
         ]));
-        $this->expectQueryError('23503', fn () => DB::table('users')->where('id', $this->adminA->id)->update(['home_department_id' => $departmentB->id]));
+        $this->expectQueryError('23503', fn () => DB::table('organization_members')
+            ->where('organization_id', $this->orgA->id)->where('user_id', $this->adminA->id)
+            ->update(['home_department_id' => $departmentB->id]));
     }
 
-    public function test_user_organization_and_type_are_immutable(): void
+    public function test_user_type_and_membership_identity_are_immutable(): void
     {
-        $this->expectQueryError('P0001', fn () => DB::table('users')->where('id', $this->adminA->id)->update(['organization_id' => $this->orgB->id]));
-        $this->expectQueryError('P0001', fn () => DB::table('users')->where('id', $this->adminA->id)->update(['user_type' => 'platform', 'organization_id' => null]));
+        $other = $this->createTenantUser($this->orgA);
+        $membership = fn () => DB::table('organization_members')->where('organization_id', $this->orgA->id)->where('user_id', $this->adminA->id);
+
+        $this->expectQueryError('P0001', fn () => DB::table('users')->where('id', $this->adminA->id)->update(['user_type' => 'platform']));
         $this->expectQueryError('P0001', fn () => DB::table('users')->where('id', $this->adminA->id)->delete());
+        $this->expectQueryError('P0001', fn () => $membership()->update(['organization_id' => $this->orgB->id]));
+        $this->expectQueryError('P0001', fn () => $membership()->update(['user_id' => $other->id]));
+        $this->expectQueryError('P0001', fn () => $membership()->delete());
 
-        $this->assertSame($this->orgA->id, $this->adminA->fresh()->organization_id);
+        $this->assertTrue($membership()->exists());
+        $this->assertSame(User::TYPE_TENANT, $this->adminA->fresh()->user_type);
     }
 
-    public function test_tenant_user_check_constraint(): void
+    public function test_only_tenant_users_can_be_organization_members(): void
     {
-        $this->expectQueryError('23514', fn () => DB::table('users')->insert([
-            'id' => (string) Str::uuid7(), 'user_type' => 'tenant', 'organization_id' => null,
-            'name' => 'X', 'email' => 'x@example.test', 'password' => 'x', 'created_at' => now(), 'updated_at' => now(),
+        $platform = $this->createPlatformAdmin();
+
+        $this->expectQueryError('P0001', fn () => DB::table('organization_members')->insert([
+            'id' => (string) Str::uuid7(), 'organization_id' => $this->orgA->id, 'user_id' => $platform->id, 'status' => 'active',
         ]));
         $this->expectQueryError('23514', fn () => DB::table('users')->insert([
-            'id' => (string) Str::uuid7(), 'user_type' => 'platform', 'organization_id' => $this->orgA->id,
-            'name' => 'X', 'email' => 'y@example.test', 'password' => 'x', 'created_at' => now(), 'updated_at' => now(),
+            'id' => (string) Str::uuid7(), 'user_type' => 'robot',
+            'name' => 'X', 'email' => 'x@example.test', 'password' => 'x', 'created_at' => now(), 'updated_at' => now(),
         ]));
     }
 

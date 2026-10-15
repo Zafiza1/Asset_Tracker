@@ -9,8 +9,17 @@ export interface AuthState {
   login: (email: string, password: string) => Promise<Profile>
   /** Sign up a new organization; the registrant becomes its administrator and is logged in. */
   signUp: (data: SignUpData) => Promise<Profile>
+  /** Make another organization of this account the active one. */
+  switchOrganization: (organizationId: string) => Promise<Profile>
+  /** Create another organization with the logged-in account as its administrator, and switch to it. */
+  createOrganization: (data: NewOrganizationData) => Promise<Profile>
   logout: () => Promise<void>
   setProfile: (profile: Profile) => void
+}
+
+export interface NewOrganizationData {
+  organization_name: string
+  organization_code: string
 }
 
 export interface SignUpData {

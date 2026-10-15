@@ -7,6 +7,7 @@ use App\Domain\AssetTransactions\Services\AssetTransactionService;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\Models\UserDataScope;
 use App\Domain\GenericMaster\Models\LocationType;
+use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
@@ -22,7 +23,8 @@ use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * Demonstration data for local/staging: two organizations, each with one user per role.
+ * Demonstration data for local/staging: two organizations, each with one user per role,
+ * plus one owner account that administers both (one login, several organizations).
  * Refuses to run in production. Password comes from DEMO_PASSWORD, or is generated and printed.
  */
 class DemoSeeder extends Seeder
@@ -31,6 +33,8 @@ class DemoSeeder extends Seeder
         'MAJU' => ['name' => 'PT Maju Jaya', 'domain' => 'majujaya.test', 'site' => ['JKT', 'Jakarta'], 'department' => ['OPS', 'Operasional']],
         'SENTOSA' => ['name' => 'PT Sentosa Gas', 'domain' => 'sentosagas.test', 'site' => ['SBY', 'Surabaya'], 'department' => ['DIST', 'Distribusi']],
     ];
+
+    private const SHARED_OWNER = 'pemilik@grup.test';
 
     private const USERS = [
         'ASSET_MANAGER' => ['manager', 'Asset Manager'],
@@ -61,6 +65,8 @@ class DemoSeeder extends Seeder
             }
         });
 
+        $tenancy->runAsSystem(fn () => $this->seedSharedOwner($password));
+
         $this->command?->warn("Demo password for all demo users: {$password}");
     }
 
@@ -88,19 +94,38 @@ class DemoSeeder extends Seeder
                 'name' => "{$title} {$spec['name']}",
                 'email' => "{$local}@{$spec['domain']}",
                 'password' => $password,
-                'job_title' => $title,
-                'home_department_id' => $department->id,
             ]);
-            $user->forceFill(['user_type' => User::TYPE_TENANT, 'organization_id' => $orgId, 'status' => User::STATUS_ACTIVE])->save();
-
-            $role = Role::query()->where('organization_id', $orgId)->where('code', $roleCode)->firstOrFail();
-            $user->roles()->attach($role->id, ['organization_id' => $orgId]);
-            UserDataScope::grant($orgId, $user->id, 'organization');
+            $user->forceFill(['user_type' => User::TYPE_TENANT, 'status' => User::STATUS_ACTIVE])->save();
+            $this->addMember($user, $orgId, $roleCode, ['job_title' => $title, 'home_department_id' => $department->id]);
         }
 
         $this->seedAssets($result['organization'], $result['admin'], $spec['site'], $location);
 
         $this->command?->info("Organization {$code} seeded (admin@{$spec['domain']}).");
+    }
+
+    /** One account that administers both demo organizations (same login, switch organization in the app). */
+    private function seedSharedOwner(string $password): void
+    {
+        if (User::query()->where('email', self::SHARED_OWNER)->exists()) {
+            return;
+        }
+        $owner = new User(['name' => 'Pemilik Grup Demo', 'email' => self::SHARED_OWNER, 'password' => $password]);
+        $owner->forceFill(['user_type' => User::TYPE_TENANT, 'status' => User::STATUS_ACTIVE])->save();
+        foreach (Organization::query()->whereIn('code', array_keys(self::ORGANIZATIONS))->pluck('id') as $orgId) {
+            $this->addMember($owner, $orgId, 'ORG_ADMIN', ['job_title' => 'Pemilik']);
+        }
+    }
+
+    /** @param array<string, mixed> $profile membership fields */
+    private function addMember(User $user, string $orgId, string $roleCode, array $profile): void
+    {
+        $member = new OrganizationMember($profile);
+        $member->forceFill(['organization_id' => $orgId, 'user_id' => $user->id, 'status' => User::STATUS_ACTIVE])->save();
+
+        $role = Role::query()->where('organization_id', $orgId)->where('code', $roleCode)->firstOrFail();
+        $user->roles()->attach($role->id, ['organization_id' => $orgId]);
+        UserDataScope::grant($orgId, $user->id, 'organization');
     }
 
     /**

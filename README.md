@@ -52,7 +52,7 @@ php artisan db:seed --database=pgsql_owner --class=DemoSeeder # opsional, lokal 
 php artisan serve
 ```
 
-`DemoSeeder` membuat `admin@majujaya.test`, `admin@sentosagas.test`, serta `manager@`, `operator@`, `approver@`, `auditor@`, `viewer@` pada kedua domain. Password diambil dari `DEMO_PASSWORD`, atau dibangkitkan acak dan dicetak di konsol. Seeder ini menolak berjalan di production, dan tidak ada akun bawaan dengan password yang diketahui publik.
+`DemoSeeder` membuat `admin@majujaya.test`, `admin@sentosagas.test`, serta `manager@`, `operator@`, `approver@`, `auditor@`, `viewer@` pada kedua domain, ditambah `pemilik@grup.test` yang menjadi administrator di kedua organisasi (satu login, pindah organisasi lewat menu di header). Password diambil dari `DEMO_PASSWORD`, atau dibangkitkan acak dan dicetak di konsol. Seeder ini menolak berjalan di production, dan tidak ada akun bawaan dengan password yang diketahui publik.
 
 ### 3. Frontend
 

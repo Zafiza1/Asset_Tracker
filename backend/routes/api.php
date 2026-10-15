@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Route;
 | Route groups:
 |  - auth:      session login/logout/profile (no tenant context; works while must_change_password)
 |  - platform:  /api/platform/*  platform accounts only, platform permissions
-|  - tenant:    everything else  organization derived from the account, tenant permissions
+|  - tenant:    everything else  active organization from the session (membership checked), tenant permissions
 */
 
 Route::get('/health', [HealthController::class, 'live']);
@@ -39,6 +39,9 @@ Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
         Route::put('/password', [AuthController::class, 'changePassword'])->middleware('throttle:sensitive');
+        // One account, several organizations: switch the active one, or create another.
+        Route::put('/organization', [AuthController::class, 'switchOrganization']);
+        Route::post('/organizations', [AuthController::class, 'createOrganization'])->middleware('throttle:register');
     });
 });
 

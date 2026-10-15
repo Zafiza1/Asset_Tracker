@@ -40,7 +40,7 @@ class TenantIsolationTest extends TestCase
         $this->assertContains($this->adminA->id, $ids);
         $this->assertNotContains($this->adminB->id, $ids);
         $this->assertSame(
-            User::query()->where('organization_id', $this->orgA->id)->count(),
+            User::query()->whereHas('memberships', fn ($m) => $m->where('organization_id', $this->orgA->id))->count(),
             $ids->count(),
         );
     }
@@ -104,9 +104,10 @@ class TenantIsolationTest extends TestCase
     {
         $this->actingAs($this->adminA, 'web');
 
-        $this->withHeader('X-Organization-Id', $this->orgB->id)
-            ->getJson('/api/organization?organization_id='.$this->orgB->id)
+        $this->getJson('/api/organization?organization_id='.$this->orgB->id)
             ->assertOk()->assertJsonPath('data.id', $this->orgA->id);
+        // The header can only assert the active organization; a different one is refused, never selected.
+        $this->assertErrorCode($this->withHeader('X-Organization-Id', $this->orgB->id)->getJson('/api/organization'), 409, 'ORGANIZATION_MISMATCH');
     }
 
     public function test_audit_log_only_shows_own_organization(): void

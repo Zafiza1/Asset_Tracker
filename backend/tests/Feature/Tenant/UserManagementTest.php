@@ -5,6 +5,7 @@ namespace Tests\Feature\Tenant;
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Authorization\Models\Permission;
 use App\Domain\Authorization\Models\Role;
+use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Organization;
@@ -46,7 +47,10 @@ class UserManagementTest extends TestCase
             ->assertJsonMissingPath('data.password');
 
         $user = User::query()->where('email', 'budi@alpha.test')->sole();
-        $this->assertSame($this->org->id, $user->organization_id);
+        $member = $this->membership($user);
+        $this->assertSame('EMP-001', $member->employee_number);
+        $this->assertSame($department->id, $member->home_department_id);
+        $this->assertSame($this->admin->id, $member->created_by);
         $this->assertSame(User::TYPE_TENANT, $user->user_type);
         $this->assertTrue(Hash::check('Sementara-Rahasia-1', $user->password));
         $this->assertSame($this->admin->id, $user->created_by);
@@ -75,15 +79,49 @@ class UserManagementTest extends TestCase
             ->assertJsonStructure(['error' => ['details' => ['fields' => ['name', 'email', 'password', 'role_ids', 'scopes.0.scope_type']]]]);
     }
 
-    public function test_email_is_unique_across_all_organizations(): void
+    public function test_existing_account_is_added_as_member_with_the_same_login(): void
     {
-        ['admin' => $adminB] = $this->createOrganization('BETA');
+        ['organization' => $beta, 'admin' => $adminB] = $this->createOrganization('BETA');
+        $this->actingAs($this->admin, 'web');
+        $payload = [
+            'name' => 'Nama Diabaikan', 'email' => $adminB->email, 'job_title' => 'Konsultan',
+            'role_ids' => [$this->roleId($this->org, 'VIEWER')], 'scopes' => [['scope_type' => 'organization']],
+        ];
+
+        // No password needed: the account keeps its own credentials and profile.
+        $this->postJson('/api/users', $payload)->assertCreated()
+            ->assertJsonPath('data.id', $adminB->id)
+            ->assertJsonPath('data.name', $adminB->name)
+            ->assertJsonPath('data.job_title', 'Konsultan')
+            ->assertJsonPath('data.roles.0.code', 'VIEWER');
+        $this->assertSame(1, User::query()->where('email', $adminB->email)->count());
+        $this->assertEqualsCanonicalizing([$this->org->id, $beta->id], $adminB->memberships()->pluck('organization_id')->all());
+        $this->assertTrue(Hash::check(self::PASSWORD, $adminB->fresh()->password));
+        $this->assertFalse($adminB->fresh()->must_change_password);
+        $this->assertTrue(AuditLog::query()->where('action', 'user.member_added')->where('entity_id', $adminB->id)->exists());
+
+        $this->assertErrorCode($this->postJson('/api/users', $payload), 409, 'ALREADY_MEMBER');
+    }
+
+    public function test_shared_account_data_cannot_be_changed_by_one_organization(): void
+    {
+        ['organization' => $beta] = $this->createOrganization('BETA');
+        $shared = $this->createTenantUser($this->org, ['VIEWER']);
+        $this->addMembership($shared, $beta, 'VIEWER');
         $this->actingAs($this->admin, 'web');
 
-        $this->postJson('/api/users', [
-            'name' => 'Duplikat', 'email' => $adminB->email, 'password' => 'Sementara-Rahasia-1',
-            'role_ids' => [$this->roleId($this->org, 'VIEWER')], 'scopes' => [['scope_type' => 'organization']],
-        ])->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['fields' => ['email']]]]);
+        // Membership data is per organization and stays editable.
+        $this->patchJson("/api/users/{$shared->id}", ['job_title' => 'Supervisor'])->assertOk()->assertJsonPath('data.job_title', 'Supervisor');
+        // Account data and password are shared with BETA.
+        $this->assertErrorCode($this->patchJson("/api/users/{$shared->id}", ['name' => 'Diganti']), 422, 'SHARED_ACCOUNT');
+        $this->assertErrorCode($this->postJson("/api/users/{$shared->id}/reset-password", ['password' => 'Sementara-Rahasia-9']), 422, 'SHARED_ACCOUNT');
+
+        // Suspending in ALPHA leaves the account usable in BETA.
+        $this->postJson("/api/users/{$shared->id}/suspend")->assertOk()->assertJsonPath('data.status', 'suspended');
+        $this->assertSame(User::STATUS_ACTIVE, $shared->fresh()->status);
+        $this->assertSame(User::STATUS_SUSPENDED, $this->membership($shared)->status);
+        $this->assertSame(User::STATUS_ACTIVE, OrganizationMember::query()->where('organization_id', $beta->id)->where('user_id', $shared->id)->value('status'));
+        $this->assertTrue(Hash::check(self::PASSWORD, $shared->fresh()->password));
     }
 
     public function test_scope_reference_from_another_organization_is_rejected(): void
@@ -159,7 +197,7 @@ class UserManagementTest extends TestCase
 
         $this->postJson("/api/users/{$user->id}/deactivate")->assertOk();
         $this->assertErrorCode($this->postJson("/api/users/{$user->id}/activate"), 409, 'USER_DEACTIVATED');
-        $this->assertSame(User::STATUS_DEACTIVATED, $user->fresh()->status);
+        $this->assertSame(User::STATUS_DEACTIVATED, $this->membership($user)->status);
     }
 
     public function test_user_manager_cannot_escalate_privileges(): void
@@ -226,6 +264,11 @@ class UserManagementTest extends TestCase
         $this->getJson('/api/users?sort=password;drop table users')->assertOk();
         $this->getJson('/api/users?search=%25')->assertOk()->assertJsonCount(0, 'data');
         $this->getJson('/api/users?per_page=1000')->assertOk()->assertJsonPath('meta.per_page', 100);
+    }
+
+    private function membership(User $user): OrganizationMember
+    {
+        return OrganizationMember::query()->where('organization_id', $this->org->id)->where('user_id', $user->id)->sole();
     }
 
     private function department(Organization $org, string $code): Department

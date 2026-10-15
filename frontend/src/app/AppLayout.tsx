@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Boxes, ChevronRight, LogOut, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { OrganizationSwitcher } from '../features/organizations/OrganizationSwitcher'
 import { useAuth } from '../lib/auth/context'
 import { ModuleBoundary } from './ModuleBoundary'
 import { breadcrumbLabels, breadcrumbTextOnly, platformNavigation, tenantNavigation, type NavSection } from './navigation'
@@ -55,8 +56,7 @@ export function AppLayout() {
             <Menu className="size-5" aria-hidden />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-slate-900">{isPlatform ? 'Administrasi Platform' : profile.organization?.name}</p>
-            {!isPlatform && <p className="truncate text-xs text-slate-500">{profile.organization?.code}</p>}
+            {isPlatform ? <p className="truncate text-sm font-semibold text-slate-900">Administrasi Platform</p> : <OrganizationSwitcher />}
           </div>
           <div className="hidden text-right sm:block">
             <p className="text-sm font-medium text-slate-800">{profile.user.name}</p>

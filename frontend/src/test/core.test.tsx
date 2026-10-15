@@ -17,6 +17,8 @@ function withAuth(permissions: string[], ui: React.ReactNode) {
     signUp: vi.fn(),
     logout: vi.fn(),
     setProfile: vi.fn(),
+    switchOrganization: vi.fn(),
+    createOrganization: vi.fn(),
   }
   return render(
     <AuthContext.Provider value={state}>
