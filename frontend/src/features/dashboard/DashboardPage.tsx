@@ -1,19 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, ArrowRight, Boxes, CalendarPlus, History, Wallet } from 'lucide-react'
+import { Boxes, CalendarPlus, History, Wallet } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ModuleBoundary } from '../../app/ModuleBoundary'
-import { Badge } from '../../components/ui/Badge'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { ErrorState, Spinner } from '../../components/ui/Feedback'
 import { api } from '../../lib/api/client'
 import { useAuth } from '../../lib/auth/context'
 import { formatDate, formatDateTime } from '../../lib/format'
-import { assetStatusLabel, assetStatusTone, formatMoney, type AssetStatus } from '../assets/api'
+import { formatMoney, type AssetStatus } from '../assets/api'
 import { transactionTypeLabel, type TransactionType } from '../transactions/api'
 import { BarList, TrendChart, type TrendPoint } from './charts'
-
-type AttentionReason = 'overdue_loan' | 'under_maintenance' | 'no_location'
 
 export interface Dashboard {
   generated_at: string
@@ -28,16 +25,6 @@ export interface Dashboard {
     recent: { id: string; transaction_number: string; type: TransactionType; transaction_date: string; asset: { id: string; asset_number: string; name: string }; created_by: string | null }[]
   }
   trend: TrendPoint[]
-  attention: {
-    counts: Record<AttentionReason, number>
-    items: { reason: AttentionReason; asset: { id: string; asset_number: string; name: string }; status: AssetStatus; location: string | null; borrower_name: string | null; loan_due_date: string | null }[]
-  }
-}
-
-const attentionLabel: Record<AttentionReason, string> = {
-  overdue_loan: 'Peminjaman lewat batas',
-  under_maintenance: 'Dalam perbaikan',
-  no_location: 'Belum ada lokasi',
 }
 
 /**
@@ -76,8 +63,6 @@ function DashboardBody({ data }: { data: Dashboard }) {
     )
   }
 
-  const attentionTotal = Object.values(data.attention.counts).reduce((a, b) => a + b, 0)
-
   return (
     <div className="space-y-4">
       <section aria-label="Ringkasan" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -87,14 +72,9 @@ function DashboardBody({ data }: { data: Dashboard }) {
         <StatTile icon={History} label={`Transaksi ${data.transactions.days} hari terakhir`} value={data.transactions.total.toLocaleString('id-ID')} to="/transaksi" />
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Widget title="Penambahan & perubahan aset (12 bulan)" className="lg:col-span-2">
-          <TrendChart data={data.trend} />
-        </Widget>
-        <Widget title={`Perlu perhatian${attentionTotal ? ` (${attentionTotal})` : ''}`}>
-          <Attention data={data.attention} />
-        </Widget>
-      </div>
+      <Widget title="Penambahan & perubahan aset (12 bulan)">
+        <TrendChart data={data.trend} />
+      </Widget>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Widget title="Per kategori">
@@ -135,43 +115,6 @@ function DashboardBody({ data }: { data: Dashboard }) {
           )}
         </Widget>
       </div>
-    </div>
-  )
-}
-
-function Attention({ data }: { data: Dashboard['attention'] }) {
-  const reasons = (Object.keys(data.counts) as AttentionReason[]).filter((r) => data.counts[r] > 0)
-  if (reasons.length === 0) return <p className="p-4 text-sm text-slate-500">Tidak ada aset yang memerlukan tindak lanjut.</p>
-
-  return (
-    <div>
-      <ul className="flex flex-wrap gap-2 border-b border-slate-100 p-4">
-        {reasons.map((r) => (
-          <li key={r} className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 ring-1 ring-inset ring-amber-600/20">
-            <AlertTriangle className="size-3.5" aria-hidden />
-            {attentionLabel[r]}: {data.counts[r]}
-          </li>
-        ))}
-      </ul>
-      <ul className="divide-y divide-slate-100">
-        {data.items.map((item) => (
-          <li key={item.asset.id}>
-            <Link to={`/aset/${item.asset.id}`} className="flex items-start justify-between gap-2 px-4 py-2.5 hover:bg-slate-50">
-              <div className="min-w-0 text-sm">
-                <p className="truncate font-medium text-slate-900">{item.asset.name}</p>
-                <p className="text-xs text-slate-500">
-                  {attentionLabel[item.reason]}
-                  {item.reason === 'overdue_loan' && item.borrower_name && ` · ${item.borrower_name}, batas ${formatDate(item.loan_due_date)}`}
-                </p>
-              </div>
-              <span className="flex shrink-0 items-center gap-1">
-                <Badge tone={assetStatusTone[item.status]}>{assetStatusLabel[item.status]}</Badge>
-                <ArrowRight className="size-4 text-slate-400" aria-hidden />
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }
