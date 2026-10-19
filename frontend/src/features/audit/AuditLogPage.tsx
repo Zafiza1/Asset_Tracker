@@ -3,20 +3,20 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
-import { ActiveFilters, DateRangeFilter, FilterGrid, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { Select } from '../../components/ui/Field'
+import { ActiveFilters, DateRangeFilter, FilterGrid, FilterPanel } from '../../components/ui/Filters'
 import { type FilterChip } from '../../components/ui/filterChips'
 import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { AuditLog, Paginated } from '../../lib/api/types'
-import { formatDate, formatDateTime } from '../../lib/format'
+import { auditActionGroups, auditActionLabel, formatDate, formatDateTime } from '../../lib/format'
 
 const actorLabel = (log: AuditLog) => log.actor?.name ?? (log.actor_type === 'system' ? 'Sistem' : 'Anonim')
 
 /** Read-only audit trail. `endpoint` is /audit-logs (tenant) or /platform/audit-logs. */
 export function AuditLogPage({ endpoint, title }: { endpoint: string; title: string }) {
   const [params, setParams] = useSearchParams()
-  const [action, setAction] = useState(params.get('action') ?? '')
   const [selected, setSelected] = useState<AuditLog | null>(null)
   const filters = { page: params.get('page'), action: params.get('action'), from: params.get('from'), to: params.get('to'), organization_id: params.get('organization_id') }
 
@@ -35,7 +35,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
     setParams(merged)
   }
   const chips: FilterChip[] = [
-    ...(params.get('action') ? [{ key: 'action', label: `Aksi: ${params.get('action')}`, clear: () => (setAction(''), update({ action: '', page: '' })) }] : []),
+    ...(params.get('action') ? [{ key: 'action', label: `Aksi: ${auditActionLabel(params.get('action')!)}`, clear: () => update({ action: '', page: '' }) }] : []),
     ...(params.get('from') ? [{ key: 'from', label: `Dari ${formatDate(params.get('from'))}`, clear: () => update({ from: '', page: '' }) }] : []),
     ...(params.get('to') ? [{ key: 'to', label: `Sampai ${formatDate(params.get('to'))}`, clear: () => update({ to: '', page: '' }) }] : []),
     ...(params.get('organization_id') ? [{ key: 'organization', label: 'Satu organisasi', clear: () => update({ organization_id: '', page: '' }) }] : []),
@@ -44,7 +44,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
   const columns: Column<AuditLog>[] = [
     { key: 'time', header: 'Waktu', cell: (l) => <span className="whitespace-nowrap">{formatDateTime(l.created_at)}</span> },
     { key: 'actor', header: 'Pelaku', cell: actorLabel },
-    { key: 'action', header: 'Aksi', cell: (l) => <span className="font-mono text-xs">{l.action}</span> },
+    { key: 'action', header: 'Aksi', cell: (l) => auditActionLabel(l.action) },
     { key: 'entity', header: 'Entitas', cell: (l) => (l.entity_type ? `${l.entity_type} ${l.entity_id?.slice(0, 8) ?? ''}` : '—'), hideOnMobile: true },
     { key: 'ip', header: 'IP', cell: (l) => l.ip ?? '—', hideOnMobile: true },
   ]
@@ -54,11 +54,22 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
       <PageHeader title={title} description="Catatan append-only atas aktivitas penting. Tidak dapat diubah atau dihapus." />
       <Card>
         <FilterPanel>
-          <SearchForm value={action} onChange={setAction} onSubmit={() => update({ action, page: '' })} placeholder="Cari aksi, mis. user.* atau auth.login" label="Cari aksi" />
           <FilterGrid>
+            <Select aria-label="Filter aksi" value={params.get('action') ?? ''} onChange={(e) => update({ action: e.target.value, page: '' })}>
+              <option value="">Semua aksi</option>
+              {auditActionGroups.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {Object.entries(g.actions).map(([code, label]) => (
+                    <option key={code} value={code}>
+                      {label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </Select>
             <DateRangeFilter from={params.get('from') ?? ''} to={params.get('to') ?? ''} onChange={(from, to) => update({ from, to, page: '' })} />
           </FilterGrid>
-          <ActiveFilters chips={chips} onReset={() => (setAction(''), setParams(new URLSearchParams()))} />
+          <ActiveFilters chips={chips} onReset={() => setParams(new URLSearchParams())} />
         </FilterPanel>
         {query.isLoading ? (
           <Spinner />
@@ -78,7 +89,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
           <dl className="space-y-2 text-sm">
             <Row label="Waktu" value={formatDateTime(selected.created_at)} />
             <Row label="Pelaku" value={actorLabel(selected)} />
-            <Row label="Aksi" value={selected.action} />
+            <Row label="Aksi" value={auditActionLabel(selected.action)} />
             <Row label="Entitas" value={selected.entity_type ? `${selected.entity_type} · ${selected.entity_id}` : '—'} />
             <Row label="ID permintaan" value={selected.request_id ?? '—'} />
             {(['before', 'after', 'metadata'] as const).map((k) =>

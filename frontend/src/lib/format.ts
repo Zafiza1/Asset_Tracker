@@ -74,6 +74,134 @@ export const overridableLabel: Record<string, string> = {
   default_value: 'Nilai default',
 }
 
+/** Audit action codes grouped by module, each with the sentence a user reads in the audit trail. */
+export const auditActionGroups: { label: string; actions: Record<string, string> }[] = [
+  {
+    label: 'Akun & Login',
+    actions: {
+      'auth.login': 'Masuk ke aplikasi',
+      'auth.login_failed': 'Gagal masuk',
+      'auth.logout': 'Keluar dari aplikasi',
+      'auth.registered': 'Mendaftar akun baru',
+      'auth.organization_created': 'Membuat organisasi baru',
+      'auth.organization_switched': 'Berpindah organisasi',
+      'auth.password_changed': 'Mengganti kata sandi',
+    },
+  },
+  {
+    label: 'Organisasi',
+    actions: {
+      'organization.created': 'Membuat organisasi',
+      'organization.updated': 'Mengubah profil organisasi',
+      'organization.status_changed': 'Mengubah status organisasi',
+      'settings.updated': 'Mengubah pengaturan organisasi',
+    },
+  },
+  {
+    label: 'Pengguna',
+    actions: {
+      'user.created': 'Menambah pengguna baru',
+      'user.member_added': 'Menambahkan pengguna ke organisasi',
+      'user.updated': 'Mengubah data pengguna',
+      'user.status_changed': 'Mengubah status pengguna',
+      'user.roles_changed': 'Mengubah role pengguna',
+      'user.scopes_changed': 'Mengubah cakupan akses pengguna',
+      'user.password_reset': 'Mereset kata sandi pengguna',
+    },
+  },
+  {
+    label: 'Role',
+    actions: {
+      'role.created': 'Membuat role',
+      'role.updated': 'Mengubah role',
+      'role.deleted': 'Menghapus role',
+    },
+  },
+  {
+    label: 'Departemen',
+    actions: {
+      'department.created': 'Menambah departemen',
+      'department.updated': 'Mengubah departemen',
+      'department.archived': 'Mengarsipkan departemen',
+      'department.restored': 'Memulihkan departemen',
+    },
+  },
+  {
+    label: 'Lokasi',
+    actions: {
+      'location.created': 'Menambah lokasi',
+      'location.updated': 'Mengubah lokasi',
+      'location.archived': 'Mengarsipkan lokasi',
+      'location.restored': 'Memulihkan lokasi',
+    },
+  },
+  {
+    label: 'Aset',
+    actions: {
+      'asset.created': 'Mendaftarkan aset',
+      'asset.updated': 'Mengubah data aset',
+      'asset.archived': 'Mengarsipkan aset',
+      'asset.restored': 'Memulihkan aset',
+      'asset_transaction.created': 'Mencatat transaksi aset',
+    },
+  },
+  {
+    label: 'Kategori Aset',
+    actions: {
+      'tenant_category.created': 'Menambah kategori aset',
+      'tenant_category.updated': 'Mengubah kategori aset',
+      'tenant_category.archived': 'Mengarsipkan kategori aset',
+      'tenant_category.restored': 'Memulihkan kategori aset',
+    },
+  },
+  {
+    label: 'Jenis Aset',
+    actions: {
+      'tenant_definition.adopted': 'Mengadopsi jenis aset dari katalog',
+      'tenant_definition.updated': 'Mengubah jenis aset',
+      'tenant_definition.archived': 'Mengarsipkan jenis aset',
+      'tenant_definition.restored': 'Memulihkan jenis aset',
+      'tenant_definition_version.created': 'Membuat draft versi jenis aset',
+      'tenant_definition_version.updated': 'Mengubah draft versi jenis aset',
+      'tenant_definition_version.discarded': 'Membuang draft versi jenis aset',
+      'tenant_definition_version.released': 'Merilis versi jenis aset',
+      'tenant_definition_version.deprecated': 'Menghentikan versi jenis aset',
+      'tenant_attribute.created': 'Menambah atribut jenis aset',
+      'tenant_attribute.updated': 'Mengubah atribut jenis aset',
+      'tenant_attribute.deleted': 'Menghapus atribut jenis aset',
+      'tenant_overrides.updated': 'Mengubah penyesuaian atribut katalog',
+    },
+  },
+  {
+    label: 'Katalog Generik',
+    actions: {
+      'generic_category.created': 'Menambah kategori katalog',
+      'generic_category.updated': 'Mengubah kategori katalog',
+      'generic_category.archived': 'Mengarsipkan kategori katalog',
+      'generic_category.restored': 'Memulihkan kategori katalog',
+      'generic_definition.created': 'Menambah definisi katalog',
+      'generic_definition.updated': 'Mengubah definisi katalog',
+      'generic_definition.archived': 'Mengarsipkan definisi katalog',
+      'generic_definition.restored': 'Memulihkan definisi katalog',
+      'generic_version.created': 'Membuat draft versi katalog',
+      'generic_version.updated': 'Mengubah draft versi katalog',
+      'generic_version.discarded': 'Membuang draft versi katalog',
+      'generic_version.released': 'Merilis versi katalog',
+      'generic_version.deprecated': 'Menghentikan versi katalog',
+      'generic_attribute.created': 'Menambah atribut katalog',
+      'generic_attribute.updated': 'Mengubah atribut katalog',
+      'generic_attribute.deleted': 'Menghapus atribut katalog',
+    },
+  },
+]
+
+const auditActionLabels: Record<string, string> = Object.assign({}, ...auditActionGroups.map((g) => g.actions))
+
+/** Readable label for an audit action code; unknown codes fall back to the code itself. */
+export function auditActionLabel(code: string): string {
+  return auditActionLabels[code] ?? code
+}
+
 /** Human-readable attribute value for tables and previews. */
 export function formatAttributeValue(value: unknown, options?: { value: string; label: string }[] | null): string {
   if (value === null || value === undefined || value === '') return '—'
