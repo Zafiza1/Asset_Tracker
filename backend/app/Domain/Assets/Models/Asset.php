@@ -8,7 +8,6 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
 use App\Domain\Shared\Tenancy\Tenancy;
-use App\Domain\TenantMaster\Models\AssetCondition;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +20,7 @@ use Illuminate\Support\Carbon;
  *
  * Internal identity ("generic data"): `id` (UUID, used by every reference) and `asset_number`
  * (system-generated). Neither ever changes (DB trigger) and assets are never deleted.
- * Everything else is user data. Location, status and condition change only through
+ * Everything else is user data. Location and status change only through
  * asset transactions, so the history always explains the current state.
  *
  * @property string $id
@@ -31,7 +30,6 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string $category_id
  * @property string|null $location_id
- * @property string|null $condition_id
  * @property string $status
  * @property string|null $borrower_name
  * @property Carbon|null $loan_due_date
@@ -82,11 +80,6 @@ class Asset extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
-    }
-
-    public function condition(): BelongsTo
-    {
-        return $this->belongsTo(AssetCondition::class, 'condition_id');
     }
 
     public function creator(): BelongsTo

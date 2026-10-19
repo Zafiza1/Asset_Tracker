@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Platform;
 
-use App\Domain\GenericMaster\Models\GenericCondition;
 use App\Domain\GenericMaster\Models\GenericTransactionType;
 use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\GenericMaster\Models\Unit;
@@ -17,7 +16,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
 
 /**
- * Generic reference data: units, location types, standard conditions, transaction types.
+ * Generic reference data: units, location types, transaction types.
  * These are never deleted, only deactivated. Transaction type codes are fixed by code;
  * only their descriptive fields are editable.
  */
@@ -67,31 +66,6 @@ class GenericReferenceController extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:100'],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
         ], 'location_type');
-    }
-
-    public function conditions(Request $request): AnonymousResourceCollection
-    {
-        return ReferenceResource::collection(MasterRequests::list(GenericCondition::query(), $request, ['sort_order' => 'sort_order', 'name' => 'name'], 'sort_order'));
-    }
-
-    public function storeCondition(Request $request): ReferenceResource
-    {
-        return $this->store($request, new GenericCondition, 'generic_conditions', [
-            'name' => ['required', 'string', 'max:100'],
-            'description' => ['nullable', 'string', 'max:1000'],
-            'severity' => ['required', 'integer', 'min:1', 'max:9'],
-            'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
-        ], 'generic_condition');
-    }
-
-    public function updateCondition(Request $request, GenericCondition $genericCondition): ReferenceResource
-    {
-        return $this->update($request, $genericCondition, [
-            'name' => ['sometimes', 'required', 'string', 'max:100'],
-            'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'severity' => ['sometimes', 'integer', 'min:1', 'max:9'],
-            'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
-        ], 'generic_condition');
     }
 
     public function transactionTypes(Request $request): AnonymousResourceCollection

@@ -189,7 +189,6 @@ class GenericMasterTest extends TestCase
         $this->patchJson("/api/platform/generic-masters/units/{$unit['id']}", ['status' => 'inactive'])->assertOk()->assertJsonPath('data.status', 'inactive');
 
         $this->getJson('/api/platform/generic-masters/transaction-types')->assertOk()->assertJsonCount(9, 'data');
-        $this->getJson('/api/platform/generic-masters/conditions')->assertOk()->assertJsonPath('data.0.code', 'BAIK');
     }
 
     /** @return array<string, mixed> */

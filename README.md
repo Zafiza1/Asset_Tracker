@@ -14,7 +14,7 @@ Aplikasi pengelolaan aset multi-tenant yang sederhana: pendataan aset, transaksi
 |---|---|
 | 1. Requirement & arsitektur | ✅ Selesai (`docs/`) |
 | 2. Foundation: auth, tenancy, RLS, RBAC, audit, provisioning organisasi, manajemen user/role | ✅ Selesai |
-| 3. Master Data: Generic Master + versioning, Tenant Custom Master (adopsi, atribut tambahan, override, effective schema), departemen/lokasi (cabang dihapus 2026-10-12), kategori, kondisi | ✅ Selesai ([catatan](docs/07-implementation-plan.md#4-catatan-penyelesaian-fase), [API](docs/api/master-data.md)) |
+| 3. Master Data: Generic Master + versioning, Tenant Custom Master (adopsi, atribut tambahan, override, effective schema), departemen/lokasi (cabang dihapus 2026-10-12), kategori (kondisi aset dihapus 2026-10-19) | ✅ Selesai ([catatan](docs/07-implementation-plan.md#4-catatan-penyelesaian-fase), [API](docs/api/master-data.md)) |
 | 4. Pendataan Aset, Transaksi Aset, Dashboard Analisis (versi sederhana, tanpa workflow approval) | ✅ Selesai ([rincian](docs/08-asset-tracker-sederhana.md)) |
 
 Menu aplikasi hanya menampilkan modul yang sudah berfungsi. Data internal (Generic Data) tidak menjadi menu user; developer menelusurinya dengan `php artisan asset:inspect`. Satu modul dapat dimatikan sementara untuk maintenance dengan `MODULES_DISABLED` tanpa memengaruhi modul lain.

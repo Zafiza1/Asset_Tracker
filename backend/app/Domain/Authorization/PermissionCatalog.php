@@ -48,7 +48,7 @@ final class PermissionCatalog
         'asset.update' => ['tenant', 'asset', 'Mengubah data deskriptif aset'],
         'asset.assign' => ['tenant', 'asset', 'Mengajukan perubahan penanggung jawab/peminjaman'],
         'asset.transfer' => ['tenant', 'asset', 'Mengajukan perpindahan lokasi'],
-        'asset.status_change' => ['tenant', 'asset', 'Mengajukan perubahan status/kondisi'],
+        'asset.status_change' => ['tenant', 'asset', 'Mengajukan perubahan status'],
         'asset.dispose' => ['tenant', 'asset', 'Mengajukan pelepasan aset'],
         'asset.archive' => ['tenant', 'asset', 'Mengarsipkan aset'],
         'asset.restore' => ['tenant', 'asset', 'Memulihkan aset arsip'],

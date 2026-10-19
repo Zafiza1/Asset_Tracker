@@ -6,7 +6,6 @@ use App\Domain\Assets\Models\Asset;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
-use App\Domain\TenantMaster\Models\AssetCondition;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,8 +25,6 @@ use Illuminate\Support\Carbon;
  * @property string|null $to_location_id
  * @property string|null $from_status
  * @property string|null $to_status
- * @property string|null $from_condition_id
- * @property string|null $to_condition_id
  * @property string|null $notes
  * @property string|null $created_by
  * @property Carbon $created_at
@@ -62,16 +59,6 @@ class AssetTransaction extends Model
     public function toLocation(): BelongsTo
     {
         return $this->belongsTo(Location::class, 'to_location_id');
-    }
-
-    public function fromCondition(): BelongsTo
-    {
-        return $this->belongsTo(AssetCondition::class, 'from_condition_id');
-    }
-
-    public function toCondition(): BelongsTo
-    {
-        return $this->belongsTo(AssetCondition::class, 'to_condition_id');
     }
 
     public function creator(): BelongsTo

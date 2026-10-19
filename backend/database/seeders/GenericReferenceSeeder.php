@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Domain\GenericMaster\Models\GenericCondition;
 use App\Domain\GenericMaster\Models\GenericTransactionType;
 use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\GenericMaster\Models\Unit;
@@ -42,25 +41,12 @@ class GenericReferenceSeeder extends Seeder
             Unit::query()->firstOrCreate(['code' => $code], ['name' => $name, 'symbol' => $symbol, 'quantity' => $quantity, 'status' => 'active']);
         }
 
-        $conditions = [
-            'BAIK' => ['Baik', 1, 'Berfungsi normal.'],
-            'RUSAK_RINGAN' => ['Rusak Ringan', 2, 'Masih dapat digunakan dengan keterbatasan.'],
-            'RUSAK_BERAT' => ['Rusak Berat', 3, 'Tidak dapat digunakan sampai diperbaiki.'],
-            'HILANG' => ['Hilang', 4, 'Tidak ditemukan secara fisik.'],
-        ];
-        $order = 0;
-        foreach ($conditions as $code => [$name, $severity, $description]) {
-            GenericCondition::query()->firstOrCreate(['code' => $code], [
-                'name' => $name, 'severity' => $severity, 'description' => $description, 'sort_order' => ++$order, 'status' => 'active',
-            ]);
-        }
-
         // Codes are fixed: each one maps to a transaction handler implemented in code (Phase 5).
         $transactionTypes = [
             'RECEIPT' => ['Penerimaan / Registrasi', 'Mendaftarkan aset baru ke inventory.'],
             'TRANSFER' => ['Perpindahan Lokasi', 'Memindahkan aset ke lokasi lain.'],
             'REASSIGN' => ['Perubahan Penanggung Jawab', 'Mengganti penanggung jawab atau departemen aset.'],
-            'STATUS_CHANGE' => ['Perubahan Status/Kondisi', 'Mengubah status operasional atau kondisi aset.'],
+            'STATUS_CHANGE' => ['Perubahan Status', 'Mengubah status operasional aset.'],
             'LOAN' => ['Peminjaman', 'Meminjamkan aset untuk sementara.'],
             'RETURN' => ['Pengembalian', 'Mengembalikan aset yang dipinjam.'],
             'DISPOSAL' => ['Pelepasan', 'Menjual, menghibahkan, memusnahkan, atau menghapus aset hilang.'],

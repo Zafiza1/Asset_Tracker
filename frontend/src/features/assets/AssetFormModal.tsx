@@ -16,14 +16,13 @@ type Values = {
   serial_number: string
   category_id: string
   location_id: string
-  condition_id: string
   status: string
   acquisition_date: string
   acquisition_cost: string
   description: string
 }
 
-/** Fields editable after registration; location/status/condition change through transactions. */
+/** Fields editable after registration; location/status change through transactions. */
 const EDITABLE: (keyof Values)[] = ['name', 'serial_number', 'category_id', 'acquisition_date', 'acquisition_cost', 'description']
 
 /**
@@ -35,7 +34,6 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
   const [formError, setFormError] = useState<string | null>(null)
   const categories = toOptions(useOptions('/tenant-masters/categories').data)
   const locations = toOptions(useOptions('/locations').data)
-  const conditions = toOptions(useOptions('/tenant-masters/conditions').data)
 
   const { register, handleSubmit, setError, formState } = useForm<Values>({
     defaultValues: {
@@ -43,7 +41,6 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
       serial_number: asset?.serial_number ?? '',
       category_id: asset?.category_id ?? '',
       location_id: '',
-      condition_id: '',
       status: 'available',
       acquisition_date: asset?.acquisition_date ?? '',
       acquisition_cost: asset?.acquisition_cost ?? '',
@@ -89,7 +86,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
         {formError && <Alert tone="error">{formError}</Alert>}
         {asset ? (
           <p className="text-sm text-slate-600">
-            Nomor aset <span className="font-mono">{asset.asset_number}</span> tidak dapat diubah. Lokasi, status, dan kondisi diubah lewat transaksi agar riwayatnya tercatat.
+            Nomor aset <span className="font-mono">{asset.asset_number}</span> tidak dapat diubah. Lokasi dan status diubah lewat transaksi agar riwayatnya tercatat.
           </p>
         ) : (
           <p className="text-sm text-slate-600">Nomor aset dibuat otomatis oleh sistem setelah disimpan.</p>
@@ -117,24 +114,12 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
         </div>
 
         {!asset && (
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Lokasi" error={err('location_id')}>
               {(p) => (
                 <Select {...p} {...register('location_id')}>
                   <option value="">— Tanpa lokasi —</option>
                   {locations.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-            <Field label="Kondisi" error={err('condition_id')}>
-              {(p) => (
-                <Select {...p} {...register('condition_id')}>
-                  <option value="">— Belum dinilai —</option>
-                  {conditions.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>

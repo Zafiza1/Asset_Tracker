@@ -6,12 +6,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Small reference tables without sensitive columns: units, location types, generic and
- * tenant conditions, transaction types. Output is restricted to the listed columns.
+ * Small reference tables without sensitive columns: units, location types, transaction types. Output is restricted to the listed columns.
  */
 class ReferenceResource extends JsonResource
 {
-    private const FIELDS = ['id', 'code', 'name', 'symbol', 'quantity', 'description', 'severity', 'sort_order', 'generic_condition_id', 'status'];
+    private const FIELDS = ['id', 'code', 'name', 'symbol', 'quantity', 'description', 'sort_order', 'status'];
 
     public function toArray(Request $request): array
     {

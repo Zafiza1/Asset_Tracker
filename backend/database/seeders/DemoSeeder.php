@@ -16,7 +16,6 @@ use App\Domain\Organization\Services\OrganizationStructureService;
 use App\Domain\Platform\Services\OrganizationProvisioner;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\Shared\Tenancy\TenantContext;
-use App\Domain\TenantMaster\Models\AssetCondition;
 use App\Domain\TenantMaster\Services\TenantCategoryService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -145,7 +144,6 @@ class DemoSeeder extends Seeder
                 'code' => 'KTR-'.$site[0], 'name' => 'Kantor '.$site[1],
                 'location_type_id' => LocationType::query()->where('code', 'KANTOR')->value('id'),
             ]);
-            $conditions = AssetCondition::query()->pluck('id', 'code');
 
             $assets = app(AssetService::class);
             $transactions = app(AssetTransactionService::class);
@@ -164,7 +162,7 @@ class DemoSeeder extends Seeder
                 $date = now()->subMonths($monthsAgo)->toDateString();
                 $created[] = $assets->create([
                     'name' => $name, 'serial_number' => sprintf('SN-%04d', $i + 1), 'category_id' => $category->id,
-                    'location_id' => $location->id, 'condition_id' => $conditions['BAIK'] ?? null, 'status' => $status,
+                    'location_id' => $location->id, 'status' => $status,
                     'acquisition_date' => $date, 'acquisition_cost' => $cost, 'registered_on' => $date,
                 ]);
             }
@@ -173,7 +171,7 @@ class DemoSeeder extends Seeder
                 'transaction_date' => now()->subMonths(3)->toDateString(), 'notes' => 'Dipakai tim kantor cabang.']);
             $transactions->create(['asset_id' => $created[1]->id, 'type' => 'loan', 'borrower_name' => 'Rina (Keuangan)',
                 'transaction_date' => now()->subDays(20)->toDateString(), 'due_date' => now()->subDays(5)->toDateString()]);
-            $transactions->create(['asset_id' => $created[5]->id, 'type' => 'status_change', 'to_condition_id' => $conditions['RUSAK_BERAT'] ?? null,
+            $transactions->create(['asset_id' => $created[5]->id, 'type' => 'note',
                 'transaction_date' => now()->subMonth()->toDateString(), 'notes' => 'Mesin mati, menunggu suku cadang.']);
             $transactions->create(['asset_id' => $created[2]->id, 'type' => 'note',
                 'transaction_date' => now()->subDays(3)->toDateString(), 'notes' => 'Penggantian tinta rutin.']);

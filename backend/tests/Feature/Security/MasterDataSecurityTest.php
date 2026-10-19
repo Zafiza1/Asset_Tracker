@@ -153,7 +153,6 @@ class MasterDataSecurityTest extends TestCase
                 'tenant_attribute_definitions', 'departments', 'locations'] as $table) {
                 $this->assertSame(0, DB::table($table)->count(), $table);
             }
-            $this->assertSame(4, DB::table('asset_conditions')->count());
             $this->assertSame(0, TenantAssetDefinition::query()->withoutGlobalScopes()->count());
             $this->assertSame(0, TenantDefinitionVersion::query()->withoutGlobalScopes()->count());
         });

@@ -20,7 +20,7 @@ final class AssetInspector
     /** @return array<string, mixed> */
     public function inspect(Asset $asset): array
     {
-        $asset->loadMissing(['category.genericCategory', 'location', 'condition', 'organization']);
+        $asset->loadMissing(['category.genericCategory', 'location', 'organization']);
         $transactions = $this->transactions($asset);
 
         return [
@@ -37,7 +37,6 @@ final class AssetInspector
                 'category_path' => $asset->category?->path,
                 'generic_category' => $asset->category?->genericCategory ? "{$asset->category->genericCategory->code} ({$asset->category->generic_category_id})" : null,
                 'location' => $asset->location ? "{$asset->location->code} ({$asset->location_id})" : null,
-                'condition' => $asset->condition ? "{$asset->condition->code} ({$asset->condition_id})" : null,
                 'status' => $asset->status,
             ],
             'transactions' => $transactions->map(fn (AssetTransaction $t) => [
@@ -71,11 +70,10 @@ final class AssetInspector
             $problems[] = "Expected exactly 1 registration transaction, found {$registrations}.";
         }
 
-        $state = ['location_id' => null, 'status' => null, 'condition_id' => null, 'archived' => false];
+        $state = ['location_id' => null, 'status' => null, 'archived' => false];
         foreach ($transactions as $t) {
             $state['location_id'] = $t->to_location_id ?? $state['location_id'];
             $state['status'] = $t->to_status ?? $state['status'];
-            $state['condition_id'] = $t->to_condition_id ?? $state['condition_id'];
             $state['archived'] = match ($t->type) {
                 TransactionType::ARCHIVE => true,
                 TransactionType::RESTORE => false,
@@ -83,7 +81,7 @@ final class AssetInspector
             };
         }
 
-        $actual = ['location_id' => $asset->location_id, 'status' => $asset->status, 'condition_id' => $asset->condition_id, 'archived' => $asset->isArchived()];
+        $actual = ['location_id' => $asset->location_id, 'status' => $asset->status, 'archived' => $asset->isArchived()];
         foreach ($actual as $field => $value) {
             if ($state[$field] !== $value) {
                 $problems[] = sprintf('%s is %s but the history replays to %s.', $field, var_export($value, true), var_export($state[$field], true));

@@ -4,7 +4,7 @@ Konvensi umum mengikuti [02-architecture.md §5](../02-architecture.md): JSON `s
 
 ## Pola daftar master
 
-Berlaku untuk semua endpoint `GET` daftar master (departemen, lokasi, kategori, kondisi, definisi, katalog generik, referensi).
+Berlaku untuk semua endpoint `GET` daftar master (departemen, lokasi, kategori, definisi, katalog generik, referensi).
 
 | Parameter | Arti |
 |---|---|
@@ -20,7 +20,7 @@ Pola tulis yang sama untuk master sederhana:
 |---|---|---|
 | Buat | `POST /{resource}` | `code` di-uppercase, unik per organisasi, **tidak dapat diubah** setelah dibuat |
 | Ubah | `PATCH /{resource}/{id}` | `status` hanya `active`/`inactive` |
-| Arsip | `POST /{resource}/{id}/archive` `{reason?}` | Ditolak 409 bila masih dipakai (`LOCATION_HAS_CHILDREN`, `LOCATION_IN_USE`, `CATEGORY_IN_USE`, `CONDITION_IN_USE`) |
+| Arsip | `POST /{resource}/{id}/archive` `{reason?}` | Ditolak 409 bila masih dipakai (`LOCATION_HAS_CHILDREN`, `LOCATION_IN_USE`, `CATEGORY_IN_USE`) |
 | Pulihkan | `POST /{resource}/{id}/restore` | Induk harus aktif |
 
 Referensi ke master lain harus milik organisasi yang sama **dan aktif**; selain itu 422 `INVALID_REFERENCE`.
@@ -32,7 +32,6 @@ Referensi ke master lain harus milik organisasi yang sama **dan aktif**; selain 
 | Departemen | `/api/departments` | `master.tenant.view/create/update/archive` |
 | Lokasi | `/api/locations` (`?parent_id=&location_type_id=`) — `depth` untuk indentasi; pemindahan memperbarui seluruh subtree, siklus ditolak (`INVALID_PARENT`) | idem |
 | Kategori perusahaan | `/api/tenant-masters/categories` — kategori utama wajib `generic_category_id`; subkategori mewarisi induk | idem |
-| Kondisi aset | `/api/tenant-masters/conditions`; `POST /api/tenant-masters/conditions/import-generic` menyalin kondisi standar yang belum ada (idempoten) | idem |
 | Definisi aset | `/api/asset-definitions` — `POST` = **adopsi** `{generic_definition_id, generic_version_id?, code, name, tenant_category_id?, description?}` | idem |
 
 ### Versi definisi perusahaan
@@ -52,14 +51,14 @@ Referensi ke master lain harus milik organisasi yang sama **dan aktif**; selain 
 
 ### Katalog Generic Master (baca saja, `catalog.generic.view`)
 
-`GET /api/generic-masters/{categories, definitions, definitions/{id}, versions/{id}, units, location-types, conditions, transaction-types}`. Hanya definisi yang memiliki versi rilis yang tampil; versi **draft tidak pernah terlihat** (404).
+`GET /api/generic-masters/{categories, definitions, definitions/{id}, versions/{id}, units, location-types, transaction-types}`. Hanya definisi yang memiliki versi rilis yang tampil; versi **draft tidak pernah terlihat** (404).
 
 ## Endpoint platform (`/api/platform/generic-masters`)
 
 | Endpoint | Permission |
 |---|---|
-| `GET categories`, `GET definitions`, `GET definitions/{id}`, `GET versions/{id}`, `GET units|location-types|conditions|transaction-types` | `master.generic.view` |
-| `POST/PATCH categories…`, `archive/restore`, `POST/PATCH definitions…`, `POST definitions/{id}/versions`, `PATCH/DELETE versions/{id}`, `POST versions/{id}/attributes`, `PATCH/DELETE attributes/{id}`, `POST/PATCH units|location-types|conditions`, `PATCH transaction-types/{id}` | `master.generic.manage` |
+| `GET categories`, `GET definitions`, `GET definitions/{id}`, `GET versions/{id}`, `GET units|location-types|transaction-types` | `master.generic.view` |
+| `POST/PATCH categories…`, `archive/restore`, `POST/PATCH definitions…`, `POST definitions/{id}/versions`, `PATCH/DELETE versions/{id}`, `POST versions/{id}/attributes`, `PATCH/DELETE attributes/{id}`, `POST/PATCH units|location-types`, `PATCH transaction-types/{id}` | `master.generic.manage` |
 | `POST versions/{id}/release`, `POST versions/{id}/deprecate` | `master.generic.release` |
 
 `POST definitions` membuat definisi beserta draft v1 kosong. Rilis mewajibkan `changelog`; versi > 1 juga `migration_notes`. Versi rilis dan atributnya immutable (API 409 `VERSION_IMMUTABLE`; trigger DB menolak perubahan langsung). Kode jenis transaksi tetap (ditentukan kode program); hanya nama/deskripsi yang dapat diubah.

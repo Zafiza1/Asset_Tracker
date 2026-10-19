@@ -22,9 +22,6 @@ use Illuminate\Support\Facades\DB;
  */
 final class AssetAnalytics
 {
-    /** Conditions at or above this severity (1 = best) need attention, e.g. "Rusak Berat", "Hilang". */
-    public const POOR_CONDITION_SEVERITY = 3;
-
     public const TREND_MONTHS = 12;
 
     public const RECENT_DAYS = 30;
@@ -47,7 +44,6 @@ final class AssetAnalytics
             'by_status' => $this->byStatus(),
             'by_category' => $this->byCategory(),
             'by_location' => $this->byLocation(),
-            'by_condition' => $this->byCondition(),
             'transactions' => $this->transactionSummary($today),
             'trend' => $this->trend($today),
             'attention' => $this->attention($today),
@@ -103,22 +99,6 @@ final class AssetAnalytics
             ->orderByDesc('count')->orderBy('l.name')
             ->get(['l.id', 'l.name', DB::raw('count(*) AS count')])
             ->map(fn ($r) => ['id' => $r->id, 'name' => $r->name ?? 'Tanpa lokasi', 'count' => (int) $r->count])->all();
-    }
-
-    /** @return list<array{id: string|null, name: string, severity: int|null, count: int}> */
-    private function byCondition(): array
-    {
-        return $this->assets()->toBase()
-            ->leftJoin('asset_conditions as k', 'k.id', '=', 'assets.condition_id')
-            ->groupBy('k.id', 'k.name', 'k.severity', 'k.sort_order')
-            ->orderByRaw('k.severity NULLS LAST, k.sort_order')
-            ->get(['k.id', 'k.name', 'k.severity', DB::raw('count(*) AS count')])
-            ->map(fn ($r) => [
-                'id' => $r->id,
-                'name' => $r->name ?? 'Belum dinilai',
-                'severity' => $r->severity === null ? null : (int) $r->severity,
-                'count' => (int) $r->count,
-            ])->all();
     }
 
     /** @return array<string, mixed> */
@@ -182,8 +162,6 @@ final class AssetAnalytics
         $date = $today->toDateString();
         $rules = [
             'overdue_loan' => fn (Builder $q) => $q->where('status', AssetStatus::ON_LOAN)->whereNotNull('loan_due_date')->where('loan_due_date', '<', $date),
-            'poor_condition' => fn (Builder $q) => $q->where('status', '!=', AssetStatus::DISPOSED)
-                ->whereHas('condition', fn ($c) => $c->where('severity', '>=', self::POOR_CONDITION_SEVERITY)),
             'under_maintenance' => fn (Builder $q) => $q->where('status', AssetStatus::UNDER_MAINTENANCE),
             'no_location' => fn (Builder $q) => $q->whereNull('location_id')->where('status', '!=', AssetStatus::DISPOSED),
         ];
@@ -196,7 +174,7 @@ final class AssetAnalytics
             if (count($items) >= self::ATTENTION_LIMIT) {
                 continue;
             }
-            $assets = $rule($this->assets())->with(['location:id,name', 'condition:id,name'])
+            $assets = $rule($this->assets())->with('location:id,name')
                 ->orderBy('loan_due_date')->orderBy('asset_number')->limit(self::ATTENTION_LIMIT)->get();
             foreach ($assets as $asset) {
                 if (isset($seen[$asset->id]) || count($items) >= self::ATTENTION_LIMIT) {
@@ -208,7 +186,6 @@ final class AssetAnalytics
                     'asset' => ['id' => $asset->id, 'asset_number' => $asset->asset_number, 'name' => $asset->name],
                     'status' => $asset->status,
                     'location' => $asset->location?->name,
-                    'condition' => $asset->condition?->name,
                     'borrower_name' => $asset->borrower_name,
                     'loan_due_date' => $asset->loan_due_date?->toDateString(),
                 ];

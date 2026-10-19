@@ -7,7 +7,6 @@ export function TransactionChanges({ trx }: { trx: AssetTransaction }) {
   const rows: { label: string; from?: string | null; to?: string | null }[] = []
   if (trx.to_location) rows.push({ label: 'Lokasi', from: trx.from_location?.name, to: trx.to_location.name })
   if (trx.to_status) rows.push({ label: 'Status', from: trx.from_status && assetStatusLabel[trx.from_status], to: assetStatusLabel[trx.to_status] })
-  if (trx.to_condition) rows.push({ label: 'Kondisi', from: trx.from_condition?.name, to: trx.to_condition.name })
 
   return (
     <div className="space-y-0.5 text-sm">

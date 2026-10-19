@@ -115,7 +115,6 @@ export function AssetDetailPage() {
             {a.status === 'on_loan' && <Row label="Peminjam">{`${a.borrower_name}${a.loan_due_date ? ` (kembali ${formatDate(a.loan_due_date)})` : ''}`}</Row>}
             <Row label="Kategori">{a.category?.name}</Row>
             <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>
-            <Row label="Kondisi">{a.condition?.name ?? 'Belum dinilai'}</Row>
             <Row label="Tanggal perolehan">{formatDate(a.acquisition_date)}</Row>
             <Row label="Nilai perolehan">{formatMoney(a.acquisition_cost)}</Row>
             <Row label="Deskripsi">{a.description ? <span className="whitespace-pre-line">{a.description}</span> : '—'}</Row>

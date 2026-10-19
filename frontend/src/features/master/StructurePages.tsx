@@ -1,12 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { CopyPlus } from 'lucide-react'
-import { Button } from '../../components/ui/Button'
-import { Alert } from '../../components/ui/Feedback'
 import type { Column } from '../../components/ui/Table'
-import { api } from '../../lib/api/client'
-import type { Department, Location, ReferenceItem, TenantCategory } from '../../lib/api/types'
+import type { Department, Location, TenantCategory } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
-import { errorMessage } from '../../lib/forms'
 import { MasterListPage } from './MasterListPage'
 import { toOptions, useOptions } from './options'
 
@@ -101,48 +95,5 @@ export function TenantCategoriesPage() {
       ]}
       emptyHint="Tambahkan kategori pertama, misalnya Perangkat IT, Kendaraan, atau Furnitur."
     />
-  )
-}
-
-export function ConditionsPage() {
-  const permissions = useMasterPermissions()
-  return (
-    <MasterListPage<ReferenceItem>
-      title="Kondisi Aset"
-      description="Kondisi fisik aset. Tingkat keparahan 1 = terbaik; aset dengan tingkat 3 atau lebih ditandai perlu perhatian di dashboard."
-      endpoint="/tenant-masters/conditions"
-      {...permissions}
-      headerActions={permissions.canCreate && <ImportGenericConditions />}
-      columns={[
-        code<ReferenceItem>(),
-        { key: 'name', header: 'Nama', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
-        { key: 'severity', header: 'Tingkat', cell: (r) => r.severity ?? '—' },
-        { key: 'source', header: 'Sumber', cell: (r) => (r.generic_condition_id ? 'Standar' : 'Kustom'), hideOnMobile: true },
-      ]}
-      fields={[
-        codeField,
-        { name: 'name', label: 'Nama', required: true },
-        { name: 'severity', label: 'Tingkat keparahan (1 = terbaik)', type: 'number', required: true },
-        { name: 'sort_order', label: 'Urutan', type: 'number' },
-        { name: 'description', label: 'Deskripsi', type: 'textarea' },
-      ]}
-    />
-  )
-}
-
-function ImportGenericConditions() {
-  const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: () => api.post<{ meta: { created: number } }>('/tenant-masters/conditions/import-generic'),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/tenant-masters/conditions'] }),
-  })
-  return (
-    <div className="flex items-center gap-2">
-      {mutation.isSuccess && <span className="text-sm text-slate-600">{mutation.data.meta.created} kondisi disalin.</span>}
-      {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
-      <Button variant="secondary" loading={mutation.isPending} onClick={() => mutation.mutate()}>
-        <CopyPlus className="size-4" aria-hidden /> Tambahkan kondisi standar
-      </Button>
-    </div>
   )
 }

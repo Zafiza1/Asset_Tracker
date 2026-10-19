@@ -8,10 +8,11 @@ Dokumen ini **menggantikan** bagian dokumen 01–07 yang bertentangan dengannya.
 |---|---|
 | Registrasi aset lewat transaksi RECEIPT + workflow approval | Aset langsung didaftarkan dari menu Pendataan Aset; sistem otomatis mencatat transaksi *Penambahan aset* |
 | Transaksi: draft → submit → approve → post, reversal | Transaksi langsung berlaku saat disimpan; tidak dapat diubah/dihapus; kesalahan diperbaiki dengan transaksi baru |
-| Asset container + versi definisi + atribut dinamis | Aset hanya memakai kolom tetap (nama, nomor seri, kategori, lokasi, kondisi, status, tanggal & nilai perolehan, deskripsi) |
+| Asset container + versi definisi + atribut dinamis | Aset hanya memakai kolom tetap (nama, nomor seri, kategori, lokasi, status, tanggal & nilai perolehan, deskripsi) |
 | Menu tenant *Definisi Aset* & *Katalog Generic Master* | Dihapus dari menu user. API-nya masih ada (tidak dipakai UI) sampai diputuskan dihapus |
 | Kategori utama wajib memilih kategori generik | Jangkar generik diisi otomatis (`UMUM`) dan tidak ditampilkan |
 | Struktur cabang → departemen/lokasi, data scope per cabang | **Cabang dihapus** (migrasi `000600_remove_branches`): lokasi bertingkat dan departemen berdiri sendiri; data scope hanya organisasi, departemen, atau lokasi |
+| Kondisi aset (master *Kondisi Aset*, kondisi standar generik) | **Kondisi dihapus** (migrasi `000800_remove_asset_conditions`): status aset sudah cukup; transaksi *Perubahan status* hanya mengubah status |
 
 Tidak ada workflow approval, dokumen/lampiran, import/export, depresiasi, RFID/GPS, atau integrasi apa pun pada tahap ini.
 
@@ -29,7 +30,7 @@ Setiap modul punya folder domain, controller, file route, dan folder fitur front
 
 Arah ketergantungan:
 
-- **Transactions → Assets**: transaksi mengubah lokasi/status/kondisi aset (baris aset dikunci `FOR UPDATE`).
+- **Transactions → Assets**: transaksi mengubah lokasi/status aset (baris aset dikunci `FOR UPDATE`).
 - **Assets → `TransactionLog`**: Asset Management hanya *menambahkan* catatan riwayat (penambahan, penonaktifan, pengaktifan kembali).
 - **Analytics → Assets + Transactions**: hanya baca.
 - **Master Data → `Shared\Masters\MasterUsage`** (interface): master tidak dapat diarsipkan selama dipakai aset aktif, tanpa mengimpor modul Assets. Implementasinya `Assets\AssetMasterUsage`, di-bind di `AppServiceProvider`.
@@ -43,7 +44,7 @@ Arah ketergantungan:
 
 | | Generic Data (developer) | User Data (operasional) |
 |---|---|---|
-| Contoh | `assets.id` (UUID), `organization_id`, jangkar kategori generik, `path` hierarki, `lock_version`, `seq` transaksi, katalog Generic Master | nama aset, nomor seri/kode organisasi, kategori, lokasi, kondisi, status, tanggal & nilai perolehan, deskripsi |
+| Contoh | `assets.id` (UUID), `organization_id`, jangkar kategori generik, `path` hierarki, `lock_version`, `seq` transaksi, katalog Generic Master | nama aset, nomor seri/kode organisasi, kategori, lokasi, status, tanggal & nilai perolehan, deskripsi |
 | Siapa yang mengelola | Sistem; developer menelusuri | User lewat UI |
 | Ditampilkan di UI tenant | Tidak | Ya |
 
@@ -61,7 +62,7 @@ php artisan asset:inspect <uuid>
 php artisan asset:inspect --org=MAJU --verify-all       # putar ulang riwayat semua aset; exit 1 bila ada selisih
 ```
 
-Pemeriksaan konsistensi memutar ulang transaksi (urut `seq`) dan membandingkan hasilnya dengan lokasi/status/kondisi/status-nonaktif aset saat ini.
+Pemeriksaan konsistensi memutar ulang transaksi (urut `seq`) dan membandingkan hasilnya dengan lokasi/status/status-nonaktif aset saat ini.
 
 ## 4. Aturan bisnis
 
@@ -71,9 +72,9 @@ Pemeriksaan konsistensi memutar ulang transaksi (urut `seq`) dan membandingkan h
 |---|---|---|---|
 | Penambahan aset | `asset.create` | otomatis saat aset dibuat | status awal Tersedia/Digunakan/Dalam perbaikan |
 | Pemindahan lokasi | `asset.transfer` | bukan Dipinjam/Dihapuskan; lokasi aktif & dalam scope; beda dari lokasi saat ini | ubah lokasi |
-| Perubahan status/kondisi | `asset.status_change` (+ `asset.dispose` untuk Dihapuskan) | bukan Dipinjam; minimal satu nilai berubah | ubah status dan/atau kondisi |
+| Perubahan status | `asset.status_change` (+ `asset.dispose` untuk Dihapuskan) | bukan Dipinjam; status baru wajib dan berbeda dari saat ini | ubah status |
 | Peminjaman | `asset.assign` | status Tersedia/Digunakan; nama peminjam wajib | status Dipinjam + peminjam + rencana kembali |
-| Pengembalian | `asset.assign` | status Dipinjam | status Tersedia; opsional lokasi/kondisi baru |
+| Pengembalian | `asset.assign` | status Dipinjam | status Tersedia; opsional lokasi baru |
 | Aktivitas lain | — | keterangan wajib | tidak mengubah aset |
 | Penonaktifan / pengaktifan kembali | `asset.archive` / `asset.restore` | aset dipinjam tidak bisa dinonaktifkan | otomatis tercatat |
 
@@ -81,23 +82,23 @@ Semua transaksi manual memerlukan `transaction.create`; aset nonaktif tidak dapa
 
 **Data scope** berlaku lewat lokasi aset: scope lokasi = lokasi itu dan sub-lokasinya (pakai lokasi induk, mis. gedung atau kota, untuk mencakup banyak lokasi sekaligus). Aset tanpa lokasi hanya terlihat oleh user ber-scope organisasi; scope departemen saja tidak melihat aset (aset tidak memiliki departemen).
 
-**Kategori**: master data bertingkat. Filter kategori menerima beberapa kategori sekaligus (`category_ids=a,b`) dan ikut mencakup subkategori. Menambah kategori tidak memengaruhi aset yang sudah ada; kategori yang masih dipakai aset aktif tidak bisa diarsipkan (begitu pula lokasi dan kondisi).
+**Kategori**: master data bertingkat. Filter kategori menerima beberapa kategori sekaligus (`category_ids=a,b`) dan ikut mencakup subkategori. Menambah kategori tidak memengaruhi aset yang sudah ada; kategori yang masih dipakai aset aktif tidak bisa diarsipkan (begitu pula lokasi).
 
 ## 5. Dashboard (Asset Analytics)
 
 `GET /api/dashboard` (`report.view`) dihitung langsung dari database, dalam data scope user:
 
 - ringkasan: aset aktif, nonaktif, total nilai perolehan, ditambahkan bulan ini;
-- distribusi per status, kategori, lokasi (termasuk "Tanpa lokasi"), kondisi (termasuk "Belum dinilai");
+- distribusi per status, kategori, lokasi (termasuk "Tanpa lokasi");
 - transaksi 30 hari per jenis + 8 transaksi terbaru;
 - tren 12 bulan: aset ditambahkan vs perubahan (semua transaksi lain), berdasarkan tanggal transaksi;
-- perlu perhatian: peminjaman lewat batas, kondisi dengan tingkat keparahan ≥ 3 (`AssetAnalytics::POOR_CONDITION_SEVERITY`), dalam perbaikan, belum ada lokasi.
+- perlu perhatian: peminjaman lewat batas, dalam perbaikan, belum ada lokasi.
 
 ## 6. API
 
 | Endpoint | Permission |
 |---|---|
-| `GET /api/assets` — `search`, `category_ids`, `location_id`, `status`, `condition_id`, `archived=only\|all`, `sort`, `page`, `per_page` | `asset.view` |
+| `GET /api/assets` — `search`, `category_ids`, `location_id`, `status`, `archived=only\|all`, `sort`, `page`, `per_page` | `asset.view` |
 | `POST /api/assets` | `asset.create` |
 | `GET /api/assets/{id}` | `asset.view` |
 | `PATCH /api/assets/{id}` — data deskriptif saja, `lock_version` opsional (409 `STALE_ASSET`) | `asset.update` |

@@ -20,7 +20,7 @@ use Illuminate\Validation\Rule;
 /** Asset Transactions container: searchable list, detail, manual recording. */
 class AssetTransactionController extends Controller
 {
-    private const RELATIONS = ['asset', 'fromLocation', 'toLocation', 'fromCondition', 'toCondition', 'creator'];
+    private const RELATIONS = ['asset', 'fromLocation', 'toLocation', 'creator'];
 
     public function __construct(
         private readonly AssetTransactionService $transactions,
@@ -71,7 +71,6 @@ class AssetTransactionController extends Controller
             'transaction_date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after:1999-12-31'],
             'to_location_id' => ['nullable', 'uuid'],
             'to_status' => ['nullable', Rule::in(AssetStatus::SELECTABLE)],
-            'to_condition_id' => ['nullable', 'uuid'],
             'borrower_name' => ['nullable', 'string', 'max:150'],
             'due_date' => ['nullable', 'date_format:Y-m-d'],
             'notes' => [Rule::requiredIf($request->input('type') === TransactionType::NOTE), 'nullable', 'string', 'max:1000'],

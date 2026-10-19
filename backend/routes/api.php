@@ -9,7 +9,6 @@ use App\Http\Controllers\Platform\GenericVersionController;
 use App\Http\Controllers\Platform\OrganizationController as PlatformOrganizationController;
 use App\Http\Controllers\Platform\PlatformAuditLogController;
 use App\Http\Controllers\Tenant\AuditLogController;
-use App\Http\Controllers\Tenant\ConditionController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\GenericCatalogController;
 use App\Http\Controllers\Tenant\LocationController;
@@ -90,9 +89,6 @@ Route::prefix('platform')->middleware(['auth:sanctum', 'platform'])->group(funct
         Route::get('/location-types', [GenericReferenceController::class, 'locationTypes'])->middleware($view);
         Route::post('/location-types', [GenericReferenceController::class, 'storeLocationType'])->middleware($manage);
         Route::patch('/location-types/{locationType}', [GenericReferenceController::class, 'updateLocationType'])->middleware($manage);
-        Route::get('/conditions', [GenericReferenceController::class, 'conditions'])->middleware($view);
-        Route::post('/conditions', [GenericReferenceController::class, 'storeCondition'])->middleware($manage);
-        Route::patch('/conditions/{genericCondition}', [GenericReferenceController::class, 'updateCondition'])->middleware($manage);
         Route::get('/transaction-types', [GenericReferenceController::class, 'transactionTypes'])->middleware($view);
         Route::patch('/transaction-types/{transactionType}', [GenericReferenceController::class, 'updateTransactionType'])->middleware($manage);
     });
@@ -132,7 +128,6 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('/versions/{genericVersion}', [GenericCatalogController::class, 'version']);
         Route::get('/units', [GenericCatalogController::class, 'units']);
         Route::get('/location-types', [GenericCatalogController::class, 'locationTypes']);
-        Route::get('/conditions', [GenericCatalogController::class, 'conditions']);
         Route::get('/transaction-types', [GenericCatalogController::class, 'transactionTypes']);
     });
 
@@ -145,10 +140,8 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         'departments' => [DepartmentController::class, 'department'],
         'locations' => [LocationController::class, 'location'],
         'tenant-masters/categories' => [TenantCategoryController::class, 'tenantCategory'],
-        'tenant-masters/conditions' => [ConditionController::class, 'condition'],
         'asset-definitions' => [TenantDefinitionController::class, 'tenantDefinition'],
     ];
-    Route::post('/tenant-masters/conditions/import-generic', [ConditionController::class, 'importGeneric'])->middleware($create);
     foreach ($masters as $uri => [$controller, $param]) {
         Route::get("/{$uri}", [$controller, 'index'])->middleware($view);
         Route::post("/{$uri}", [$controller, 'store'])->middleware($create);

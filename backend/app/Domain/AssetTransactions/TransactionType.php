@@ -32,7 +32,7 @@ final class TransactionType
     public const LABELS = [
         self::REGISTRATION => 'Penambahan aset',
         self::TRANSFER => 'Pemindahan lokasi',
-        self::STATUS_CHANGE => 'Perubahan status/kondisi',
+        self::STATUS_CHANGE => 'Perubahan status',
         self::LOAN => 'Peminjaman',
         self::RETURN => 'Pengembalian',
         self::NOTE => 'Aktivitas lain',

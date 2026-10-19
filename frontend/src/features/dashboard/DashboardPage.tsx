@@ -13,7 +13,7 @@ import { assetStatusLabel, assetStatusTone, formatMoney, type AssetStatus } from
 import { transactionTypeLabel, type TransactionType } from '../transactions/api'
 import { BarList, TrendChart, type TrendPoint } from './charts'
 
-type AttentionReason = 'overdue_loan' | 'poor_condition' | 'under_maintenance' | 'no_location'
+type AttentionReason = 'overdue_loan' | 'under_maintenance' | 'no_location'
 
 export interface Dashboard {
   generated_at: string
@@ -21,7 +21,6 @@ export interface Dashboard {
   by_status: { status: AssetStatus; label: string; count: number }[]
   by_category: { id: string; name: string; count: number }[]
   by_location: { id: string | null; name: string; count: number }[]
-  by_condition: { id: string | null; name: string; severity: number | null; count: number }[]
   transactions: {
     days: number
     total: number
@@ -31,13 +30,12 @@ export interface Dashboard {
   trend: TrendPoint[]
   attention: {
     counts: Record<AttentionReason, number>
-    items: { reason: AttentionReason; asset: { id: string; asset_number: string; name: string }; status: AssetStatus; location: string | null; condition: string | null; borrower_name: string | null; loan_due_date: string | null }[]
+    items: { reason: AttentionReason; asset: { id: string; asset_number: string; name: string }; status: AssetStatus; location: string | null; borrower_name: string | null; loan_due_date: string | null }[]
   }
 }
 
 const attentionLabel: Record<AttentionReason, string> = {
   overdue_loan: 'Peminjaman lewat batas',
-  poor_condition: 'Kondisi buruk',
   under_maintenance: 'Dalam perbaikan',
   no_location: 'Belum ada lokasi',
 }
@@ -98,7 +96,7 @@ function DashboardBody({ data }: { data: Dashboard }) {
         </Widget>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Widget title="Per kategori">
           <BarList data={data.by_category.map((c) => ({ key: c.id, label: c.name, value: c.count, to: `/aset?category_ids=${c.id}` }))} />
         </Widget>
@@ -107,9 +105,6 @@ function DashboardBody({ data }: { data: Dashboard }) {
         </Widget>
         <Widget title="Per status">
           <BarList data={data.by_status.map((s) => ({ key: s.status, label: s.label, value: s.count, to: `/aset?status=${s.status}` }))} />
-        </Widget>
-        <Widget title="Per kondisi">
-          <BarList data={data.by_condition.map((c) => ({ key: c.id ?? 'none', label: c.name, value: c.count, to: c.id ? `/aset?condition_id=${c.id}` : undefined }))} />
         </Widget>
       </div>
 
@@ -167,7 +162,6 @@ function Attention({ data }: { data: Dashboard['attention'] }) {
                 <p className="text-xs text-slate-500">
                   {attentionLabel[item.reason]}
                   {item.reason === 'overdue_loan' && item.borrower_name && ` · ${item.borrower_name}, batas ${formatDate(item.loan_due_date)}`}
-                  {item.reason === 'poor_condition' && item.condition && ` · ${item.condition}`}
                 </p>
               </div>
               <span className="flex shrink-0 items-center gap-1">

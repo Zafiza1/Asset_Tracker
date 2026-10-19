@@ -39,7 +39,6 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
 
   const locations = toOptions(useOptions('/locations').data)
-  const conditions = toOptions(useOptions('/tenant-masters/conditions').data)
   const candidates = useQuery({
     queryKey: ['/assets', 'picker', search],
     queryFn: () => api.get<Paginated<Asset>>(`/assets${qs({ search, per_page: 10 })}`),
@@ -166,23 +165,20 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
         )}
 
         {type === 'status_change' && (
-          <>
-            <Field label="Status baru" error={err('to_status')} hint="Kosongkan bila hanya kondisi yang berubah.">
-              {(p) => (
-                <Select {...p} value={values.to_status ?? ''} onChange={set('to_status')}>
-                  <option value="">— Tidak berubah —</option>
-                  {selectableStatuses
-                    .filter((s) => s !== asset?.status && (s !== 'disposed' || can('asset.dispose')))
-                    .map((s) => (
-                      <option key={s} value={s}>
-                        {assetStatusLabel[s]}
-                      </option>
-                    ))}
-                </Select>
-              )}
-            </Field>
-            <ConditionField conditions={conditions} value={values.to_condition_id ?? ''} onChange={set('to_condition_id')} error={err('to_condition_id')} />
-          </>
+          <Field label="Status baru" required error={err('to_status')}>
+            {(p) => (
+              <Select {...p} value={values.to_status ?? ''} onChange={set('to_status')}>
+                <option value="">— Pilih —</option>
+                {selectableStatuses
+                  .filter((s) => s !== asset?.status && (s !== 'disposed' || can('asset.dispose')))
+                  .map((s) => (
+                    <option key={s} value={s}>
+                      {assetStatusLabel[s]}
+                    </option>
+                  ))}
+              </Select>
+            )}
+          </Field>
         )}
 
         {type === 'loan' && (
@@ -197,21 +193,18 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
         )}
 
         {type === 'return' && (
-          <>
-            <Field label="Dikembalikan ke lokasi" error={err('to_location_id')} hint="Kosongkan bila kembali ke lokasi semula.">
-              {(p) => (
-                <Select {...p} value={values.to_location_id ?? ''} onChange={set('to_location_id')}>
-                  <option value="">— Lokasi semula —</option>
-                  {locations.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-            <ConditionField conditions={conditions} value={values.to_condition_id ?? ''} onChange={set('to_condition_id')} error={err('to_condition_id')} />
-          </>
+          <Field label="Dikembalikan ke lokasi" error={err('to_location_id')} hint="Kosongkan bila kembali ke lokasi semula.">
+            {(p) => (
+              <Select {...p} value={values.to_location_id ?? ''} onChange={set('to_location_id')}>
+                <option value="">— Lokasi semula —</option>
+                {locations.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
         )}
 
         {type && (
@@ -226,22 +219,5 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
         )}
       </form>
     </Modal>
-  )
-}
-
-function ConditionField({ conditions, value, onChange, error }: { conditions: { value: string; label: string }[]; value: string; onChange: (e: { target: { value: string } }) => void; error?: string }) {
-  return (
-    <Field label="Kondisi" error={error} hint="Kosongkan bila kondisi tidak berubah.">
-      {(p) => (
-        <Select {...p} value={value} onChange={onChange}>
-          <option value="">— Tidak berubah —</option>
-          {conditions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
-      )}
-    </Field>
   )
 }

@@ -94,7 +94,6 @@ class RouteSecurityTest extends TestCase
             'department' => $masters['department']->id,
             'location' => $masters['location']->id,
             'tenantCategory' => $masters['category']->id,
-            'condition' => $masters['condition']->id,
             'tenantDefinition' => $masters['definition']->id,
             'tenantVersion' => $masters['version']->id,
             'tenantAttribute' => $masters['attribute']->id,

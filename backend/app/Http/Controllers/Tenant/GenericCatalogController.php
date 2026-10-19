@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\GenericMaster\Models\GenericAssetCategory;
 use App\Domain\GenericMaster\Models\GenericAssetDefinition;
-use App\Domain\GenericMaster\Models\GenericCondition;
 use App\Domain\GenericMaster\Models\GenericDefinitionVersion;
 use App\Domain\GenericMaster\Models\GenericTransactionType;
 use App\Domain\GenericMaster\Models\LocationType;
@@ -69,11 +68,6 @@ class GenericCatalogController extends Controller
     public function locationTypes(Request $request): AnonymousResourceCollection
     {
         return ReferenceResource::collection(MasterRequests::list(LocationType::query(), $request, ['code' => 'code', 'name' => 'name'], 'name'));
-    }
-
-    public function conditions(Request $request): AnonymousResourceCollection
-    {
-        return ReferenceResource::collection(MasterRequests::list(GenericCondition::query(), $request, ['sort_order' => 'sort_order', 'name' => 'name'], 'sort_order'));
     }
 
     public function transactionTypes(Request $request): AnonymousResourceCollection

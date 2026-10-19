@@ -19,8 +19,6 @@ export interface Asset {
   category?: Ref | null
   location_id: string | null
   location?: Ref | null
-  condition_id: string | null
-  condition?: (Ref & { severity: number }) | null
   status: AssetStatus
   acquisition_date: string | null
   acquisition_cost: string | null

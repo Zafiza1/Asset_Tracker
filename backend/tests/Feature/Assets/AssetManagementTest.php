@@ -157,15 +157,14 @@ class AssetManagementTest extends TestCase
 
     public function test_masters_used_by_active_assets_cannot_be_archived(): void
     {
-        $asset = $this->register(['name' => 'Kursi', 'condition_id' => $this->masters['condition']->id])->json('data');
+        $asset = $this->register(['name' => 'Kursi'])->json('data');
 
         $this->assertErrorCode($this->postJson("/api/tenant-masters/categories/{$this->masters['category']->id}/archive"), 409, 'CATEGORY_IN_USE');
         $this->assertErrorCode($this->postJson("/api/locations/{$this->masters['location']->id}/archive"), 409, 'LOCATION_IN_USE');
-        $this->assertErrorCode($this->postJson("/api/tenant-masters/conditions/{$this->masters['condition']->id}/archive"), 409, 'CONDITION_IN_USE');
 
-        // Once the asset is deactivated the condition is free again; history keeps its reference.
+        // Once the asset is deactivated the location is free again; history keeps its reference.
         $this->postJson("/api/assets/{$asset['id']}/archive")->assertOk();
-        $this->postJson("/api/tenant-masters/conditions/{$this->masters['condition']->id}/archive")->assertOk();
+        $this->postJson("/api/locations/{$this->masters['location']->id}/archive")->assertOk();
     }
 
     public function test_root_category_without_generic_anchor_uses_the_general_one(): void

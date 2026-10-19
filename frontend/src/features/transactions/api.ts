@@ -19,8 +19,6 @@ export interface AssetTransaction {
   to_location?: Ref | null
   from_status: AssetStatus | null
   to_status: AssetStatus | null
-  from_condition?: Ref | null
-  to_condition?: Ref | null
   borrower_name: string | null
   due_date: string | null
   notes: string | null
@@ -31,7 +29,7 @@ export interface AssetTransaction {
 export const transactionTypeLabel: Record<TransactionType, string> = {
   registration: 'Penambahan aset',
   transfer: 'Pemindahan lokasi',
-  status_change: 'Perubahan status/kondisi',
+  status_change: 'Perubahan status',
   loan: 'Peminjaman',
   return: 'Pengembalian',
   note: 'Aktivitas lain',

@@ -5,7 +5,6 @@ namespace Tests\Feature\Assets;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
-use App\Domain\TenantMaster\Models\AssetCondition;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -50,7 +49,6 @@ class AssetTransactionTest extends TestCase
     public function test_loan_and_return_cycle(): void
     {
         $asset = $this->asset();
-        $damaged = AssetCondition::query()->where('organization_id', $this->org->id)->where('code', 'RUSAK_RINGAN')->firstOrFail();
 
         $this->record($asset, 'loan', ['borrower_name' => 'Budi', 'due_date' => now()->addWeek()->toDateString()])->assertCreated()
             ->assertJsonPath('data.to_status', 'on_loan')->assertJsonPath('data.borrower_name', 'Budi');
@@ -60,10 +58,8 @@ class AssetTransactionTest extends TestCase
         $this->assertErrorCode($this->record($asset, 'transfer', ['to_location_id' => $this->otherLocation->id]), 409, 'INVALID_ASSET_STATUS');
         $this->assertErrorCode($this->record($asset, 'status_change', ['to_status' => 'in_use']), 409, 'INVALID_ASSET_STATUS');
 
-        $this->record($asset, 'return', ['to_condition_id' => $damaged->id])->assertCreated()
-            ->assertJsonPath('data.to_status', 'available')->assertJsonPath('data.to_condition.code', 'RUSAK_RINGAN');
-        $this->getJson("/api/assets/{$asset}")->assertJsonPath('data.status', 'available')
-            ->assertJsonPath('data.borrower_name', null)->assertJsonPath('data.condition.code', 'RUSAK_RINGAN');
+        $this->record($asset, 'return')->assertCreated()->assertJsonPath('data.to_status', 'available');
+        $this->getJson("/api/assets/{$asset}")->assertJsonPath('data.status', 'available')->assertJsonPath('data.borrower_name', null);
         $this->assertErrorCode($this->record($asset, 'return'), 409, 'INVALID_ASSET_STATUS');
 
         $this->assertErrorCode($this->record($asset, 'loan', ['borrower_name' => '']), 422, 'VALIDATION_FAILED');
@@ -198,7 +194,6 @@ class AssetTransactionTest extends TestCase
             'name' => $name,
             'category_id' => $this->masters['category']->id,
             'location_id' => $locationId ?? $this->masters['location']->id,
-            'condition_id' => $this->masters['condition']->id,
         ])->assertCreated()->json('data.id');
     }
 

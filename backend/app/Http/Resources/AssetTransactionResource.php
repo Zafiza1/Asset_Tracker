@@ -28,8 +28,6 @@ class AssetTransactionResource extends JsonResource
             'to_location' => $this->whenLoaded('toLocation', fn () => Ref::of($this->toLocation)),
             'from_status' => $this->from_status,
             'to_status' => $this->to_status,
-            'from_condition' => $this->whenLoaded('fromCondition', fn () => Ref::of($this->fromCondition)),
-            'to_condition' => $this->whenLoaded('toCondition', fn () => Ref::of($this->toCondition)),
             'borrower_name' => $this->borrower_name,
             'due_date' => $this->due_date?->toDateString(),
             'notes' => $this->notes,

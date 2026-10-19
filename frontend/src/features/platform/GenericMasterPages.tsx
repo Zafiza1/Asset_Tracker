@@ -58,31 +58,21 @@ export function PlatformCategoriesPage() {
 const referenceTabs = {
   units: { label: 'Satuan', endpoint: `${BASE}/units` },
   'location-types': { label: 'Jenis Lokasi', endpoint: `${BASE}/location-types` },
-  conditions: { label: 'Kondisi Standar', endpoint: `${BASE}/conditions` },
   'transaction-types': { label: 'Jenis Transaksi', endpoint: `${BASE}/transaction-types` },
 } as const
 
-/** Units, location types, standard conditions and transaction types (deactivated, never deleted). */
+/** Units, location types and transaction types (deactivated, never deleted). */
 export function PlatformReferencePage() {
   const { can } = useAuth()
   const manage = can('master.generic.manage')
   const [params, setParams] = useSearchParams()
-  const tab = (params.get('tab') ?? 'units') as keyof typeof referenceTabs
+  const requested = params.get('tab') ?? ''
+  const tab = (requested in referenceTabs ? requested : 'units') as keyof typeof referenceTabs
 
   const common = { title: referenceTabs[tab].label, endpoint: referenceTabs[tab].endpoint, canUpdate: manage, canArchive: false, embedded: true }
   const content = {
     units: <MasterListPage<ReferenceItem> key="units" {...common} canCreate={manage} columns={[codeColumn(), nameColumn(), { key: 'symbol', header: 'Simbol', cell: (r) => r.symbol }]} fields={[codeField, { name: 'name', label: 'Nama', required: true }, { name: 'symbol', label: 'Simbol', required: true }, { name: 'quantity', label: 'Besaran' }]} />,
     'location-types': <MasterListPage<ReferenceItem> key="location-types" {...common} canCreate={manage} columns={[codeColumn(), nameColumn()]} fields={[codeField, { name: 'name', label: 'Nama', required: true }, { name: 'description', label: 'Deskripsi', type: 'textarea' }]} />,
-    conditions: (
-      <MasterListPage<ReferenceItem>
-        key="conditions"
-        {...common}
-        description="Kondisi baru dapat disalin organisasi lewat “Salin kondisi standar”."
-        canCreate={manage}
-        columns={[codeColumn(), nameColumn(), { key: 'severity', header: 'Tingkat', cell: (r) => r.severity }]}
-        fields={[codeField, { name: 'name', label: 'Nama', required: true }, { name: 'severity', label: 'Tingkat (1 = terbaik)', type: 'number', required: true }, { name: 'sort_order', label: 'Urutan', type: 'number' }, { name: 'description', label: 'Deskripsi', type: 'textarea' }]}
-      />
-    ),
     'transaction-types': (
       <MasterListPage<ReferenceItem>
         key="transaction-types"

@@ -13,7 +13,5 @@ interface MasterUsage
 
     public const LOCATION = 'location';
 
-    public const CONDITION = 'condition';
-
     public function inUse(string $master, string $id): bool;
 }

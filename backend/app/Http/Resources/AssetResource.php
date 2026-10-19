@@ -20,10 +20,6 @@ class AssetResource extends JsonResource
             'category' => $this->whenLoaded('category', fn () => Ref::of($this->category)),
             'location_id' => $this->location_id,
             'location' => $this->whenLoaded('location', fn () => Ref::of($this->location)),
-            'condition_id' => $this->condition_id,
-            'condition' => $this->whenLoaded('condition', fn () => $this->condition === null ? null : [
-                ...Ref::of($this->condition), 'severity' => $this->condition->severity,
-            ]),
             'status' => $this->status,
             'acquisition_date' => $this->acquisition_date?->toDateString(),
             'acquisition_cost' => $this->acquisition_cost,

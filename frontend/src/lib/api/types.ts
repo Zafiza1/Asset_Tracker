@@ -149,14 +149,12 @@ export interface Location extends MasterRecord {
   depth: number
 }
 
-/** Units, location types, conditions, transaction types. */
+/** Units, location types, transaction types. */
 export interface ReferenceItem extends MasterRecord {
   symbol?: string
   quantity?: string | null
   description?: string | null
-  severity?: number
   sort_order?: number
-  generic_condition_id?: string | null
 }
 
 export interface GenericCategory extends MasterRecord {

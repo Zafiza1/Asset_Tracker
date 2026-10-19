@@ -3,15 +3,13 @@
 namespace Tests\Feature\MasterData;
 
 use App\Domain\Audit\Models\AuditLog;
-use App\Domain\GenericMaster\Models\GenericCondition;
 use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
-use App\Domain\TenantMaster\Models\AssetCondition;
 use Tests\TestCase;
 
-/** Departments, locations (hierarchy) and asset conditions of one organization. */
+/** Departments and locations (hierarchy) of one organization. */
 class OrganizationStructureTest extends TestCase
 {
     private Organization $org;
@@ -105,24 +103,6 @@ class OrganizationStructureTest extends TestCase
         $id = $this->postJson('/api/departments', ['code' => 'OPS', 'name' => 'Operasional'])->json('data.id');
 
         $this->patchJson("/api/departments/{$id}", ['code' => 'XXX', 'name' => 'Operasi Raya'])->assertOk()->assertJsonPath('data.code', 'OPS');
-    }
-
-    public function test_standard_conditions_are_copied_at_provisioning_and_import_is_idempotent(): void
-    {
-        $conditions = $this->getJson('/api/tenant-masters/conditions')->assertOk()->json('data');
-        $this->assertSame(['BAIK', 'RUSAK_RINGAN', 'RUSAK_BERAT', 'HILANG'], array_column($conditions, 'code'));
-        $this->assertNotNull($conditions[0]['generic_condition_id']);
-
-        $this->postJson('/api/tenant-masters/conditions/import-generic')->assertOk()->assertJsonPath('meta.created', 0);
-
-        // Renaming the tenant copy never changes the generic condition.
-        $this->patchJson("/api/tenant-masters/conditions/{$conditions[0]['id']}", ['name' => 'Layak Pakai'])->assertOk();
-        $this->assertSame('Baik', GenericCondition::query()->where('code', 'BAIK')->value('name'));
-
-        // A new generic condition can be pulled in later.
-        $this->tenancy()->runAsSystem(fn () => (new GenericCondition)->forceFill(['code' => 'DALAM_PERBAIKAN', 'name' => 'Dalam Perbaikan', 'severity' => 3, 'sort_order' => 5])->save());
-        $this->postJson('/api/tenant-masters/conditions/import-generic')->assertOk()->assertJsonPath('meta.created', 1);
-        $this->assertSame(5, AssetCondition::query()->where('organization_id', $this->org->id)->count());
     }
 
     public function test_operator_can_read_but_not_manage_structure(): void

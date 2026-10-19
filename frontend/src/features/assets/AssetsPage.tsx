@@ -18,7 +18,7 @@ import { assetStatusLabel, assetStatusTone, type Asset, type AssetStatus } from 
 import { AssetFormModal } from './AssetFormModal'
 import { CategoryFilter } from './CategoryFilter'
 
-const FILTERS = ['page', 'search', 'category_ids', 'location_id', 'status', 'condition_id', 'archived', 'sort'] as const
+const FILTERS = ['page', 'search', 'category_ids', 'location_id', 'status', 'archived', 'sort'] as const
 
 /** Asset Management module: search and filter the asset register, register new assets. */
 export function AssetsPage() {
@@ -34,8 +34,6 @@ export function AssetsPage() {
   const categories = toOptions(categoryRows)
   const locationRows = useOptions('/locations').data
   const locations = toOptions(locationRows)
-  const conditionRows = useOptions('/tenant-masters/conditions').data
-  const conditions = toOptions(conditionRows)
 
   const query = useQuery({
     queryKey: ['/assets', filters],
@@ -62,7 +60,6 @@ export function AssetsPage() {
     ...selectedCategories.map((id) => ({ key: `category:${id}`, label: nameOf(categoryRows, id), clear: () => update({ category_ids: selectedCategories.filter((c) => c !== id).join(',') }) })),
     ...(params.get('location_id') ? [{ key: 'location', label: `Lokasi: ${nameOf(locationRows, params.get('location_id'))}`, clear: () => update({ location_id: '' }) }] : []),
     ...(params.get('status') ? [{ key: 'status', label: `Status: ${assetStatusLabel[params.get('status') as AssetStatus] ?? params.get('status')}`, clear: () => update({ status: '' }) }] : []),
-    ...(params.get('condition_id') ? [{ key: 'condition', label: `Kondisi: ${nameOf(conditionRows, params.get('condition_id'))}`, clear: () => update({ condition_id: '' }) }] : []),
     ...(archived ? [{ key: 'archived', label: archived === 'only' ? 'Aset nonaktif' : 'Aktif & nonaktif', clear: () => update({ archived: '' }) }] : []),
   ]
 
@@ -84,7 +81,6 @@ export function AssetsPage() {
     },
     { key: 'category', header: 'Kategori', cell: (a) => a.category?.name ?? '—', hideOnMobile: true },
     { key: 'location', header: 'Lokasi', cell: (a) => a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span>, hideOnMobile: true },
-    { key: 'condition', header: 'Kondisi', cell: (a) => a.condition?.name ?? <span className="text-slate-400">—</span>, hideOnMobile: true },
     {
       key: 'status',
       header: 'Status',
@@ -142,14 +138,6 @@ export function AssetsPage() {
               {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
                 <option key={s} value={s}>
                   {assetStatusLabel[s]}
-                </option>
-              ))}
-            </Select>
-            <Select value={params.get('condition_id') ?? ''} onChange={(e) => update({ condition_id: e.target.value })} aria-label="Filter kondisi">
-              <option value="">Kondisi: semua</option>
-              {conditions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
                 </option>
               ))}
             </Select>

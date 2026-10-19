@@ -20,7 +20,7 @@ use Illuminate\Validation\Rule;
 /** Asset Management container: list/search, detail, register, edit, deactivate, reactivate. */
 class AssetController extends Controller
 {
-    private const RELATIONS = ['category', 'location', 'condition'];
+    private const RELATIONS = ['category', 'location'];
 
     private const SORTS = ['asset_number' => 'asset_number', 'name' => 'name', 'created_at' => 'created_at',
         'acquisition_date' => 'acquisition_date', 'status' => 'status'];
@@ -37,7 +37,6 @@ class AssetController extends Controller
             // Comma-separated; a category also matches its subcategories.
             'category_ids' => ['nullable', 'string', 'max:2000'],
             'location_id' => ['nullable', 'uuid'],
-            'condition_id' => ['nullable', 'uuid'],
             'status' => ['nullable', Rule::in(AssetStatus::ALL)],
             'archived' => ['nullable', Rule::in(['only', 'all'])],
         ]);
@@ -51,7 +50,6 @@ class AssetController extends Controller
                 ->orWhere('serial_number', 'ilike', ListQuery::like($term))))
             ->when($categoryIds, fn ($q) => $q->whereIn('category_id', $this->subtree(TenantAssetCategory::query(), $categoryIds)))
             ->when($request->query('location_id'), fn ($q, $id) => $q->whereIn('location_id', $this->subtree(Location::query(), [$id])))
-            ->when($request->query('condition_id'), fn ($q, $id) => $q->where('condition_id', $id))
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status));
 
         match ($request->query('archived')) {
@@ -74,7 +72,6 @@ class AssetController extends Controller
         $data = $request->validate([
             ...$this->descriptiveRules(creating: true),
             'location_id' => ['nullable', 'uuid'],
-            'condition_id' => ['nullable', 'uuid'],
             'status' => ['nullable', Rule::in(AssetStatus::INITIAL)],
             'registered_on' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after:1999-12-31'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -108,7 +105,7 @@ class AssetController extends Controller
     /** Full history of one asset, newest first. */
     public function transactions(Request $request, Asset $asset): AnonymousResourceCollection
     {
-        $history = $asset->transactions()->with(['fromLocation', 'toLocation', 'fromCondition', 'toCondition', 'creator'])
+        $history = $asset->transactions()->with(['fromLocation', 'toLocation', 'creator'])
             ->orderByDesc('seq')
             ->paginate(ListQuery::perPage($request, 50));
 

@@ -15,7 +15,7 @@ use App\Domain\Shared\Tenancy\Tenancy;
 final class TransactionLog
 {
     private const CHANGE_COLUMNS = ['from_location_id', 'to_location_id', 'from_status', 'to_status',
-        'from_condition_id', 'to_condition_id', 'borrower_name', 'due_date'];
+        'borrower_name', 'due_date'];
 
     public function __construct(
         private readonly NumberSequence $numbers,

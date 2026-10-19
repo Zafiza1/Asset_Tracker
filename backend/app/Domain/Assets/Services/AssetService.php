@@ -14,7 +14,6 @@ use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
 use App\Domain\Shared\Numbering\NumberSequence;
 use App\Domain\Shared\Tenancy\Tenancy;
-use App\Domain\TenantMaster\Models\AssetCondition;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -22,11 +21,11 @@ use Illuminate\Support\Facades\DB;
 /**
  * Asset Management: register, edit descriptive data, deactivate (archive) and reactivate.
  * Each operation is one database transaction with its history entry and audit entry.
- * Location/status/condition changes after registration belong to AssetTransactionService.
+ * Location/status changes after registration belong to AssetTransactionService.
  */
 final class AssetService
 {
-    private const AUDIT = ['asset_number', 'serial_number', 'name', 'category_id', 'location_id', 'condition_id', 'status',
+    private const AUDIT = ['asset_number', 'serial_number', 'name', 'category_id', 'location_id', 'status',
         'acquisition_date', 'acquisition_cost', 'description'];
 
     public function __construct(
@@ -48,14 +47,10 @@ final class AssetService
         if (! $this->scope->allowsLocation($locationId)) {
             throw ApiException::unprocessable('LOCATION_OUT_OF_SCOPE', 'Lokasi berada di luar cakupan data Anda.', ['fields' => ['location_id' => ['Pilih lokasi dalam cakupan data Anda.']]]);
         }
-        $conditionId = $data['condition_id'] ?? null;
-        if ($conditionId !== null) {
-            $this->assertActive(AssetCondition::class, $conditionId, 'condition_id', 'Kondisi');
-        }
         $this->assertSerialAvailable($data['serial_number'] ?? null);
         $status = $data['status'] ?? AssetStatus::AVAILABLE;
 
-        return DB::transaction(function () use ($data, $locationId, $conditionId, $status) {
+        return DB::transaction(function () use ($data, $locationId, $status) {
             $format = OrganizationSetting::query()->value('asset_number_format') ?: 'AST-{YYYY}-{SEQ:6}';
             $userId = $this->tenancy->tenant()->userId();
 
@@ -64,7 +59,6 @@ final class AssetService
                 ...array_intersect_key($data, array_flip(Asset::EDITABLE)),
                 'asset_number' => $this->numbers->next('asset', $format),
                 'location_id' => $locationId,
-                'condition_id' => $conditionId,
                 'status' => $status,
                 'created_by' => $userId,
                 'updated_by' => $userId,
@@ -74,7 +68,6 @@ final class AssetService
             $this->log->record($asset, TransactionType::REGISTRATION, [
                 'to_location_id' => $locationId,
                 'to_status' => $status,
-                'to_condition_id' => $conditionId,
             ], $data['registered_on'] ?? null, $data['notes'] ?? null);
             $this->audit->record('asset.created', $asset, after: $this->auditable($asset));
 

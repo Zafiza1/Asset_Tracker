@@ -13,7 +13,6 @@ use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
 use App\Domain\Shared\Tenancy\Tenancy;
-use App\Domain\TenantMaster\Models\AssetCondition;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -99,24 +98,11 @@ final class AssetTransactionService
     {
         $this->assertStatusNotIn($asset, [AssetStatus::ON_LOAN], 'diubah statusnya');
         $status = $data['to_status'] ?? null;
-        $condition = $data['to_condition_id'] ?? null;
-        $assetChanges = [];
-        $logChanges = [];
-
-        if ($status !== null && $status !== $asset->status) {
-            $assetChanges['status'] = $status;
-            $logChanges += ['from_status' => $asset->status, 'to_status' => $status];
-        }
-        if ($condition !== null && $condition !== $asset->condition_id) {
-            $this->assertActiveCondition($condition);
-            $assetChanges['condition_id'] = $condition;
-            $logChanges += ['from_condition_id' => $asset->condition_id, 'to_condition_id' => $condition];
-        }
-        if ($assetChanges === []) {
-            throw $this->fieldError('to_status', 'Pilih status atau kondisi baru yang berbeda dari saat ini.');
+        if ($status === null || $status === $asset->status) {
+            throw $this->fieldError('to_status', 'Pilih status baru yang berbeda dari saat ini.');
         }
 
-        return [$assetChanges, $logChanges];
+        return [['status' => $status], ['from_status' => $asset->status, 'to_status' => $status]];
     }
 
     /** @return array{0: array<string, mixed>, 1: array<string, mixed>} */
@@ -154,12 +140,6 @@ final class AssetTransactionService
             $this->assertTargetLocation($location);
             $assetChanges['location_id'] = $location;
             $logChanges += ['from_location_id' => $asset->location_id, 'to_location_id' => $location];
-        }
-        $condition = $data['to_condition_id'] ?? null;
-        if ($condition !== null && $condition !== $asset->condition_id) {
-            $this->assertActiveCondition($condition);
-            $assetChanges['condition_id'] = $condition;
-            $logChanges += ['from_condition_id' => $asset->condition_id, 'to_condition_id' => $condition];
         }
 
         return [$assetChanges, $logChanges];
@@ -205,13 +185,6 @@ final class AssetTransactionService
         }
         if (! $this->scope->allowsLocation($id)) {
             throw $this->fieldError('to_location_id', 'Lokasi berada di luar cakupan data Anda.');
-        }
-    }
-
-    private function assertActiveCondition(string $id): void
-    {
-        if (! AssetCondition::query()->whereKey($id)->where('status', MasterStatus::ACTIVE)->exists()) {
-            throw $this->fieldError('to_condition_id', 'Kondisi tidak ditemukan atau tidak aktif.');
         }
     }
 

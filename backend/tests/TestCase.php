@@ -20,7 +20,6 @@ use App\Domain\Organization\Models\Organization;
 use App\Domain\Platform\Services\OrganizationProvisioner;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\Shared\Tenancy\TenancyState;
-use App\Domain\TenantMaster\Models\AssetCondition;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantAssetDefinition;
 use App\Domain\TenantMaster\Models\TenantAttributeDefinition;
@@ -133,10 +132,10 @@ abstract class TestCase extends BaseTestCase
 
     /**
      * One record of every tenant master type for an organization, created directly (system context):
-     * department, location, category, condition, adopted definition GEN-UMUM with draft v1 + attribute.
+     * department, location, category, adopted definition GEN-UMUM with draft v1 + attribute.
      *
      * @return array{department: Department, location: Location, category: TenantAssetCategory,
-     *     condition: AssetCondition, definition: TenantAssetDefinition, version: TenantDefinitionVersion, attribute: TenantAttributeDefinition}
+     *     definition: TenantAssetDefinition, version: TenantDefinitionVersion, attribute: TenantAttributeDefinition}
      */
     protected function createMasterFixtures(Organization $organization, string $suffix = '1'): array
     {
@@ -165,7 +164,6 @@ abstract class TestCase extends BaseTestCase
             'department' => $department,
             'location' => $location,
             'category' => $category,
-            'condition' => AssetCondition::query()->where('organization_id', $organization->id)->orderBy('sort_order')->firstOrFail(),
             'definition' => $definition,
             'version' => $version,
             'attribute' => $attribute,
@@ -175,21 +173,20 @@ abstract class TestCase extends BaseTestCase
     /**
      * An asset with its registration transaction, created directly (system context).
      *
-     * @param  array{location: Location, category: TenantAssetCategory, condition: AssetCondition}  $masters
+     * @param  array{location: Location, category: TenantAssetCategory}  $masters
      * @return array{asset: Asset, transaction: AssetTransaction}
      */
     protected function createAssetFixture(Organization $organization, array $masters, string $suffix = '1'): array
     {
         $asset = (new Asset)->forceFill([
             'organization_id' => $organization->id, 'asset_number' => "FIX-{$suffix}", 'name' => "Aset {$suffix}",
-            'category_id' => $masters['category']->id, 'location_id' => $masters['location']->id,
-            'condition_id' => $masters['condition']->id, 'status' => 'available',
+            'category_id' => $masters['category']->id, 'location_id' => $masters['location']->id, 'status' => 'available',
         ]);
         $asset->save();
         $transaction = (new AssetTransaction)->forceFill([
             'organization_id' => $organization->id, 'transaction_number' => "REG-FIX-{$suffix}", 'asset_id' => $asset->id,
             'type' => 'registration', 'transaction_date' => now()->toDateString(),
-            'to_location_id' => $asset->location_id, 'to_status' => 'available', 'to_condition_id' => $asset->condition_id,
+            'to_location_id' => $asset->location_id, 'to_status' => 'available',
         ]);
         $transaction->save();
 
