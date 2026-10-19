@@ -1,43 +1,50 @@
 import clsx from 'clsx'
-import { AlertTriangle, CheckCircle2, Inbox, Info, Loader2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Inbox, Info, Loader2, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { ApiError } from '../../lib/api/client'
 
 export function Spinner({ label = 'Memuat…' }: { label?: string }) {
   return (
     <div role="status" className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
-      <Loader2 className="size-5 animate-spin" aria-hidden />
+      <Loader2 className="size-5 animate-spin text-brand-600" aria-hidden />
       {label}
     </div>
   )
 }
 
-export function EmptyState({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+/** Placeholder block that reserves the space of content still loading (no layout jump). */
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={clsx('animate-pulse rounded-md bg-slate-200/70', className)} aria-hidden />
+}
+
+export function EmptyState({ title, description, action, icon: Icon = Inbox }: { title: string; description?: string; action?: ReactNode; icon?: LucideIcon }) {
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-      <Inbox className="size-8 text-slate-400" aria-hidden />
-      <p className="font-medium text-slate-700">{title}</p>
+      <span className="mb-1 grid size-12 place-items-center rounded-full bg-slate-100 text-slate-500">
+        <Icon className="size-6" aria-hidden />
+      </span>
+      <p className="font-semibold text-slate-800">{title}</p>
       {description && <p className="max-w-md text-sm text-slate-500">{description}</p>}
-      {action}
+      {action && <div className="mt-2">{action}</div>}
     </div>
   )
 }
 
 type Tone = 'error' | 'success' | 'info' | 'warning'
-const tones: Record<Tone, { box: string; Icon: typeof Info }> = {
-  error: { box: 'bg-red-50 text-red-800 ring-red-200', Icon: AlertTriangle },
-  warning: { box: 'bg-amber-50 text-amber-800 ring-amber-200', Icon: AlertTriangle },
-  success: { box: 'bg-green-50 text-green-800 ring-green-200', Icon: CheckCircle2 },
-  info: { box: 'bg-brand-50 text-brand-800 ring-brand-200', Icon: Info },
+const tones: Record<Tone, { box: string; icon: string; Icon: typeof Info }> = {
+  error: { box: 'bg-red-50 text-red-800 ring-red-200', icon: 'text-red-600', Icon: AlertTriangle },
+  warning: { box: 'bg-amber-50 text-amber-900 ring-amber-200', icon: 'text-amber-600', Icon: AlertTriangle },
+  success: { box: 'bg-green-50 text-green-800 ring-green-200', icon: 'text-green-600', Icon: CheckCircle2 },
+  info: { box: 'bg-brand-50 text-brand-800 ring-brand-200', icon: 'text-brand-600', Icon: Info },
 }
 
 export function Alert({ tone = 'info', title, children }: { tone?: Tone; title?: string; children?: ReactNode }) {
-  const { box, Icon } = tones[tone]
+  const { box, icon, Icon } = tones[tone]
   return (
-    <div role={tone === 'error' ? 'alert' : 'status'} className={clsx('flex gap-3 rounded-md p-3 text-sm ring-1 ring-inset', box)}>
-      <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
+    <div role={tone === 'error' ? 'alert' : 'status'} className={clsx('flex gap-3 rounded-lg p-3.5 text-sm ring-1 ring-inset', box)}>
+      <Icon className={clsx('mt-0.5 size-4 shrink-0', icon)} aria-hidden />
       <div>
-        {title && <p className="font-medium">{title}</p>}
+        {title && <p className="font-semibold">{title}</p>}
         {children}
       </div>
     </div>

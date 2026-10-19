@@ -40,8 +40,8 @@ export function BarList({ data, emptyText = 'Belum ada data.', unit = 'aset' }: 
               {label}
               <span className="shrink-0 font-medium tabular-nums text-slate-900">{d.value.toLocaleString('id-ID')}</span>
             </div>
-            <div className="h-2.5 w-full" aria-hidden>
-              <div className="h-full rounded-r" style={{ width: `${Math.max(d.value > 0 ? 1.5 : 0, (d.value / max) * 100)}%`, backgroundColor: SERIES.one }} />
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100" aria-hidden>
+              <div className="h-full rounded-full" style={{ width: `${Math.max(d.value > 0 ? 1.5 : 0, (d.value / max) * 100)}%`, backgroundColor: SERIES.one }} />
             </div>
           </li>
         )

@@ -1,16 +1,41 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Corporate Trust pairing: Lexend for headings (built for readability), Source Sans 3 for body. */
+  --font-sans: 'Source Sans 3', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Lexend', 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
 
   --color-brand-50: #eff6ff;
   --color-brand-100: #dbeafe;
   --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
   --color-brand-500: #3b82f6;
   --color-brand-600: #2563eb;
   --color-brand-700: #1d4ed8;
   --color-brand-800: #1e40af;
   --color-brand-900: #1e3a8a;
+  --color-brand-950: #172554;
+
+  /* One elevation scale for surfaces: card < raised (hover) < overlay (menus, dialogs). */
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --shadow-raised: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.06);
+  --shadow-overlay: 0 20px 40px -12px rgb(15 23 42 / 0.25);
+
+  --animate-dialog-in: dialog-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-fade-in: fade-in 150ms ease-out;
+
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
 }
 
 @layer base {
@@ -20,7 +45,35 @@
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
   }
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+    text-wrap: balance;
+  }
+  /* Tailwind v4 resets buttons to the default cursor; clickable controls should look clickable. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  summary,
+  select:not(:disabled),
+  label[for] {
+    cursor: pointer;
+  }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-brand-600;
+  }
+  ::selection {
+    @apply bg-brand-200 text-brand-950;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
