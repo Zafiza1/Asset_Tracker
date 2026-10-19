@@ -45,7 +45,6 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
     { key: 'time', header: 'Waktu', cell: (l) => <span className="whitespace-nowrap">{formatDateTime(l.created_at)}</span> },
     { key: 'actor', header: 'Pelaku', cell: actorLabel },
     { key: 'action', header: 'Aksi', cell: (l) => auditActionLabel(l.action) },
-    { key: 'entity', header: 'Entitas', cell: (l) => (l.entity_type ? `${l.entity_type} ${l.entity_id?.slice(0, 8) ?? ''}` : '—'), hideOnMobile: true },
     { key: 'ip', header: 'IP', cell: (l) => l.ip ?? '—', hideOnMobile: true },
   ]
 
@@ -90,7 +89,6 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
             <Row label="Waktu" value={formatDateTime(selected.created_at)} />
             <Row label="Pelaku" value={actorLabel(selected)} />
             <Row label="Aksi" value={auditActionLabel(selected.action)} />
-            <Row label="Entitas" value={selected.entity_type ? `${selected.entity_type} · ${selected.entity_id}` : '—'} />
             <Row label="ID permintaan" value={selected.request_id ?? '—'} />
             {(['before', 'after', 'metadata'] as const).map((k) =>
               selected[k] ? (
