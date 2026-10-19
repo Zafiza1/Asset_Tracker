@@ -45,7 +45,6 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
     { key: 'time', header: 'Waktu', cell: (l) => <span className="whitespace-nowrap">{formatDateTime(l.created_at)}</span> },
     { key: 'actor', header: 'Pelaku', cell: actorLabel },
     { key: 'action', header: 'Aksi', cell: (l) => auditActionLabel(l.action) },
-    { key: 'ip', header: 'IP', cell: (l) => l.ip ?? '—', hideOnMobile: true },
   ]
 
   return (

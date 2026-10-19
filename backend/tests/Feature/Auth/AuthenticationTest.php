@@ -50,6 +50,30 @@ class AuthenticationTest extends TestCase
         $this->assertStringNotContainsString('Salah-Sekali-999', json_encode($log->getAttributes()));
     }
 
+    public function test_audit_log_records_client_ip_forwarded_by_trusted_proxy(): void
+    {
+        ['admin' => $admin] = $this->createOrganization('ALPHA');
+
+        // Test requests come from 127.0.0.1, the address of the Vite dev proxy.
+        $this->withHeader('X-Forwarded-For', '192.168.1.25')
+            ->postJson('/api/auth/login', ['email' => $admin->email, 'password' => self::PASSWORD])
+            ->assertOk();
+
+        $this->assertSame('192.168.1.25', AuditLog::query()->where('action', 'auth.login')->sole()->ip);
+    }
+
+    public function test_audit_log_ignores_forwarded_ip_from_untrusted_client(): void
+    {
+        ['admin' => $admin] = $this->createOrganization('ALPHA');
+
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])
+            ->withHeader('X-Forwarded-For', '10.9.9.9')
+            ->postJson('/api/auth/login', ['email' => $admin->email, 'password' => self::PASSWORD])
+            ->assertOk();
+
+        $this->assertSame('203.0.113.9', AuditLog::query()->where('action', 'auth.login')->sole()->ip);
+    }
+
     public function test_unknown_email_gets_the_same_error_as_wrong_password(): void
     {
         $response = $this->postJson('/api/auth/login', ['email' => 'tidak-ada@example.test', 'password' => 'Apapun-12345']);

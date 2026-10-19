@@ -15,8 +15,9 @@ export default defineConfig({
     // 5174 would drop the session cookie and make every authenticated request 401.
     strictPort: true,
     proxy: {
-      '/api': { target: backend, changeOrigin: false },
-      '/sanctum': { target: backend, changeOrigin: false },
+      // xfwd sends X-Forwarded-For so Laravel records the browser's IP, not the proxy's.
+      '/api': { target: backend, changeOrigin: false, xfwd: true },
+      '/sanctum': { target: backend, changeOrigin: false, xfwd: true },
     },
   },
   test: {

@@ -28,6 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(AssignRequestId::class);
         $middleware->append(SecurityHeaders::class);
 
+        // Proxies come from config/trustedproxy.php. Only the client IP and scheme are taken
+        // from them; the Host stays the one Laravel was reached on.
+        $middleware->trustProxies(headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO);
+
         $middleware->alias([
             'tenant' => ResolveTenant::class,
             'platform' => ResolvePlatform::class,
