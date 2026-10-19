@@ -64,20 +64,21 @@ export function AssetsPage() {
   ]
 
   const columns: Column<Asset>[] = [
+    { key: 'code', header: 'Kode', cell: (a) => <span className="font-mono text-xs">{a.asset_number}</span> },
     {
       key: 'name',
       header: 'Aset',
       cell: (a) => (
-        <div>
-          <Link to={`/aset/${a.id}`} className="font-medium text-slate-900 hover:text-brand-700" onClick={(e) => e.stopPropagation()}>
-            {a.name}
-          </Link>
-          <p className="font-mono text-xs text-slate-500">
-            {a.asset_number}
-            {a.serial_number && <span className="font-sans"> · SN {a.serial_number}</span>}
-          </p>
-        </div>
+        <Link to={`/aset/${a.id}`} className="font-medium text-slate-900 hover:text-brand-700" onClick={(e) => e.stopPropagation()}>
+          {a.name}
+        </Link>
       ),
+    },
+    {
+      key: 'serial_number',
+      header: 'No Seri',
+      cell: (a) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>),
+      hideOnMobile: true,
     },
     { key: 'category', header: 'Kategori', cell: (a) => a.category?.name ?? '—', hideOnMobile: true },
     { key: 'location', header: 'Lokasi', cell: (a) => a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span>, hideOnMobile: true },
@@ -112,12 +113,12 @@ export function AssetsPage() {
             value={search}
             onChange={setSearch}
             onSubmit={() => update({ search })}
-            placeholder="Cari nama, nomor aset, atau nomor seri"
+            placeholder="Cari nama, kode, atau no seri"
             label="Cari aset"
             aside={
               <Select value={params.get('sort') ?? ''} onChange={(e) => update({ sort: e.target.value })} className="sm:w-64" aria-label="Urutkan">
                 <option value="">Urutkan: terbaru ditambahkan</option>
-                <option value="asset_number">Urutkan: nomor aset</option>
+                <option value="asset_number">Urutkan: kode</option>
                 <option value="name">Urutkan: nama (A–Z)</option>
                 <option value="-acquisition_date">Urutkan: tanggal perolehan terbaru</option>
               </Select>

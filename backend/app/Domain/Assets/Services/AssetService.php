@@ -160,7 +160,7 @@ final class AssetService
         $taken = Asset::query()->whereRaw('lower(serial_number) = lower(?)', [$serial])
             ->when($exceptId, fn ($q) => $q->whereKeyNot($exceptId))->exists();
         if ($taken) {
-            throw ApiException::unprocessable('VALIDATION_FAILED', 'Data yang dikirim tidak valid.', ['fields' => ['serial_number' => ['Nomor seri/kode sudah dipakai aset lain.']]]);
+            throw ApiException::unprocessable('VALIDATION_FAILED', 'Data yang dikirim tidak valid.', ['fields' => ['serial_number' => ['No seri sudah dipakai aset lain.']]]);
         }
     }
 

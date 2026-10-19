@@ -46,7 +46,7 @@ export function AssetDetailPage() {
     <>
       <PageHeader
         title={a.name}
-        description={`${a.asset_number}${a.serial_number ? ` · SN ${a.serial_number}` : ''}`}
+        description={`${a.asset_number}${a.serial_number ? ` · No Seri ${a.serial_number}` : ''}`}
         actions={
           <>
             {canRecord && types.includes('transfer') && can('asset.transfer') && (
