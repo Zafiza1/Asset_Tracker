@@ -18,6 +18,6 @@ class AuditLogController extends Controller
         $query = AuditLog::query()->forOrganization($tenancy->organizationId())->with('actor');
         AuditLogFilters::apply($query, $request);
 
-        return AuditLogResource::collection($query->paginate(ListQuery::perPage($request, 50))->withQueryString());
+        return AuditLogResource::collection($query->paginate(ListQuery::perPage($request, 10))->withQueryString());
     }
 }

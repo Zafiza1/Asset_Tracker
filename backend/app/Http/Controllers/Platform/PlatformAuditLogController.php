@@ -22,6 +22,6 @@ class PlatformAuditLogController extends Controller
         $orgId ? $query->where('organization_id', $orgId) : $query->whereNull('organization_id');
         AuditLogFilters::apply($query, $request);
 
-        return AuditLogResource::collection($query->paginate(ListQuery::perPage($request, 50))->withQueryString());
+        return AuditLogResource::collection($query->paginate(ListQuery::perPage($request, 10))->withQueryString());
     }
 }
