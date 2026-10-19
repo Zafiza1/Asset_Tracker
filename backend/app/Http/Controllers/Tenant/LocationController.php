@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Services\OrganizationStructureService;
+use App\Domain\Shared\Masters\CodeGenerator;
 use App\Domain\Shared\Masters\MasterStatus;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Http\Controllers\Controller;
@@ -38,12 +39,14 @@ class LocationController extends Controller
     {
         MasterRequests::normalizeCode($request);
         $data = $request->validate([
-            'code' => [...MasterRequests::codeRules(), Rule::unique('locations', 'code')->where('organization_id', $tenancy->organizationId())],
+            'code' => [...MasterRequests::codeRules(optional: true), Rule::unique('locations', 'code')->where('organization_id', $tenancy->organizationId())],
             'name' => ['required', 'string', 'max:150'],
             'address' => ['nullable', 'string', 'max:1000'],
             'parent_id' => ['nullable', 'uuid'],
             'location_type_id' => ['required', 'uuid'],
         ]);
+
+        $data['code'] = ($data['code'] ?? null) ?: CodeGenerator::fromName($data['name'], 'locations', $tenancy->organizationId());
 
         return new LocationResource($this->structure->createLocation($data)->load(self::RELATIONS));
     }

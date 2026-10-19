@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Shared\Masters\CodeGenerator;
 use App\Domain\Shared\Masters\MasterStatus;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
@@ -33,12 +34,14 @@ class TenantCategoryController extends Controller
     {
         MasterRequests::normalizeCode($request);
         $data = $request->validate([
-            'code' => [...MasterRequests::codeRules(), Rule::unique('tenant_asset_categories', 'code')->where('organization_id', $tenancy->organizationId())],
+            'code' => [...MasterRequests::codeRules(optional: true), Rule::unique('tenant_asset_categories', 'code')->where('organization_id', $tenancy->organizationId())],
             'name' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:1000'],
             'parent_id' => ['nullable', 'uuid'],
             'generic_category_id' => ['nullable', 'uuid'],
         ]);
+
+        $data['code'] = ($data['code'] ?? null) ?: CodeGenerator::fromName($data['name'], 'tenant_asset_categories', $tenancy->organizationId());
 
         return new TenantCategoryResource($this->categories->create($data)->load(self::RELATIONS));
     }

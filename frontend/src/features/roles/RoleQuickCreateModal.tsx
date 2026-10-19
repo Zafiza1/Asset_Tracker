@@ -12,7 +12,6 @@ import { usePermissionCatalog } from './api'
 import { PermissionPicker } from './PermissionPicker'
 
 interface FormValues {
-  code: string
   name: string
   description: string
 }
@@ -23,7 +22,7 @@ export function RoleQuickCreateModal({ open, onClose, onCreated }: { open: boole
   const catalog = usePermissionCatalog(open)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [formError, setFormError] = useState<string | null>(null)
-  const { register, handleSubmit, setError, formState, reset } = useForm<FormValues>({ defaultValues: { code: '', name: '', description: '' } })
+  const { register, handleSubmit, setError, formState, reset } = useForm<FormValues>({ defaultValues: { name: '', description: '' } })
 
   const close = () => {
     reset()
@@ -34,7 +33,7 @@ export function RoleQuickCreateModal({ open, onClose, onCreated }: { open: boole
 
   const save = useMutation({
     mutationFn: (v: FormValues) =>
-      api.post<Resource<Role>>('/roles', { code: v.code, name: v.name, description: v.description || null, permissions: [...selected] }),
+      api.post<Resource<Role>>('/roles', { name: v.name, description: v.description || null, permissions: [...selected] }),
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: ['roles'] })
       onCreated(res.data)
@@ -67,10 +66,7 @@ export function RoleQuickCreateModal({ open, onClose, onCreated }: { open: boole
       }
     >
       {formError && <Alert tone="error">{formError}</Alert>}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Kode" error={formState.errors.code?.message} hint="Huruf, angka, garis bawah." required>
-          {(p) => <Input {...p} {...register('code', { required: 'Kode wajib diisi.' })} />}
-        </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Nama" error={formState.errors.name?.message} required>
           {(p) => <Input {...p} {...register('name', { required: 'Nama wajib diisi.' })} />}
         </Field>

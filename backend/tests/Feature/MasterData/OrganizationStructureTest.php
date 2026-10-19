@@ -105,6 +105,21 @@ class OrganizationStructureTest extends TestCase
         $this->patchJson("/api/departments/{$id}", ['code' => 'XXX', 'name' => 'Operasi Raya'])->assertOk()->assertJsonPath('data.code', 'OPS');
     }
 
+    public function test_empty_code_is_generated_from_name(): void
+    {
+        $this->postJson('/api/departments', ['name' => 'Keuangan & Pajak'])->assertCreated()->assertJsonPath('data.code', 'KEUANGAN-PAJAK');
+        $this->postJson('/api/departments', ['code' => '', 'name' => 'Keuangan Pajak'])->assertCreated()->assertJsonPath('data.code', 'KEUANGAN-PAJAK-2');
+        $this->postJson('/api/departments', ['code' => null, 'name' => '!!!'])->assertCreated()->assertJsonPath('data.code', 'KODE');
+
+        $long = str_repeat('Gudang ', 10);
+        $first = $this->postJson('/api/locations', ['name' => $long, 'location_type_id' => $this->warehouseType])->assertCreated()->json('data.code');
+        $second = $this->postJson('/api/locations', ['name' => $long, 'location_type_id' => $this->warehouseType])->assertCreated()->json('data.code');
+        $this->assertSame('GUDANG-GUDANG-GUDANG-GUDANG-GU', $first);
+        $this->assertSame('GUDANG-GUDANG-GUDANG-GUDANG-2', $second);
+
+        $this->postJson('/api/tenant-masters/categories', ['name' => 'Perangkat IT'])->assertCreated()->assertJsonPath('data.code', 'PERANGKAT-IT');
+    }
+
     public function test_operator_can_read_but_not_manage_structure(): void
     {
         $this->actingAs($this->createTenantUser($this->org, ['OPERATOR']), 'web');

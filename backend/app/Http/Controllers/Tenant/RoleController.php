@@ -6,6 +6,7 @@ use App\Domain\Authorization\Models\Permission;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\PermissionCatalog;
 use App\Domain\Authorization\Services\RoleManagement;
+use App\Domain\Shared\Masters\CodeGenerator;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\RoleResource;
@@ -28,15 +29,18 @@ class RoleController extends Controller
 
     public function store(Request $request, Tenancy $tenancy): RoleResource
     {
-        $request->merge(['code' => strtoupper((string) $request->input('code'))]);
+        if ($request->filled('code')) {
+            $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+        }
         $data = $request->validate([
-            'code' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z][A-Za-z0-9_]*$/',
+            'code' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z][A-Za-z0-9_]*$/',
                 Rule::unique('roles', 'code')->where('organization_id', $tenancy->organizationId())],
             'name' => ['required', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:255'],
             'permissions' => ['present', 'array'],
             'permissions.*' => ['string', 'distinct'],
         ]);
+        $data['code'] = ($data['code'] ?? null) ?: CodeGenerator::fromName($data['name'], 'roles', $tenancy->organizationId(), 50, '_', 'ROLE');
 
         $role = $this->roles->create($data, $data['permissions']);
 

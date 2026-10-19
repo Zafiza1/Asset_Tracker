@@ -4,8 +4,6 @@ import { useAuth } from '../../lib/auth/context'
 import { MasterListPage } from './MasterListPage'
 import { toOptions, useOptions } from './options'
 
-const codeField = { name: 'code', label: 'Kode', required: true, createOnly: true, hint: 'Huruf besar, angka, titik, garis bawah, atau strip.' }
-
 /** Name cell indented by tree depth. */
 function treeName(row: { name: string; depth: number }) {
   return (
@@ -34,7 +32,7 @@ export function DepartmentsPage() {
         code<Department>(),
         { key: 'name', header: 'Nama', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
       ]}
-      fields={[codeField, { name: 'name', label: 'Nama', required: true }]}
+      fields={[{ name: 'name', label: 'Nama', required: true }]}
     />
   )
 }
@@ -57,7 +55,6 @@ export function LocationsPage() {
         { key: 'type', header: 'Jenis', cell: (r) => r.location_type?.name ?? '—', hideOnMobile: true },
       ]}
       fields={[
-        codeField,
         { name: 'name', label: 'Nama', required: true },
         {
           name: 'parent_id',
@@ -88,7 +85,6 @@ export function TenantCategoriesPage() {
         { key: 'description', header: 'Deskripsi', cell: (r) => r.description ?? '—', hideOnMobile: true },
       ]}
       fields={[
-        codeField,
         { name: 'name', label: 'Nama', required: true },
         { name: 'parent_id', label: 'Kategori induk', type: 'select', options: categories, emptyOption: '— Kategori utama —' },
         { name: 'description', label: 'Deskripsi', type: 'textarea' },

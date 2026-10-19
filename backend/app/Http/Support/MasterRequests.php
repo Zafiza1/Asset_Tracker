@@ -51,15 +51,19 @@ final class MasterRequests
     /** Uppercase codes before validation so uniqueness checks are case-insensitive in practice. */
     public static function normalizeCode(Request $request): void
     {
-        if ($request->has('code')) {
+        if ($request->filled('code')) {
             $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
         }
     }
 
-    /** @return list<mixed> */
-    public static function codeRules(int $max = 30): array
+    /**
+     * Optional codes are generated from the name when left empty (see CodeGenerator).
+     *
+     * @return list<mixed>
+     */
+    public static function codeRules(int $max = 30, bool $optional = false): array
     {
-        return ['required', 'string', "max:{$max}", 'regex:/^[A-Z0-9][A-Z0-9_.-]*$/'];
+        return [$optional ? 'nullable' : 'required', 'string', "max:{$max}", 'regex:/^[A-Z0-9][A-Z0-9_.-]*$/'];
     }
 
     /** @return array<string, list<mixed>> */

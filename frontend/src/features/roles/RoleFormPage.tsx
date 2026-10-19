@@ -15,7 +15,6 @@ import { usePermissionCatalog } from './api'
 import { PermissionPicker } from './PermissionPicker'
 
 interface FormValues {
-  code: string
   name: string
   description: string
 }
@@ -44,13 +43,13 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
   const [formError, setFormError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const { register, handleSubmit, setError, formState } = useForm<FormValues>({
-    defaultValues: { code: role?.code ?? '', name: role?.name ?? '', description: role?.description ?? '' },
+    defaultValues: { name: role?.name ?? '', description: role?.description ?? '' },
   })
 
   const save = useMutation({
     mutationFn: (v: FormValues) => {
       const body = { name: v.name, description: v.description || null, ...(permissionsEditable ? { permissions: [...selected] } : {}) }
-      return role ? api.patch<Resource<Role>>(`/roles/${role.id}`, body) : api.post<Resource<Role>>('/roles', { ...body, code: v.code })
+      return role ? api.patch<Resource<Role>>(`/roles/${role.id}`, body) : api.post<Resource<Role>>('/roles', body)
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['roles'] })
@@ -84,10 +83,7 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
       <form onSubmit={handleSubmit((v) => (setFormError(null), save.mutate(v)))} noValidate className="space-y-4">
         {formError && <Alert tone="error">{formError}</Alert>}
         <Card title="Informasi role">
-          <div className="grid gap-4 p-4 sm:grid-cols-3">
-            <Field label="Kode" error={formState.errors.code?.message} hint={role ? 'Kode tidak dapat diubah.' : 'Huruf, angka, garis bawah.'} required>
-              {(p) => <Input {...p} disabled={!!role || !editable} {...register('code', { required: role ? false : 'Kode wajib diisi.' })} />}
-            </Field>
+          <div className="grid gap-4 p-4 sm:grid-cols-2">
             <Field label="Nama" error={formState.errors.name?.message} required>
               {(p) => <Input {...p} disabled={!editable} {...register('name', { required: 'Nama wajib diisi.' })} />}
             </Field>

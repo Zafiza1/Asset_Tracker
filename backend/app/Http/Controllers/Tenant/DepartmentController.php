@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Services\OrganizationStructureService;
+use App\Domain\Shared\Masters\CodeGenerator;
 use App\Domain\Shared\Masters\MasterStatus;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Http\Controllers\Controller;
@@ -29,9 +30,11 @@ class DepartmentController extends Controller
     {
         MasterRequests::normalizeCode($request);
         $data = $request->validate([
-            'code' => [...MasterRequests::codeRules(), Rule::unique('departments', 'code')->where('organization_id', $tenancy->organizationId())],
+            'code' => [...MasterRequests::codeRules(optional: true), Rule::unique('departments', 'code')->where('organization_id', $tenancy->organizationId())],
             'name' => ['required', 'string', 'max:150'],
         ]);
+
+        $data['code'] = ($data['code'] ?? null) ?: CodeGenerator::fromName($data['name'], 'departments', $tenancy->organizationId());
 
         return new DepartmentResource($this->structure->createDepartment($data));
     }

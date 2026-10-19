@@ -84,6 +84,13 @@ class RoleManagementTest extends TestCase
         $this->postJson('/api/roles', ['code' => 'KHUSUS', 'name' => 'Khusus', 'permissions' => []])->assertCreated();
     }
 
+    public function test_empty_role_code_is_generated_from_name(): void
+    {
+        $this->postJson('/api/roles', ['name' => 'Admin Gudang', 'permissions' => []])->assertCreated()->assertJsonPath('data.code', 'ADMIN_GUDANG');
+        $this->postJson('/api/roles', ['code' => '', 'name' => 'Admin-Gudang', 'permissions' => []])->assertCreated()->assertJsonPath('data.code', 'ADMIN_GUDANG_2');
+        $this->postJson('/api/roles', ['name' => '2nd Shift', 'permissions' => []])->assertCreated()->assertJsonPath('data.code', 'ROLE_2ND_SHIFT');
+    }
+
     public function test_locked_admin_role_permissions_cannot_change_or_be_deleted(): void
     {
         $orgAdmin = $this->roleId($this->org, 'ORG_ADMIN');
