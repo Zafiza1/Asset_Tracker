@@ -120,6 +120,61 @@ class OrganizationStructureTest extends TestCase
         $this->postJson('/api/tenant-masters/categories', ['name' => 'Perangkat IT'])->assertCreated()->assertJsonPath('data.code', 'PERANGKAT-IT');
     }
 
+    public function test_organization_can_add_its_own_location_types(): void
+    {
+        $type = $this->postJson('/api/location-types', ['name' => 'Gudang Dingin', 'description' => 'Penyimpanan bersuhu rendah'])
+            ->assertCreated()->assertJsonPath('data.code', 'GUDANG-DINGIN')->assertJsonPath('data.is_built_in', false)->json('data');
+        $this->assertErrorCode($this->postJson('/api/location-types', ['code' => 'gudang-dingin', 'name' => 'Duplikat']), 422, 'VALIDATION_FAILED');
+        // A code that is also a built-in code is allowed: the two never mix.
+        $this->postJson('/api/location-types', ['code' => 'GUDANG', 'name' => 'Gudang Kami'])->assertCreated();
+
+        // The list shows the organization's own types first, then the built-in ones.
+        $list = $this->getJson('/api/location-types?all=1')->assertOk()->json('data');
+        $this->assertSame([false, false], array_column(array_slice($list, 0, 2), 'is_built_in'));
+        $this->assertContains('KANTOR', array_column($list, 'code'));
+
+        $location = $this->postJson('/api/locations', ['name' => 'Cold Storage A', 'location_type_id' => $type['id']])
+            ->assertCreated()->assertJsonPath('data.location_type.code', 'GUDANG-DINGIN')->json('data');
+        $this->patchJson("/api/location-types/{$type['id']}", ['name' => 'Gudang Pendingin'])->assertOk()->assertJsonPath('data.name', 'Gudang Pendingin');
+
+        // In use by an active location: cannot be deactivated or archived.
+        $this->assertErrorCode($this->patchJson("/api/location-types/{$type['id']}", ['status' => 'inactive']), 409, 'LOCATION_TYPE_IN_USE');
+        $this->assertErrorCode($this->postJson("/api/location-types/{$type['id']}/archive"), 409, 'LOCATION_TYPE_IN_USE');
+        $this->postJson("/api/locations/{$location['id']}/archive")->assertOk();
+        $this->postJson("/api/location-types/{$type['id']}/archive")->assertOk()->assertJsonPath('data.status', 'archived');
+        $this->assertErrorCode($this->postJson('/api/locations', ['name' => 'X', 'location_type_id' => $type['id']]), 422, 'INVALID_REFERENCE');
+        $this->postJson("/api/location-types/{$type['id']}/restore")->assertOk()->assertJsonPath('data.status', 'active');
+
+        // Built-in types are read-only for the organization.
+        $this->assertErrorCode($this->patchJson("/api/location-types/{$this->warehouseType}", ['name' => 'Dibajak']), 403, 'BUILT_IN_LOCATION_TYPE');
+        $this->assertErrorCode($this->postJson("/api/location-types/{$this->warehouseType}/archive"), 403, 'BUILT_IN_LOCATION_TYPE');
+        $this->assertSame('Gudang', LocationType::query()->whereKey($this->warehouseType)->value('name'));
+
+        foreach (['location_type.created', 'location_type.updated', 'location_type.archived', 'location_type.restored'] as $action) {
+            $this->assertTrue(AuditLog::query()->where('organization_id', $this->org->id)->where('action', $action)->exists(), $action);
+        }
+    }
+
+    public function test_location_types_of_another_organization_are_invisible(): void
+    {
+        $own = $this->postJson('/api/location-types', ['name' => 'Gudang Dingin'])->assertCreated()->json('data.id');
+
+        ['admin' => $adminB] = $this->createOrganization('BETA');
+        $this->actingAs($adminB, 'web');
+
+        $this->assertNotContains($own, array_column($this->getJson('/api/location-types?all=1')->json('data'), 'id'));
+        $this->assertErrorCode($this->getJson("/api/location-types/{$own}"), 404, 'NOT_FOUND');
+        $this->assertErrorCode($this->patchJson("/api/location-types/{$own}", ['name' => 'X']), 404, 'NOT_FOUND');
+        $this->assertErrorCode($this->postJson('/api/locations', ['name' => 'X', 'location_type_id' => $own]), 422, 'INVALID_REFERENCE');
+        // The same name gets the same code in another organization.
+        $this->postJson('/api/location-types', ['name' => 'Gudang Dingin'])->assertCreated()->assertJsonPath('data.code', 'GUDANG-DINGIN');
+
+        // The platform catalog only manages the built-in types.
+        $this->actingAs($this->createPlatformAdmin(), 'web');
+        $this->assertNotContains($own, array_column($this->getJson('/api/platform/generic-masters/location-types?all=1')->json('data'), 'id'));
+        $this->assertErrorCode($this->patchJson("/api/platform/generic-masters/location-types/{$own}", ['name' => 'X']), 404, 'NOT_FOUND');
+    }
+
     public function test_operator_can_read_but_not_manage_structure(): void
     {
         $this->actingAs($this->createTenantUser($this->org, ['OPERATOR']), 'web');
@@ -127,6 +182,8 @@ class OrganizationStructureTest extends TestCase
         $this->getJson('/api/departments')->assertOk();
         $this->getJson('/api/locations?all=1')->assertOk();
         $this->assertErrorCode($this->postJson('/api/departments', ['code' => 'X', 'name' => 'X']), 403, 'FORBIDDEN');
+        $this->getJson('/api/location-types?all=1')->assertOk();
+        $this->assertErrorCode($this->postJson('/api/location-types', ['name' => 'X']), 403, 'FORBIDDEN');
     }
 
     /** @return array<string, mixed> */

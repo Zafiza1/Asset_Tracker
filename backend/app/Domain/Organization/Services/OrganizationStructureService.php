@@ -23,6 +23,8 @@ final class OrganizationStructureService
 
     private const LOCATION_AUDIT = ['parent_id', 'location_type_id', 'code', 'name', 'address', 'status'];
 
+    private const LOCATION_TYPE_AUDIT = ['code', 'name', 'description', 'status'];
+
     public function __construct(
         private readonly MasterWriter $writer,
         private readonly MasterUsage $usage,
@@ -109,7 +111,56 @@ final class OrganizationStructureService
         return $this->writer->restore($location, 'location.restored');
     }
 
+    // ------------------------------------------------------------------ location types (organization-owned)
+
+    /** @param array<string, mixed> $data */
+    public function createLocationType(array $data): LocationType
+    {
+        return $this->writer->create(new LocationType, $data, 'location_type.created', self::LOCATION_TYPE_AUDIT);
+    }
+
+    /** @param array<string, mixed> $data */
+    public function updateLocationType(LocationType $type, array $data): LocationType
+    {
+        $this->ownLocationType($type);
+        if (($data['status'] ?? null) === MasterStatus::INACTIVE && $this->locationTypeInUse($type)) {
+            throw ApiException::conflict('LOCATION_TYPE_IN_USE', 'Jenis lokasi masih dipakai oleh lokasi aktif.');
+        }
+
+        return $this->writer->update($type, $data, 'location_type.updated', self::LOCATION_TYPE_AUDIT);
+    }
+
+    public function archiveLocationType(LocationType $type, ?string $reason): LocationType
+    {
+        $this->ownLocationType($type);
+        if ($this->locationTypeInUse($type)) {
+            throw ApiException::conflict('LOCATION_TYPE_IN_USE', 'Jenis lokasi masih dipakai oleh lokasi aktif.');
+        }
+
+        return $this->writer->archive($type, 'location_type.archived', $reason);
+    }
+
+    public function restoreLocationType(LocationType $type): LocationType
+    {
+        $this->ownLocationType($type);
+
+        return $this->writer->restore($type, 'location_type.restored');
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    /** Built-in types are visible to every organization but only the platform may change them. */
+    private function ownLocationType(LocationType $type): void
+    {
+        if ($type->isBuiltIn()) {
+            throw ApiException::forbidden('BUILT_IN_LOCATION_TYPE', 'Jenis lokasi bawaan tidak dapat diubah.');
+        }
+    }
+
+    private function locationTypeInUse(LocationType $type): bool
+    {
+        return Location::query()->where('location_type_id', $type->id)->where('status', '!=', MasterStatus::ARCHIVED)->exists();
+    }
 
     /**
      * @template T of \Illuminate\Database\Eloquent\Model

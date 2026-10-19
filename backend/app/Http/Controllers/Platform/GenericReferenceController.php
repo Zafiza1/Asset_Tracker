@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ReferenceResource;
 use App\Http\Support\MasterRequests;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
@@ -49,7 +50,8 @@ class GenericReferenceController extends Controller
 
     public function locationTypes(Request $request): AnonymousResourceCollection
     {
-        return ReferenceResource::collection(MasterRequests::list(LocationType::query(), $request, ['code' => 'code', 'name' => 'name'], 'name'));
+        // Organization-owned types are managed by their organization, not listed here.
+        return ReferenceResource::collection(MasterRequests::list(LocationType::query()->builtIn(), $request, ['code' => 'code', 'name' => 'name'], 'name'));
     }
 
     public function storeLocationType(Request $request): ReferenceResource
@@ -62,6 +64,10 @@ class GenericReferenceController extends Controller
 
     public function updateLocationType(Request $request, LocationType $locationType): ReferenceResource
     {
+        if (! $locationType->isBuiltIn()) {
+            throw (new ModelNotFoundException)->setModel(LocationType::class);
+        }
+
         return $this->update($request, $locationType, [
             'name' => ['sometimes', 'required', 'string', 'max:100'],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
@@ -85,7 +91,11 @@ class GenericReferenceController extends Controller
     private function store(Request $request, Model $model, string $table, array $rules, string $entity): ReferenceResource
     {
         MasterRequests::normalizeCode($request);
-        $data = $request->validate(['code' => [...MasterRequests::codeRules(), Rule::unique($table, 'code')], ...$rules]);
+        $unique = Rule::unique($table, 'code');
+        if ($model instanceof LocationType) {
+            $unique->whereNull('organization_id');
+        }
+        $data = $request->validate(['code' => [...MasterRequests::codeRules(), $unique], ...$rules]);
 
         return new ReferenceResource($this->writer->create($model, [...$data, 'status' => MasterStatus::ACTIVE], "{$entity}.created", array_keys($data)));
     }

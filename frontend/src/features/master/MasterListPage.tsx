@@ -54,6 +54,8 @@ export interface MasterListConfig<T extends MasterRecord> {
   /** Render without page header (inside tabs). */
   embedded?: boolean
   emptyHint?: string
+  /** Rows that cannot be changed here (e.g. built-in records): no action buttons. */
+  isReadOnly?: (row: T) => boolean
 }
 
 type Values = Record<string, string>
@@ -115,7 +117,8 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
     key: 'actions',
     header: 'Aksi',
     className: 'text-right whitespace-nowrap',
-    cell: (row) => (
+    cell: (row) =>
+      config.isReadOnly?.(row) ? null : (
       <div className="flex justify-end gap-1">
         {config.canUpdate && row.status !== 'archived' && (
           <>

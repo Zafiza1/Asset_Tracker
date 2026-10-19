@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use Illuminate\Routing\Route;
@@ -85,6 +86,8 @@ class RouteSecurityTest extends TestCase
     {
         $masters = $this->createMasterFixtures($orgB);
         ['asset' => $asset, 'transaction' => $transaction] = $this->createAssetFixture($orgB, $masters);
+        $locationType = (new LocationType)->forceFill(['organization_id' => $orgB->id, 'code' => 'KHUSUS', 'name' => 'Khusus']);
+        $locationType->save();
 
         return [
             'asset' => $asset->id,
@@ -93,6 +96,7 @@ class RouteSecurityTest extends TestCase
             'role' => $this->roleId($orgB, 'VIEWER'),
             'department' => $masters['department']->id,
             'location' => $masters['location']->id,
+            'locationType' => $locationType->id,
             'tenantCategory' => $masters['category']->id,
             'tenantDefinition' => $masters['definition']->id,
             'tenantVersion' => $masters['version']->id,

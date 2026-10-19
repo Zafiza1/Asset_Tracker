@@ -5,7 +5,7 @@ import { LoginPage } from '../features/auth/LoginPage'
 import { RegisterPage } from '../features/auth/RegisterPage'
 import { AssetDetailPage } from '../features/assets/AssetDetailPage'
 import { AssetsPage } from '../features/assets/AssetsPage'
-import { LocationsPage, TenantCategoriesPage } from '../features/master/StructurePages'
+import { LocationsPage, LocationTypesPage, TenantCategoriesPage } from '../features/master/StructurePages'
 import { OrganizationPage } from '../features/organization/OrganizationPage'
 import { CreateOrganizationPage, SelectOrganizationPage } from '../features/organizations/OrganizationPages'
 import { SettingsPage } from '../features/organization/SettingsPage'
@@ -68,6 +68,7 @@ export const router = createBrowserRouter([
           { path: '/audit', element: tenant('audit.view', <AuditLogPage endpoint="/audit-logs" title="Audit Trail" />) },
           { path: '/master/kategori', element: tenant('master.tenant.view', <TenantCategoriesPage />) },
           { path: '/master/lokasi', element: tenant('master.tenant.view', <LocationsPage />) },
+          { path: '/master/lokasi/jenis', element: tenant('master.tenant.view', <LocationTypesPage />) },
           { path: '/platform/organisasi', element: platform('platform.organization.view', <PlatformOrganizationsPage />) },
           { path: '/platform/organisasi/:id', element: platform('platform.organization.view', <PlatformOrganizationDetailPage />) },
           { path: '/platform/master/kategori', element: platform('master.generic.view', <PlatformCategoriesPage />) },

@@ -70,6 +70,31 @@ class MasterDataSecurityTest extends TestCase
         $this->assertNotSame('Dibajak', GenericAssetDefinition::query()->value('name'));
     }
 
+    public function test_organization_location_types_are_isolated_at_database_level(): void
+    {
+        $typeB = (string) Str::uuid7();
+        DB::table('location_types')->insert([
+            'id' => $typeB, 'organization_id' => $this->orgB->id, 'code' => 'KHUSUS-B', 'name' => 'Khusus B', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $locationA = $this->createMasterFixtures($this->orgA)['location']->id;
+
+        $this->asTenantA(function () use ($typeB, $locationA) {
+            $this->assertFalse(DB::table('location_types')->where('id', $typeB)->exists());
+            $this->assertSame(0, DB::table('location_types')->where('id', $typeB)->update(['name' => 'Dibajak']));
+            // Neither another organization's type nor a built-in one can be created from a tenant.
+            $this->expectQueryError('42501', fn () => DB::table('location_types')->insert([
+                'id' => (string) Str::uuid7(), 'organization_id' => $this->orgB->id, 'code' => 'X', 'name' => 'X', 'created_at' => now(), 'updated_at' => now(),
+            ]));
+            $this->expectQueryError('42501', fn () => DB::table('location_types')->insert([
+                'id' => (string) Str::uuid7(), 'code' => 'X', 'name' => 'X', 'created_at' => now(), 'updated_at' => now(),
+            ]));
+            // A location cannot point to another organization's type, even with a raw insert.
+            $this->expectQueryError('23503', fn () => DB::table('locations')->where('id', $locationA)->update(['location_type_id' => $typeB]));
+        });
+
+        $this->assertSame('Khusus B', DB::table('location_types')->where('id', $typeB)->value('name'));
+    }
+
     public function test_tenant_catalog_never_exposes_generic_drafts(): void
     {
         $definition = GenericAssetDefinition::query()->where('code', 'GEN-UMUM')->firstOrFail();

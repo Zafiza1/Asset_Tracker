@@ -136,6 +136,15 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
     },
   },
   {
+    label: 'Jenis Lokasi',
+    actions: {
+      'location_type.created': 'Menambah jenis lokasi',
+      'location_type.updated': 'Mengubah jenis lokasi',
+      'location_type.archived': 'Mengarsipkan jenis lokasi',
+      'location_type.restored': 'Memulihkan jenis lokasi',
+    },
+  },
+  {
     label: 'Aset',
     actions: {
       'asset.created': 'Mendaftarkan aset',

@@ -157,6 +157,12 @@ export interface ReferenceItem extends MasterRecord {
   sort_order?: number
 }
 
+/** Location type as seen by an organization: built-in (read-only) or its own. */
+export interface LocationType extends MasterRecord {
+  description: string | null
+  is_built_in: boolean
+}
+
 export interface GenericCategory extends MasterRecord {
   description: string | null
   parent_id: string | null

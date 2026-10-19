@@ -23,7 +23,7 @@ class GenericReferenceSeeder extends Seeder
             'LAINNYA' => 'Lainnya',
         ];
         foreach ($types as $code => $name) {
-            LocationType::query()->updateOrCreate(['code' => $code], ['name' => $name, 'status' => 'active']);
+            LocationType::query()->builtIn()->updateOrCreate(['code' => $code], ['name' => $name, 'status' => 'active']);
         }
 
         $units = [

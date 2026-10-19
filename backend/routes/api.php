@@ -12,6 +12,7 @@ use App\Http\Controllers\Tenant\AuditLogController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\GenericCatalogController;
 use App\Http\Controllers\Tenant\LocationController;
+use App\Http\Controllers\Tenant\LocationTypeController;
 use App\Http\Controllers\Tenant\OrganizationProfileController;
 use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\TenantCategoryController;
@@ -139,6 +140,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     $masters = [
         'departments' => [DepartmentController::class, 'department'],
         'locations' => [LocationController::class, 'location'],
+        'location-types' => [LocationTypeController::class, 'locationType'],
         'tenant-masters/categories' => [TenantCategoryController::class, 'tenantCategory'],
         'asset-definitions' => [TenantDefinitionController::class, 'tenantDefinition'],
     ];
