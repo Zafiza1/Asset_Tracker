@@ -1,13 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
-import { api } from '../../lib/api/client'
-import type { Resource } from '../../lib/api/types'
+import { api, ApiError } from '../../lib/api/client'
+import type { AttributeValue, Resource } from '../../lib/api/types'
 import { applyApiErrors } from '../../lib/forms'
+import { AttributeFields } from '../master/CategoryAttributes'
+import { useCategoryAttributes } from '../master/categoryAttributeData'
 import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, initialStatuses, type Asset } from './api'
 
@@ -35,7 +37,10 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
   const categories = toOptions(useOptions('/tenant-masters/categories').data)
   const locations = toOptions(useOptions('/locations').data)
 
-  const { register, handleSubmit, setError, formState } = useForm<Values>({
+  const [attributes, setAttributes] = useState<Record<string, AttributeValue>>(asset?.attributes ?? {})
+  const [attributeErrors, setAttributeErrors] = useState<Record<string, string>>({})
+
+  const { register, handleSubmit, setError, formState, control } = useForm<Values>({
     defaultValues: {
       name: asset?.name ?? '',
       serial_number: asset?.serial_number ?? '',
@@ -48,10 +53,14 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
     },
   })
 
+  // The category decides which extra fields the asset has.
+  const fields = useCategoryAttributes(useWatch({ control, name: 'category_id' })).data ?? []
+
   const save = useMutation({
     mutationFn: (values: Values) => {
       const keys = asset ? EDITABLE : (Object.keys(values) as (keyof Values)[])
       const payload: Record<string, unknown> = Object.fromEntries(keys.map((k) => [k, values[k].trim() === '' ? null : values[k].trim()]))
+      payload.attributes = Object.fromEntries(fields.map((f) => [f.key, attributes[f.key] ?? null]))
       return asset
         ? api.patch<Resource<Asset>>(`/assets/${asset.id}`, { ...payload, lock_version: asset.lock_version })
         : api.post<Resource<Asset>>('/assets', payload)
@@ -61,7 +70,13 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
       onSaved?.(res.data)
       onClose()
     },
-    onError: (e) => setFormError(applyApiErrors(e, setError)),
+    onError: (e) => {
+      const prefix = 'attributes.'
+      if (e instanceof ApiError) {
+        setAttributeErrors(Object.fromEntries(Object.entries(e.fields).filter(([k]) => k.startsWith(prefix)).map(([k, m]) => [k.slice(prefix.length), m[0]])))
+      }
+      setFormError(applyApiErrors(e, setError))
+    },
   })
 
   const err = (name: keyof Values) => formState.errors[name]?.message
@@ -82,7 +97,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
         </>
       }
     >
-      <form id="asset-form" noValidate className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), save.mutate(v)))}>
+      <form id="asset-form" noValidate className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), setAttributeErrors({}), save.mutate(v)))}>
         {formError && <Alert tone="error">{formError}</Alert>}
         {asset ? (
           <p className="text-sm text-slate-600">
@@ -140,6 +155,13 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
             </Field>
           </div>
         )}
+
+        <AttributeFields
+          fields={fields}
+          values={attributes}
+          errors={attributeErrors}
+          onChange={(key, value) => setAttributes((current) => ({ ...current, [key]: value }))}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Tanggal perolehan" error={err('acquisition_date')}>

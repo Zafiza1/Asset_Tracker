@@ -24,6 +24,8 @@ class AssetResource extends JsonResource
             'acquisition_date' => $this->acquisition_date?->toDateString(),
             'acquisition_cost' => $this->acquisition_cost,
             'description' => $this->description,
+            // Category field values keyed by attribute key; always a JSON object.
+            'attributes' => (object) $this->attribute_values,
             'borrower_name' => $this->borrower_name,
             'loan_due_date' => $this->loan_due_date?->toDateString(),
             'is_archived' => $this->archived_at !== null,

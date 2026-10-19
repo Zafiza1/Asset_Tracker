@@ -1,10 +1,14 @@
 import clsx from 'clsx'
+import { SlidersHorizontal } from 'lucide-react'
+import { useState } from 'react'
 import { NavLink } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
 import { PageHeader } from '../../components/ui/Card'
 import type { Column } from '../../components/ui/Table'
 import type { Department, Location, LocationType, TenantCategory } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
+import { CategoryAttributesModal } from './CategoryAttributes'
 import { MasterListPage } from './MasterListPage'
 import { toOptions, useOptions } from './options'
 
@@ -138,23 +142,37 @@ export function LocationTypesPage() {
 
 export function TenantCategoriesPage() {
   const categories = toOptions(useOptions<TenantCategory>('/tenant-masters/categories').data)
+  const permissions = useMasterPermissions()
+  const [attributesOf, setAttributesOf] = useState<TenantCategory | null>(null)
   return (
-    <MasterListPage<TenantCategory>
-      title="Kategori Aset"
-      description="Kelompok aset organisasi, dipakai sebagai filter utama di Pendataan Aset. Kategori dapat bertingkat; memfilter kategori induk ikut menampilkan aset di subkategorinya."
-      endpoint="/tenant-masters/categories"
-      {...useMasterPermissions()}
-      columns={[
-        { key: 'name', header: 'Nama', cell: treeName },
-        code<TenantCategory>(),
-        { key: 'description', header: 'Deskripsi', cell: (r) => r.description ?? '—', hideOnMobile: true },
-      ]}
-      fields={[
-        { name: 'name', label: 'Nama', required: true },
-        { name: 'parent_id', label: 'Kategori induk', type: 'select', options: categories, emptyOption: '— Kategori utama —' },
-        { name: 'description', label: 'Deskripsi', type: 'textarea' },
-      ]}
-      emptyHint="Tambahkan kategori pertama, misalnya Perangkat IT, Kendaraan, atau Furnitur."
-    />
+    <>
+      <MasterListPage<TenantCategory>
+        title="Kategori Aset"
+        description="Kelompok aset organisasi, dipakai sebagai filter utama di Pendataan Aset. Kategori dapat bertingkat; memfilter kategori induk ikut menampilkan aset di subkategorinya. Tambahkan atribut agar formulir aset kategori itu memiliki isian sendiri."
+        endpoint="/tenant-masters/categories"
+        {...permissions}
+        columns={[
+          { key: 'name', header: 'Nama', cell: treeName },
+          code<TenantCategory>(),
+          {
+            key: 'attributes',
+            header: 'Atribut',
+            cell: (r) => (
+              <Button size="sm" variant="ghost" onClick={() => setAttributesOf(r)} aria-label={`Atribut ${r.name} (${r.attributes_count ?? 0})`}>
+                <SlidersHorizontal className="size-4" aria-hidden /> {r.attributes_count ? `${r.attributes_count} atribut` : permissions.canUpdate && r.status !== 'archived' ? 'Tambah' : '—'}
+              </Button>
+            ),
+          },
+          { key: 'description', header: 'Deskripsi', cell: (r) => r.description ?? '—', hideOnMobile: true },
+        ]}
+        fields={[
+          { name: 'name', label: 'Nama', required: true },
+          { name: 'parent_id', label: 'Kategori induk', type: 'select', options: categories, emptyOption: '— Kategori utama —' },
+          { name: 'description', label: 'Deskripsi', type: 'textarea' },
+        ]}
+        emptyHint="Tambahkan kategori pertama, misalnya Perangkat IT, Kendaraan, atau Furnitur."
+      />
+      {attributesOf && <CategoryAttributesModal category={attributesOf} canUpdate={permissions.canUpdate} onClose={() => setAttributesOf(null)} />}
+    </>
   )
 }

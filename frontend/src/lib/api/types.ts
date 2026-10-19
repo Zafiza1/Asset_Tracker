@@ -179,7 +179,25 @@ export interface TenantCategory extends MasterRecord {
   generic_category_id: string
   generic_category?: Ref | null
   depth: number
+  /** Custom fields defined on the category itself (inherited ones not counted). */
+  attributes_count?: number
 }
+
+/** Custom field of an asset category; subcategories inherit it. Key and type never change. */
+export interface CategoryAttribute {
+  id: string
+  key: string
+  label: string
+  data_type: CategoryAttributeType
+  is_required: boolean
+  options: AttributeOption[] | null
+  category_id: string
+  category?: Ref | null
+  sort_order: number
+  status: 'active' | 'archived'
+}
+
+export type CategoryAttributeType = Exclude<AttributeDataType, 'multi_enum'>
 
 export type AttributeDataType = 'string' | 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'enum' | 'multi_enum'
 export type AttributeValue = string | number | boolean | string[] | null

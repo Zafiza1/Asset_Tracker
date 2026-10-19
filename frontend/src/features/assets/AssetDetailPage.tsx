@@ -9,10 +9,11 @@ import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feed
 import { Field, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { api } from '../../lib/api/client'
-import type { Paginated, Resource } from '../../lib/api/types'
+import type { CategoryAttribute, Paginated, Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { formatDate, formatDateTime } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
+import { attributeRows } from '../master/categoryAttributeData'
 import { allowedTypes, type AssetTransaction, type ManualTransactionType } from '../transactions/api'
 import { TransactionChanges } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
@@ -28,7 +29,7 @@ export function AssetDetailPage() {
   const [archiving, setArchiving] = useState(false)
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
 
-  const asset = useQuery({ queryKey: ['/assets', id], queryFn: () => api.get<Resource<Asset>>(`/assets/${id}`) })
+  const asset = useQuery({ queryKey: ['/assets', id], queryFn: () => api.get<Resource<Asset> & { attribute_fields: CategoryAttribute[] }>(`/assets/${id}`) })
   const history = useQuery({
     queryKey: ['/assets', id, 'transactions'],
     queryFn: () => api.get<Paginated<AssetTransaction>>(`/assets/${id}/transactions?per_page=100`),
@@ -117,6 +118,11 @@ export function AssetDetailPage() {
             <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>
             <Row label="Tanggal perolehan">{formatDate(a.acquisition_date)}</Row>
             <Row label="Nilai perolehan">{formatMoney(a.acquisition_cost)}</Row>
+            {attributeRows(asset.data!.attribute_fields ?? [], a.attributes ?? {}).map((r) => (
+              <Row key={r.key} label={r.label}>
+                {r.value}
+              </Row>
+            ))}
             <Row label="Deskripsi">{a.description ? <span className="whitespace-pre-line">{a.description}</span> : '—'}</Row>
             <Row label="Ditambahkan">{`${formatDateTime(a.created_at)}${a.created_by ? ` oleh ${a.created_by}` : ''}`}</Row>
           </dl>

@@ -1,4 +1,5 @@
 import type { BadgeTone } from '../../components/ui/badgeTones'
+import type { AttributeValue } from '../../lib/api/types'
 
 /** Asset Management module: API shapes and labels. Statuses mirror App\Domain\Assets\AssetStatus. */
 
@@ -23,6 +24,8 @@ export interface Asset {
   acquisition_date: string | null
   acquisition_cost: string | null
   description: string | null
+  /** Category field values keyed by attribute key. */
+  attributes: Record<string, AttributeValue>
   borrower_name: string | null
   loan_due_date: string | null
   is_archived: boolean

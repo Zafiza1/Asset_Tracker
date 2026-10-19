@@ -21,6 +21,7 @@ class TenantCategoryResource extends JsonResource
             'generic_category_id' => $this->generic_category_id,
             'generic_category' => $this->whenLoaded('genericCategory', fn () => Ref::of($this->genericCategory)),
             'depth' => Ref::depth($this->path),
+            'attributes_count' => $this->whenHas('attributes_count'),
             'status' => $this->status,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

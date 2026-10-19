@@ -8,9 +8,11 @@ use App\Domain\Assets\Models\Asset;
 use App\Domain\Assets\Services\AssetService;
 use App\Domain\Organization\Models\Location;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AssetResource;
 use App\Http\Resources\AssetTransactionResource;
+use App\Http\Resources\CategoryAttributeResource;
 use App\Http\Support\ListQuery;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -28,6 +30,7 @@ class AssetController extends Controller
     public function __construct(
         private readonly AssetService $assets,
         private readonly AssetScope $scope,
+        private readonly CategoryAttributeService $attributes,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -62,9 +65,11 @@ class AssetController extends Controller
         return AssetResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());
     }
 
+    /** Includes the category's fields, so the values can be shown with their labels. */
     public function show(Asset $asset): AssetResource
     {
-        return new AssetResource($asset->load([...self::RELATIONS, 'creator']));
+        return (new AssetResource($asset->load([...self::RELATIONS, 'creator'])))
+            ->additional(['attribute_fields' => CategoryAttributeResource::collection($this->attributes->effective($asset->category_id))]);
     }
 
     public function store(Request $request): AssetResource
@@ -125,6 +130,8 @@ class AssetController extends Controller
             'acquisition_date' => [...$optional, 'date_format:Y-m-d', 'before_or_equal:today'],
             'acquisition_cost' => [...$optional, 'numeric', 'min:0', 'max:9999999999999999'],
             'description' => [...$optional, 'string', 'max:2000'],
+            // Category fields, {key: value}; validated against the category by the service.
+            'attributes' => [...$optional, 'array'],
         ];
     }
 

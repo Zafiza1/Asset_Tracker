@@ -5,6 +5,7 @@ namespace Tests\Feature\Security;
 use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
+use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Route as RouteFacade;
 use Tests\TestCase;
@@ -88,6 +89,9 @@ class RouteSecurityTest extends TestCase
         ['asset' => $asset, 'transaction' => $transaction] = $this->createAssetFixture($orgB, $masters);
         $locationType = (new LocationType)->forceFill(['organization_id' => $orgB->id, 'code' => 'KHUSUS', 'name' => 'Khusus']);
         $locationType->save();
+        $categoryAttribute = (new TenantCategoryAttribute)->forceFill(['organization_id' => $orgB->id, 'category_id' => $masters['category']->id,
+            'key' => 'nomor_polisi', 'label' => 'Nomor Polisi', 'data_type' => 'string']);
+        $categoryAttribute->save();
 
         return [
             'asset' => $asset->id,
@@ -101,6 +105,7 @@ class RouteSecurityTest extends TestCase
             'tenantDefinition' => $masters['definition']->id,
             'tenantVersion' => $masters['version']->id,
             'tenantAttribute' => $masters['attribute']->id,
+            'categoryAttribute' => $categoryAttribute->id,
         ];
     }
 

@@ -9,6 +9,7 @@ use App\Http\Controllers\Platform\GenericVersionController;
 use App\Http\Controllers\Platform\OrganizationController as PlatformOrganizationController;
 use App\Http\Controllers\Platform\PlatformAuditLogController;
 use App\Http\Controllers\Tenant\AuditLogController;
+use App\Http\Controllers\Tenant\CategoryAttributeController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\GenericCatalogController;
 use App\Http\Controllers\Tenant\LocationController;
@@ -152,6 +153,13 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post("/{$uri}/{{$param}}/archive", [$controller, 'archive'])->middleware($archive);
         Route::post("/{$uri}/{{$param}}/restore", [$controller, 'restore'])->middleware($archive);
     }
+
+    // Custom fields of asset categories; subcategories inherit their ancestors' fields.
+    Route::get('/tenant-masters/categories/{tenantCategory}/attributes', [CategoryAttributeController::class, 'index'])->middleware($view);
+    Route::post('/tenant-masters/categories/{tenantCategory}/attributes', [CategoryAttributeController::class, 'store'])->middleware($update);
+    Route::put('/tenant-masters/categories/{tenantCategory}/attributes', [CategoryAttributeController::class, 'sync'])->middleware($update);
+    Route::patch('/category-attributes/{categoryAttribute}', [CategoryAttributeController::class, 'update'])->middleware($update);
+    Route::delete('/category-attributes/{categoryAttribute}', [CategoryAttributeController::class, 'destroy'])->middleware($update);
 
     Route::post('/asset-definitions/{tenantDefinition}/versions', [TenantDefinitionController::class, 'createVersion'])->middleware($update);
     Route::get('/asset-definition-versions/{tenantVersion}', [TenantVersionController::class, 'show'])->middleware($view);

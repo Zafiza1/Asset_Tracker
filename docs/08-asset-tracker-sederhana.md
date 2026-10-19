@@ -8,7 +8,7 @@ Dokumen ini **menggantikan** bagian dokumen 01–07 yang bertentangan dengannya.
 |---|---|
 | Registrasi aset lewat transaksi RECEIPT + workflow approval | Aset langsung didaftarkan dari menu Pendataan Aset; sistem otomatis mencatat transaksi *Penambahan aset* |
 | Transaksi: draft → submit → approve → post, reversal | Transaksi langsung berlaku saat disimpan; tidak dapat diubah/dihapus; kesalahan diperbaiki dengan transaksi baru |
-| Asset container + versi definisi + atribut dinamis | Aset hanya memakai kolom tetap (nama, nomor seri, kategori, lokasi, status, tanggal & nilai perolehan, deskripsi) |
+| Asset container + versi definisi + atribut dinamis | Aset memakai kolom tetap (nama, nomor seri, kategori, lokasi, status, tanggal & nilai perolehan, deskripsi) ditambah **atribut kategori** yang dibuat user per kategori (lihat §4) |
 | Menu tenant *Definisi Aset* & *Katalog Generic Master* | Dihapus dari menu user. API-nya masih ada (tidak dipakai UI) sampai diputuskan dihapus |
 | Kategori utama wajib memilih kategori generik | Jangkar generik diisi otomatis (`UMUM`) dan tidak ditampilkan |
 | Struktur cabang → departemen/lokasi, data scope per cabang | **Cabang dihapus** (migrasi `000600_remove_branches`): lokasi bertingkat dan departemen berdiri sendiri; data scope hanya organisasi, departemen, atau lokasi |
@@ -84,6 +84,13 @@ Semua transaksi manual memerlukan `transaction.create`; aset nonaktif tidak dapa
 
 **Kategori**: master data bertingkat. Filter kategori menerima beberapa kategori sekaligus (`category_ids=a,b`) dan ikut mencakup subkategori. Menambah kategori tidak memengaruhi aset yang sudah ada; kategori yang masih dipakai aset aktif tidak bisa diarsipkan (begitu pula lokasi).
 
+**Atribut kategori** (migrasi `001000_create_category_attributes`): user membuat isian tambahan per kategori (mis. *Nomor Polisi* pada *Kendaraan*). Tipe: teks singkat, teks panjang, bilangan bulat, desimal, tanggal, ya/tidak, pilihan tunggal; bisa ditandai wajib.
+
+- Subkategori mewarisi atribut kategori induknya; formulir aset menampilkan atribut induk lebih dulu, lalu atribut kategori itu sendiri. Nama atribut harus unik dalam satu garis keturunan kategori.
+- Kunci atribut (`key`) dibangkitkan dari nama, unik per organisasi dan tidak pernah dipakai ulang; kunci, tipe, dan kategori pemilik tidak bisa diubah (trigger DB). Nama, wajib/tidak, dan daftar pilihan bisa diubah; mengganti label pilihan tidak mengubah nilai yang tersimpan.
+- Nilai disimpan di `assets.attribute_values` (objek JSON) dan divalidasi server. Saat kategori aset diganti, nilai atribut yang tidak berlaku lagi dibuang dan atribut wajib kategori baru harus diisi. Mengubah data lain tanpa mengirim `attributes` tidak memvalidasi ulang nilainya.
+- Menghapus atribut = mengarsipkannya: hilang dari formulir/detail, nilainya ikut terbuang saat aset disimpan berikutnya.
+
 ## 5. Dashboard (Asset Analytics)
 
 `GET /api/dashboard` (`report.view`) dihitung langsung dari database, dalam data scope user:
@@ -101,7 +108,9 @@ Semua transaksi manual memerlukan `transaction.create`; aset nonaktif tidak dapa
 | `GET /api/assets` — `search`, `category_ids`, `location_id`, `status`, `archived=only\|all`, `sort`, `page`, `per_page` | `asset.view` |
 | `POST /api/assets` | `asset.create` |
 | `GET /api/assets/{id}` | `asset.view` |
-| `PATCH /api/assets/{id}` — data deskriptif saja, `lock_version` opsional (409 `STALE_ASSET`) | `asset.update` |
+| `PATCH /api/assets/{id}` — data deskriptif saja, `lock_version` opsional (409 `STALE_ASSET`); `attributes` = `{key: nilai}` (digabung, `null` menghapus) | `asset.update` |
+| `GET /api/tenant-masters/categories/{id}/attributes` — atribut yang berlaku (termasuk warisan induk) | `master.tenant.view` |
+| `PUT /api/tenant-masters/categories/{id}/attributes` — simpan seluruh daftar atribut milik kategori sekaligus (`attributes: [{id?, label, data_type, is_required, options}]`; baris tanpa `id` = baru, atribut yang tidak dikirim = dihapus; urutan = urutan daftar; semua-atau-tidak-sama-sekali) · `POST` (satu atribut) · `PATCH`/`DELETE /api/category-attributes/{id}` | `master.tenant.update` |
 | `POST /api/assets/{id}/archive` · `/restore` | `asset.archive` · `asset.restore` |
 | `GET /api/assets/{id}/transactions` | `asset.view` + `transaction.view` |
 | `GET /api/transactions` — `search`, `type`, `asset_id`, `date_from`, `date_to` | `transaction.view` |

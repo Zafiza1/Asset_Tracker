@@ -5,7 +5,10 @@ import { ModuleBoundary } from '../app/ModuleBoundary'
 import { tenantNavigation } from '../app/navigation'
 import { CategoryFilter } from '../features/assets/CategoryFilter'
 import { BarList, TrendChart } from '../features/dashboard/charts'
+import { AttributeFields } from '../features/master/CategoryAttributes'
+import { attributeRows } from '../features/master/categoryAttributeData'
 import { allowedTypes } from '../features/transactions/api'
+import type { CategoryAttribute } from '../lib/api/types'
 
 describe('module isolation', () => {
   function Broken(): never {
@@ -95,5 +98,34 @@ describe('dashboard charts', () => {
     expect(rows).toHaveLength(3)
     expect(rows[1]).toHaveTextContent('4')
     expect(rows[1]).toHaveTextContent('7')
+  })
+})
+
+describe('category attributes', () => {
+  const field = (key: string, label: string, data_type: CategoryAttribute['data_type'], extra: Partial<CategoryAttribute> = {}): CategoryAttribute => ({
+    id: key, key, label, data_type, is_required: false, options: null, category_id: 'c', sort_order: 0, status: 'active', ...extra,
+  })
+  const fields = [
+    field('nomor_polisi', 'Nomor Polisi', 'string', { is_required: true }),
+    field('bahan_bakar', 'Bahan Bakar', 'enum', { options: [{ value: 'BENSIN', label: 'Bensin' }, { value: 'SOLAR', label: 'Solar' }] }),
+    field('ber_ac', 'Ber-AC', 'boolean'),
+  ]
+
+  it('renders one input per field of the category and reports changes by key', () => {
+    const onChange = vi.fn()
+    render(<AttributeFields fields={fields} values={{ bahan_bakar: 'SOLAR' }} errors={{ nomor_polisi: 'Wajib diisi.' }} onChange={onChange} />)
+    expect(screen.getByText('Wajib diisi.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Bahan Bakar')).toHaveValue('SOLAR')
+    fireEvent.change(screen.getByLabelText(/Nomor Polisi/), { target: { value: 'B 1234 XY' } })
+    expect(onChange).toHaveBeenLastCalledWith('nomor_polisi', 'B 1234 XY')
+  })
+
+  it('renders nothing for a category without fields', () => {
+    const { container } = render(<AttributeFields fields={[]} values={{}} errors={{}} onChange={vi.fn()} />)
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('shows values with their labels on the detail page', () => {
+    expect(attributeRows(fields, { bahan_bakar: 'BENSIN', ber_ac: false }).map((r) => r.value)).toEqual(['—', 'Bensin', 'Tidak'])
   })
 })

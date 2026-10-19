@@ -9,6 +9,7 @@ use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,6 +31,7 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string $category_id
  * @property string|null $location_id
+ * @property array<string, mixed> $attribute_values custom field values (category attributes), keyed by attribute key
  * @property string $status
  * @property string|null $borrower_name
  * @property Carbon|null $loan_due_date
@@ -54,6 +56,15 @@ class Asset extends Model
             'lock_version' => 'integer',
             'archived_at' => 'datetime',
         ];
+    }
+
+    /** Stored as a JSON object (also when empty), read as an associative array. */
+    protected function attributeValues(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value === null ? [] : json_decode($value, true),
+            set: fn (array $value) => json_encode((object) $value),
+        );
     }
 
     /** Route binding also applies the user's data scope: out-of-scope assets are 404. */

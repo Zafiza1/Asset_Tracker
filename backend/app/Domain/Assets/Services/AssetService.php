@@ -15,6 +15,7 @@ use App\Domain\Shared\Masters\MasterStatus;
 use App\Domain\Shared\Numbering\NumberSequence;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -34,6 +35,7 @@ final class AssetService
         private readonly NumberSequence $numbers,
         private readonly AuditLogger $audit,
         private readonly Tenancy $tenancy,
+        private readonly CategoryAttributeService $attributes,
     ) {}
 
     /** @param array<string, mixed> $data validated input */
@@ -49,8 +51,9 @@ final class AssetService
         }
         $this->assertSerialAvailable($data['serial_number'] ?? null);
         $status = $data['status'] ?? AssetStatus::AVAILABLE;
+        $values = $this->attributes->resolveValues($data['category_id'], [], $data['attributes'] ?? []);
 
-        return DB::transaction(function () use ($data, $locationId, $status) {
+        return DB::transaction(function () use ($data, $locationId, $status, $values) {
             $format = OrganizationSetting::query()->value('asset_number_format') ?: 'AST-{YYYY}-{SEQ:6}';
             $userId = $this->tenancy->tenant()->userId();
 
@@ -60,6 +63,7 @@ final class AssetService
                 'asset_number' => $this->numbers->next('asset', $format),
                 'location_id' => $locationId,
                 'status' => $status,
+                'attribute_values' => $values,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ])->save();
@@ -89,6 +93,14 @@ final class AssetService
             $this->assertSerialAvailable($data['serial_number'], $asset->id);
         }
         $changes = array_intersect_key($data, array_flip(Asset::EDITABLE));
+        // Values are revalidated when they are sent or when the category (hence the set of fields) changes.
+        $categoryId = $changes['category_id'] ?? $asset->category_id;
+        if (array_key_exists('attributes', $data) || $categoryId !== $asset->category_id) {
+            $values = $this->attributes->resolveValues($categoryId, $asset->attribute_values, $data['attributes'] ?? null);
+            if (! self::sameValues($values, $asset->attribute_values)) {
+                $changes['attribute_values'] = $values;
+            }
+        }
 
         return DB::transaction(function () use ($asset, $changes) {
             $before = $this->auditable($asset);
@@ -169,7 +181,22 @@ final class AssetService
     {
         $values = $asset->only(self::AUDIT);
         $values['acquisition_date'] = $asset->acquisition_date?->toDateString();
+        $values['attributes'] = $asset->attribute_values;
 
         return $values;
+    }
+
+    /**
+     * Key order differs between freshly built and stored (jsonb) values.
+     *
+     * @param  array<string, mixed>  $a
+     * @param  array<string, mixed>  $b
+     */
+    private static function sameValues(array $a, array $b): bool
+    {
+        ksort($a);
+        ksort($b);
+
+        return $a === $b;
     }
 }
