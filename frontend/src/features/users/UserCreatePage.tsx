@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router'
+import { Plus } from 'lucide-react'
 import { z } from 'zod'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
@@ -11,6 +12,7 @@ import { Field, Input } from '../../components/ui/Field'
 import { api } from '../../lib/api/client'
 import type { Resource, User } from '../../lib/api/types'
 import { applyApiErrors, passwordRule } from '../../lib/forms'
+import { RoleQuickCreateModal } from '../roles/RoleQuickCreateModal'
 import { useRoles } from './api'
 
 const schema = z.object({
@@ -30,7 +32,8 @@ export function UserCreatePage() {
   const queryClient = useQueryClient()
   const roles = useRoles()
   const [formError, setFormError] = useState<string | null>(null)
-  const { register, handleSubmit, setError, formState } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { role_ids: [] } })
+  const [creatingRole, setCreatingRole] = useState(false)
+  const { register, handleSubmit, setError, formState, getValues, setValue } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { role_ids: [] } })
 
   const mutation = useMutation({
     // New users start with organization-wide scope; it can be narrowed on the detail page.
@@ -50,7 +53,7 @@ export function UserCreatePage() {
     <>
       <PageHeader
         title="Tambah Pengguna"
-        description="Pengguna baru wajib mengganti password sementara saat login pertama. Email yang sudah punya akun di organisasi lain ditambahkan dengan login yang sama."
+        description="Isi data pengguna lalu pilih role-nya; bila belum ada role yang sesuai, buat role baru beserta permission-nya langsung di sini. Pengguna baru wajib mengganti password sementara saat login pertama."
       />
       <Card>
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} noValidate className="grid gap-4 p-4 sm:grid-cols-2">
@@ -82,9 +85,14 @@ export function UserCreatePage() {
             {(p) => <Input {...p} type="password" autoComplete="new-password" {...register('password')} />}
           </Field>
           <fieldset className="sm:col-span-2">
-            <legend className="mb-2 text-sm font-medium text-slate-700">
-              Role <span className="text-red-600">*</span>
-            </legend>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <legend className="text-sm font-medium text-slate-700">
+                Role & Permission <span className="text-red-600">*</span>
+              </legend>
+              <Button variant="secondary" size="sm" onClick={() => setCreatingRole(true)}>
+                <Plus className="size-4" aria-hidden /> Buat role baru
+              </Button>
+            </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {roles.data!.map((role) => (
                 <label key={role.id} className="flex items-start gap-2 rounded-md p-2 ring-1 ring-slate-200 hover:bg-slate-50">
@@ -92,6 +100,7 @@ export function UserCreatePage() {
                   <span className="text-sm">
                     <span className="font-medium text-slate-800">{role.name}</span>
                     {role.description && <span className="block text-xs text-slate-500">{role.description}</span>}
+                    <span className="block text-xs text-slate-400">{role.permissions?.length ?? 0} permission</span>
                   </span>
                 </label>
               ))}
@@ -108,6 +117,11 @@ export function UserCreatePage() {
           </div>
         </form>
       </Card>
+      <RoleQuickCreateModal
+        open={creatingRole}
+        onClose={() => setCreatingRole(false)}
+        onCreated={(role) => setValue('role_ids', [...getValues('role_ids'), role.id], { shouldValidate: formState.isSubmitted })}
+      />
     </>
   )
 }

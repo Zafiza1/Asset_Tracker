@@ -15,6 +15,7 @@ import { useAuth } from '../../lib/auth/context'
 import { applyApiErrors, errorMessage, passwordRule } from '../../lib/forms'
 import { formatDateTime, scopeTypeLabel, userStatusLabel } from '../../lib/format'
 import { toOptions, useOptions } from '../master/options'
+import { RoleQuickCreateModal } from '../roles/RoleQuickCreateModal'
 import { useRoles } from './api'
 
 export function UserDetailPage() {
@@ -135,6 +136,7 @@ function ProfileCard({ user, editable }: { user: User; editable: boolean }) {
 function RolesCard({ user, editable }: { user: User; editable: boolean }) {
   const [editing, setEditing] = useState(false)
   const [selected, setSelected] = useState<string[]>(user.roles?.map((r) => r.id) ?? [])
+  const [creatingRole, setCreatingRole] = useState(false)
   const roles = useRoles(editing)
   const mutation = useUserMutation<{ role_ids: string[] }>(user, 'put', '/roles')
 
@@ -167,7 +169,10 @@ function RolesCard({ user, editable }: { user: User; editable: boolean }) {
                 </label>
               ))}
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="ghost" className="mr-auto" onClick={() => setCreatingRole(true)}>
+                Buat role baru
+              </Button>
               <Button variant="secondary" onClick={() => setEditing(false)}>
                 Batal
               </Button>
@@ -178,6 +183,7 @@ function RolesCard({ user, editable }: { user: User; editable: boolean }) {
           </div>
         )}
       </div>
+      <RoleQuickCreateModal open={creatingRole} onClose={() => setCreatingRole(false)} onCreated={(role) => setSelected((s) => [...s, role.id])} />
     </Card>
   )
 }

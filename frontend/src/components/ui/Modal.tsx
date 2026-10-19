@@ -1,8 +1,23 @@
+import clsx from 'clsx'
 import { X } from 'lucide-react'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 
 /** Accessible dialog on the native <dialog> element (modal focus handling and Esc built in). */
-export function Modal({ open, title, onClose, children, footer }: { open: boolean; title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+export function Modal({
+  open,
+  title,
+  onClose,
+  children,
+  footer,
+  size = 'md',
+}: {
+  open: boolean
+  title: string
+  onClose: () => void
+  children: ReactNode
+  footer?: ReactNode
+  size?: 'md' | 'xl'
+}) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
 
@@ -14,7 +29,7 @@ export function Modal({ open, title, onClose, children, footer }: { open: boolea
   }, [open])
 
   return (
-    <dialog ref={ref} onClose={onClose} aria-labelledby={titleId} className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg p-0 shadow-xl backdrop:bg-slate-900/40">
+    <dialog ref={ref} onClose={onClose} aria-labelledby={titleId} className={clsx('m-auto w-[calc(100%-2rem)] rounded-lg p-0 shadow-xl backdrop:bg-slate-900/40', size === 'xl' ? 'max-w-4xl' : 'max-w-lg')}>
       {open && (
         <div>
           <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">

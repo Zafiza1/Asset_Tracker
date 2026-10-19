@@ -15,6 +15,7 @@ import { api, qs } from '../../lib/api/client'
 import type { Paginated, User } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { formatDateTime, userStatusLabel } from '../../lib/format'
+import { UserAdminTabs } from './UserAdminTabs'
 
 const columns: Column<User>[] = [
   {
@@ -64,7 +65,7 @@ export function UsersPage() {
     <>
       <PageHeader
         title="Pengguna"
-        description="Akun pengguna organisasi beserta role dan cakupan datanya."
+        description="Akun pengguna organisasi beserta role, permission, dan cakupan datanya."
         actions={
           can('user.create') &&
           can('role.manage') && (
@@ -76,6 +77,7 @@ export function UsersPage() {
           )
         }
       />
+      <UserAdminTabs />
       <Card>
         <FilterPanel>
           <SearchForm value={search} onChange={setSearch} onSubmit={() => update({ search, page: '' })} placeholder="Cari nama, email, atau NIK" label="Cari pengguna" />

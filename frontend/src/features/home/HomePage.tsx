@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Boxes, Building2, FileClock, ShieldCheck, Users } from 'lucide-react'
+import { ArrowLeftRight, Boxes, Building2, FileClock, Users } from 'lucide-react'
 import { Link } from 'react-router'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { useAuth } from '../../lib/auth/context'
@@ -9,7 +9,6 @@ const shortcuts = [
   { to: '/transaksi', label: 'Transaksi aset', icon: ArrowLeftRight, permission: 'transaction.view' },
   { to: '/organisasi', label: 'Profil organisasi', icon: Building2, permission: 'organization.view' },
   { to: '/pengguna', label: 'Kelola pengguna', icon: Users, permission: 'user.view' },
-  { to: '/role', label: 'Role & permission', icon: ShieldCheck, permission: 'role.view' },
   { to: '/audit', label: 'Audit trail', icon: FileClock, permission: 'audit.view' },
 ]
 

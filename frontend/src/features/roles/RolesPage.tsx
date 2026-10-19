@@ -1,5 +1,5 @@
 import { Lock, Plus } from 'lucide-react'
-import { Link, useNavigate } from 'react-router'
+import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
@@ -7,6 +7,7 @@ import { DataTable, type Column } from '../../components/ui/Table'
 import type { Role } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { useRoles } from '../users/api'
+import { UserAdminTabs } from '../users/UserAdminTabs'
 
 const columns: Column<Role>[] = [
   {
@@ -35,11 +36,11 @@ export function RolesPage() {
   return (
     <>
       <PageHeader
-        title="Role & Permission"
-        description="Role adalah kumpulan permission. Akses akhir pengguna juga dibatasi oleh cakupan data."
+        title="Pengguna"
+        description="Role adalah kumpulan permission yang diberikan ke pengguna. Akses akhir pengguna juga dibatasi oleh cakupan data."
         actions={
           can('role.manage') && (
-            <Link to="/role/baru">
+            <Link to="/pengguna/role/baru">
               <Button>
                 <Plus className="size-4" aria-hidden /> Tambah role
               </Button>
@@ -47,6 +48,7 @@ export function RolesPage() {
           )
         }
       />
+      <UserAdminTabs />
       <Card>
         {roles.isLoading ? (
           <Spinner />
@@ -55,9 +57,15 @@ export function RolesPage() {
         ) : roles.data!.length === 0 ? (
           <EmptyState title="Belum ada role" />
         ) : (
-          <DataTable columns={columns} rows={roles.data!} onRowClick={(r) => navigate(`/role/${r.id}`)} />
+          <DataTable columns={columns} rows={roles.data!} onRowClick={(r) => navigate(`/pengguna/role/${r.id}`)} />
         )}
       </Card>
     </>
   )
+}
+
+/** Old /role/:id links (before roles moved under Pengguna). */
+export function LegacyRoleRedirect() {
+  const { id } = useParams()
+  return <Navigate to={`/pengguna/role/${id}`} replace />
 }

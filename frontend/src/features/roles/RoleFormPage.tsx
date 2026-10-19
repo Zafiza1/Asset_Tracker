@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate, useParams } from 'react-router'
 import { Button } from '../../components/ui/Button'
@@ -11,7 +11,8 @@ import { api } from '../../lib/api/client'
 import type { Permission, Resource, Role } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { applyApiErrors, errorMessage } from '../../lib/forms'
-import { permissionGroupLabel } from '../../lib/format'
+import { usePermissionCatalog } from './api'
+import { PermissionPicker } from './PermissionPicker'
 
 interface FormValues {
   code: string
@@ -19,12 +20,12 @@ interface FormValues {
   description: string
 }
 
-/** Create (/role/baru) or view/edit (/role/:id) a role. */
+/** Create (/pengguna/role/baru) or view/edit (/pengguna/role/:id) a role. */
 export function RoleFormPage() {
   const { id } = useParams()
   const isNew = id === undefined
   const role = useQuery({ queryKey: ['roles', id], queryFn: () => api.get<Resource<Role>>(`/roles/${id}`), enabled: !isNew })
-  const permissions = useQuery({ queryKey: ['permissions'], queryFn: async () => (await api.get<{ data: Permission[] }>('/permissions')).data })
+  const permissions = usePermissionCatalog()
 
   if (role.isLoading || permissions.isLoading) return <Spinner />
   if (role.isError) return <ErrorState error={role.error} />
@@ -34,7 +35,7 @@ export function RoleFormPage() {
 }
 
 function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
-  const { can, profile } = useAuth()
+  const { can } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const editable = can('role.manage')
@@ -42,16 +43,9 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set(role?.permissions ?? []))
   const [formError, setFormError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const own = useMemo(() => new Set(profile?.permissions ?? []), [profile])
   const { register, handleSubmit, setError, formState } = useForm<FormValues>({
     defaultValues: { code: role?.code ?? '', name: role?.name ?? '', description: role?.description ?? '' },
   })
-
-  const groups = useMemo(() => {
-    const map = new Map<string, Permission[]>()
-    for (const p of catalog) map.set(p.group, [...(map.get(p.group) ?? []), p])
-    return [...map.entries()]
-  }, [catalog])
 
   const save = useMutation({
     mutationFn: (v: FormValues) => {
@@ -60,7 +54,7 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['roles'] })
-      navigate('/role')
+      navigate('/pengguna/role')
     },
     onError: (e) => setFormError(applyApiErrors(e, setError)),
   })
@@ -68,17 +62,9 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
     mutationFn: () => api.delete(`/roles/${role!.id}`),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['roles'] })
-      navigate('/role')
+      navigate('/pengguna/role')
     },
   })
-
-  const toggle = (code: string, on: boolean) =>
-    setSelected((s) => {
-      const next = new Set(s)
-      if (on) next.add(code)
-      else next.delete(code)
-      return next
-    })
 
   return (
     <>
@@ -111,38 +97,13 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
           </div>
         </Card>
         <Card title={`Permission (${selected.size})`}>
-          <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
-            {groups.map(([group, items]) => (
-              <fieldset key={group} className="rounded-md p-3 ring-1 ring-slate-200">
-                <legend className="px-1 text-sm font-semibold text-slate-700">{permissionGroupLabel[group] ?? group}</legend>
-                <div className="space-y-1.5">
-                  {items.map((p) => {
-                    // Mirrors the server's anti-escalation rule: only permissions you hold can be granted.
-                    const grantable = permissionsEditable && own.has(p.code)
-                    return (
-                      <label key={p.code} className="flex items-start gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          className="mt-0.5 size-4 rounded border-slate-300 text-brand-700 disabled:opacity-50"
-                          checked={selected.has(p.code)}
-                          disabled={!grantable}
-                          onChange={(e) => toggle(p.code, e.target.checked)}
-                        />
-                        <span>
-                          <span className="text-slate-800">{p.description}</span>
-                          <span className="block font-mono text-xs text-slate-400">{p.code}</span>
-                        </span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </fieldset>
-            ))}
+          <div className="p-4">
+            <PermissionPicker catalog={catalog} selected={selected} onChange={setSelected} editable={permissionsEditable} />
           </div>
         </Card>
         {editable && (
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => navigate('/role')}>
+            <Button variant="secondary" onClick={() => navigate('/pengguna/role')}>
               Batal
             </Button>
             <Button type="submit" loading={save.isPending}>

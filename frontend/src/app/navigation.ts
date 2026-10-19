@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BookOpen, Boxes, Building2, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, Settings, ShieldCheck, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, BookOpen, Boxes, Building2, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, Settings, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -39,7 +39,6 @@ export const tenantNavigation: NavSection[] = [
     items: [
       { to: '/organisasi', label: 'Organisasi', icon: Building2, permission: 'organization.view' },
       { to: '/pengguna', label: 'Pengguna', icon: Users, permission: 'user.view' },
-      { to: '/role', label: 'Role & Permission', icon: ShieldCheck, permission: 'role.view' },
       { to: '/pengaturan', label: 'Pengaturan', icon: Settings, permission: 'settings.manage' },
       { to: '/audit', label: 'Audit Trail', icon: FileClock, permission: 'audit.view' },
     ],

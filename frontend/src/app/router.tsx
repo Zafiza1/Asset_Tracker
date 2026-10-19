@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router'
+import { createBrowserRouter, Navigate } from 'react-router'
 import { AuditLogPage } from '../features/audit/AuditLogPage'
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
 import { LoginPage } from '../features/auth/LoginPage'
@@ -20,7 +20,7 @@ import { PlatformOrganizationDetailPage } from '../features/platform/PlatformOrg
 import { PlatformOrganizationsPage } from '../features/platform/PlatformOrganizationsPage'
 import { RoleFormPage } from '../features/roles/RoleFormPage'
 import { TransactionsPage } from '../features/transactions/TransactionsPage'
-import { RolesPage } from '../features/roles/RolesPage'
+import { LegacyRoleRedirect, RolesPage } from '../features/roles/RolesPage'
 import { UserCreatePage } from '../features/users/UserCreatePage'
 import { UserDetailPage } from '../features/users/UserDetailPage'
 import { UsersPage } from '../features/users/UsersPage'
@@ -58,10 +58,13 @@ export const router = createBrowserRouter([
           { path: '/pengaturan', element: tenant('settings.manage', <SettingsPage />) },
           { path: '/pengguna', element: tenant('user.view', <UsersPage />) },
           { path: '/pengguna/baru', element: tenant('user.create', <UserCreatePage />) },
+          { path: '/pengguna/role', element: tenant('role.view', <RolesPage />) },
+          { path: '/pengguna/role/baru', element: tenant('role.manage', <RoleFormPage />) },
+          { path: '/pengguna/role/:id', element: tenant('role.view', <RoleFormPage />) },
           { path: '/pengguna/:id', element: tenant('user.view', <UserDetailPage />) },
-          { path: '/role', element: tenant('role.view', <RolesPage />) },
-          { path: '/role/baru', element: tenant('role.manage', <RoleFormPage />) },
-          { path: '/role/:id', element: tenant('role.view', <RoleFormPage />) },
+          // Old Role & Permission menu, now a tab under Pengguna.
+          { path: '/role', element: <Navigate to="/pengguna/role" replace /> },
+          { path: '/role/:id', element: <LegacyRoleRedirect /> },
           { path: '/audit', element: tenant('audit.view', <AuditLogPage endpoint="/audit-logs" title="Audit Trail" />) },
           { path: '/master/kategori', element: tenant('master.tenant.view', <TenantCategoriesPage />) },
           { path: '/master/lokasi', element: tenant('master.tenant.view', <LocationsPage />) },
