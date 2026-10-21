@@ -1,19 +1,20 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { useNavigate } from 'react-router'
 import { Plus } from 'lucide-react'
 import { z } from 'zod'
+import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
 import { api } from '../../lib/api/client'
-import type { Resource, User } from '../../lib/api/types'
+import type { Resource, User, UserOrganizationOption } from '../../lib/api/types'
 import { applyApiErrors, passwordRule } from '../../lib/forms'
 import { RoleQuickCreateModal } from '../roles/RoleQuickCreateModal'
-import { useRoles } from './api'
+import { useOrganizationOptions } from './api'
 
 const schema = z.object({
   name: z.string().min(1, 'Nama wajib diisi.').max(150),
@@ -23,37 +24,77 @@ const schema = z.object({
   phone: z.string().max(30).optional(),
   // Empty when the email already has an account (it keeps its own password); the API requires it otherwise.
   password: z.string().refine((v) => v === '' || passwordRule.test(v), passwordRule.message),
-  role_ids: z.array(z.string()).min(1, 'Pilih minimal satu role.'),
+  // One entry per organization the user may access, each with its own roles.
+  memberships: z
+    .array(z.object({ organization_id: z.string(), role_ids: z.array(z.string()).min(1, 'Pilih minimal satu role.') }))
+    .min(1, 'Pilih minimal satu organisasi.'),
 })
 type FormValues = z.infer<typeof schema>
 
 export function UserCreatePage() {
+  const options = useOrganizationOptions()
+
+  if (options.isLoading) return <Spinner />
+  if (options.isError) return <ErrorState error={options.error} />
+
+  return <UserCreateForm organizations={options.data!} />
+}
+
+function UserCreateForm({ organizations }: { organizations: UserOrganizationOption[] }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const roles = useRoles()
   const [formError, setFormError] = useState<string | null>(null)
   const [creatingRole, setCreatingRole] = useState(false)
-  const { register, handleSubmit, setError, formState, getValues, setValue } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { role_ids: [] } })
+  const current = organizations.find((o) => o.is_current)
+  const multiple = organizations.length > 1
+  const { register, handleSubmit, setError, formState, control, setValue } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { memberships: current ? [{ organization_id: current.id, role_ids: [] }] : [] },
+  })
+  const memberships = useWatch({ control, name: 'memberships' })
+  const setMemberships = (next: FormValues['memberships']) => setValue('memberships', next, { shouldValidate: formState.isSubmitted })
+
+  const toggleOrganization = (id: string, checked: boolean) =>
+    setMemberships(
+      checked
+        ? // Keep the order of the organization list so error paths stay predictable.
+          organizations.filter((o) => o.id === id || memberships.some((m) => m.organization_id === o.id)).map((o) => memberships.find((m) => m.organization_id === o.id) ?? { organization_id: o.id, role_ids: [] })
+        : memberships.filter((m) => m.organization_id !== id),
+    )
+  const toggleRole = (organizationId: string, roleId: string, checked: boolean) =>
+    setMemberships(
+      memberships.map((m) =>
+        m.organization_id !== organizationId ? m : { ...m, role_ids: checked ? [...m.role_ids, roleId] : m.role_ids.filter((r) => r !== roleId) },
+      ),
+    )
 
   const mutation = useMutation({
     // New users start with organization-wide scope; it can be narrowed on the detail page.
     mutationFn: (v: FormValues) =>
-      api.post<Resource<User>>('/users', { ...v, password: v.password || undefined, scopes: [{ scope_type: 'organization' }] }),
+      api.post<Resource<User> & { meta: { organization_ids: string[] } }>('/users', {
+        ...v,
+        password: v.password || undefined,
+        scopes: [{ scope_type: 'organization' }],
+      }),
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: ['users'] })
-      navigate(`/pengguna/${res.data.id}`, { replace: true })
+      // The detail page shows the current organization; without access there, go back to the list.
+      navigate(current && res.meta.organization_ids.includes(current.id) ? `/pengguna/${res.data.id}` : '/pengguna', { replace: true })
     },
     onError: (e) => setFormError(applyApiErrors(e, setError)),
   })
 
-  if (roles.isLoading) return <Spinner />
-  if (roles.isError) return <ErrorState error={roles.error} />
+  const membershipErrors = formState.errors.memberships
 
   return (
     <>
       <PageHeader
         title="Tambah Pengguna"
-        description="Isi data pengguna lalu pilih role-nya; bila belum ada role yang sesuai, buat role baru beserta permission-nya langsung di sini. Pengguna baru wajib mengganti password sementara saat login pertama."
+        description={
+          multiple
+            ? 'Isi data pengguna, pilih organisasi yang boleh diakses, lalu pilih role di setiap organisasi. Pengguna login sekali dan berpindah organisasi lewat menu di header. Pengguna baru wajib mengganti password sementara saat login pertama.'
+            : 'Isi data pengguna lalu pilih role-nya; bila belum ada role yang sesuai, buat role baru beserta permission-nya langsung di sini. Pengguna baru wajib mengganti password sementara saat login pertama.'
+        }
       />
       <Card>
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} noValidate className="grid gap-4 p-4 sm:grid-cols-2">
@@ -84,28 +125,60 @@ export function UserCreatePage() {
           >
             {(p) => <Input {...p} type="password" autoComplete="new-password" {...register('password')} />}
           </Field>
-          <fieldset className="sm:col-span-2">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <fieldset className="space-y-3 sm:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <legend className="text-sm font-medium text-slate-700">
-                Role & Permission <span className="text-red-600">*</span>
+                {multiple ? 'Akses Organisasi & Role' : 'Role & Permission'} <span className="text-red-600">*</span>
               </legend>
-              <Button variant="secondary" size="sm" onClick={() => setCreatingRole(true)}>
-                <Plus className="size-4" aria-hidden /> Buat role baru
-              </Button>
+              {current && (
+                <Button variant="secondary" size="sm" onClick={() => setCreatingRole(true)}>
+                  <Plus className="size-4" aria-hidden /> Buat role baru{multiple && ` di ${current.name}`}
+                </Button>
+              )}
             </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {roles.data!.map((role) => (
-                <label key={role.id} className="flex items-start gap-2 rounded-md p-2 ring-1 ring-slate-200 hover:bg-slate-50">
-                  <input type="checkbox" value={role.id} className="mt-0.5 size-4 rounded border-slate-300 text-brand-700" {...register('role_ids')} />
-                  <span className="text-sm">
-                    <span className="font-medium text-slate-800">{role.name}</span>
-                    {role.description && <span className="block text-xs text-slate-500">{role.description}</span>}
-                    <span className="block text-xs text-slate-400">{role.permissions?.length ?? 0} permission</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-            {formState.errors.role_ids && <p className="mt-1 text-sm text-red-600">{formState.errors.role_ids.message}</p>}
+            {membershipErrors?.message && <p className="text-sm text-red-600">{membershipErrors.message}</p>}
+            {organizations.map((org) => {
+              const index = memberships.findIndex((m) => m.organization_id === org.id)
+              const selected = index >= 0
+              const roleError = selected ? membershipErrors?.[index]?.role_ids?.message ?? membershipErrors?.[index]?.organization_id?.message : undefined
+              return (
+                <div key={org.id} className={multiple ? 'rounded-md p-3 ring-1 ring-slate-200' : undefined}>
+                  {multiple && (
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="size-4 rounded border-slate-300 text-brand-700"
+                        checked={selected}
+                        onChange={(e) => toggleOrganization(org.id, e.target.checked)}
+                      />
+                      <span className="text-sm font-medium text-slate-800">{org.name}</span>
+                      <span className="text-xs text-slate-500">{org.code}</span>
+                      {org.is_current && <Badge tone="blue">Organisasi aktif</Badge>}
+                    </label>
+                  )}
+                  {selected && (
+                    <div className={`grid gap-2 sm:grid-cols-2 lg:grid-cols-3 ${multiple ? 'mt-3 pl-6' : ''}`} role="group" aria-label={`Role di ${org.name}`}>
+                      {org.roles.map((role) => (
+                        <label key={role.id} className="flex items-start gap-2 rounded-md p-2 ring-1 ring-slate-200 hover:bg-slate-50">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 size-4 rounded border-slate-300 text-brand-700"
+                            checked={memberships[index].role_ids.includes(role.id)}
+                            onChange={(e) => toggleRole(org.id, role.id, e.target.checked)}
+                          />
+                          <span className="text-sm">
+                            <span className="font-medium text-slate-800">{role.name}</span>
+                            {role.description && <span className="block text-xs text-slate-500">{role.description}</span>}
+                            <span className="block text-xs text-slate-400">{role.permissions_count} permission</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {roleError && <p className={`mt-1 text-sm text-red-600 ${multiple ? 'pl-6' : ''}`}>{roleError}</p>}
+                </div>
+              )
+            })}
           </fieldset>
           <div className="flex justify-end gap-2 sm:col-span-2">
             <Button variant="secondary" onClick={() => navigate('/pengguna')}>
@@ -117,11 +190,17 @@ export function UserCreatePage() {
           </div>
         </form>
       </Card>
-      <RoleQuickCreateModal
-        open={creatingRole}
-        onClose={() => setCreatingRole(false)}
-        onCreated={(role) => setValue('role_ids', [...getValues('role_ids'), role.id], { shouldValidate: formState.isSubmitted })}
-      />
+      {current && (
+        <RoleQuickCreateModal
+          open={creatingRole}
+          onClose={() => setCreatingRole(false)}
+          onCreated={async (role) => {
+            await queryClient.invalidateQueries({ queryKey: ['users', 'organization-options'] })
+            const base = memberships.some((m) => m.organization_id === current.id) ? memberships : [{ organization_id: current.id, role_ids: [] }, ...memberships]
+            setMemberships(base.map((m) => (m.organization_id === current.id ? { ...m, role_ids: [...m.role_ids, role.id] } : m)))
+          }}
+        />
+      )}
     </>
   )
 }

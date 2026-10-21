@@ -57,6 +57,25 @@ export interface User {
   updated_at: string
 }
 
+/** An organization where the current administrator may add users, with its roles. */
+export interface UserOrganizationOption {
+  id: string
+  code: string
+  name: string
+  is_current: boolean
+  roles: { id: string; code: string; name: string; description: string | null; permissions_count: number }[]
+}
+
+/** A user's membership in one organization (only organizations the viewer may see). */
+export interface UserOrganizationAccess {
+  id: string
+  code: string
+  name: string
+  is_current: boolean
+  status: UserStatus
+  roles: { id: string; code: string; name: string }[]
+}
+
 export interface Role {
   id: string
   code: string

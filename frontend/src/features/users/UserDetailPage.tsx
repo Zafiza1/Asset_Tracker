@@ -10,13 +10,13 @@ import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { api } from '../../lib/api/client'
-import type { DataScopeEntry, Resource, ScopeType, User } from '../../lib/api/types'
+import type { DataScopeEntry, Resource, ScopeType, User, UserOrganizationAccess } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { applyApiErrors, errorMessage, passwordRule } from '../../lib/forms'
 import { formatDateTime, scopeTypeLabel, userStatusLabel } from '../../lib/format'
 import { toOptions, useOptions } from '../master/options'
 import { RoleQuickCreateModal } from '../roles/RoleQuickCreateModal'
-import { useRoles } from './api'
+import { useOrganizationOptions, useRoles } from './api'
 
 export function UserDetailPage() {
   const { id } = useParams()
@@ -42,7 +42,10 @@ export function UserDetailPage() {
         }
       />
       <div className="grid gap-4 lg:grid-cols-2">
-        <ProfileCard user={user} editable={can('user.update')} />
+        <div className="space-y-4">
+          <ProfileCard user={user} editable={can('user.update')} />
+          {(profile?.organizations.length ?? 0) > 1 && <OrganizationsCard user={user} canGrant={can('user.create') && can('role.manage')} />}
+        </div>
         <div className="space-y-4">
           <RolesCard user={user} editable={can('role.manage')} />
           <ScopesCard user={user} editable={can('user.update')} />
@@ -129,6 +132,113 @@ function ProfileCard({ user, editable }: { user: User; editable: boolean }) {
           ))}
         </dl>
       )}
+    </Card>
+  )
+}
+
+/** Organizations this user can work in (limited to those the viewer may see), and granting access to another. */
+function OrganizationsCard({ user, canGrant }: { user: User; canGrant: boolean }) {
+  const queryClient = useQueryClient()
+  const queryKey = ['users', user.id, 'organizations']
+  const access = useQuery({ queryKey, queryFn: async () => (await api.get<{ data: UserOrganizationAccess[] }>(`/users/${user.id}/organizations`)).data })
+  const [adding, setAdding] = useState(false)
+  const [organizationId, setOrganizationId] = useState('')
+  const [roleIds, setRoleIds] = useState<string[]>([])
+  const options = useOrganizationOptions(adding)
+  const available = options.data?.filter((o) => !access.data?.some((a) => a.id === o.id)) ?? []
+  const chosen = available.find((o) => o.id === organizationId)
+  const mutation = useMutation({
+    mutationFn: () => api.post<{ data: UserOrganizationAccess[] }>(`/users/${user.id}/organizations`, { organization_id: organizationId, role_ids: roleIds }),
+    onSuccess: (res) => {
+      queryClient.setQueryData(queryKey, res.data)
+      setAdding(false)
+    },
+  })
+  const open = () => (mutation.reset(), setOrganizationId(''), setRoleIds([]), setAdding(true))
+
+  return (
+    <Card title="Akses organisasi" actions={canGrant && <Button variant="secondary" size="sm" onClick={open}>Tambah akses</Button>}>
+      <div className="p-4 text-sm">
+        {access.isLoading ? (
+          <Spinner />
+        ) : access.isError ? (
+          <Alert tone="error">{errorMessage(access.error)}</Alert>
+        ) : (
+          <ul className="divide-y divide-slate-100 rounded-md ring-1 ring-slate-200">
+            {access.data!.map((org) => (
+              <li key={org.id} className="space-y-1 px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-slate-800">{org.name}</span>
+                  <span className="text-xs text-slate-500">{org.code}</span>
+                  {org.is_current && <Badge tone="blue">Organisasi aktif</Badge>}
+                  <Badge tone={statusTone[org.status]}>{userStatusLabel[org.status]}</Badge>
+                </div>
+                <p className="text-xs text-slate-500">{org.roles.length ? org.roles.map((r) => r.name).join(', ') : 'Belum memiliki role.'}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 text-xs text-slate-500">Status, role, dan cakupan data di organisasi lain diubah setelah berpindah ke organisasi tersebut.</p>
+      </div>
+      <Modal
+        open={adding}
+        title="Tambah akses organisasi"
+        onClose={() => setAdding(false)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setAdding(false)}>
+              Batal
+            </Button>
+            <Button loading={mutation.isPending} disabled={!chosen || roleIds.length === 0} onClick={() => mutation.mutate()}>
+              Beri akses
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
+          {options.isLoading ? (
+            <Spinner />
+          ) : options.isError ? (
+            <Alert tone="error">{errorMessage(options.error)}</Alert>
+          ) : available.length === 0 ? (
+            <p className="text-sm text-slate-600">Pengguna sudah memiliki akses ke semua organisasi yang Anda kelola.</p>
+          ) : (
+            <>
+              <Field label="Organisasi" required>
+                {(p) => (
+                  <Select {...p} value={organizationId} onChange={(e) => (setOrganizationId(e.target.value), setRoleIds([]))}>
+                    <option value="">— Pilih organisasi —</option>
+                    {available.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name} ({o.code})
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              {chosen && (
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium text-slate-700">Role di {chosen.name}</legend>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {chosen.roles.map((role) => (
+                      <label key={role.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="size-4 rounded border-slate-300 text-brand-700"
+                          checked={roleIds.includes(role.id)}
+                          onChange={(e) => setRoleIds((s) => (e.target.checked ? [...s, role.id] : s.filter((x) => x !== role.id)))}
+                        />
+                        {role.name}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+            </>
+          )}
+        </div>
+      </Modal>
     </Card>
   )
 }
