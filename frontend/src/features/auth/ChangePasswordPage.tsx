@@ -9,7 +9,7 @@ import { Alert } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
 import { api } from '../../lib/api/client'
 import type { Profile, Resource } from '../../lib/api/types'
-import { useAuth } from '../../lib/auth/context'
+import { landingPath, useAuth } from '../../lib/auth/context'
 import { applyApiErrors, passwordRule } from '../../lib/forms'
 
 const schema = z
@@ -34,7 +34,8 @@ export function ChangePasswordPage() {
     try {
       const updated = (await api.put<Resource<Profile>>('/auth/password', values)).data
       setProfile(updated)
-      navigate(updated.user.user_type === 'platform' ? '/platform/organisasi' : '/', { replace: true })
+      // A forced change is still part of signing in, so it continues to the organization picker.
+      navigate(forced ? landingPath(updated) : updated.user.user_type === 'platform' ? '/platform/organisasi' : '/', { replace: true })
     } catch (e) {
       setFormError(applyApiErrors(e, setError))
     }

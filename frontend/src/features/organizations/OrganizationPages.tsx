@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { z } from 'zod'
+import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
@@ -22,6 +23,10 @@ export function SelectOrganizationPage() {
   if (!profile || profile.user.user_type !== 'tenant') return <Navigate to="/" replace />
 
   const choose = async (id: string) => {
+    if (id === profile.organization?.id) {
+      navigate('/', { replace: true })
+      return
+    }
     setPending(id)
     setError(null)
     try {
@@ -60,6 +65,7 @@ export function SelectOrganizationPage() {
                   <span className="block truncate text-sm font-medium text-slate-900">{o.name}</span>
                   <span className="block text-xs text-slate-500">{o.code}</span>
                 </span>
+                {o.id === profile.organization?.id && <Badge tone="blue">Terakhir digunakan</Badge>}
                 <ChevronRight className="size-4 text-slate-400" aria-hidden />
               </button>
             </li>

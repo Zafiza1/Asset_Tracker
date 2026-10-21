@@ -35,6 +35,17 @@ export const AuthContext = createContext<AuthState | null>(null)
 
 export const ME_KEY = ['auth', 'me'] as const
 
+/**
+ * Where a freshly signed-in user goes: change a temporary password first, then, for an
+ * account in several organizations, choose which one to work in before the dashboard.
+ */
+export function landingPath(profile: Profile, from?: string): string {
+  if (profile.user.must_change_password) return '/ubah-password'
+  if (profile.user.user_type === 'platform') return from ?? '/platform/organisasi'
+  if (profile.organizations.length > 1) return '/pilih-organisasi'
+  return from ?? '/'
+}
+
 export function useAuth(): AuthState {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used inside AuthProvider')

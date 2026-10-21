@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
-import { useAuth } from '../../lib/auth/context'
+import { landingPath, useAuth } from '../../lib/auth/context'
 import { applyApiErrors } from '../../lib/forms'
 import { AuthShell } from './AuthShell'
 
@@ -23,14 +23,15 @@ export function LoginPage() {
   const [formError, setFormError] = useState<string | null>(null)
   const { register, handleSubmit, setError, formState } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
-  if (profile) return <Navigate to="/" replace />
+  const from = (location.state as { from?: string } | null)?.from
+  // Also reached right after a successful login, so it must agree with onSubmit's target.
+  if (profile) return <Navigate to={landingPath(profile, from)} replace />
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null)
     try {
       const p = await login(values.email, values.password)
-      const from = (location.state as { from?: string } | null)?.from
-      navigate(p.user.must_change_password ? '/ubah-password' : (from ?? (p.user.user_type === 'platform' ? '/platform/organisasi' : '/')), { replace: true })
+      navigate(landingPath(p, from), { replace: true })
     } catch (e) {
       setFormError(applyApiErrors(e, setError))
     }

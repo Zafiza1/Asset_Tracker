@@ -5,6 +5,7 @@ import { StrictMode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RequireAuth } from '../app/guards'
+import { LoginPage } from '../features/auth/LoginPage'
 import { SelectOrganizationPage } from '../features/organizations/OrganizationPages'
 import { AuthProvider } from '../lib/auth/AuthContext'
 
@@ -80,5 +81,47 @@ describe('Organization selection', () => {
     const put = calls.find((c) => c.url === '/api/auth/organization')
     expect(put?.init?.method).toBe('PUT')
     expect(JSON.parse(String(put?.init?.body))).toEqual({ organization_id: 'o2' })
+  })
+
+  it('asks an account with several organizations to choose one after login, even when one was used before', async () => {
+    const calls: string[] = []
+    let loggedIn = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        calls.push(url)
+        if (url === '/api/auth/me' && !loggedIn) return new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED', message: 'Silakan login.' } }), { status: 401 })
+        if (url === '/api/auth/login') loggedIn = true
+        // The server pre-selects the organization used last time.
+        return new Response(JSON.stringify(profile(organizations[0])), { status: 200 })
+      }),
+    )
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AuthProvider>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route element={<RequireAuth />}>
+                <Route path="/pilih-organisasi" element={<SelectOrganizationPage />} />
+                <Route path="/" element={<p>beranda</p>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </AuthProvider>
+      </QueryClientProvider>,
+    )
+
+    await userEvent.type(await screen.findByLabelText(/Email/), 'pemilik@grup.test')
+    await userEvent.type(screen.getByLabelText(/Password/), 'rahasia')
+    await userEvent.click(screen.getByRole('button', { name: 'Masuk' }))
+
+    const alpha = await screen.findByRole('button', { name: /PT Alpha/ })
+    expect(alpha).toHaveTextContent('Terakhir digunakan')
+    expect(screen.queryByText('beranda')).not.toBeInTheDocument()
+
+    await userEvent.click(alpha)
+    expect(await screen.findByText('beranda')).toBeInTheDocument()
+    expect(calls).not.toContain('/api/auth/organization')
   })
 })
