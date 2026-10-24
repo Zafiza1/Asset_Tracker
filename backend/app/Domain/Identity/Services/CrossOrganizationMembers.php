@@ -3,6 +3,7 @@
 namespace App\Domain\Identity\Services;
 
 use App\Domain\Authorization\Models\Role;
+use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Exceptions\ApiException;
@@ -13,20 +14,21 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Gives one account access to several organizations in a single step. An administrator
- * may grant access only to organizations where they themselves hold user.create and
- * role.manage; every grant runs through UserManagement inside that organization's own
+ * Invites one email address to several organizations in a single step. An administrator
+ * may invite only to organizations where they themselves hold user.create and role.manage;
+ * every invitation is created by OrganizationInvitations inside that organization's own
  * tenant context, so RLS, role checks and audit work exactly as for a single organization.
- * All grants of one request succeed or fail together.
+ * All invitations of one request succeed or fail together. Nobody gains access before the
+ * owner of the address accepts each invitation.
  */
 final class CrossOrganizationMembers
 {
-    public const MANAGE_PERMISSIONS = ['user.create', 'role.manage'];
+    public const MANAGE_PERMISSIONS = OrganizationInvitations::MANAGE_PERMISSIONS;
 
     public function __construct(
         private readonly Tenancy $tenancy,
         private readonly OrganizationAccess $access,
-        private readonly UserManagement $users,
+        private readonly OrganizationInvitations $invitations,
     ) {}
 
     /**
@@ -61,47 +63,49 @@ final class CrossOrganizationMembers
     }
 
     /**
-     * Creates the account (or reuses the existing one with that email) and adds it to every
-     * organization in $grants. Organization-specific fields (home department, data scopes)
-     * only apply to the organization they were given for.
+     * Invites $email to every organization in $grants. Organization-specific fields (home
+     * department, data scopes) only apply to the organization they were given for.
      *
-     * @param  array<string, mixed>  $data  profile fields + password (new accounts only)
+     * @param  array<string, mixed>  $profile  membership fields
      * @param  list<array{organization_id: string, role_ids: list<string>, scopes?: list<array{scope_type: string, ref_id?: string|null}>}>  $grants
+     * @return array<string, OrganizationInvitation> by organization id, roles attached
      */
-    public function create(User $actor, array $data, array $grants): User
+    public function invite(User $actor, string $email, array $profile, array $grants): array
     {
         $organizations = $this->resolveTargets($actor, $grants);
         $currentId = $this->tenancy->organizationId();
 
-        return DB::transaction(function () use ($actor, $data, $grants, $organizations, $currentId) {
-            $user = null;
+        return DB::transaction(function () use ($actor, $email, $profile, $grants, $organizations, $currentId) {
+            $invitations = [];
             foreach ($grants as $grant) {
                 $organization = $organizations[$grant['organization_id']];
-                $profile = $organization->id === $currentId ? $data : array_diff_key($data, ['home_department_id' => true]);
-                $user = $this->inOrganization($actor, $organization, fn () => $this->labelled($organization, fn () => $this->users->create(
-                    $profile, $grant['role_ids'], $grant['scopes'] ?? [['scope_type' => 'organization']],
-                )));
+                $orgProfile = $organization->id === $currentId ? $profile : array_diff_key($profile, ['home_department_id' => true]);
+                $invitations[$organization->id] = $this->inOrganization($actor, $organization, fn () => $this->labelled($organization, function () use ($email, $orgProfile, $grant) {
+                    $invitation = $this->invitations->create($email, $orgProfile, $grant['role_ids'], $grant['scopes'] ?? [['scope_type' => 'organization']]);
+                    $this->invitations->withRoles([$invitation]);
+
+                    return $invitation;
+                }));
             }
 
-            return $user;
+            return $invitations;
         });
     }
 
     /**
-     * Adds an existing member of the current organization to another organization.
+     * Invites an existing member of the current organization to another organization; the
+     * member gains access there only after accepting.
      *
      * @param  list<string>  $roleIds
      */
-    public function grant(User $actor, User $user, string $organizationId, array $roleIds): void
+    public function inviteMember(User $actor, User $user, string $organizationId, array $roleIds): OrganizationInvitation
     {
-        $organization = $this->resolveTargets($actor, [['organization_id' => $organizationId]])[$organizationId];
         $membership = $user->membership()->first();
 
-        $this->inOrganization($actor, $organization, fn () => $this->labelled($organization, fn () => $this->users->create(
-            ['email' => $user->email, 'job_title' => $membership?->job_title, 'employee_number' => $membership?->employee_number],
-            $roleIds,
-            [['scope_type' => 'organization']],
-        )));
+        return $this->invite($actor, $user->email, [
+            'job_title' => $membership?->job_title,
+            'employee_number' => $membership?->employee_number,
+        ], [['organization_id' => $organizationId, 'role_ids' => $roleIds]])[$organizationId];
     }
 
     /**

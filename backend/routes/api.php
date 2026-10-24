@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\Auth\InvitationAcceptanceController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Platform\GenericCategoryController;
 use App\Http\Controllers\Platform\GenericDefinitionController;
@@ -12,6 +14,7 @@ use App\Http\Controllers\Tenant\AuditLogController;
 use App\Http\Controllers\Tenant\CategoryAttributeController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\GenericCatalogController;
+use App\Http\Controllers\Tenant\InvitationController;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\LocationTypeController;
 use App\Http\Controllers\Tenant\OrganizationProfileController;
@@ -35,6 +38,9 @@ Route::get('/health/ready', [HealthController::class, 'ready']);
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
+    // Invitation token in the body: describe the invitation, or sign up an address without an account.
+    Route::post('/invitation/inspect', [InvitationAcceptanceController::class, 'inspect'])->middleware('throttle:invitation');
+    Route::post('/invitation/register', [InvitationAcceptanceController::class, 'register'])->middleware('throttle:invitation');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -43,6 +49,11 @@ Route::prefix('auth')->group(function () {
         // One account, several organizations: switch the active one, or create another.
         Route::put('/organization', [AuthController::class, 'switchOrganization']);
         Route::post('/organizations', [AuthController::class, 'createOrganization'])->middleware('throttle:register');
+        // Joining an organization: the owner of the invited, verified address accepts.
+        Route::post('/invitation/accept', [InvitationAcceptanceController::class, 'accept'])->middleware('throttle:invitation');
+        Route::post('/email/verification-notification', [EmailVerificationController::class, 'send'])->middleware('throttle:verification');
+        // Signed query (id, hash, expires, signature) from the verification email; checked in the controller.
+        Route::post('/email/verify', [EmailVerificationController::class, 'verify'])->middleware('throttle:sensitive')->name('verification.verify');
     });
 });
 
@@ -103,7 +114,6 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     Route::put('/settings', [OrganizationProfileController::class, 'updateSettings'])->middleware('permission:settings.manage');
 
     Route::get('/users', [UserController::class, 'index'])->middleware('permission:user.view');
-    Route::post('/users', [UserController::class, 'store'])->middleware('permission:user.create,role.manage');
     Route::get('/users/organization-options', [UserController::class, 'organizationOptions'])->middleware('permission:user.create,role.manage');
     Route::get('/users/{user}', [UserController::class, 'show'])->middleware('permission:user.view');
     Route::get('/users/{user}/organizations', [UserController::class, 'organizations'])->middleware('permission:user.view');
@@ -115,6 +125,12 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     Route::put('/users/{user}/roles', [UserController::class, 'syncRoles'])->middleware('permission:role.manage');
     Route::put('/users/{user}/scopes', [UserController::class, 'syncScopes'])->middleware('permission:user.update');
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->middleware(['permission:user.update', 'throttle:sensitive']);
+
+    // Adding users = inviting them; access starts when the owner of the address accepts.
+    Route::get('/invitations', [InvitationController::class, 'index'])->middleware('permission:user.view');
+    Route::post('/invitations', [InvitationController::class, 'store'])->middleware('permission:user.create,role.manage');
+    Route::post('/invitations/{invitation}/resend', [InvitationController::class, 'resend'])->middleware('permission:user.create,role.manage');
+    Route::post('/invitations/{invitation}/revoke', [InvitationController::class, 'revoke'])->middleware('permission:user.create,role.manage');
 
     Route::get('/roles', [RoleController::class, 'index'])->middleware('permission:role.view');
     Route::post('/roles', [RoleController::class, 'store'])->middleware('permission:role.manage');

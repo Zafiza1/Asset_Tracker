@@ -16,6 +16,13 @@ export const userStatusLabel: Record<string, string> = {
   deactivated: 'Nonaktif',
 }
 
+export const invitationStatusLabel: Record<string, string> = {
+  pending: 'Menunggu',
+  accepted: 'Diterima',
+  expired: 'Kedaluwarsa',
+  revoked: 'Dicabut',
+}
+
 export const orgStatusLabel: Record<string, string> = {
   active: 'Aktif',
   suspended: 'Ditangguhkan',
@@ -86,6 +93,7 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
       'auth.organization_created': 'Membuat organisasi baru',
       'auth.organization_switched': 'Berpindah organisasi',
       'auth.password_changed': 'Mengganti kata sandi',
+      'auth.email_verified': 'Memverifikasi email',
     },
   },
   {
@@ -107,6 +115,10 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
       'user.roles_changed': 'Mengubah role pengguna',
       'user.scopes_changed': 'Mengubah cakupan akses pengguna',
       'user.password_reset': 'Mereset kata sandi pengguna',
+      'invitation.created': 'Mengundang pengguna',
+      'invitation.resent': 'Mengirim ulang undangan',
+      'invitation.revoked': 'Mencabut undangan',
+      'invitation.accepted': 'Menerima undangan',
     },
   },
   {

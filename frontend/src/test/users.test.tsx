@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { UserCreatePage } from '../features/users/UserCreatePage'
 import { api } from '../lib/api/client'
@@ -19,12 +19,15 @@ const organizations: UserOrganizationOption[] = [
 
 function renderPage(options: UserOrganizationOption[]) {
   vi.mocked(api.get).mockResolvedValue({ data: options })
-  vi.mocked(api.post).mockResolvedValue({ data: { id: 'user-1' }, meta: { organization_ids: ['org-a', 'org-b'] } })
+  vi.mocked(api.post).mockResolvedValue({ data: { id: 'inv-1' }, meta: { organization_ids: ['org-a', 'org-b'] } })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <UserCreatePage />
+      <MemoryRouter initialEntries={['/pengguna/baru']}>
+        <Routes>
+          <Route path="/pengguna/baru" element={<UserCreatePage />} />
+          <Route path="/pengguna/undangan" element={<p>daftar undangan</p>} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -32,13 +35,7 @@ function renderPage(options: UserOrganizationOption[]) {
 
 const type = (label: RegExp, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } })
 
-function fillProfile() {
-  type(/Nama lengkap/, 'Sari')
-  type(/^Email/, 'sari@grup.test')
-  type(/Password sementara/, 'Sementara-Rahasia-1')
-}
-
-describe('UserCreatePage', () => {
+describe('UserCreatePage (invite)', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('keeps the single-organization form when only one organization is manageable', async () => {
@@ -47,36 +44,45 @@ describe('UserCreatePage', () => {
     expect(screen.queryByText(/Akses Organisasi/)).not.toBeInTheDocument()
   })
 
-  it('grants access to several organizations with roles per organization', async () => {
+  it('asks for neither a name nor a password: the invitee provides them', async () => {
     renderPage(organizations)
     await screen.findByText(/Akses Organisasi & Role/)
-    fillProfile()
+    expect(screen.queryByLabelText(/Password/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Nama lengkap/)).not.toBeInTheDocument()
+  })
+
+  it('invites to several organizations with roles per organization, then shows the invitations', async () => {
+    renderPage(organizations)
+    await screen.findByText(/Akses Organisasi & Role/)
+    type(/^Email/, 'sari@grup.test')
 
     fireEvent.click(within(screen.getByRole('group', { name: 'Role di PT Alpha' })).getByLabelText(/Operator/))
     fireEvent.click(screen.getByRole('checkbox', { name: /PT Beta/ }))
     fireEvent.click(within(screen.getByRole('group', { name: 'Role di PT Beta' })).getByLabelText(/Auditor/))
-    fireEvent.click(screen.getByRole('button', { name: 'Simpan pengguna' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Kirim undangan' }))
 
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith(
-        '/users',
-        expect.objectContaining({
-          email: 'sari@grup.test',
-          memberships: [
-            { organization_id: 'org-a', role_ids: ['op-a'] },
-            { organization_id: 'org-b', role_ids: ['au-b'] },
-          ],
-        }),
-      ),
+      expect(api.post).toHaveBeenCalledWith('/invitations', {
+        email: 'sari@grup.test',
+        employee_number: '',
+        job_title: '',
+        memberships: [
+          { organization_id: 'org-a', role_ids: ['op-a'] },
+          { organization_id: 'org-b', role_ids: ['au-b'] },
+        ],
+        scopes: [{ scope_type: 'organization' }],
+      }),
     )
+    expect(api.post).not.toHaveBeenCalledWith('/users', expect.anything())
+    expect(await screen.findByText('daftar undangan')).toBeInTheDocument()
   })
 
   it('requires a role in every selected organization and at least one organization', async () => {
     renderPage(organizations)
     await screen.findByText(/Akses Organisasi & Role/)
-    fillProfile()
+    type(/^Email/, 'sari@grup.test')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Simpan pengguna' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Kirim undangan' }))
     expect(await screen.findByText('Pilih minimal satu role.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('checkbox', { name: /PT Alpha/ }))

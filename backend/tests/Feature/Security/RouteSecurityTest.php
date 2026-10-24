@@ -3,6 +3,7 @@
 namespace Tests\Feature\Security;
 
 use App\Domain\GenericMaster\Models\LocationType;
+use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
@@ -17,10 +18,12 @@ use Tests\TestCase;
 class RouteSecurityTest extends TestCase
 {
     /** Routes reachable without a session. */
-    private const PUBLIC_ROUTES = ['api/health', 'api/health/ready', 'api/auth/login', 'api/auth/register'];
+    private const PUBLIC_ROUTES = ['api/health', 'api/health/ready', 'api/auth/login', 'api/auth/register',
+        'api/auth/invitation/inspect', 'api/auth/invitation/register'];
 
     /** Authenticated routes that intentionally run without tenant/platform context. */
-    private const SESSION_ONLY_ROUTES = ['api/auth/logout', 'api/auth/me', 'api/auth/password', 'api/auth/organization', 'api/auth/organizations'];
+    private const SESSION_ONLY_ROUTES = ['api/auth/logout', 'api/auth/me', 'api/auth/password', 'api/auth/organization', 'api/auth/organizations',
+        'api/auth/invitation/accept', 'api/auth/email/verification-notification', 'api/auth/email/verify'];
 
     public function test_every_api_route_is_authenticated_scoped_and_permission_checked(): void
     {
@@ -92,8 +95,13 @@ class RouteSecurityTest extends TestCase
         $categoryAttribute = (new TenantCategoryAttribute)->forceFill(['organization_id' => $orgB->id, 'category_id' => $masters['category']->id,
             'key' => 'nomor_polisi', 'label' => 'Nomor Polisi', 'data_type' => 'string']);
         $categoryAttribute->save();
+        $invitation = (new OrganizationInvitation)->forceFill(['organization_id' => $orgB->id, 'email' => 'tamu@beta.test',
+            'token_hash' => OrganizationInvitation::hashToken('fixture'), 'invited_by' => $adminB->id,
+            'role_ids' => [$this->roleId($orgB, 'VIEWER')], 'scopes' => [['scope_type' => 'organization']], 'expires_at' => now()->addDay()]);
+        $invitation->save();
 
         return [
+            'invitation' => $invitation->id,
             'asset' => $asset->id,
             'assetTransaction' => $transaction->id,
             'user' => $adminB->id,

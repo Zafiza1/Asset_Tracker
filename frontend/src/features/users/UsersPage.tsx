@@ -71,7 +71,7 @@ export function UsersPage() {
           can('role.manage') && (
             <Link to="/pengguna/baru">
               <Button>
-                <Plus className="size-4" aria-hidden /> Tambah pengguna
+                <Plus className="size-4" aria-hidden /> Undang pengguna
               </Button>
             </Link>
           )

@@ -121,4 +121,22 @@ return [
 
     'self_registration' => (bool) env('SELF_REGISTRATION_ENABLED', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Organization Invitations & Email Verification
+    |--------------------------------------------------------------------------
+    |
+    | Invitation links are single-use and valid for this many hours. Email
+    | verification links (signed URLs) expire after the given minutes.
+    |
+    */
+
+    'invitations' => [
+        'expire_hours' => (int) env('INVITATION_EXPIRE_HOURS', 72),
+    ],
+
+    'verification' => [
+        'expire' => (int) env('EMAIL_VERIFICATION_EXPIRE_MINUTES', 60),
+    ],
+
 ];

@@ -26,6 +26,10 @@ use Illuminate\Support\Facades\DB;
  * membership in their own organization (status, roles, scopes, job data). Account-level
  * data (name, email, phone, password) is shared by every organization, so it can only be
  * changed here while the account belongs to this organization alone.
+ *
+ * Nobody is added to an organization directly: administrators send invitations
+ * (OrganizationInvitations), and the membership is created by addMember() only once the
+ * owner of the (verified) email address accepted one.
  */
 final class UserManagement
 {
@@ -42,46 +46,57 @@ final class UserManagement
     ) {}
 
     /**
-     * Adds a member: a new account, or an existing tenant account with the same email
-     * (it keeps its password and profile and simply gains access to this organization).
+     * Checks that the acting administrator may give this access, without writing anything:
+     * every role is within the actor's own permissions and every reference belongs to this
+     * organization. Used when an invitation is created and again when it is accepted.
      *
-     * @param  array<string, mixed>  $data  profile fields + password (new accounts only)
+     * @param  array<string, mixed>  $profile  membership fields (OrganizationMember::PROFILE_FIELDS)
      * @param  list<string>  $roleIds
      * @param  list<array{scope_type: string, ref_id?: string|null}>  $scopes
      */
-    public function create(array $data, array $roleIds, array $scopes): User
+    public function assertAssignable(array $profile, array $roleIds, array $scopes): void
     {
-        $this->assertReferences($data);
-        $roles = $this->resolveAssignableRoles($roleIds);
-        $existing = User::query()->where('email', $data['email'])->first();
-        if ($existing !== null && ! $existing->isTenantUser()) {
-            throw ApiException::unprocessable('EMAIL_TAKEN', 'Email sudah dipakai oleh akun lain.');
+        $this->assertReferences($profile);
+        $this->resolveAssignableRoles($roleIds);
+        $this->normalizeScopes($scopes);
+    }
+
+    /**
+     * Makes an existing account a member of this organization. Only for an invitation that
+     * the account owner accepted (OrganizationInvitations::accept); the access is validated
+     * against the administrator of the current tenant context, who issued the invitation.
+     * The account itself (password, profile) is never touched.
+     *
+     * @param  array<string, mixed>  $profile  membership fields (OrganizationMember::PROFILE_FIELDS)
+     * @param  list<string>  $roleIds
+     * @param  list<array{scope_type: string, ref_id?: string|null}>  $scopes
+     * @param  array<string, mixed>  $metadata  audit context (e.g. the invitation)
+     * @param  User|null  $actor  who is recorded as acting (the accepting account), defaults to the logged-in user
+     */
+    public function addMember(User $user, array $profile, array $roleIds, array $scopes, array $metadata = [], ?User $actor = null): User
+    {
+        if (! $user->isTenantUser()) {
+            throw ApiException::unprocessable('INVALID_ACCOUNT', 'Akun platform tidak dapat menjadi anggota organisasi.');
         }
-        if ($existing !== null && OrganizationMember::query()->where('user_id', $existing->id)->exists()) {
+        $this->assertReferences($profile);
+        $roles = $this->resolveAssignableRoles($roleIds);
+        if (OrganizationMember::query()->where('user_id', $user->id)->exists()) {
             throw ApiException::conflict('ALREADY_MEMBER', 'Akun dengan email ini sudah menjadi anggota organisasi.');
         }
 
-        return DB::transaction(function () use ($data, $roles, $scopes, $existing) {
-            $actorId = $this->tenancy->tenant()->userId();
-            $user = $existing;
-            if ($user === null) {
-                $user = new User(array_intersect_key($data, array_flip([...self::ACCOUNT_FIELDS, 'password'])));
-                $user->forceFill([
-                    'user_type' => User::TYPE_TENANT,
-                    'status' => User::STATUS_ACTIVE,
-                    'must_change_password' => true,
-                    'created_by' => $actorId,
-                ])->save();
-            }
-
-            $member = new OrganizationMember(array_intersect_key($data, array_flip(OrganizationMember::PROFILE_FIELDS)));
-            $member->forceFill(['user_id' => $user->id, 'status' => User::STATUS_ACTIVE, 'created_by' => $actorId])->save();
+        return DB::transaction(function () use ($user, $profile, $roles, $scopes, $metadata, $actor) {
+            $member = new OrganizationMember(array_intersect_key($profile, array_flip(OrganizationMember::PROFILE_FIELDS)));
+            $member->forceFill(['user_id' => $user->id, 'status' => User::STATUS_ACTIVE, 'created_by' => $this->tenancy->tenant()->userId()])->save();
             $user->setRelation('membership', $member);
 
             $this->attachRoles($user, $roles->pluck('id')->all());
             $this->replaceScopes($user, $scopes);
 
-            $this->audit->record($existing === null ? 'user.created' : 'user.member_added', $user, after: $this->snapshot($user));
+            $this->audit->record('user.member_added', $user, after: [
+                ...$this->snapshot($user),
+                'roles' => $roles->pluck('code')->sort()->values()->all(),
+                'scopes' => $this->scopeSnapshot($user),
+            ], metadata: $metadata, actor: $actor);
 
             return $user;
         });
@@ -99,7 +114,12 @@ final class UserManagement
 
         return DB::transaction(function () use ($user, $member, $data, $account) {
             $before = $this->snapshot($user);
-            $user->fill($account)->save();
+            $user->fill($account);
+            // A new address has not been proven by its owner yet.
+            if ($user->isDirty('email')) {
+                $user->forceFill(['email_verified_at' => null]);
+            }
+            $user->save();
             $member->fill(array_intersect_key($data, array_flip(OrganizationMember::PROFILE_FIELDS)))->save();
             [$b, $a] = AuditLogger::diff($before, $this->snapshot($user));
             if ($a !== []) {
@@ -240,16 +260,29 @@ final class UserManagement
     /** @param list<array{scope_type: string, ref_id?: string|null}> $scopes */
     private function replaceScopes(User $user, array $scopes): void
     {
+        $normalized = $this->normalizeScopes($scopes);
         UserDataScope::query()->where('user_id', $user->id)->delete();
 
-        $seen = [];
+        foreach ($normalized as [$type, $ref]) {
+            UserDataScope::grant($this->tenancy->organizationId(), $user->id, $type, $ref);
+        }
+    }
+
+    /**
+     * Distinct [scope_type, ref_id] pairs; every reference must exist in this organization.
+     *
+     * @param  list<array{scope_type: string, ref_id?: string|null}>  $scopes
+     * @return list<array{0: string, 1: string|null}>
+     */
+    private function normalizeScopes(array $scopes): array
+    {
+        $normalized = [];
         foreach ($scopes as $scope) {
             $type = $scope['scope_type'];
             $ref = $type === 'organization' ? null : ($scope['ref_id'] ?? null);
-            if (isset($seen[$type.'|'.$ref])) {
+            if (isset($normalized[$type.'|'.$ref])) {
                 continue;
             }
-            $seen[$type.'|'.$ref] = true;
 
             $model = match ($type) {
                 'organization' => null,
@@ -260,9 +293,10 @@ final class UserManagement
             if ($model !== null && ($ref === null || ! $model::query()->whereKey($ref)->exists())) {
                 throw ApiException::unprocessable('INVALID_SCOPE', 'Referensi data scope tidak ditemukan.');
             }
-
-            UserDataScope::grant($this->tenancy->organizationId(), $user->id, $type, $ref);
+            $normalized[$type.'|'.$ref] = [$type, $ref];
         }
+
+        return array_values($normalized);
     }
 
     /** @param array<string, mixed> $data */

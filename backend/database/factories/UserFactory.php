@@ -66,6 +66,12 @@ class UserFactory extends Factory
         return $this->afterMaking(fn (User $u) => $u->user_type = User::TYPE_PLATFORM);
     }
 
+    /** The owner has proven the email address (required to accept invitations). */
+    public function verified(): static
+    {
+        return $this->afterMaking(fn (User $u) => $u->email_verified_at = now());
+    }
+
     public function status(string $status): static
     {
         return $this->afterMaking(fn (User $u) => $u->status = $status);

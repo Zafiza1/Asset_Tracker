@@ -24,40 +24,26 @@ class UserManagementTest extends TestCase
         ['organization' => $this->org, 'admin' => $this->admin] = $this->createOrganization('ALPHA');
     }
 
-    public function test_admin_creates_user_with_roles_scopes_and_temporary_password(): void
+    public function test_adding_a_user_sends_an_invitation_and_creates_no_account(): void
     {
         $department = $this->department($this->org, 'OPS');
         $this->actingAs($this->admin, 'web');
 
-        $response = $this->postJson('/api/users', [
-            'name' => 'Budi Operator',
+        $this->postJson('/api/invitations', [
             'email' => 'budi@alpha.test',
-            'password' => 'Sementara-Rahasia-1',
             'employee_number' => 'EMP-001',
             'home_department_id' => $department->id,
             'role_ids' => [$this->roleId($this->org, 'OPERATOR')],
             'scopes' => [['scope_type' => 'department', 'ref_id' => $department->id]],
-        ]);
-
-        $response->assertCreated()
+        ])->assertCreated()
             ->assertJsonPath('data.email', 'budi@alpha.test')
-            ->assertJsonPath('data.must_change_password', true)
+            ->assertJsonPath('data.status', 'pending')
             ->assertJsonPath('data.roles.0.code', 'OPERATOR')
-            ->assertJsonPath('data.data_scopes.0.scope_type', 'department')
-            ->assertJsonMissingPath('data.password');
+            ->assertJsonPath('data.employee_number', 'EMP-001');
 
-        $user = User::query()->where('email', 'budi@alpha.test')->sole();
-        $member = $this->membership($user);
-        $this->assertSame('EMP-001', $member->employee_number);
-        $this->assertSame($department->id, $member->home_department_id);
-        $this->assertSame($this->admin->id, $member->created_by);
-        $this->assertSame(User::TYPE_TENANT, $user->user_type);
-        $this->assertTrue(Hash::check('Sementara-Rahasia-1', $user->password));
-        $this->assertSame($this->admin->id, $user->created_by);
-
-        $log = AuditLog::query()->where('action', 'user.created')->sole();
-        $this->assertSame($user->id, $log->entity_id);
-        $this->assertArrayNotHasKey('password', $log->after);
+        // Direct account creation with a temporary password no longer exists.
+        $this->assertFalse(User::query()->where('email', 'budi@alpha.test')->exists());
+        $this->postJson('/api/users', ['email' => 'budi@alpha.test', 'password' => 'Sementara-Rahasia-1'])->assertStatus(405);
     }
 
     public function test_user_without_permission_cannot_create_users(): void
@@ -65,7 +51,7 @@ class UserManagementTest extends TestCase
         $operator = $this->createTenantUser($this->org, ['OPERATOR']);
         $this->actingAs($operator, 'web');
 
-        $this->assertErrorCode($this->postJson('/api/users', []), 403, 'FORBIDDEN');
+        $this->assertErrorCode($this->postJson('/api/invitations', []), 403, 'FORBIDDEN');
         $this->assertErrorCode($this->getJson('/api/users'), 403, 'FORBIDDEN');
     }
 
@@ -73,34 +59,33 @@ class UserManagementTest extends TestCase
     {
         $this->actingAs($this->admin, 'web');
 
-        $this->postJson('/api/users', ['email' => 'bukan-email', 'role_ids' => [], 'scopes' => [['scope_type' => 'galaxy']]])
+        $this->postJson('/api/invitations', ['email' => 'bukan-email', 'role_ids' => [], 'scopes' => [['scope_type' => 'galaxy']]])
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'VALIDATION_FAILED')
-            ->assertJsonStructure(['error' => ['details' => ['fields' => ['name', 'email', 'password', 'role_ids', 'scopes.0.scope_type']]]]);
+            ->assertJsonStructure(['error' => ['details' => ['fields' => ['email', 'role_ids', 'scopes.0.scope_type']]]]);
     }
 
-    public function test_existing_account_is_added_as_member_with_the_same_login(): void
+    /** SEC-01: entering the email of an existing account must not give that account access. */
+    public function test_existing_account_is_invited_and_not_added_as_member(): void
     {
         ['organization' => $beta, 'admin' => $adminB] = $this->createOrganization('BETA');
         $this->actingAs($this->admin, 'web');
         $payload = [
-            'name' => 'Nama Diabaikan', 'email' => $adminB->email, 'job_title' => 'Konsultan',
+            'email' => $adminB->email, 'job_title' => 'Konsultan',
             'role_ids' => [$this->roleId($this->org, 'VIEWER')], 'scopes' => [['scope_type' => 'organization']],
         ];
 
-        // No password needed: the account keeps its own credentials and profile.
-        $this->postJson('/api/users', $payload)->assertCreated()
-            ->assertJsonPath('data.id', $adminB->id)
-            ->assertJsonPath('data.name', $adminB->name)
-            ->assertJsonPath('data.job_title', 'Konsultan')
-            ->assertJsonPath('data.roles.0.code', 'VIEWER');
-        $this->assertSame(1, User::query()->where('email', $adminB->email)->count());
-        $this->assertEqualsCanonicalizing([$this->org->id, $beta->id], $adminB->memberships()->pluck('organization_id')->all());
-        $this->assertTrue(Hash::check(self::PASSWORD, $adminB->fresh()->password));
-        $this->assertFalse($adminB->fresh()->must_change_password);
-        $this->assertTrue(AuditLog::query()->where('action', 'user.member_added')->where('entity_id', $adminB->id)->exists());
+        $this->postJson('/api/invitations', $payload)->assertCreated()->assertJsonPath('data.status', 'pending');
 
-        $this->assertErrorCode($this->postJson('/api/users', $payload), 409, 'ALREADY_MEMBER');
+        $this->assertSame([$beta->id], $adminB->memberships()->pluck('organization_id')->all());
+        $this->assertSame([], $adminB->roles()->wherePivot('organization_id', $this->org->id)->pluck('code')->all());
+        $this->assertTrue(Hash::check(self::PASSWORD, $adminB->fresh()->password));
+        $this->assertFalse(AuditLog::query()->where('action', 'user.member_added')->exists());
+        $this->assertErrorCode($this->getJson("/api/users/{$adminB->id}"), 404, 'NOT_FOUND');
+
+        // Actual members are managed on their user page instead of being invited again.
+        $member = $this->createTenantUser($this->org, ['VIEWER']);
+        $this->assertErrorCode($this->postJson('/api/invitations', [...$payload, 'email' => $member->email]), 409, 'ALREADY_MEMBER');
     }
 
     public function test_shared_account_data_cannot_be_changed_by_one_organization(): void

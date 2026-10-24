@@ -11,4 +11,8 @@ export const statusTone: Record<string, BadgeTone> = {
   draft: 'blue',
   released: 'green',
   deprecated: 'slate',
+  pending: 'amber',
+  accepted: 'green',
+  expired: 'slate',
+  revoked: 'red',
 }

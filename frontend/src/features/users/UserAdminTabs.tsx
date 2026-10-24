@@ -2,11 +2,12 @@ import clsx from 'clsx'
 import { NavLink } from 'react-router'
 import { useAuth } from '../../lib/auth/context'
 
-/** Users and their roles are one menu: users on /pengguna, roles & permissions on /pengguna/role. */
+/** Users, their invitations and their roles are one menu: /pengguna, /pengguna/undangan, /pengguna/role. */
 export function UserAdminTabs() {
   const { can } = useAuth()
   const tabs = [
     { to: '/pengguna', label: 'Pengguna', show: can('user.view') },
+    { to: '/pengguna/undangan', label: 'Undangan', show: can('user.view') },
     { to: '/pengguna/role', label: 'Role & Permission', show: can('role.view') },
   ].filter((t) => t.show)
   if (tabs.length < 2) return null

@@ -14,6 +14,7 @@ use App\Domain\GenericMaster\Models\GenericDefinitionVersion;
 use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Notifications\OrganizationInvitationNotification;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
@@ -28,7 +29,9 @@ use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\TestResponse;
 
 /**
@@ -196,6 +199,16 @@ abstract class TestCase extends BaseTestCase
     protected function roleId(Organization $organization, string $code): string
     {
         return Role::query()->where('organization_id', $organization->id)->where('code', $code)->value('id');
+    }
+
+    /** The token in the invitation email sent to $email (requires Notification::fake()). */
+    protected function sentInvitationToken(string $email, bool $last = false): string
+    {
+        $sent = Notification::sent(new AnonymousNotifiable, OrganizationInvitationNotification::class,
+            fn ($notification, $channels, $notifiable) => mb_strtolower($notifiable->routes['mail'] ?? '') === mb_strtolower($email));
+        $this->assertNotEmpty($sent, "No invitation was sent to {$email}");
+
+        return ($last ? $sent->last() : $sent->first())->token;
     }
 
     /** Asserts the standard error envelope with the given code. */

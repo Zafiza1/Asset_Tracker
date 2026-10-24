@@ -11,36 +11,42 @@ import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
 import { api } from '../../lib/api/client'
-import type { Resource, User, UserOrganizationOption } from '../../lib/api/types'
-import { applyApiErrors, passwordRule } from '../../lib/forms'
+import type { OrganizationInvitation, UserOrganizationOption } from '../../lib/api/types'
+import { applyApiErrors } from '../../lib/forms'
 import { RoleQuickCreateModal } from '../roles/RoleQuickCreateModal'
 import { useOrganizationOptions } from './api'
 
 const schema = z.object({
-  name: z.string().min(1, 'Nama wajib diisi.').max(150),
   email: z.email('Masukkan email yang valid.'),
   employee_number: z.string().max(50).optional(),
   job_title: z.string().max(100).optional(),
-  phone: z.string().max(30).optional(),
-  // Empty when the email already has an account (it keeps its own password); the API requires it otherwise.
-  password: z.string().refine((v) => v === '' || passwordRule.test(v), passwordRule.message),
-  // One entry per organization the user may access, each with its own roles.
+  // One entry per organization the user is invited to, each with its own roles.
   memberships: z
     .array(z.object({ organization_id: z.string(), role_ids: z.array(z.string()).min(1, 'Pilih minimal satu role.') }))
     .min(1, 'Pilih minimal satu organisasi.'),
 })
 type FormValues = z.infer<typeof schema>
 
+/** Where the invitations list shows what was just sent. */
+export interface InvitationSentState {
+  invited: string
+}
+
+/**
+ * "Tambah pengguna" sends an invitation: nobody gets access until the owner of the email
+ * address accepts it (with an existing account or by signing up). The answer is the same
+ * whether or not the address already has an account.
+ */
 export function UserCreatePage() {
   const options = useOrganizationOptions()
 
   if (options.isLoading) return <Spinner />
   if (options.isError) return <ErrorState error={options.error} />
 
-  return <UserCreateForm organizations={options.data!} />
+  return <UserInviteForm organizations={options.data!} />
 }
 
-function UserCreateForm({ organizations }: { organizations: UserOrganizationOption[] }) {
+function UserInviteForm({ organizations }: { organizations: UserOrganizationOption[] }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [formError, setFormError] = useState<string | null>(null)
@@ -69,17 +75,15 @@ function UserCreateForm({ organizations }: { organizations: UserOrganizationOpti
     )
 
   const mutation = useMutation({
-    // New users start with organization-wide scope; it can be narrowed on the detail page.
+    // Invited users start with organization-wide scope; it can be narrowed once they joined.
     mutationFn: (v: FormValues) =>
-      api.post<Resource<User> & { meta: { organization_ids: string[] } }>('/users', {
+      api.post<{ data: OrganizationInvitation | null; meta: { organization_ids: string[] } }>('/invitations', {
         ...v,
-        password: v.password || undefined,
         scopes: [{ scope_type: 'organization' }],
       }),
-    onSuccess: async (res) => {
-      await queryClient.invalidateQueries({ queryKey: ['users'] })
-      // The detail page shows the current organization; without access there, go back to the list.
-      navigate(current && res.meta.organization_ids.includes(current.id) ? `/pengguna/${res.data.id}` : '/pengguna', { replace: true })
+    onSuccess: async (_res, v) => {
+      await queryClient.invalidateQueries({ queryKey: ['invitations'] })
+      navigate('/pengguna/undangan', { replace: true, state: { invited: v.email } satisfies InvitationSentState })
     },
     onError: (e) => setFormError(applyApiErrors(e, setError)),
   })
@@ -89,11 +93,11 @@ function UserCreateForm({ organizations }: { organizations: UserOrganizationOpti
   return (
     <>
       <PageHeader
-        title="Tambah Pengguna"
+        title="Undang Pengguna"
         description={
           multiple
-            ? 'Isi data pengguna, pilih organisasi yang boleh diakses, lalu pilih role di setiap organisasi. Pengguna login sekali dan berpindah organisasi lewat menu di header. Pengguna baru wajib mengganti password sementara saat login pertama.'
-            : 'Isi data pengguna lalu pilih role-nya; bila belum ada role yang sesuai, buat role baru beserta permission-nya langsung di sini. Pengguna baru wajib mengganti password sementara saat login pertama.'
+            ? 'Masukkan email, pilih organisasi yang boleh diakses, lalu pilih role di setiap organisasi. Pengguna menerima undangan lewat email dan baru mendapat akses setelah menerimanya.'
+            : 'Masukkan email lalu pilih role-nya; bila belum ada role yang sesuai, buat role baru beserta permission-nya langsung di sini. Pengguna baru mendapat akses setelah menerima undangan lewat email.'
         }
       />
       <Card>
@@ -103,27 +107,19 @@ function UserCreateForm({ organizations }: { organizations: UserOrganizationOpti
               <Alert tone="error">{formError}</Alert>
             </div>
           )}
-          <Field label="Nama lengkap" error={formState.errors.name?.message} required>
-            {(p) => <Input {...p} {...register('name')} />}
-          </Field>
+          <div className="sm:col-span-2">
+            <Alert tone="info">
+              Pemilik email yang sudah punya akun masuk dengan akunnya lalu menerima undangan; yang belum punya akun mendaftar dari tautan undangan. Nama dan password diisi sendiri oleh pengguna. Undangan memiliki batas waktu dan hanya dapat dipakai sekali.
+            </Alert>
+          </div>
           <Field label="Email" error={formState.errors.email?.message} required>
-            {(p) => <Input {...p} type="email" {...register('email')} />}
+            {(p) => <Input {...p} type="email" autoComplete="off" {...register('email')} />}
           </Field>
           <Field label="Nomor induk karyawan" error={formState.errors.employee_number?.message}>
             {(p) => <Input {...p} {...register('employee_number')} />}
           </Field>
           <Field label="Jabatan" error={formState.errors.job_title?.message}>
             {(p) => <Input {...p} {...register('job_title')} />}
-          </Field>
-          <Field label="Telepon" error={formState.errors.phone?.message}>
-            {(p) => <Input {...p} {...register('phone')} />}
-          </Field>
-          <Field
-            label="Password sementara"
-            error={formState.errors.password?.message}
-            hint={`${passwordRule.message} Kosongkan bila email sudah terdaftar di organisasi lain.`}
-          >
-            {(p) => <Input {...p} type="password" autoComplete="new-password" {...register('password')} />}
           </Field>
           <fieldset className="space-y-3 sm:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -185,7 +181,7 @@ function UserCreateForm({ organizations }: { organizations: UserOrganizationOpti
               Batal
             </Button>
             <Button type="submit" loading={mutation.isPending}>
-              Simpan pengguna
+              Kirim undangan
             </Button>
           </div>
         </form>

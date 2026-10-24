@@ -70,6 +70,7 @@ export const breadcrumbLabels: Record<string, string> = {
   organisasi: 'Organisasi',
   pengguna: 'Pengguna',
   role: 'Role & Permission',
+  undangan: 'Undangan',
   pengaturan: 'Pengaturan',
   audit: 'Audit Trail',
   platform: 'Platform',

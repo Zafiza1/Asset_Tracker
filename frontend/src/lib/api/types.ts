@@ -66,6 +66,37 @@ export interface UserOrganizationOption {
   roles: { id: string; code: string; name: string; description: string | null; permissions_count: number }[]
 }
 
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked'
+
+/** An invitation of the current organization, as its administrators see it (never the token). */
+export interface OrganizationInvitation {
+  id: string
+  organization_id: string
+  email: string
+  status: InvitationStatus
+  roles?: { id: string; code: string; name: string }[]
+  scopes: DataScopeEntry[]
+  employee_number: string | null
+  job_title: string | null
+  home_department_id: string | null
+  invited_by?: { id: string; name: string } | null
+  expires_at: string
+  last_sent_at: string | null
+  send_count: number
+  accepted_at: string | null
+  revoked_at: string | null
+  created_at: string | null
+}
+
+/** What the holder of an invitation token is invited to (POST /auth/invitation/inspect). */
+export interface InvitationPreview {
+  email: string
+  organization: OrganizationSummary
+  invited_by: string
+  roles: { code: string; name: string }[]
+  expires_at: string
+}
+
 /** A user's membership in one organization (only organizations the viewer may see). */
 export interface UserOrganizationAccess {
   id: string
@@ -122,6 +153,8 @@ export interface Profile {
     id: string
     name: string
     email: string
+    /** Set once the owner followed the verification link; required to accept invitations. */
+    email_verified_at: string | null
     user_type: 'tenant' | 'platform'
     job_title: string | null
     must_change_password: boolean

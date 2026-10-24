@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { AuditLogPage } from '../features/audit/AuditLogPage'
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
+import { EmailVerificationPage } from '../features/auth/EmailVerificationPage'
+import { InvitationPage } from '../features/auth/InvitationPage'
 import { LoginPage } from '../features/auth/LoginPage'
 import { RegisterPage } from '../features/auth/RegisterPage'
 import { AssetDetailPage } from '../features/assets/AssetDetailPage'
@@ -23,6 +25,7 @@ import { TransactionsPage } from '../features/transactions/TransactionsPage'
 import { LegacyRoleRedirect, RolesPage } from '../features/roles/RolesPage'
 import { UserCreatePage } from '../features/users/UserCreatePage'
 import { UserDetailPage } from '../features/users/UserDetailPage'
+import { InvitationsPage } from '../features/users/InvitationsPage'
 import { UsersPage } from '../features/users/UsersPage'
 import { AppLayout } from './AppLayout'
 import { Landing } from './Landing'
@@ -40,6 +43,9 @@ const platform = (permission: string, element: React.ReactNode) => (
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/daftar', element: <RegisterPage /> },
+  // Links from emails; both handle login on the page so the one-time secret stays in memory.
+  { path: '/undangan', element: <InvitationPage /> },
+  { path: '/verifikasi-email', element: <EmailVerificationPage /> },
   {
     element: <RequireAuth />,
     children: [
@@ -58,6 +64,7 @@ export const router = createBrowserRouter([
           { path: '/pengaturan', element: tenant('settings.manage', <SettingsPage />) },
           { path: '/pengguna', element: tenant('user.view', <UsersPage />) },
           { path: '/pengguna/baru', element: tenant('user.create', <UserCreatePage />) },
+          { path: '/pengguna/undangan', element: tenant('user.view', <InvitationsPage />) },
           { path: '/pengguna/role', element: tenant('role.view', <RolesPage />) },
           { path: '/pengguna/role/baru', element: tenant('role.manage', <RoleFormPage />) },
           { path: '/pengguna/role/:id', element: tenant('role.view', <RoleFormPage />) },

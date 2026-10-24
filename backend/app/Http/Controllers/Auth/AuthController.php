@@ -107,6 +107,8 @@ class AuthController extends Controller
         $this->access->switch($request->session(), $user, $result['organization']);
 
         $this->audit->record('auth.registered', $user, organizationId: $result['organization']->id, actor: $user);
+        // The address is unproven until its owner follows the link (required to accept invitations).
+        $user->sendEmailVerificationNotification();
 
         return response()->json(['data' => $this->profile($request, $user)], 201);
     }
@@ -246,6 +248,7 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'email_verified_at' => $user->email_verified_at?->toIso8601String(),
                 'user_type' => $user->user_type,
                 'job_title' => null,
                 'must_change_password' => $user->must_change_password,

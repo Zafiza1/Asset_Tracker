@@ -10,7 +10,7 @@ import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { api } from '../../lib/api/client'
-import type { DataScopeEntry, Resource, ScopeType, User, UserOrganizationAccess } from '../../lib/api/types'
+import type { DataScopeEntry, OrganizationInvitation, Resource, ScopeType, User, UserOrganizationAccess } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { applyApiErrors, errorMessage, passwordRule } from '../../lib/forms'
 import { formatDateTime, scopeTypeLabel, userStatusLabel } from '../../lib/format'
@@ -136,7 +136,10 @@ function ProfileCard({ user, editable }: { user: User; editable: boolean }) {
   )
 }
 
-/** Organizations this user can work in (limited to those the viewer may see), and granting access to another. */
+/**
+ * Organizations this user can work in (limited to those the viewer may see), and inviting
+ * them to another: access to it starts once the user accepts the invitation.
+ */
 function OrganizationsCard({ user, canGrant }: { user: User; canGrant: boolean }) {
   const queryClient = useQueryClient()
   const queryKey = ['users', user.id, 'organizations']
@@ -144,21 +147,28 @@ function OrganizationsCard({ user, canGrant }: { user: User; canGrant: boolean }
   const [adding, setAdding] = useState(false)
   const [organizationId, setOrganizationId] = useState('')
   const [roleIds, setRoleIds] = useState<string[]>([])
+  const [invited, setInvited] = useState<string | null>(null)
   const options = useOrganizationOptions(adding)
   const available = options.data?.filter((o) => !access.data?.some((a) => a.id === o.id)) ?? []
   const chosen = available.find((o) => o.id === organizationId)
   const mutation = useMutation({
-    mutationFn: () => api.post<{ data: UserOrganizationAccess[] }>(`/users/${user.id}/organizations`, { organization_id: organizationId, role_ids: roleIds }),
-    onSuccess: (res) => {
-      queryClient.setQueryData(queryKey, res.data)
+    mutationFn: () => api.post<Resource<OrganizationInvitation>>(`/users/${user.id}/organizations`, { organization_id: organizationId, role_ids: roleIds }),
+    onSuccess: () => {
+      setInvited(chosen?.name ?? null)
+      void queryClient.invalidateQueries({ queryKey: ['invitations'] })
       setAdding(false)
     },
   })
   const open = () => (mutation.reset(), setOrganizationId(''), setRoleIds([]), setAdding(true))
 
   return (
-    <Card title="Akses organisasi" actions={canGrant && <Button variant="secondary" size="sm" onClick={open}>Tambah akses</Button>}>
+    <Card title="Akses organisasi" actions={canGrant && <Button variant="secondary" size="sm" onClick={open}>Undang ke organisasi lain</Button>}>
       <div className="p-4 text-sm">
+        {invited && (
+          <div className="mb-3">
+            <Alert tone="success">Undangan ke {invited} dikirim ke {user.email}. Akses berlaku setelah pengguna menerimanya.</Alert>
+          </div>
+        )}
         {access.isLoading ? (
           <Spinner />
         ) : access.isError ? (
@@ -182,7 +192,7 @@ function OrganizationsCard({ user, canGrant }: { user: User; canGrant: boolean }
       </div>
       <Modal
         open={adding}
-        title="Tambah akses organisasi"
+        title="Undang ke organisasi lain"
         onClose={() => setAdding(false)}
         footer={
           <>
@@ -190,13 +200,14 @@ function OrganizationsCard({ user, canGrant }: { user: User; canGrant: boolean }
               Batal
             </Button>
             <Button loading={mutation.isPending} disabled={!chosen || roleIds.length === 0} onClick={() => mutation.mutate()}>
-              Beri akses
+              Kirim undangan
             </Button>
           </>
         }
       >
         <div className="space-y-4">
           {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
+          <p className="text-sm text-slate-600">Pengguna menerima undangan lewat email dan harus menerimanya sendiri; akses tidak diberikan langsung.</p>
           {options.isLoading ? (
             <Spinner />
           ) : options.isError ? (
