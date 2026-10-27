@@ -74,7 +74,7 @@ class InvitationAcceptanceController extends Controller
             $data['token'],
             $data['name'],
             $data['password'],
-            $data['license_code']
+            $data['license_code'] ?? null
         );
 
         Auth::guard('web')->login($user);

@@ -205,6 +205,7 @@ function CreateModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
 
   return (
     <Modal
+      size="full"
       open={open}
       title="Buat Kode Lisensi"
       onClose={onClose}

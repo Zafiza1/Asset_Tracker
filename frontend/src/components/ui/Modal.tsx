@@ -16,7 +16,7 @@ export function Modal({
   onClose: () => void
   children: ReactNode
   footer?: ReactNode
-  size?: 'md' | 'xl'
+  size?: 'md' | 'xl' | 'full'
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -35,12 +35,12 @@ export function Modal({
       aria-labelledby={titleId}
       className={clsx(
         'm-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-xl p-0 shadow-overlay ring-1 ring-slate-900/5 open:animate-dialog-in backdrop:bg-slate-900/50 backdrop:backdrop-blur-[2px] open:backdrop:animate-fade-in',
-        size === 'xl' ? 'max-w-4xl' : 'max-w-lg',
+        size === 'full' ? 'h-[calc(100dvh-2rem)] max-w-none' : size === 'xl' ? 'max-w-4xl' : 'max-w-lg',
       )}
     >
       {open && (
         // Header and footer stay put; only the body scrolls on short screens.
-        <div className="flex max-h-[calc(100dvh-2rem)] flex-col">
+        <div className={clsx('flex max-h-[calc(100dvh-2rem)] flex-col', size === 'full' && 'h-full')}>
           <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
             <h2 id={titleId} className="text-base font-semibold text-slate-900">
               {title}
@@ -49,7 +49,7 @@ export function Modal({
               <X className="size-4" aria-hidden />
             </button>
           </header>
-          <div className="space-y-4 overflow-y-auto px-5 py-4">{children}</div>
+          <div className={clsx('space-y-4 overflow-y-auto px-5 py-4', size === 'full' && 'flex-1 sm:px-8 sm:py-6')}>{children}</div>
           {footer && <footer className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-3">{footer}</footer>}
         </div>
       )}

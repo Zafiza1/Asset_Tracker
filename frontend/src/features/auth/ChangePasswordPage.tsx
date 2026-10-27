@@ -63,7 +63,7 @@ export function ChangePasswordPage() {
   )
 
   return (
-    <div className="max-w-lg">
+    <div>
       <PageHeader title="Ubah Password" description="Sesi lain pada akun ini akan diakhiri setelah password diganti." />
       <Card>{form}</Card>
     </div>

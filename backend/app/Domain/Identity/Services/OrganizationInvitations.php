@@ -104,6 +104,10 @@ final class OrganizationInvitations
             if (OrganizationInvitation::query()->where('email', $email)->where('status', OrganizationInvitation::STATUS_PENDING)->exists()) {
                 throw ApiException::conflict('INVITATION_PENDING', 'Undangan untuk email ini masih menunggu jawaban. Kirim ulang undangan tersebut bila perlu.');
             }
+            if (! empty($profile['employee_number']) && OrganizationInvitation::query()->where('employee_number', $profile['employee_number'])
+                ->where('status', OrganizationInvitation::STATUS_PENDING)->exists()) {
+                throw ApiException::conflict('EMPLOYEE_NUMBER_TAKEN', 'Nomor karyawan ini sudah dipakai pada undangan lain yang masih menunggu jawaban.');
+            }
             // A pending invitation holds a seat until it is accepted, revoked or expires.
             $this->licensing->assertSeats($this->tenancy->organizationId());
 

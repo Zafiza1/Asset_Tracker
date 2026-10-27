@@ -83,6 +83,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
 
   return (
     <Modal
+      size="full"
       open
       title={asset ? `Ubah ${asset.name}` : 'Tambah aset'}
       onClose={onClose}

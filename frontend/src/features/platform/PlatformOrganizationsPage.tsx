@@ -105,7 +105,7 @@ function CreateOrganizationModal({ open, onClose }: { open: boolean; onClose: ()
   })
 
   return (
-    <Modal open={open} title="Organisasi baru" onClose={onClose}>
+    <Modal open={open} size="full" title="Organisasi baru" onClose={onClose}>
       <form onSubmit={handleSubmit((v) => (setFormError(null), mutation.mutate(v)))} noValidate className="space-y-4">
         {formError && <Alert tone="error">{formError}</Alert>}
         <Field label="Kode" error={formState.errors.code?.message} hint="Huruf kapital/angka, unik, tidak dapat diubah." required>

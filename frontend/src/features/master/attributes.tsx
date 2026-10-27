@@ -232,6 +232,7 @@ export function AttributeFormModal({
 
   return (
     <Modal
+      size="full"
       open
       title={attribute ? `Ubah atribut ${attribute.label}` : 'Tambah atribut'}
       onClose={onClose}

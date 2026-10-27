@@ -51,7 +51,7 @@ export function RoleQuickCreateModal({ open, onClose, onCreated }: { open: boole
   return (
     <Modal
       open={open}
-      size="xl"
+      size="full"
       title="Buat role baru"
       onClose={close}
       footer={

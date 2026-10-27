@@ -109,7 +109,7 @@ final class UserManagement
     /** @param array<string, mixed> $data */
     public function update(User $user, array $data): User
     {
-        $this->assertReferences($data);
+        $this->assertReferences($data, $user->id);
         $member = $this->membership($user);
         $account = array_intersect_key($data, array_flip(self::ACCOUNT_FIELDS));
         $profile = array_intersect_key($data, array_flip(OrganizationMember::PROFILE_FIELDS));
@@ -329,10 +329,15 @@ final class UserManagement
     }
 
     /** @param array<string, mixed> $data */
-    private function assertReferences(array $data): void
+    private function assertReferences(array $data, ?string $exceptUserId = null): void
     {
         if (! empty($data['home_department_id']) && ! Department::query()->whereKey($data['home_department_id'])->exists()) {
             throw ApiException::unprocessable('INVALID_REFERENCE', 'Departemen tidak ditemukan.');
+        }
+        // Unique per organization (database constraint); checked here so the answer is not a bare DUPLICATE.
+        if (! empty($data['employee_number']) && OrganizationMember::query()->where('employee_number', $data['employee_number'])
+            ->when($exceptUserId, fn ($q, $id) => $q->where('user_id', '!=', $id))->exists()) {
+            throw ApiException::conflict('EMPLOYEE_NUMBER_TAKEN', 'Nomor karyawan ini sudah dipakai anggota lain di organisasi ini.');
         }
     }
 

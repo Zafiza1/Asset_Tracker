@@ -191,6 +191,7 @@ function OrganizationsCard({ user, canGrant }: { user: User; canGrant: boolean }
         <p className="mt-2 text-xs text-slate-500">Status, role, dan cakupan data di organisasi lain diubah setelah berpindah ke organisasi tersebut.</p>
       </div>
       <Modal
+        size="full"
         open={adding}
         title="Undang ke organisasi lain"
         onClose={() => setAdding(false)}

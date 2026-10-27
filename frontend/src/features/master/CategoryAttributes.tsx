@@ -82,7 +82,7 @@ export function CategoryAttributesModal({ category, canUpdate, onClose }: { cate
     return (
       <Modal
         open
-        size="xl"
+        size="full"
         title={`Atribut ${category.name}`}
         onClose={onClose}
         footer={
@@ -192,7 +192,7 @@ function AttributeListForm({ category, own, intro, onClose }: { category: Tenant
   return (
     <Modal
       open
-      size="xl"
+      size="full"
       title={`Atribut ${category.name}`}
       onClose={onClose}
       footer={

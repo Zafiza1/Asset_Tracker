@@ -63,6 +63,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
 
   return (
     <Modal
+      size="full"
       open
       title="Catat transaksi aset"
       onClose={onClose}

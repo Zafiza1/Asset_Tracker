@@ -9,12 +9,14 @@ use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\OrganizationAccess;
+use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /** The invitee's side: inspect, accept as an existing verified account, or sign up through the invitation. */
@@ -267,6 +269,33 @@ class InvitationAcceptanceTest extends TestCase
         $this->assertNotMember($this->invitee);
     }
 
+    public function test_employee_number_in_use_is_refused_when_inviting(): void
+    {
+        OrganizationMember::query()->where('user_id', $this->admin->id)->update(['employee_number' => 'K-001']);
+        $this->loginAs($this->admin);
+
+        $this->assertErrorCode($this->postJson('/api/invitations', [...$this->payload('satu@luar.test', 'VIEWER'), 'scopes' => [['scope_type' => 'organization']], 'employee_number' => 'K-001']),
+            409, 'EMPLOYEE_NUMBER_TAKEN');
+
+        $this->invite('dua@luar.test', profile: ['employee_number' => 'K-002']);
+        $this->loginAs($this->admin);
+        $this->assertErrorCode($this->postJson('/api/invitations', [...$this->payload('tiga@luar.test', 'VIEWER'), 'scopes' => [['scope_type' => 'organization']], 'employee_number' => 'K-002']),
+            409, 'EMPLOYEE_NUMBER_TAKEN');
+    }
+
+    /** The number was free when invited but taken since: a clear refusal, not a bare DUPLICATE, and no account is left behind. */
+    public function test_sign_up_is_refused_when_the_invited_employee_number_was_taken_since(): void
+    {
+        $token = $this->invite('baru@luar.test', profile: ['employee_number' => 'K-003']);
+        OrganizationMember::query()->where('user_id', $this->admin->id)->update(['employee_number' => 'K-003']);
+        $this->beGuest();
+
+        $response = $this->postJson('/api/auth/invitation/register', $this->signUp($token));
+        $this->assertErrorCode($response, 410, 'INVITATION_UNAVAILABLE');
+        $response->assertJsonPath('error.details.reason', 'employee_number_taken');
+        $this->assertFalse(User::query()->where('email', 'baru@luar.test')->exists());
+    }
+
     public function test_temporary_password_must_be_changed_before_accepting(): void
     {
         $this->invitee->forceFill(['must_change_password' => true])->save();
@@ -311,7 +340,16 @@ class InvitationAcceptanceTest extends TestCase
     /** @return array<string, mixed> */
     private function payload(string $email, string $role): array
     {
-        return ['email' => $email, 'role_ids' => [$this->roleId($this->alpha, $role)], 'scopes' => [['scope_type' => 'organization']]];
+        return ['email' => $email, 'role_ids' => [$this->roleId($this->alpha, $role)], 'scopes' => [['scope_type' => 'organization']], 'license_code_id' => $this->licenseCode()->id];
+    }
+
+    /** Every invitation needs an available license code of ALPHA; a fresh one per invitation. */
+    private function licenseCode(): LicenseCode
+    {
+        $code = new LicenseCode;
+        $code->forceFill(['organization_id' => $this->alpha->id, 'code' => 'LIC-'.implode('-', str_split(strtoupper(Str::random(12)), 4)), 'status' => 'available'])->save();
+
+        return $code;
     }
 
     /** @return array<string, string> */

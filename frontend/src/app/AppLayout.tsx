@@ -93,7 +93,7 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main id="main" className="w-full flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <Breadcrumb />
           {/* Keyed by path: an error in one page never follows the user to another menu. */}
           <ModuleBoundary key={pathname}>

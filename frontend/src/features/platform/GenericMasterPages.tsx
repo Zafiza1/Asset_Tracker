@@ -216,6 +216,7 @@ function DefinitionFormModal({ definition, onClose }: { definition?: GenericDefi
 
   return (
     <Modal
+      size="full"
       open
       title={definition ? 'Ubah definisi generik' : 'Definisi generik baru'}
       onClose={onClose}

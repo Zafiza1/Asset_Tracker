@@ -266,6 +266,7 @@ function MasterFormModal<T extends MasterRecord>({ config, record, onClose, onSa
 
   return (
     <Modal
+      size="full"
       open
       title={record ? `Ubah ${config.title}` : `Tambah ${config.title}`}
       onClose={onClose}
