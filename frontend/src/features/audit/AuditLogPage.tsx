@@ -49,7 +49,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
 
   return (
     <>
-      <PageHeader title={title} description="Catatan append-only atas aktivitas penting. Tidak dapat diubah atau dihapus." />
+      <PageHeader title={title} />
       <Card>
         <FilterPanel>
           <FilterGrid>

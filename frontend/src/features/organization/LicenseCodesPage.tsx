@@ -130,7 +130,6 @@ export function LicenseCodesPage() {
     <>
       <PageHeader
         title="Kode Lisensi"
-        description="Kelola kode lisensi untuk organisasi. Setiap kode dapat ditugaskan ke satu pengguna."
         actions={
           canManage && (
             <button

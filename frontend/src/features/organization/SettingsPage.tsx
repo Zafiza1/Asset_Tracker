@@ -24,7 +24,7 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Pengaturan" description="Kebijakan umum organisasi." />
+      <PageHeader title="Pengaturan" />
       <div className="grid gap-6">
         <LicenseCard license={licenseQuery.data?.data} />
         <SettingsForm settings={settingsQuery.data!.data} />

@@ -28,7 +28,6 @@ export function OrganizationPage() {
     <>
       <PageHeader
         title="Profil Organisasi"
-        description="Identitas perusahaan yang digunakan pada seluruh modul."
         actions={can('organization.manage') && !editing && <Button onClick={() => setEditing(true)}>Ubah profil</Button>}
       />
       {editing ? (

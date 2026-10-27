@@ -84,7 +84,6 @@ export function TransactionsPage() {
     <>
       <PageHeader
         title="Transaksi Aset"
-        description="Riwayat seluruh aktivitas aset: penambahan, pemindahan, perubahan status, peminjaman, dan pengembalian. Transaksi tidak dapat diubah; kesalahan diperbaiki dengan transaksi baru."
         actions={
           can('transaction.create') && (
             <Button onClick={() => setCreating(true)}>

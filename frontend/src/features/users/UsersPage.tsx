@@ -65,7 +65,6 @@ export function UsersPage() {
     <>
       <PageHeader
         title="Pengguna"
-        description="Akun pengguna organisasi beserta role, permission, dan cakupan datanya."
         actions={
           can('user.create') &&
           can('role.manage') && (

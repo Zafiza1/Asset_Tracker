@@ -22,7 +22,7 @@ export function PageHeader({ title, description, actions }: { title: string; des
         <h1 className="text-2xl font-semibold text-slate-900 sm:text-[1.75rem]">{title}</h1>
         {description && <p className="mt-1 text-[0.9375rem] text-slate-600">{description}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   )
 }

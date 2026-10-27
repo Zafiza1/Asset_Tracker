@@ -112,7 +112,6 @@ export function InvitationsPage() {
     <>
       <PageHeader
         title="Pengguna"
-        description="Undangan bergabung dengan organisasi. Akses baru berlaku setelah pemilik email menerima undangan."
         actions={
           canManage && (
             <Link to="/pengguna/baru">

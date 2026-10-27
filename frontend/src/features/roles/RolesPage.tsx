@@ -37,7 +37,6 @@ export function RolesPage() {
     <>
       <PageHeader
         title="Pengguna"
-        description="Role adalah kumpulan permission yang diberikan ke pengguna. Akses akhir pengguna juga dibatasi oleh cakupan data."
         actions={
           can('role.manage') && (
             <Link to="/pengguna/role/baru">

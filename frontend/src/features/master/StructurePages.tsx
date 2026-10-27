@@ -148,7 +148,6 @@ export function TenantCategoriesPage() {
     <>
       <MasterListPage<TenantCategory>
         title="Kategori Aset"
-        description="Kelompok aset organisasi, dipakai sebagai filter utama di Pendataan Aset. Kategori dapat bertingkat; memfilter kategori induk ikut menampilkan aset di subkategorinya. Tambahkan atribut agar formulir aset kategori itu memiliki isian sendiri."
         endpoint="/tenant-masters/categories"
         {...permissions}
         columns={[

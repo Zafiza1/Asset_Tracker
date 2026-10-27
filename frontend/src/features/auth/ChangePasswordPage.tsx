@@ -64,7 +64,7 @@ export function ChangePasswordPage() {
 
   return (
     <div>
-      <PageHeader title="Ubah Password" description="Sesi lain pada akun ini akan diakhiri setelah password diganti." />
+      <PageHeader title="Ubah Password" />
       <Card>{form}</Card>
     </div>
   )

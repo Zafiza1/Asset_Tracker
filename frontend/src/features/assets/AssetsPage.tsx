@@ -98,7 +98,6 @@ export function AssetsPage() {
     <>
       <PageHeader
         title="Pendataan Aset"
-        description="Daftar seluruh aset organisasi. Klik aset untuk melihat detail, mengubah data, atau mencatat transaksi."
         actions={
           can('asset.create') && (
             <Button onClick={() => setCreating(true)}>
