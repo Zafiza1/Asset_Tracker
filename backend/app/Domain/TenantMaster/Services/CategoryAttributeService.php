@@ -32,24 +32,24 @@ final class CategoryAttributeService
 
     /** Default attribute sections and their definitions. */
     public const DEFAULT_ATTRIBUTES = [
+        // No "Name" here: assets already have the built-in name (Nama aset) field.
         'basic_information' => [
-            ['label' => 'Name', 'data_type' => AttributeType::STRING, 'is_required' => true],
-            ['label' => 'Brand', 'data_type' => AttributeType::STRING, 'is_required' => false],
+            ['label' => 'Merek', 'data_type' => AttributeType::STRING, 'is_required' => false],
             ['label' => 'Model', 'data_type' => AttributeType::STRING, 'is_required' => false],
-            ['label' => 'UOM', 'data_type' => AttributeType::STRING, 'is_required' => false],
+            ['label' => 'Satuan', 'data_type' => AttributeType::STRING, 'is_required' => false],
         ],
         // No "Location" here: assets already have the built-in location (Lokasi) field.
         'location_ownership' => [
-            ['label' => 'Owner', 'data_type' => AttributeType::STRING, 'is_required' => false],
-            ['label' => 'Responsible Person', 'data_type' => AttributeType::STRING, 'is_required' => false],
+            ['label' => 'Pemilik', 'data_type' => AttributeType::STRING, 'is_required' => false],
+            ['label' => 'Penanggung Jawab', 'data_type' => AttributeType::STRING, 'is_required' => false],
         ],
         'status_condition' => [
-            ['label' => 'Operating Hours', 'data_type' => AttributeType::INTEGER, 'is_required' => false],
-            ['label' => 'Condition', 'data_type' => AttributeType::ENUM, 'is_required' => false, 'options' => [
-                ['value' => 'GOOD', 'label' => 'Good'],
-                ['value' => 'FAIR', 'label' => 'Fair'],
-                ['value' => 'POOR', 'label' => 'Poor'],
-                ['value' => 'DAMAGED', 'label' => 'Damaged'],
+            ['label' => 'Jam Operasi', 'data_type' => AttributeType::INTEGER, 'is_required' => false],
+            ['label' => 'Kondisi', 'data_type' => AttributeType::ENUM, 'is_required' => false, 'options' => [
+                ['value' => 'GOOD', 'label' => 'Baik'],
+                ['value' => 'FAIR', 'label' => 'Cukup'],
+                ['value' => 'POOR', 'label' => 'Buruk'],
+                ['value' => 'DAMAGED', 'label' => 'Rusak'],
             ]],
         ],
     ];

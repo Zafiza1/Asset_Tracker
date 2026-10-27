@@ -10,7 +10,7 @@ import type { AttributeOption, AttributeValue, CategoryAttribute, CategoryAttrib
 import { dataTypeLabel } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
 import { AttributeValueInput, Checkbox } from './attributes'
-import { useCategoryAttributes } from './categoryAttributeData'
+import { SECTION_LABELS, useCategoryAttributes } from './categoryAttributeData'
 
 /** Data types offered for category fields (mirrors CategoryAttributeService::TYPES). */
 const TYPES: CategoryAttributeType[] = ['string', 'text', 'integer', 'decimal', 'date', 'boolean', 'enum']
@@ -29,13 +29,6 @@ export function AttributeFields({
 }) {
   if (fields.length === 0) return null
 
-  const sectionLabel: Record<string, string> = {
-    basic_information: 'Basic Information',
-    location_ownership: 'Location & Ownership',
-    status_condition: 'Status & Condition',
-    other: 'Other',
-  }
-
   // Group fields by section
   const groupedFields = fields.reduce((acc, f) => {
     const section = f.section || 'other'
@@ -49,7 +42,7 @@ export function AttributeFields({
       {Object.entries(groupedFields).map(([section, sectionFields]) => (
         <fieldset key={section} className="rounded-md p-3 ring-1 ring-slate-200">
           <legend className="px-1 text-sm font-semibold text-slate-700">
-            {sectionLabel[section] || section}
+            {SECTION_LABELS[section] || section}
           </legend>
           <div className="grid gap-4 sm:grid-cols-2">
             {sectionFields.map((f) => (
@@ -106,13 +99,6 @@ export function CategoryAttributesModal({ category, canUpdate, onClose }: { cate
 function ReadOnlyList({ fields }: { fields: CategoryAttribute[] }) {
   if (fields.length === 0) return <p className="rounded-md bg-slate-50 p-4 text-sm text-slate-500">Belum ada atribut pada kategori ini.</p>
 
-  const sectionLabel: Record<string, string> = {
-    basic_information: 'Basic Information',
-    location_ownership: 'Location & Ownership',
-    status_condition: 'Status & Condition',
-    other: 'Other',
-  }
-
   const groupedFields = fields.reduce((acc, f) => {
     const section = f.section || 'other'
     if (!acc[section]) acc[section] = []
@@ -124,7 +110,7 @@ function ReadOnlyList({ fields }: { fields: CategoryAttribute[] }) {
     <div className="space-y-4">
       {Object.entries(groupedFields).map(([section, sectionFields]) => (
         <div key={section}>
-          <p className="mb-2 text-sm font-semibold text-slate-700">{sectionLabel[section] || section}</p>
+          <p className="mb-2 text-sm font-semibold text-slate-700">{SECTION_LABELS[section] || section}</p>
           <ul className="divide-y divide-slate-100 rounded-md text-sm ring-1 ring-slate-200">
             {sectionFields.map((f) => (
               <li key={f.id} className="flex flex-wrap justify-between gap-2 px-4 py-2.5">
@@ -208,13 +194,6 @@ function AttributeListForm({ category, defaultOwn, customOwn, onClose }: { categ
     },
   })
 
-  const sectionLabel: Record<string, string> = {
-    basic_information: 'Basic Information',
-    location_ownership: 'Location & Ownership',
-    status_condition: 'Status & Condition',
-    other: 'Other',
-  }
-
   const groupedDefaults = defaultOwn.reduce((acc, attr) => {
     const section = attr.section || 'other'
     if (!acc[section]) acc[section] = []
@@ -245,10 +224,10 @@ function AttributeListForm({ category, defaultOwn, customOwn, onClose }: { categ
       {/* Default Attributes (Read-only) */}
       {defaultOwn.length > 0 && (
         <div className="space-y-4 mb-6">
-          <p className="text-sm font-medium text-slate-700">Atribut Default (Read-only)</p>
+          <p className="text-sm font-medium text-slate-700">Atribut Default (hanya baca)</p>
           {Object.entries(groupedDefaults).map(([section, attrs]) => (
             <div key={section} className="rounded-md bg-slate-50 p-3">
-              <p className="mb-2 text-sm font-semibold text-slate-800">{sectionLabel[section] || section}</p>
+              <p className="mb-2 text-sm font-semibold text-slate-800">{SECTION_LABELS[section] || section}</p>
               <ul className="divide-y divide-slate-200 text-sm">
                 {attrs.map((f) => (
                   <li key={f.id} className="flex justify-between px-2 py-1.5">

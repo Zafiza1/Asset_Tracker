@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { ActiveFilters, DateRangeFilter, FilterGrid, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { ActiveFilters, AdvancedFilters, DateRangeFilter, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -19,6 +19,7 @@ import { TransactionChanges } from './TransactionChanges'
 import { TransactionFormModal } from './TransactionFormModal'
 
 const FILTERS = ['page', 'search', 'type', 'date_from', 'date_to'] as const
+const ADVANCED = ['type', 'date_from', 'date_to'] as const
 
 /** Asset Transactions module: every recorded activity, searchable and filterable. */
 export function TransactionsPage() {
@@ -27,6 +28,8 @@ export function TransactionsPage() {
   const [search, setSearch] = useState(params.get('search') ?? '')
   const [creating, setCreating] = useState(false)
   const filters = Object.fromEntries(FILTERS.map((k) => [k, params.get(k)]))
+  const advanced = useFilterDraft(params, ADVANCED)
+  const draft = advanced.draft
 
   const query = useQuery({
     queryKey: ['/transactions', filters],
@@ -95,8 +98,8 @@ export function TransactionsPage() {
       <Card>
         <FilterPanel>
           <SearchForm value={search} onChange={setSearch} onSubmit={() => update({ search })} placeholder="Cari nomor transaksi, aset, peminjam, catatan" label="Cari transaksi" />
-          <FilterGrid>
-            <Select value={params.get('type') ?? ''} onChange={(e) => update({ type: e.target.value })} aria-label="Jenis transaksi">
+          <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update(draft)} onClear={() => advanced.set(advanced.empty)}>
+            <Select value={draft.type} onChange={(e) => advanced.set({ type: e.target.value })} aria-label="Jenis transaksi">
               <option value="">Jenis: semua</option>
               {(Object.keys(transactionTypeLabel) as TransactionType[]).map((t) => (
                 <option key={t} value={t}>
@@ -104,8 +107,8 @@ export function TransactionsPage() {
                 </option>
               ))}
             </Select>
-            <DateRangeFilter from={params.get('date_from') ?? ''} to={params.get('date_to') ?? ''} onChange={(from, to) => update({ date_from: from, date_to: to })} />
-          </FilterGrid>
+            <DateRangeFilter from={draft.date_from} to={draft.date_to} onChange={(from, to) => advanced.set({ date_from: from, date_to: to })} />
+          </AdvancedFilters>
           <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams()))} />
         </FilterPanel>
         {query.isLoading ? (

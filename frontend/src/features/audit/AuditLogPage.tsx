@@ -4,13 +4,15 @@ import { useSearchParams } from 'react-router'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
-import { ActiveFilters, DateRangeFilter, FilterGrid, FilterPanel } from '../../components/ui/Filters'
+import { ActiveFilters, AdvancedFilters, DateRangeFilter, FilterPanel, useFilterDraft } from '../../components/ui/Filters'
 import { type FilterChip } from '../../components/ui/filterChips'
 import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { AuditLog, Paginated } from '../../lib/api/types'
 import { auditActionGroups, auditActionLabel, formatDate, formatDateTime } from '../../lib/format'
+
+const ADVANCED = ['action', 'from', 'to'] as const
 
 const actorLabel = (log: AuditLog) => log.actor?.name ?? (log.actor_type === 'system' ? 'Sistem' : 'Anonim')
 
@@ -19,6 +21,8 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
   const [params, setParams] = useSearchParams()
   const [selected, setSelected] = useState<AuditLog | null>(null)
   const filters = { page: params.get('page'), action: params.get('action'), from: params.get('from'), to: params.get('to'), organization_id: params.get('organization_id') }
+  const advanced = useFilterDraft(params, ADVANCED)
+  const draft = advanced.draft
 
   const query = useQuery({
     queryKey: ['audit', endpoint, filters],
@@ -52,8 +56,8 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
       <PageHeader title={title} />
       <Card>
         <FilterPanel>
-          <FilterGrid>
-            <Select aria-label="Filter aksi" value={params.get('action') ?? ''} onChange={(e) => update({ action: e.target.value, page: '' })}>
+          <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update({ ...draft, page: '' })} onClear={() => advanced.set(advanced.empty)}>
+            <Select aria-label="Filter aksi" value={draft.action} onChange={(e) => advanced.set({ action: e.target.value })}>
               <option value="">Semua aksi</option>
               {auditActionGroups.map((g) => (
                 <optgroup key={g.label} label={g.label}>
@@ -65,8 +69,8 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
                 </optgroup>
               ))}
             </Select>
-            <DateRangeFilter from={params.get('from') ?? ''} to={params.get('to') ?? ''} onChange={(from, to) => update({ from, to, page: '' })} />
-          </FilterGrid>
+            <DateRangeFilter from={draft.from} to={draft.to} onChange={(from, to) => advanced.set({ from, to })} />
+          </AdvancedFilters>
           <ActiveFilters chips={chips} onReset={() => setParams(new URLSearchParams())} />
         </FilterPanel>
         {query.isLoading ? (

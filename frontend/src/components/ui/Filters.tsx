@@ -1,5 +1,5 @@
-import { Search, X } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { ChevronDown, SlidersHorizontal, Search, X } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { Button } from './Button'
 import { Input } from './Field'
 import type { FilterChip } from './filterChips'
@@ -7,7 +7,7 @@ import type { FilterChip } from './filterChips'
 /**
  * Building blocks for the filter area of every list page, so they all read the same:
  *   search row (plus an optional control such as sorting)
- *   grid of equal-width filters
+ *   collapsible "Filter lanjutan" with a grid of equal-width filters, applied with "Terapkan filter"
  *   applied filters as removable chips with "reset all"
  */
 export function FilterPanel({ children }: { children: ReactNode }) {
@@ -34,6 +34,74 @@ export function SearchForm({ value, onChange, onSubmit, placeholder, label, asid
         </Button>
       </form>
       {aside}
+    </div>
+  )
+}
+
+/**
+ * Filter values being edited but not yet applied. Starts from the URL and follows it whenever the
+ * applied filters change elsewhere (a removed chip, "reset semua"), so the form never shows stale values.
+ */
+export function useFilterDraft(params: URLSearchParams, keys: readonly string[]) {
+  const applied: Record<string, string> = Object.fromEntries(keys.map((k) => [k, params.get(k) ?? '']))
+  const appliedKey = JSON.stringify(applied)
+  const [draft, setDraft] = useState(applied)
+  const [syncedKey, setSyncedKey] = useState(appliedKey)
+  if (syncedKey !== appliedKey) {
+    setSyncedKey(appliedKey)
+    setDraft(applied)
+  }
+
+  return {
+    draft,
+    set: (next: Record<string, string>) => setDraft((d) => ({ ...d, ...next })),
+    /** Every filter in the draft set back to "semua", without applying. */
+    empty: Object.fromEntries(keys.map((k) => [k, ''])) as Record<string, string>,
+    dirty: keys.some((k) => draft[k] !== applied[k]),
+    activeCount: keys.filter((k) => applied[k]).length,
+  }
+}
+
+/**
+ * Advanced filters behind a toggle. Changes stay in the draft until "Terapkan filter" (or Enter),
+ * so several filters can be set before the list reloads.
+ */
+export function AdvancedFilters({ activeCount, dirty, onApply, onClear, children }: { activeCount: number; dirty: boolean; onApply: () => void; onClear: () => void; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-sm font-semibold text-slate-700 hover:text-brand-700"
+      >
+        <SlidersHorizontal className="size-4" aria-hidden />
+        Filter lanjutan
+        {activeCount > 0 && <span className="rounded-full bg-brand-700 px-1.5 text-xs font-semibold text-white">{activeCount}</span>}
+        <ChevronDown className={`size-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+      </button>
+      {open && (
+        <form
+          className="mt-2 space-y-3 rounded-lg bg-slate-50 p-3 ring-1 ring-inset ring-slate-200"
+          onSubmit={(e) => {
+            e.preventDefault()
+            onApply()
+          }}
+        >
+          <FilterGrid>{children}</FilterGrid>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {dirty && <span className="mr-auto text-xs text-amber-700">Perubahan filter belum diterapkan.</span>}
+            <Button variant="ghost" size="sm" onClick={onClear}>
+              Kosongkan
+            </Button>
+            <Button type="submit" size="sm" disabled={!dirty}>
+              Terapkan filter
+            </Button>
+          </div>
+        </form>
+      )}
     </div>
   )
 }

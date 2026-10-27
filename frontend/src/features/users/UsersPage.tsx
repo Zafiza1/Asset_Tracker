@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
-import { ActiveFilters, FilterGrid, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
@@ -41,6 +41,7 @@ export function UsersPage() {
   const [search, setSearch] = useState(params.get('search') ?? '')
   const page = Number(params.get('page') ?? 1)
   const status = params.get('status') ?? ''
+  const advanced = useFilterDraft(params, ['status'])
 
   const query = useQuery({
     queryKey: ['users', { page, status, search: params.get('search') }],
@@ -80,8 +81,8 @@ export function UsersPage() {
       <Card>
         <FilterPanel>
           <SearchForm value={search} onChange={setSearch} onSubmit={() => update({ search, page: '' })} placeholder="Cari nama, email, atau NIK" label="Cari pengguna" />
-          <FilterGrid>
-            <Select value={status} onChange={(e) => update({ status: e.target.value, page: '' })} aria-label="Filter status">
+          <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update({ ...advanced.draft, page: '' })} onClear={() => advanced.set(advanced.empty)}>
+            <Select value={advanced.draft.status} onChange={(e) => advanced.set({ status: e.target.value })} aria-label="Filter status">
               <option value="">Status: semua</option>
               {Object.entries(userStatusLabel).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -89,7 +90,7 @@ export function UsersPage() {
                 </option>
               ))}
             </Select>
-          </FilterGrid>
+          </AdvancedFilters>
           <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams()))} />
         </FilterPanel>
         {query.isLoading ? (

@@ -9,7 +9,7 @@ import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
-import { ActiveFilters, FilterGrid, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
@@ -72,6 +72,8 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const [editing, setEditing] = useState<T | 'new' | null>(null)
   const [archiving, setArchiving] = useState<T | null>(null)
   const filterValues = Object.fromEntries((config.filters ?? []).map((f) => [f.name, params.get(f.name) ?? '']))
+  const advanced = useFilterDraft(params, [...(config.filters ?? []).map((f) => f.name), 'status'])
+  const draft = advanced.draft
   const listParams = { page: params.get('page'), search: params.get('search'), status: params.get('status'), ...filterValues }
 
   const query = useQuery({
@@ -160,9 +162,9 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
     <Card>
       <FilterPanel>
         <SearchForm value={search} onChange={setSearch} onSubmit={() => update({ search, page: '' })} placeholder="Cari kode atau nama" label={`Cari ${config.title}`} />
-        <FilterGrid>
+        <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update({ ...draft, page: '' })} onClear={() => advanced.set(advanced.empty)}>
           {config.filters?.map((f) => (
-            <Select key={f.name} value={filterValues[f.name]} onChange={(e) => update({ [f.name]: e.target.value, page: '' })} aria-label={f.label}>
+            <Select key={f.name} value={draft[f.name]} onChange={(e) => advanced.set({ [f.name]: e.target.value })} aria-label={f.label}>
               <option value="">{f.label}: semua</option>
               {f.options.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -171,7 +173,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
               ))}
             </Select>
           ))}
-          <Select value={params.get('status') ?? ''} onChange={(e) => update({ status: e.target.value, page: '' })} aria-label="Filter status">
+          <Select value={draft.status} onChange={(e) => advanced.set({ status: e.target.value })} aria-label="Filter status">
             <option value="">Status: semua</option>
             {Object.entries(masterStatusLabel).map(([value, label]) => (
               <option key={value} value={value}>
@@ -179,7 +181,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
               </option>
             ))}
           </Select>
-        </FilterGrid>
+        </AdvancedFilters>
         <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams()))} />
       </FilterPanel>
       {statusChange.isError && (

@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
-import { ActiveFilters, FilterGrid, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
@@ -36,6 +36,7 @@ export function InvitationsPage() {
   })
   const page = Number(params.get('page') ?? 1)
   const status = params.get('status') ?? ''
+  const advanced = useFilterDraft(params, ['status'])
   const canManage = can('user.create') && can('role.manage')
 
   const query = useQuery({
@@ -131,8 +132,8 @@ export function InvitationsPage() {
       <Card>
         <FilterPanel>
           <SearchForm value={search} onChange={setSearch} onSubmit={() => update({ search, page: '' })} placeholder="Cari email" label="Cari undangan" />
-          <FilterGrid>
-            <Select value={status} onChange={(e) => update({ status: e.target.value, page: '' })} aria-label="Filter status">
+          <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update({ ...advanced.draft, page: '' })} onClear={() => advanced.set(advanced.empty)}>
+            <Select value={advanced.draft.status} onChange={(e) => advanced.set({ status: e.target.value })} aria-label="Filter status">
               <option value="">Status: semua</option>
               {Object.entries(invitationStatusLabel).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -140,7 +141,7 @@ export function InvitationsPage() {
                 </option>
               ))}
             </Select>
-          </FilterGrid>
+          </AdvancedFilters>
           <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams(), { replace: true }))} />
         </FilterPanel>
         {query.isLoading ? (

@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { ActiveFilters, FilterGrid, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -19,6 +19,7 @@ import { AssetFormModal } from './AssetFormModal'
 import { CategoryFilter } from './CategoryFilter'
 
 const FILTERS = ['page', 'search', 'category_ids', 'location_id', 'status', 'archived', 'sort'] as const
+const ADVANCED = ['category_ids', 'location_id', 'status', 'archived'] as const
 
 /** Asset Management module: search and filter the asset register, register new assets. */
 export function AssetsPage() {
@@ -29,6 +30,8 @@ export function AssetsPage() {
   const [creating, setCreating] = useState(false)
   const filters = Object.fromEntries(FILTERS.map((k) => [k, params.get(k)]))
   const selectedCategories = (params.get('category_ids') ?? '').split(',').filter(Boolean)
+  const advanced = useFilterDraft(params, ADVANCED)
+  const draft = advanced.draft
 
   const categoryRows = useOptions('/tenant-masters/categories').data
   const categories = toOptions(categoryRows)
@@ -123,9 +126,9 @@ export function AssetsPage() {
               </Select>
             }
           />
-          <FilterGrid>
-            <CategoryFilter options={categories} selected={selectedCategories} onChange={(ids) => update({ category_ids: ids.join(',') })} />
-            <Select value={params.get('location_id') ?? ''} onChange={(e) => update({ location_id: e.target.value })} aria-label="Filter lokasi">
+          <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update(draft)} onClear={() => advanced.set(advanced.empty)}>
+            <CategoryFilter options={categories} selected={draft.category_ids.split(',').filter(Boolean)} onChange={(ids) => advanced.set({ category_ids: ids.join(',') })} />
+            <Select value={draft.location_id} onChange={(e) => advanced.set({ location_id: e.target.value })} aria-label="Filter lokasi">
               <option value="">Lokasi: semua</option>
               {locations.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -133,7 +136,7 @@ export function AssetsPage() {
                 </option>
               ))}
             </Select>
-            <Select value={params.get('status') ?? ''} onChange={(e) => update({ status: e.target.value })} aria-label="Filter status">
+            <Select value={draft.status} onChange={(e) => advanced.set({ status: e.target.value })} aria-label="Filter status">
               <option value="">Status: semua</option>
               {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
                 <option key={s} value={s}>
@@ -141,12 +144,12 @@ export function AssetsPage() {
                 </option>
               ))}
             </Select>
-            <Select value={params.get('archived') ?? ''} onChange={(e) => update({ archived: e.target.value })} aria-label="Aset aktif atau nonaktif">
+            <Select value={draft.archived} onChange={(e) => advanced.set({ archived: e.target.value })} aria-label="Aset aktif atau nonaktif">
               <option value="">Aset aktif</option>
               <option value="only">Aset nonaktif</option>
               <option value="all">Aktif &amp; nonaktif</option>
             </Select>
-          </FilterGrid>
+          </AdvancedFilters>
           <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams()))} />
         </FilterPanel>
         {query.isLoading ? (
