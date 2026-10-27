@@ -13,7 +13,7 @@ import type { CategoryAttribute, Paginated, Resource } from '../../lib/api/types
 import { useAuth } from '../../lib/auth/context'
 import { formatDate, formatDateTime } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
-import { attributeRows } from '../master/categoryAttributeData'
+import { attributeRowsBySection, SECTION_LABELS } from '../master/categoryAttributeData'
 import { allowedTypes, type AssetTransaction, type ManualTransactionType } from '../transactions/api'
 import { TransactionChanges } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
@@ -110,19 +110,44 @@ export function AssetDetailPage() {
           }
         >
           <dl className="divide-y divide-slate-100 text-sm">
-            <Row label="Status">
-              <Badge tone={assetStatusTone[a.status]}>{assetStatusLabel[a.status]}</Badge>
-            </Row>
-            {a.status === 'on_loan' && <Row label="Peminjam">{`${a.borrower_name}${a.loan_due_date ? ` (kembali ${formatDate(a.loan_due_date)})` : ''}`}</Row>}
-            <Row label="Kategori">{a.category?.name}</Row>
-            <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>
-            <Row label="Tanggal perolehan">{formatDate(a.acquisition_date)}</Row>
-            <Row label="Nilai perolehan">{formatMoney(a.acquisition_cost)}</Row>
-            {attributeRows(asset.data!.attribute_fields ?? [], a.attributes ?? {}).map((r) => (
-              <Row key={r.key} label={r.label}>
-                {r.value}
-              </Row>
-            ))}
+            {/* Built-in fields lead their section; the category's attributes follow. */}
+            {(() => {
+              const groupedAttrs = attributeRowsBySection(asset.data!.attribute_fields ?? [], a.attributes ?? {})
+              const builtIn: Record<string, ReactNode> = {
+                basic_information: (
+                  <>
+                    <Row label="Kategori">{a.category?.name}</Row>
+                    <Row label="Tanggal perolehan">{formatDate(a.acquisition_date)}</Row>
+                    <Row label="Nilai perolehan">{formatMoney(a.acquisition_cost)}</Row>
+                  </>
+                ),
+                location_ownership: <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>,
+                status_condition: (
+                  <>
+                    <Row label="Status">
+                      <Badge tone={assetStatusTone[a.status]}>{assetStatusLabel[a.status]}</Badge>
+                    </Row>
+                    {a.status === 'on_loan' && <Row label="Peminjam">{`${a.borrower_name}${a.loan_due_date ? ` (kembali ${formatDate(a.loan_due_date)})` : ''}`}</Row>}
+                  </>
+                ),
+              }
+              const sections = [...Object.keys(builtIn), ...Object.keys(groupedAttrs).filter((s) => !(s in builtIn))]
+
+              return sections.map((section) => (
+                <div key={section} className="divide-y divide-slate-100">
+                  <div className="bg-slate-50 px-4 py-2">
+                    <h3 className="text-base font-semibold text-slate-900">{SECTION_LABELS[section] || section}</h3>
+                  </div>
+                  {builtIn[section]}
+                  {(groupedAttrs[section] ?? []).map((r) => (
+                    <Row key={r.key} label={r.label}>
+                      {r.value}
+                    </Row>
+                  ))}
+                </div>
+              ))
+            })()}
+
             <Row label="Deskripsi">{a.description ? <span className="whitespace-pre-line">{a.description}</span> : '—'}</Row>
             <Row label="Ditambahkan">{`${formatDateTime(a.created_at)}${a.created_by ? ` oleh ${a.created_by}` : ''}`}</Row>
           </dl>

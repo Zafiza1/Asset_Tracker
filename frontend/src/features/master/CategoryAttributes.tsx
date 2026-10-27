@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
-import { Badge } from '../../components/ui/Badge'
+import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Alert, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select } from '../../components/ui/Field'
@@ -29,54 +28,54 @@ export function AttributeFields({
   onChange: (key: string, value: AttributeValue) => void
 }) {
   if (fields.length === 0) return null
+
+  const sectionLabel: Record<string, string> = {
+    basic_information: 'Basic Information',
+    location_ownership: 'Location & Ownership',
+    status_condition: 'Status & Condition',
+    other: 'Other',
+  }
+
+  // Group fields by section
+  const groupedFields = fields.reduce((acc, f) => {
+    const section = f.section || 'other'
+    if (!acc[section]) acc[section] = []
+    acc[section].push(f)
+    return acc
+  }, {} as Record<string, CategoryAttribute[]>)
+
   return (
-    <fieldset className="rounded-md p-3 ring-1 ring-slate-200">
-      <legend className="px-1 text-sm font-semibold text-slate-700">Atribut kategori</legend>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {fields.map((f) => (
-          <div key={f.key} className={f.data_type === 'text' ? 'sm:col-span-2' : undefined}>
-            <Field label={f.label} required={f.is_required} error={errors[f.key]}>
-              {(p) => <AttributeValueInput id={p.id} spec={f} value={values[f.key] ?? null} onChange={(v) => onChange(f.key, v)} />}
-            </Field>
+    <div className="space-y-4">
+      {Object.entries(groupedFields).map(([section, sectionFields]) => (
+        <fieldset key={section} className="rounded-md p-3 ring-1 ring-slate-200">
+          <legend className="px-1 text-sm font-semibold text-slate-700">
+            {sectionLabel[section] || section}
+          </legend>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {sectionFields.map((f) => (
+              <div key={f.key} className={f.data_type === 'text' ? 'sm:col-span-2' : undefined}>
+                <Field label={f.label} required={f.is_required} error={errors[f.key]}>
+                  {(p) => <AttributeValueInput id={p.id} spec={f} value={values[f.key] ?? null} onChange={(v) => onChange(f.key, v)} />}
+                </Field>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-    </fieldset>
+        </fieldset>
+      ))}
+    </div>
   )
 }
 
 /**
- * The fields of a category in one form: inherited fields are listed read-only, the category's
- * own fields are rows that can be edited, added, and removed, and one "Simpan" saves them all
+ * The fields of a category in one form: the category's own fields are rows that can be edited, added, and removed, and one "Simpan" saves them all
  * (PUT, all or nothing). Without master.tenant.update the list is read-only.
  */
 export function CategoryAttributesModal({ category, canUpdate, onClose }: { category: TenantCategory; canUpdate: boolean; onClose: () => void }) {
   const fields = useCategoryAttributes(category.id)
   const editable = canUpdate && category.status !== 'archived'
-  const inherited = fields.data?.filter((f) => f.category_id !== category.id) ?? []
   const own = fields.data?.filter((f) => f.category_id === category.id) ?? []
-
-  const intro = (
-    <>
-      <p className="text-sm text-slate-600">
-        Atribut adalah isian tambahan yang muncul di formulir aset berkategori ini, misalnya Nomor Polisi untuk kendaraan. Subkategori ikut memakai atribut kategori induknya.
-      </p>
-      {inherited.length > 0 && (
-        <div className="rounded-md bg-slate-50 p-3 text-sm">
-          <p className="mb-1.5 font-medium text-slate-700">Diwarisi dari kategori induk</p>
-          <ul className="flex flex-wrap gap-1.5">
-            {inherited.map((f) => (
-              <li key={f.id}>
-                <Badge tone="slate">
-                  {f.label} · {dataTypeLabel[f.data_type]} ({f.category?.name})
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </>
-  )
+  const defaultOwn = own.filter((f) => f.is_default)
+  const customOwn = own.filter((f) => !f.is_default)
 
   if (fields.isLoading || fields.isError || !editable) {
     return (
@@ -96,34 +95,54 @@ export function CategoryAttributesModal({ category, canUpdate, onClose }: { cate
         ) : fields.isError ? (
           <Alert tone="error">{errorMessage(fields.error)}</Alert>
         ) : (
-          <>
-            {intro}
-            <ReadOnlyList fields={own} />
-          </>
+          <ReadOnlyList fields={own} />
         )}
       </Modal>
     )
   }
-  return <AttributeListForm category={category} own={own} intro={intro} onClose={onClose} />
+  return <AttributeListForm category={category} defaultOwn={defaultOwn} customOwn={customOwn} onClose={onClose} />
 }
 
 function ReadOnlyList({ fields }: { fields: CategoryAttribute[] }) {
   if (fields.length === 0) return <p className="rounded-md bg-slate-50 p-4 text-sm text-slate-500">Belum ada atribut pada kategori ini.</p>
+
+  const sectionLabel: Record<string, string> = {
+    basic_information: 'Basic Information',
+    location_ownership: 'Location & Ownership',
+    status_condition: 'Status & Condition',
+    other: 'Other',
+  }
+
+  const groupedFields = fields.reduce((acc, f) => {
+    const section = f.section || 'other'
+    if (!acc[section]) acc[section] = []
+    acc[section].push(f)
+    return acc
+  }, {} as Record<string, CategoryAttribute[]>)
+
   return (
-    <ul className="divide-y divide-slate-100 rounded-md text-sm ring-1 ring-slate-200">
-      {fields.map((f) => (
-        <li key={f.id} className="flex flex-wrap justify-between gap-2 px-4 py-2.5">
-          <span className="font-medium text-slate-900">
-            {f.label}
-            {f.is_required && <span className="text-red-600"> *</span>}
-          </span>
-          <span className="text-slate-600">
-            {dataTypeLabel[f.data_type]}
-            {f.options?.length ? `: ${f.options.map((o) => o.label).join(', ')}` : ''}
-          </span>
-        </li>
+    <div className="space-y-4">
+      {Object.entries(groupedFields).map(([section, sectionFields]) => (
+        <div key={section}>
+          <p className="mb-2 text-sm font-semibold text-slate-700">{sectionLabel[section] || section}</p>
+          <ul className="divide-y divide-slate-100 rounded-md text-sm ring-1 ring-slate-200">
+            {sectionFields.map((f) => (
+              <li key={f.id} className="flex flex-wrap justify-between gap-2 px-4 py-2.5">
+                <span className="font-medium text-slate-900">
+                  {f.label}
+                  {f.is_required && <span className="text-red-600"> *</span>}
+                  {f.is_default && <span className="ml-1 text-xs text-slate-500">(default)</span>}
+                </span>
+                <span className="text-slate-600">
+                  {dataTypeLabel[f.data_type]}
+                  {f.options?.length ? `: ${f.options.map((o) => o.label).join(', ')}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       ))}
-    </ul>
+    </div>
   )
 }
 
@@ -141,11 +160,11 @@ interface Row {
 let nextUid = 1
 const newRow = (): Row => ({ uid: nextUid++, label: '', data_type: 'string', is_required: false, options: [] })
 
-function AttributeListForm({ category, own, intro, onClose }: { category: TenantCategory; own: CategoryAttribute[]; intro: ReactNode; onClose: () => void }) {
+function AttributeListForm({ category, defaultOwn, customOwn, onClose }: { category: TenantCategory; defaultOwn: CategoryAttribute[]; customOwn: CategoryAttribute[]; onClose: () => void }) {
   const queryClient = useQueryClient()
   const [rows, setRows] = useState<Row[]>(() =>
-    own.length > 0
-      ? own.map((f) => ({ uid: nextUid++, id: f.id, label: f.label, data_type: f.data_type, is_required: f.is_required, options: f.options ?? [] }))
+    customOwn.length > 0
+      ? customOwn.map((f) => ({ uid: nextUid++, id: f.id, label: f.label, data_type: f.data_type, is_required: f.is_required, options: f.options ?? [] }))
       : [newRow()],
   )
   const [errors, setErrors] = useState<Record<number, Record<string, string>>>({})
@@ -154,7 +173,7 @@ function AttributeListForm({ category, own, intro, onClose }: { category: Tenant
   const update = (uid: number, patch: Partial<Row>) => setRows((current) => current.map((r) => (r.uid === uid ? { ...r, ...patch } : r)))
   // Empty new rows are ignored, so an unused blank row never blocks saving.
   const submitted = rows.filter((r) => r.id || r.label.trim() !== '')
-  const removedCount = own.filter((f) => !rows.some((r) => r.id === f.id)).length
+  const removedCount = customOwn.filter((f) => !rows.some((r) => r.id === f.id)).length
 
   const save = useMutation({
     mutationFn: () =>
@@ -189,6 +208,20 @@ function AttributeListForm({ category, own, intro, onClose }: { category: Tenant
     },
   })
 
+  const sectionLabel: Record<string, string> = {
+    basic_information: 'Basic Information',
+    location_ownership: 'Location & Ownership',
+    status_condition: 'Status & Condition',
+    other: 'Other',
+  }
+
+  const groupedDefaults = defaultOwn.reduce((acc, attr) => {
+    const section = attr.section || 'other'
+    if (!acc[section]) acc[section] = []
+    acc[section].push(attr)
+    return acc
+  }, {} as Record<string, CategoryAttribute[]>)
+
   return (
     <Modal
       open
@@ -197,7 +230,7 @@ function AttributeListForm({ category, own, intro, onClose }: { category: Tenant
       onClose={onClose}
       footer={
         <>
-          {removedCount > 0 && <p className="mr-auto self-center text-sm text-amber-700">{removedCount} atribut akan dihapus saat disimpan.</p>}
+          {removedCount > 0 && <p className="mr-auto self-center text-sm text-amber-700">{removedCount} atribut kustom akan dihapus saat disimpan.</p>}
           <Button variant="secondary" onClick={onClose}>
             Batal
           </Button>
@@ -207,9 +240,34 @@ function AttributeListForm({ category, own, intro, onClose }: { category: Tenant
         </>
       }
     >
-      {intro}
       {message && <Alert tone="error">{message}</Alert>}
+
+      {/* Default Attributes (Read-only) */}
+      {defaultOwn.length > 0 && (
+        <div className="space-y-4 mb-6">
+          <p className="text-sm font-medium text-slate-700">Atribut Default (Read-only)</p>
+          {Object.entries(groupedDefaults).map(([section, attrs]) => (
+            <div key={section} className="rounded-md bg-slate-50 p-3">
+              <p className="mb-2 text-sm font-semibold text-slate-800">{sectionLabel[section] || section}</p>
+              <ul className="divide-y divide-slate-200 text-sm">
+                {attrs.map((f) => (
+                  <li key={f.id} className="flex justify-between px-2 py-1.5">
+                    <span className="text-slate-700">
+                      {f.label}
+                      {f.is_required && <span className="text-red-600"> *</span>}
+                    </span>
+                    <span className="text-slate-500">{dataTypeLabel[f.data_type]}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Custom Attributes (Editable) */}
       <div className="space-y-3">
+        <p className="text-sm font-medium text-slate-700">Atribut Kustom</p>
         {rows.map((row, i) => (
           <AttributeRow
             key={row.uid}
@@ -220,9 +278,9 @@ function AttributeListForm({ category, own, intro, onClose }: { category: Tenant
             onRemove={() => setRows((current) => current.filter((r) => r.uid !== row.uid))}
           />
         ))}
-        {rows.length === 0 && <p className="rounded-md bg-slate-50 p-4 text-sm text-slate-500">Tidak ada atribut. Aset kategori ini hanya memakai isian standar.</p>}
+        {rows.length === 0 && <p className="rounded-md bg-slate-50 p-4 text-sm text-slate-500">Tidak ada atribut kustom.</p>}
         <Button variant="secondary" onClick={() => setRows((current) => [...current, newRow()])}>
-          <Plus className="size-4" aria-hidden /> Tambah atribut
+          <Plus className="size-4" aria-hidden /> Tambah atribut kustom
         </Button>
       </div>
     </Modal>

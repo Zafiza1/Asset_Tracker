@@ -28,7 +28,31 @@ final class CategoryAttributeService
     public const TYPES = [AttributeType::STRING, AttributeType::TEXT, AttributeType::INTEGER, AttributeType::DECIMAL,
         AttributeType::BOOLEAN, AttributeType::DATE, AttributeType::ENUM];
 
-    private const AUDIT = ['category_id', 'key', 'label', 'data_type', 'is_required', 'options', 'status'];
+    private const AUDIT = ['category_id', 'key', 'label', 'data_type', 'is_required', 'options', 'status', 'is_default', 'section'];
+
+    /** Default attribute sections and their definitions. */
+    public const DEFAULT_ATTRIBUTES = [
+        'basic_information' => [
+            ['label' => 'Name', 'data_type' => AttributeType::STRING, 'is_required' => true],
+            ['label' => 'Brand', 'data_type' => AttributeType::STRING, 'is_required' => false],
+            ['label' => 'Model', 'data_type' => AttributeType::STRING, 'is_required' => false],
+            ['label' => 'UOM', 'data_type' => AttributeType::STRING, 'is_required' => false],
+        ],
+        // No "Location" here: assets already have the built-in location (Lokasi) field.
+        'location_ownership' => [
+            ['label' => 'Owner', 'data_type' => AttributeType::STRING, 'is_required' => false],
+            ['label' => 'Responsible Person', 'data_type' => AttributeType::STRING, 'is_required' => false],
+        ],
+        'status_condition' => [
+            ['label' => 'Operating Hours', 'data_type' => AttributeType::INTEGER, 'is_required' => false],
+            ['label' => 'Condition', 'data_type' => AttributeType::ENUM, 'is_required' => false, 'options' => [
+                ['value' => 'GOOD', 'label' => 'Good'],
+                ['value' => 'FAIR', 'label' => 'Fair'],
+                ['value' => 'POOR', 'label' => 'Poor'],
+                ['value' => 'DAMAGED', 'label' => 'Damaged'],
+            ]],
+        ],
+    ];
 
     public function __construct(
         private readonly MasterWriter $writer,
@@ -76,7 +100,37 @@ final class CategoryAttributeService
             'is_required' => (bool) ($data['is_required'] ?? false),
             'options' => $options,
             'sort_order' => (int) TenantCategoryAttribute::query()->where('category_id', $category->id)->max('sort_order') + 1,
+            'is_default' => false,
         ], 'category_attribute.created', self::AUDIT);
+    }
+
+    /**
+     * Creates default attributes for a new category.
+     * Default attributes are read-only and cannot be modified by users.
+     */
+    public function createDefaultAttributes(TenantAssetCategory $category): void
+    {
+        $sortOrder = 0;
+        foreach (self::DEFAULT_ATTRIBUTES as $section => $attributes) {
+            foreach ($attributes as $attr) {
+                $label = trim($attr['label']);
+                $options = $attr['options'] ?? null;
+
+                $this->writer->create(new TenantCategoryAttribute, [
+                    // Explicit so this also works in system context (backfill seeder).
+                    'organization_id' => $category->organization_id,
+                    'category_id' => $category->id,
+                    'key' => $this->generateKey($label),
+                    'label' => $label,
+                    'data_type' => $attr['data_type'],
+                    'is_required' => (bool) ($attr['is_required'] ?? false),
+                    'options' => $options,
+                    'sort_order' => ++$sortOrder,
+                    'is_default' => true,
+                    'section' => $section,
+                ], 'category_attribute.created', self::AUDIT);
+            }
+        }
     }
 
     /** @param array<string, mixed> $data label, is_required, options */
@@ -84,6 +138,9 @@ final class CategoryAttributeService
     {
         if ($attribute->status === MasterStatus::ARCHIVED) {
             throw ApiException::conflict('ALREADY_ARCHIVED', 'Atribut sudah dihapus.');
+        }
+        if ($attribute->is_default) {
+            throw ApiException::conflict('DEFAULT_ATTRIBUTE_IMMUTABLE', 'Atribut default tidak dapat diubah.');
         }
         $changes = [];
         if (array_key_exists('label', $data)) {
@@ -130,6 +187,11 @@ final class CategoryAttributeService
 
                 continue;
             }
+            if ($existing !== null && $existing->is_default) {
+                $errors["{$prefix}.id"] = ['Atribut default tidak dapat diubah.'];
+
+                continue;
+            }
             if ($existing !== null && $row['data_type'] !== $existing->data_type) {
                 $errors["{$prefix}.data_type"] = ['Tipe isian tidak dapat diubah setelah atribut dibuat.'];
             }
@@ -173,8 +235,11 @@ final class CategoryAttributeService
                     ], 'category_attribute.created', self::AUDIT);
                 }
             }
+            // Only archive non-default attributes
             foreach ($own->except($kept) as $removed) {
-                $this->archive($removed);
+                if (!$removed->is_default) {
+                    $this->archive($removed);
+                }
             }
         });
 
@@ -184,6 +249,9 @@ final class CategoryAttributeService
     /** Removing a field archives it: it disappears from forms, its key is never reused. */
     public function archive(TenantCategoryAttribute $attribute): TenantCategoryAttribute
     {
+        if ($attribute->is_default) {
+            throw ApiException::conflict('DEFAULT_ATTRIBUTE_IMMUTABLE', 'Atribut default tidak dapat dihapus.');
+        }
         return $this->writer->archive($attribute, 'category_attribute.archived', null);
     }
 

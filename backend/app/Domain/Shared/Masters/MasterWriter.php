@@ -30,7 +30,8 @@ final class MasterWriter
             $model->forceFill($attributes)->save();
             // Load column defaults (status, flags, ...) so the response and the audit entry are complete.
             $model->refresh();
-            $this->audit->record($action, $model, after: $model->only($auditFields));
+            // Outside a tenant context (system backfills) the entry still belongs to the row's organization.
+            $this->audit->record($action, $model, after: $model->only($auditFields), organizationId: $model->getAttribute('organization_id'));
 
             return $model;
         });

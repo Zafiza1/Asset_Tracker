@@ -22,17 +22,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property list<array{value: string, label: string}>|null $options
  * @property int $sort_order
  * @property string $status
+ * @property bool $is_default
+ * @property string|null $section
  */
 class TenantCategoryAttribute extends Model
 {
     use BelongsToOrganization, HasUuids;
 
-    protected $fillable = ['label', 'is_required', 'options'];
+    protected $fillable = ['label', 'is_required', 'options', 'is_default', 'section'];
 
     protected function casts(): array
     {
         return [
             'is_required' => 'boolean',
+            'is_default' => 'boolean',
             'options' => 'array',
             'sort_order' => 'integer',
         ];

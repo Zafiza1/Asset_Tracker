@@ -17,3 +17,27 @@ export function useCategoryAttributes(categoryId: string | null | undefined) {
 export function attributeRows(fields: CategoryAttribute[], values: Record<string, AttributeValue>) {
   return fields.map((f) => ({ key: f.key, label: f.label, value: formatAttributeValue(values[f.key], f.options) }))
 }
+
+/** Section labels for category attributes */
+export const SECTION_LABELS: Record<string, string> = {
+  basic_information: 'Basic Information',
+  location_ownership: 'Location & Ownership',
+  status_condition: 'Status & Condition',
+  other: 'Other',
+}
+
+/** Group category attributes by section for detail views */
+export function attributeRowsBySection(fields: CategoryAttribute[], values: Record<string, AttributeValue>) {
+  const grouped = fields.reduce((acc, f) => {
+    const section = f.section || 'other'
+    if (!acc[section]) acc[section] = []
+    acc[section].push({
+      key: f.key,
+      label: f.label,
+      value: formatAttributeValue(values[f.key], f.options),
+    })
+    return acc
+  }, {} as Record<string, Array<{ key: string; label: string; value: string }>>)
+
+  return grouped
+}

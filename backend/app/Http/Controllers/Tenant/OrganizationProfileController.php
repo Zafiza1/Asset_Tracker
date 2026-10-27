@@ -57,29 +57,6 @@ class OrganizationProfileController extends Controller
         return new OrganizationSettingResource(OrganizationSetting::query()->firstOrFail());
     }
 
-    public function updateSettings(Request $request): OrganizationSettingResource
-    {
-        $data = $request->validate([
-            'asset_number_format' => ['sometimes', 'required', 'string', 'max:60', 'regex:/\{SEQ(:\d)?\}/'],
-            'transaction_number_format' => ['sometimes', 'required', 'string', 'max:60', 'regex:/\{SEQ(:\d)?\}/'],
-            'allow_self_approval_default' => ['sometimes', 'required', 'boolean'],
-            'max_upload_mb' => ['sometimes', 'required', 'integer', 'min:1', 'max:50'],
-        ]);
-
-        $settings = OrganizationSetting::query()->firstOrFail();
-
-        DB::transaction(function () use ($settings, $data) {
-            $before = $settings->only(array_keys($data));
-            $settings->fill($data)->save();
-            [$b, $a] = AuditLogger::diff($before, $settings->only(array_keys($data)));
-            if ($a !== []) {
-                $this->audit->record('settings.updated', 'OrganizationSetting', $settings->organization_id, before: $b, after: $a);
-            }
-        });
-
-        return new OrganizationSettingResource($settings);
-    }
-
     private function organization(): Organization
     {
         return Organization::query()->findOrFail($this->tenancy->organizationId());

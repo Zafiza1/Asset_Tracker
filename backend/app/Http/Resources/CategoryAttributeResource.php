@@ -22,6 +22,8 @@ class CategoryAttributeResource extends JsonResource
             'category' => $this->whenLoaded('category', fn () => Ref::of($this->category)),
             'sort_order' => $this->sort_order,
             'status' => $this->status,
+            'is_default' => $this->is_default,
+            'section' => $this->section,
         ];
     }
 }

@@ -299,6 +299,8 @@ export interface CategoryAttribute {
   category?: Ref | null
   sort_order: number
   status: 'active' | 'archived'
+  is_default: boolean
+  section: 'basic_information' | 'location_ownership' | 'status_condition' | null
 }
 
 export type CategoryAttributeType = Exclude<AttributeDataType, 'multi_enum'>

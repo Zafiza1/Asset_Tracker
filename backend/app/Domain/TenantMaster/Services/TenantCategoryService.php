@@ -10,6 +10,7 @@ use App\Domain\Shared\Masters\MasterWriter;
 use App\Domain\Shared\Masters\MaterializedPath;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantAssetDefinition;
+use App\Domain\TenantMaster\Services\CategoryAttributeService;
 
 /**
  * Organization categories. Every category is anchored to one generic category (internal
@@ -27,6 +28,7 @@ final class TenantCategoryService
     public function __construct(
         private readonly MasterWriter $writer,
         private readonly MasterUsage $usage,
+        private readonly CategoryAttributeService $attributes,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -46,7 +48,12 @@ final class TenantCategoryService
             throw ApiException::unprocessable('INVALID_REFERENCE', 'Kategori generik tidak ditemukan atau tidak aktif.');
         }
 
-        return $this->writer->create(new TenantAssetCategory, $data, 'tenant_category.created', self::AUDIT);
+        $category = $this->writer->create(new TenantAssetCategory, $data, 'tenant_category.created', self::AUDIT);
+
+        // Create default attributes for the new category
+        $this->attributes->createDefaultAttributes($category);
+
+        return $category;
     }
 
     /** @param array<string, mixed> $data */

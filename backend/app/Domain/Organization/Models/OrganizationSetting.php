@@ -16,7 +16,8 @@ class OrganizationSetting extends Model
 {
     use BelongsToOrganization;
 
-    public const EDITABLE = ['asset_number_format', 'transaction_number_format', 'allow_self_approval_default', 'max_upload_mb'];
+    /** All settings are system defaults (column defaults), not editable by organizations. */
+    public const EDITABLE = [];
 
     protected $primaryKey = 'organization_id';
 

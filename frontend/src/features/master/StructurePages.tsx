@@ -84,7 +84,6 @@ export function LocationsPage() {
       <MasterListPage<Location>
         title="Lokasi"
         embedded
-        description="Lokasi fisik aset, dapat bertingkat (gedung → lantai → ruangan). Memfilter lokasi induk ikut menampilkan aset di sub-lokasinya."
         endpoint="/locations"
         {...useMasterPermissions()}
         filters={[
@@ -120,7 +119,6 @@ export function LocationTypesPage() {
       <MasterListPage<LocationType>
         title="Jenis Lokasi"
         embedded
-        description="Jenis bawaan disediakan sistem dan tidak dapat diubah. Tambahkan jenis lokasi milik organisasi sendiri bila belum tersedia."
         endpoint="/location-types"
         {...useMasterPermissions()}
         isReadOnly={(r) => r.is_built_in}

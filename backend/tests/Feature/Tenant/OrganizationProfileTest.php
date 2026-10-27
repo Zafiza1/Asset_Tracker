@@ -7,7 +7,7 @@ use Tests\TestCase;
 
 class OrganizationProfileTest extends TestCase
 {
-    public function test_admin_updates_profile_and_settings_with_audit_diff(): void
+    public function test_admin_updates_profile_with_audit_diff_but_not_settings(): void
     {
         ['organization' => $org, 'admin' => $admin] = $this->createOrganization('ALPHA');
         $this->actingAs($admin, 'web');
@@ -19,10 +19,11 @@ class OrganizationProfileTest extends TestCase
         $this->assertSame(['name' => 'Organisasi ALPHA', 'phone' => null], $log->before);
         $this->assertSame(['name' => 'PT Alpha Baru', 'phone' => '021-555'], $log->after);
 
-        $this->putJson('/api/settings', ['asset_number_format' => 'INV-{YYYY}-{SEQ:5}', 'max_upload_mb' => 10])
-            ->assertOk()->assertJsonPath('data.asset_number_format', 'INV-{YYYY}-{SEQ:5}');
-        $this->putJson('/api/settings', ['asset_number_format' => 'TANPA-SEQ'])->assertStatus(422);
-        $this->assertTrue(AuditLog::query()->where('action', 'settings.updated')->where('organization_id', $org->id)->exists());
+        // Settings are system defaults: readable, but there is no endpoint to change them.
+        $this->getJson('/api/settings')->assertOk()
+            ->assertJsonPath('data.asset_number_format', 'AST-{YYYY}-{SEQ:6}')->assertJsonPath('data.max_upload_mb', 20);
+        $this->putJson('/api/settings', ['max_upload_mb' => 10])->assertStatus(405);
+        $this->assertFalse(AuditLog::query()->where('action', 'settings.updated')->where('organization_id', $org->id)->exists());
     }
 
     public function test_viewer_can_read_profile_but_not_change_it(): void

@@ -127,8 +127,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
 
     Route::get('/organization', [OrganizationProfileController::class, 'show'])->middleware('permission:organization.view');
     Route::put('/organization', [OrganizationProfileController::class, 'update'])->middleware('permission:organization.manage');
+    // Settings are system defaults: readable, not editable by organizations.
     Route::get('/settings', [OrganizationProfileController::class, 'settings'])->middleware('permission:settings.manage');
-    Route::put('/settings', [OrganizationProfileController::class, 'updateSettings'])->middleware('permission:settings.manage');
 
     Route::get('/users', [UserController::class, 'index'])->middleware('permission:user.view');
     Route::get('/users/organization-options', [UserController::class, 'organizationOptions'])->middleware('permission:user.create,role.manage');
