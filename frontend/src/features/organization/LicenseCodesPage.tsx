@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Key, Plus, Trash2 } from 'lucide-react'
+import { Key, Plus } from 'lucide-react'
 import { useState } from 'react'
+import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select } from '../../components/ui/Field'
@@ -20,7 +21,7 @@ export function LicenseCodesPage() {
   const [status, setStatus] = useState('')
   const [action, setAction] = useState<Action | null>(null)
   const [creating, setCreating] = useState(false)
-  const page = 1
+  const [page, setPage] = useState(1)
   const canManage = can('user.create') && can('role.manage')
 
   const query = useQuery({
@@ -93,34 +94,18 @@ export function LicenseCodesPage() {
             key: 'actions',
             header: 'Tindakan',
             cell: (c: LicenseCode) =>
-              c.status === 'assigned' ? (
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    className="text-sm text-slate-600 hover:text-slate-900"
-                    onClick={() => confirm({ kind: 'release', code: c })}
-                  >
-                    Release
-                  </button>
-                  <button
-                    type="button"
-                    className="text-sm text-red-600 hover:text-red-900"
-                    onClick={() => confirm({ kind: 'revoke', code: c })}
-                  >
-                    Revoke
-                  </button>
+              c.status === 'revoked' ? null : (
+                <div className="flex gap-2">
+                  {c.status === 'assigned' && (
+                    <Button variant="secondary" size="sm" onClick={() => confirm({ kind: 'release', code: c })}>
+                      Lepaskan
+                    </Button>
+                  )}
+                  <Button variant="secondary" size="sm" onClick={() => confirm({ kind: 'revoke', code: c })}>
+                    Cabut
+                  </Button>
                 </div>
-              ) : c.status === 'available' ? (
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    className="text-sm text-red-600 hover:text-red-900"
-                    onClick={() => confirm({ kind: 'revoke', code: c })}
-                  >
-                    Revoke
-                  </button>
-                </div>
-              ) : null,
+              ),
           },
         ]
       : []),
@@ -145,7 +130,7 @@ export function LicenseCodesPage() {
       />
       <Card>
         <div className="mb-4 flex gap-4">
-          <Select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter status">
+          <Select value={status} onChange={(e) => (setStatus(e.target.value), setPage(1))} aria-label="Filter status">
             <option value="">Status: semua</option>
             <option value="available">Tersedia</option>
             <option value="assigned">Ditugaskan</option>
@@ -165,7 +150,7 @@ export function LicenseCodesPage() {
         ) : (
           <>
             <DataTable columns={columns} rows={query.data!.data} />
-            <Pagination meta={query.data!.meta} onPage={(p) => setStatus(status)} />
+            <Pagination meta={query.data!.meta} onPage={setPage} />
           </>
         )}
       </Card>
@@ -175,6 +160,8 @@ export function LicenseCodesPage() {
         action={action}
         onClose={() => setAction(null)}
         onConfirm={() => action && mutation.mutate(action)}
+        pending={mutation.isPending}
+        error={mutation.isError ? errorMessage(mutation.error) : null}
       />
     </>
   )
@@ -232,33 +219,44 @@ function CreateModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
   )
 }
 
-function ActionModal({ open, action, onClose, onConfirm }: { open: boolean; action: Action | null; onClose: () => void; onConfirm: () => void }) {
+function ActionModal({
+  open,
+  action,
+  onClose,
+  onConfirm,
+  pending,
+  error,
+}: {
+  open: boolean
+  action: Action | null
+  onClose: () => void
+  onConfirm: () => void
+  pending: boolean
+  error: string | null
+}) {
   if (!action) return null
 
   return (
     <Modal
       open={open}
-      title={action.kind === 'revoke' ? 'Cabut Kode Lisensi' : 'Release Kode Lisensi'}
+      title={action.kind === 'revoke' ? 'Cabut kode lisensi' : 'Lepaskan kode lisensi'}
       onClose={onClose}
       footer={
         <>
-          <button type="button" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Batal
-          </button>
-          <button
-            type="button"
-            className={`rounded-md px-4 py-2 text-sm font-medium text-white ${action.kind === 'revoke' ? 'bg-red-600 hover:bg-red-700' : 'bg-brand-700 hover:bg-brand-800'}`}
-            onClick={onConfirm}
-          >
-            {action.kind === 'revoke' ? 'Cabut' : 'Release'}
-          </button>
+          </Button>
+          <Button variant={action.kind === 'revoke' ? 'danger' : 'primary'} loading={pending} onClick={onConfirm}>
+            {action.kind === 'revoke' ? 'Cabut kode' : 'Lepaskan kode'}
+          </Button>
         </>
       }
     >
+      {error && <Alert tone="error">{error}</Alert>}
       <p className="text-sm text-slate-700">
         {action.kind === 'revoke'
           ? `Kode lisensi ${action.code.code} akan dicabut permanen dan tidak dapat digunakan lagi.`
-          : `Kode lisensi ${action.code.code} akan di-release dan dapat digunakan kembali untuk pengguna lain.`}
+          : `Kode lisensi ${action.code.code} akan dilepas dari ${action.code.assigned_user?.name ?? 'penggunanya'} dan dapat dipakai kembali untuk pengguna lain.`}
       </p>
     </Modal>
   )
