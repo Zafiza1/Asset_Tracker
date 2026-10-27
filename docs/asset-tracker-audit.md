@@ -40,8 +40,8 @@ Arah produk saat ini sengaja disederhanakan (`docs/08-asset-tracker-sederhana.md
 ### Risiko utama
 
 1. **[High] Pembajakan akun lewat penambahan anggota tanpa persetujuan** (SEC-01). Admin organisasi bisa menambahkan *akun yang sudah ada* hanya dengan email, tanpa undangan atau persetujuan pemilik akun, dan email tidak pernah diverifikasi. Penyerang bisa mendaftar lebih dulu memakai email karyawan target, lalu otomatis mendapat akses saat admin "menambahkan" email tersebut.
-2. **[Medium] Eskalasi cakupan data lewat `PUT /api/users/{id}/scopes`** (SEC-03). Endpoint ini tidak punya pemeriksaan anti-eskalasi dan tidak melarang pengguna mengubah scope dirinya sendiri.
-3. **[Medium] Lolos dari cakupan lokasi dengan memindah induk lokasi** (SEC-04). Pengguna ber-scope lokasi yang punya `master.tenant.update` (default: Asset Manager) bisa memindahkan lokasi mana pun ke bawah lokasi scope-nya, lalu melihat dan mentransaksikan semua aset di sana.
+2. **[Medium] Eskalasi cakupan data lewat `PUT /api/users/{id}/scopes`** (SEC-03). Endpoint ini tidak punya pemeriksaan anti-eskalasi dan tidak melarang pengguna mengubah scope dirinya sendiri. *(Pembaruan 2026-10-26: diperbaiki, belum di-commit. Lihat §5, "Status perbaikan SEC-03 / SEC-04".)*
+3. **[Medium] Lolos dari cakupan lokasi dengan memindah induk lokasi** (SEC-04). Pengguna ber-scope lokasi yang punya `master.tenant.update` (default: Asset Manager) bisa memindahkan lokasi mana pun ke bawah lokasi scope-nya, lalu melihat dan mentransaksikan semua aset di sana. *(Pembaruan 2026-10-26: diperbaiki, belum di-commit. Lihat §5.)*
 4. **[Medium] Enumerasi email lintas platform** (SEC-02) melalui aturan validasi saat membuat pengguna.
 5. **Gap fungsional terhadap target**: tidak ada onboarding untuk pengguna tanpa organisasi (login ditolak), tidak ada undangan, tidak ada transaksi multi-aset/approval/reversal, dan belum ada barcode/RFID.
 
@@ -317,6 +317,48 @@ Skenario: Asset Manager dengan scope "Gedung A" memindahkan lokasi "Gedung B" ag
 
 Rekomendasi: untuk aktor yang tidak ber-scope organisasi, wajibkan lokasi yang diubah **dan** induk barunya berada dalam scope aktor. Pertimbangkan hanya mengizinkan scope organisasi untuk mengubah struktur lokasi. Tambahkan test.
 
+#### Status perbaikan SEC-03 / SEC-04 (pembaruan 2026-10-26)
+
+**Status: diperbaiki di working tree di atas `0f04885`, belum di-commit dan belum direview.** Tidak ada blocker kritis. Masih ada satu keputusan produk yang tidak kritis (D-1). Status *tuntas* baru layak setelah commit dan review.
+
+Aturan yang diterapkan (docs/05 §3–4, docs/04). Aturan kebijakan lengkap ada di docs/05 §3.1.
+1. Tidak ada pengguna yang dapat mengubah scope dirinya sendiri (`422 CANNOT_CHANGE_OWN_SCOPE`).
+2. Aktor ber-scope terbatas hanya dapat memberi entri yang tercakup scope miliknya: lokasi itu atau sub-lokasinya, atau departemen yang ia miliki. Entri `organization` hanya dapat diberikan aktor ber-scope organisasi (`403 SCOPE_ESCALATION`).
+3. Aktor hanya dapat mengelola anggota yang tidak lebih kuat darinya, yaitu anggota yang semua permission dan entri scope-nya berada dalam milik aktor. Aturan ini berlaku untuk scope, role, status (suspend/aktifkan/nonaktifkan), reset password, data akun, dan data jabatan (`employee_number`, `job_title`, `home_department_id`). Pelanggaran ditolak dengan `403 PRIVILEGE_ESCALATION` atau `403 SCOPE_ESCALATION`. Mengirim ulang nilai yang sama tidak dianggap perubahan.
+4. Mengubah permission sebuah role mensyaratkan scope **semua** pemegang role tersebut berada dalam scope aktor.
+5. Scope dan role undangan diperiksa saat undangan dibuat, dikirim ulang, diterima (terhadap scope pengundang saat itu), dan **dicabut**.
+6. Pada struktur lokasi, aktor ber-scope terbatas hanya dapat mengubah, mengarsipkan, atau memulihkan lokasi dalam scope-nya (`403 LOCATION_OUT_OF_SCOPE`), dan hanya dapat memasang lokasi di bawah induk dalam scope (`422 LOCATION_OUT_OF_SCOPE`, `fields.parent_id`). Lokasi tingkat atas hanya dapat dibuat oleh aktor ber-scope organisasi.
+7. Scope tanpa entri lokasi tidak pernah mengizinkan lokasi apa pun (fail-closed). Sebelumnya, grup OR yang kosong cocok dengan semua lokasi.
+
+Komponen utama:
+- `backend/app/Domain/Authorization/Services/DataScopeGuard.php` (baru): `assertGrantable`, `assertCovers`, `assertCoversUser`, `assertCoversRoleHolders`, `allowsLocation`.
+- `backend/app/Domain/Assets/AssetScope.php`: perbaikan fail-open untuk scope kosong, dan `allowsLocations` (satu query untuk banyak lokasi).
+- `backend/app/Domain/Identity/Services/UserManagement.php`: `assertManageable` pada `update`, `changeStatus`, `syncRoles`, `syncScopes`, dan `resetPassword`.
+- `backend/app/Domain/Authorization/Services/RoleManagement.php` (`update`).
+- `backend/app/Domain/Identity/Services/OrganizationInvitations.php` (`create`, `resend`, `revoke`, `complete`).
+- `backend/app/Domain/Organization/Services/OrganizationStructureService.php` (lokasi).
+- Test: `backend/tests/Feature/Security/DataScopeEscalationTest.php` (28 test) dan `frontend/src/test/accessErrors.test.tsx` (7 test).
+
+Bukti test:
+
+| | Hasil |
+|---|---|
+| **Sebelum**: `DataScopeEscalationTest` versi akhir dijalankan pada kode HEAD `0f04885` (worktree terpisah, tanpa patch) | 12 lulus, **16 gagal**. Setiap kegagalan berupa permintaan eskalasi yang **diterima** (200/201/204), padahal seharusnya ditolak dengan 403/422. |
+| **Sebelum** (residual): fix data jabatan, fix pencabutan undangan, dan fix N+1 dinonaktifkan sementara | 3 test gagal: 200 alih-alih 403, 200 alih-alih 403, serta 37 query alih-alih 27 untuk role dengan 6 pemegang. |
+| **Sesudah**: `DataScopeEscalationTest` | 28/28 lulus |
+| **Sesudah**: seluruh backend / frontend | 281/281 · 63/63. `tsc`, oxlint, Pint, dan Vite build lulus. |
+
+Jenis test: test backend adalah *feature test* yang melewati route, middleware (`auth:sanctum`, `tenant`, `permission:*`), validasi, service, dan serialisasi respons yang sebenarnya, dalam proses (HTTP kernel Laravel) dengan PostgreSQL + RLS. Test frontend adalah test komponen (Vitest + jsdom, API di-mock). Test ini memastikan bahwa `SCOPE_ESCALATION` ditampilkan, form/dialog tetap terbuka, dan tidak muncul pesan sukses atau navigasi. **Belum ada** smoke test terhadap server yang berjalan dan **belum ada** E2E browser.
+
+Temuan residual yang dinilai dan sengaja dibiarkan:
+- **Nomor seri.** Pemeriksaan unik berlaku untuk seluruh organisasi, sama dengan indeks `assets_serial_unique (organization_id, lower(serial_number))`. Pesannya generik ("No seri sudah dipakai aset lain.") tanpa lokasi, pemilik, atau detail aset. Satu-satunya informasi yang terungkap adalah bahwa nomor seri itu sudah ada di organisasi. Ini konsekuensi yang tak terhindarkan dari keunikan per organisasi. Menyembunyikannya hanya mungkin jika keunikan diubah menjadi per scope, dan itu keputusan produk. Pada race (dua request bersamaan lolos pre-check), indeks DB menolak salah satunya dengan `409 DUPLICATE` generik. Integritas data tetap terjaga dan tidak ada yang bocor; hanya bentuk responsnya yang berbeda dari 422.
+- **Race (TOCTOU).** Pemeriksaan scope dilakukan sebelum transaksi. Scope aktor sendiri dibaca sekali per request (`TenantContext`), sehingga lock tidak dapat menutup celah ini. Eskalasi lewat race hanya mungkin jika, pada saat yang sama, admin dengan scope lebih luas memperluas target, misalnya aktor terbatas mengubah role tepat ketika OA menjadikan target ber-scope organisasi. Itu butuh aksi bersamaan dari aktor yang berwenang, dampaknya terbatas pada role yang memang boleh diberikan aktor, dan tercatat di audit. Karena belum ada bukti kebutuhan, lock tidak ditambahkan. Jika nanti diperlukan: di dalam transaksi, kunci `organization_members` target (`FOR UPDATE`), lalu jalankan ulang `assertManageable`. Urutan kunci: organisasi (`OrgAdminGuard::lock`) → membership target → role.
+- **N+1 di `RoleManagement::update`.** Diperbaiki: scope semua pemegang role dibaca sebagai satu union (satu query), dan lokasinya diperiksa dalam satu query. Jumlah query tidak bergantung pada jumlah pemegang (dibuktikan oleh test).
+
+Keputusan yang masih memerlukan pemilik produk:
+- **D-1 — Pengelolaan departemen oleh aktor ber-scope terbatas.** Dokumen hanya mensyaratkan `master.tenant.*` (docs/04). Saat ini scope departemen tidak memberi akses aset apa pun (aset tidak punya departemen, dan UI menyembunyikan pilihan scope departemen), sehingga **tidak ada jalur eskalasi**. Dampaknya hanya operasional: aktor dapat mengganti nama atau mengarsipkan departemen yang dipakai unit lain. Opsi: (a) tetap seperti sekarang; (b) hanya aktor ber-scope organisasi; (c) hanya departemen yang ada dalam scope departemen aktor. Rekomendasi: (a) untuk sekarang, lalu (b) jika departemen kelak dipakai untuk scope aset.
+- **D-2 — Visibilitas daftar (dikonfirmasi, tidak diubah).** Daftar pengguna dan undangan (`user.view`), audit log (`audit.view`), serta lokasi dan departemen (`master.tenant.view`) berlaku untuk seluruh organisasi, sesuai docs/04. Akibatnya, aktor ber-scope terbatas dapat melihat semua anggota dan seluruh pohon lokasi. Pemegang `audit.view` (default hanya OA dan Auditor) juga dapat melihat event aset di luar scope-nya. Jika audit log atau daftar pengguna harus dibatasi scope, itu perubahan kebijakan tersendiri.
+
 #### SEC-05 — Proteksi brute-force terbatas
 **Risiko: Low** · [Terkonfirmasi]
 
@@ -334,6 +376,23 @@ Rekomendasi: alur "lupa password" berbasis email dengan token sekali pakai (brok
 
 `ate_current_org()` / `ate_platform_context()` membaca `current_setting('app.*')` (migrasi `000000`, baris 16-23), yang diisi aplikasi (`Tenancy.php:189`). Role `ate_app` dapat menjalankan `set_config` sendiri, sehingga RLS melindungi dari bug query aplikasi, tetapi **tidak** dari SQL injection. Saat ini tidak ditemukan SQL mentah yang memakai input tanpa binding.
 Rekomendasi: dokumentasikan batasan ini. Untuk pengamanan tambahan, set konteks lewat fungsi `SECURITY DEFINER` yang memverifikasi token per request, dan pertahankan larangan SQL mentah tanpa binding (lint/review).
+
+#### Status perbaikan SEC-07 (Tahap B, pembaruan 2026-10-26)
+
+**Status: diimplementasikan di working tree (branch `sec-07-stage-b`), belum di-commit, belum direview, belum di produksi.** Diuji hanya di cluster PostgreSQL 17 sekali pakai.
+
+Audit lanjutan (Tahap A) menemukan bahwa masalahnya lebih luas dari GUC: 20 dari 40 tabel tanpa RLS memberi `ate_app` DML penuh (akun, peran platform, organisasi), payload sesi bisa disalin antarbaris `sessions`, dan konteks PHP/DB bisa tidak sinkron setelah rollback. Perbaikan terdiri dari empat bagian yang dapat direview terpisah:
+
+| Bagian | Isi | Berkas utama |
+|---|---|---|
+| B1 Konteks bertanda tangan | RLS hanya mempercayai `app.context` = klaim HMAC-SHA256 (`v1\|kid\|pid\|backend_start\|exp\|mode\|org\|user`) yang diverifikasi `ate_ctx.verified_context()` (SECURITY DEFINER, milik role NOLOGIN `ate_ctx`, kunci di `ate_private`). Klaim terikat ke satu backend, kedaluwarsa, dan untuk mode tenant mensyaratkan anggota aktif organisasi aktif. Policy memanggil fungsi sebagai `(SELECT f())` (sekali per statement). Kunci dipasang/dirotasi dengan `php artisan db:context-key`. | migrasi `001300`, `ContextClaim`, `DatabaseContextKey`, `Tenancy` |
+| B2 Pembatasan tabel | RLS untuk `users`, `organizations`, `platform_user_roles`; katalog platform hanya bisa ditulis dalam mode system; konteks tenant tidak dapat mengubah akun yang juga milik organisasi lain, tidak dapat membuat akun/organisasi, dan tidak dapat mengubah kode/status organisasi; tanpa akses ke `migrations` dan `password_reset_tokens`; tabel baru tertutup secara default. Alur login/akun berjalan dalam mode system hanya pada baca/tulis akun. | migrasi `001400`, `AccountUserProvider`, controller auth |
+| B3 Pemisahan role | `sessions`/`cache`/`cache_locks` ke `ate_session`, tabel queue ke `ate_queue`; `ate_app` tidak punya akses ke keduanya. | migrasi `001500`, `config/database.php`, `session.php`, `cache.php`, `queue.php` |
+| B4 Lifecycle | Konteks diterapkan ulang setelah setiap rollback/savepoint, pada backend baru (reconnect), dan sebelum klaim lewat separuh umurnya. Kegagalan restore di transaksi yang batal tidak lagi menutupi error aslinya. Klaim tidak pernah masuk query log/event. Test HTTP dimulai tanpa konteks seperti di produksi. | `Tenancy`, `AppServiceProvider`, `tests/TestCase.php` |
+
+Bukti: 7 test reproduksi (`sec-07-repro`) gagal 7/7 sebelum perbaikan dan lulus 7/7 sesudahnya; seluruh suite lulus di cluster terisolasi; migrasi diuji di atas data yang dibuat kode HEAD (naik, rollback, naik lagi; isi tabel identik) dan dengan smoke test HTTP memakai driver sesi/cache `database`.
+
+Risiko sisa: SQL injection yang terjadi saat aplikasi berada dalam mode system tetap berkuasa penuh; kebocoran `DB_CONTEXT_KEY` (RCE di PHP) atau kredensial `ate_owner` meniadakan perlindungan ini; satu verifikasi klaim menambah ±0,2 ms per statement di tabel ber-RLS.
 
 #### SEC-08 — Dependency frontend dengan advisory
 **Risiko: Low** · [Terkonfirmasi]
@@ -365,8 +424,8 @@ Rekomendasi: tambahkan `docs/deployment-checklist.md`; tinjau atau hapus instruk
 | ID | Modul | Kondisi saat ini | Target | Gap | Risiko | Dependensi | Prioritas |
 |---|---|---|---|---|---|---|---|
 | G-01 | Auth / Anggota | Akun yang ada ditempel langsung ke organisasi; email tidak diverifikasi | Undangan dan penerimaan; akses hanya untuk pemilik email | Alur undangan + verifikasi email | High (SEC-01) | — | **P0** |
-| G-02 | Otorisasi | `syncScopes` tanpa anti-eskalasi | Scope hanya bisa diberikan dalam batas aktor | Pengaman scope | Medium (SEC-03) | — | **P0** |
-| G-03 | Otorisasi / Lokasi | Master lokasi tanpa pemeriksaan scope | Pembatasan akses berdasarkan cakupan lokasi | Scope check saat create/move/update lokasi | Medium (SEC-04) | — | **P0** |
+| G-02 | Otorisasi | `syncScopes` tanpa anti-eskalasi | Scope hanya bisa diberikan dalam batas aktor | Pengaman scope — *diperbaiki, belum di-commit (2026-10-26)* | Medium (SEC-03) | — | **P0** |
+| G-03 | Otorisasi / Lokasi | Master lokasi tanpa pemeriksaan scope | Pembatasan akses berdasarkan cakupan lokasi | Scope check saat create/move/update lokasi — *diperbaiki, belum di-commit (2026-10-26)* | Medium (SEC-04) | — | **P0** |
 | G-04 | Auth | Enumerasi email | Respons seragam | Bagian dari G-01 | Medium (SEC-02) | G-01 | **P0** |
 | G-05 | Auth / Onboarding | Pengguna tanpa organisasi aktif ditolak saat login | Diarahkan ke onboarding (buat organisasi / terima undangan) | Login tetap diizinkan dengan `organization=null`; halaman onboarding | Medium | G-01 | P1 |
 | G-06 | Auth / Pemilihan org | Backend auto-pilih organisasi terakhir; UI memaksa pilih | >1 organisasi ⇒ wajib memilih | Sinkronkan kebijakan backend dan frontend | Low | — | P1 |

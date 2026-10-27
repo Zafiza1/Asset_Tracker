@@ -9,6 +9,8 @@ use App\Domain\Authorization\Models\UserDataScope;
 use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
+use App\Domain\Licensing\Models\OrganizationLicense;
+use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
@@ -78,6 +80,9 @@ class DemoSeeder extends Seeder
             adminMustChangePassword: false,
         );
         $orgId = $result['organization']->id;
+        $licensing = app(Licensing::class);
+        $licensing->grant($result['organization'], OrganizationLicense::KIND_BASE, 1, now(), now()->addYear(), 'DEMO');
+        $licensing->grant($result['organization'], OrganizationLicense::KIND_SEATS, 20, now(), now()->addYear(), 'DEMO');
 
         $department = new Department(['code' => $spec['department'][0], 'name' => $spec['department'][1]]);
         $department->forceFill(['organization_id' => $orgId])->save();

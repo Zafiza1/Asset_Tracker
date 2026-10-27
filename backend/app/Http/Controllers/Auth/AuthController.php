@@ -6,6 +6,7 @@ use App\Domain\Audit\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\OrganizationAccess;
 use App\Domain\Identity\Services\SessionTerminator;
+use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Platform\Services\OrganizationProvisioner;
 use App\Domain\Shared\Exceptions\ApiException;
@@ -18,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -43,7 +45,7 @@ class AuthController extends Controller
         ]);
 
         /** @var User|null $user */
-        $user = User::query()->where('email', $credentials['email'])->first();
+        $user = $this->tenancy->runAsSystem(fn () => User::query()->where('email', $credentials['email'])->first());
         // Always run a hash check so response time does not reveal whether the email exists.
         $passwordOk = Hash::check($credentials['password'], $user?->password ?? '$2y$12$'.str_repeat('a', 53));
         $defaultOrgId = $user === null ? null : $this->access->current(null, $user)?->id;
@@ -64,7 +66,7 @@ class AuthController extends Controller
 
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
-        $user->forceFill(['last_login_at' => now()])->save();
+        $this->tenancy->runAsSystem(fn () => $user->forceFill(['last_login_at' => now()])->save());
 
         $this->audit->record('auth.login', $user, organizationId: $defaultOrgId, actor: $user);
 
@@ -77,12 +79,12 @@ class AuthController extends Controller
      * logs in. Existing accounts create further organizations with createOrganization().
      * Runs as system so the uniqueness checks and provisioning see every organization.
      */
-    public function register(Request $request, OrganizationProvisioner $provisioner): JsonResponse
+    public function register(Request $request, OrganizationProvisioner $provisioner, Licensing $licensing): JsonResponse
     {
         $this->assertSelfServiceEnabled();
 
         $request->merge(['organization_code' => strtoupper((string) $request->input('organization_code'))]);
-        $result = $this->tenancy->runAsSystem(function () use ($request, $provisioner) {
+        $result = $this->tenancy->runAsSystem(function () use ($request, $provisioner, $licensing) {
             $data = $request->validate([
                 ...$this->organizationRules(),
                 'name' => ['required', 'string', 'max:150'],
@@ -93,18 +95,25 @@ class AuthController extends Controller
                 'email.unique' => 'Email sudah terdaftar. Silakan masuk, lalu buat organisasi baru dari menu organisasi.',
             ]);
 
-            return $provisioner->provision(
-                ['code' => $data['organization_code'], 'name' => $data['organization_name']],
-                ['name' => $data['name'], 'email' => $data['email'], 'password' => $data['password']],
-                adminMustChangePassword: false,
-            );
+            return DB::transaction(function () use ($provisioner, $licensing, $data) {
+                $result = $provisioner->provision(
+                    ['code' => $data['organization_code'], 'name' => $data['organization_name']],
+                    ['name' => $data['name'], 'email' => $data['email'], 'password' => $data['password']],
+                    adminMustChangePassword: false,
+                );
+                $licensing->grantTrial($result['organization']);
+
+                return $result;
+            });
         });
         $user = $result['admin'];
 
         Auth::guard('web')->login($user);
-        $request->session()->regenerate();
-        $user->forceFill(['last_login_at' => now()])->save();
-        $this->access->switch($request->session(), $user, $result['organization']);
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+            $this->access->switch($request->session(), $user, $result['organization']);
+        }
+        $this->tenancy->runAsSystem(fn () => $user->forceFill(['last_login_at' => now()])->save());
 
         $this->audit->record('auth.registered', $user, organizationId: $result['organization']->id, actor: $user);
         // The address is unproven until its owner follows the link (required to accept invitations).
@@ -114,19 +123,24 @@ class AuthController extends Controller
     }
 
     /** A logged-in tenant user creates another organization (same account) and switches to it. */
-    public function createOrganization(Request $request, OrganizationProvisioner $provisioner): JsonResponse
+    public function createOrganization(Request $request, OrganizationProvisioner $provisioner, Licensing $licensing): JsonResponse
     {
         $this->assertSelfServiceEnabled();
         $user = $this->freshTenantUser($request);
 
         $request->merge(['organization_code' => strtoupper((string) $request->input('organization_code'))]);
-        $organization = $this->tenancy->runAsSystem(function () use ($request, $provisioner, $user) {
+        $organization = $this->tenancy->runAsSystem(function () use ($request, $provisioner, $licensing, $user) {
             $data = $request->validate($this->organizationRules(), ['organization_code.unique' => 'Kode organisasi sudah dipakai.']);
 
-            return $provisioner->provision(
-                ['code' => $data['organization_code'], 'name' => $data['organization_name']],
-                $user,
-            )['organization'];
+            return DB::transaction(function () use ($provisioner, $licensing, $data, $user) {
+                $organization = $provisioner->provision(
+                    ['code' => $data['organization_code'], 'name' => $data['organization_name']],
+                    $user,
+                )['organization'];
+                $licensing->grantTrial($organization);
+
+                return $organization;
+            });
         });
 
         $this->access->switch($request->session(), $user, $organization);
@@ -166,7 +180,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = User::query()->findOrFail($request->user()->getKey());
+        $user = $this->account($request);
 
         if (! $user->isActive()) {
             Auth::guard('web')->setUser($user);
@@ -181,7 +195,7 @@ class AuthController extends Controller
     public function changePassword(Request $request, SessionTerminator $sessions): JsonResponse
     {
         /** @var User $user */
-        $user = User::query()->findOrFail($request->user()->getKey());
+        $user = $this->account($request);
 
         $data = $request->validate([
             'current_password' => ['required', 'string', 'current_password:web'],
@@ -189,11 +203,11 @@ class AuthController extends Controller
                 Password::min(12)->letters()->mixedCase()->numbers()],
         ]);
 
-        $user->forceFill([
+        $this->tenancy->runAsSystem(fn () => $user->forceFill([
             'password' => $data['password'],
             'must_change_password' => false,
             'password_changed_at' => now(),
-        ])->save();
+        ])->save());
 
         $request->session()->regenerate();
         $sessions->terminateAll($user, exceptSessionId: $request->session()->getId());
@@ -218,10 +232,16 @@ class AuthController extends Controller
         ];
     }
 
+    /** Fresh read of the logged-in account. These routes have no context, and RLS protects accounts (SEC-07). */
+    private function account(Request $request): User
+    {
+        return $this->tenancy->runAsSystem(fn () => User::query()->findOrFail($request->user()->getKey()));
+    }
+
     private function freshTenantUser(Request $request): User
     {
         /** @var User $user */
-        $user = User::query()->findOrFail($request->user()->getKey());
+        $user = $this->account($request);
         if (! $user->isActive()) {
             throw new ApiException('ACCOUNT_INACTIVE', 'Akun Anda tidak aktif.', 401);
         }
@@ -261,7 +281,8 @@ class AuthController extends Controller
         ];
 
         if ($user->isPlatformUser()) {
-            $base['permissions'] = (new PlatformContext($user))->permissions();
+            $platform = new PlatformContext($user);
+            $base['permissions'] = $this->tenancy->runAsPlatform($platform, fn () => $platform->permissions());
 
             return $base;
         }
@@ -270,17 +291,21 @@ class AuthController extends Controller
             ->map(fn (Organization $o) => ['id' => $o->id, 'code' => $o->code, 'name' => $o->name])
             ->values()->all();
 
-        $session = $request->session();
-        $organization = $this->access->current($session, $user);
-        if ($organization === null && $session->has(OrganizationAccess::SESSION_KEY)) {
-            // The active organization is no longer accessible: fall back to the automatic choice.
-            $this->access->forget($session);
+        if ($request->hasSession()) {
+            $session = $request->session();
             $organization = $this->access->current($session, $user);
-        }
-        if ($organization === null) {
+            if ($organization === null && $session->has(OrganizationAccess::SESSION_KEY)) {
+                // The active organization is no longer accessible: fall back to the automatic choice.
+                $this->access->forget($session);
+                $organization = $this->access->current($session, $user);
+            }
+            if ($organization === null) {
+                return $base;
+            }
+            $base['organization'] = (new OrganizationResource($organization))->resolve();
+        } else {
             return $base;
         }
-        $base['organization'] = (new OrganizationResource($organization))->resolve();
 
         return $this->tenancy->runAsTenant(new TenantContext($organization, $user), function () use ($base, $user) {
             $context = $this->tenancy->tenant();

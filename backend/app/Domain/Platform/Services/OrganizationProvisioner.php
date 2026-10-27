@@ -18,11 +18,13 @@ use Illuminate\Support\Facades\DB;
 use LogicException;
 
 /**
- * Creates a complete, usable organization in one database transaction:
- * organization + settings + roles from templates + first Organization Administrator.
+ * Creates a complete organization in one database transaction:
+ * organization + settings + roles from templates (+ first Organization Administrator).
  *
- * The administrator is either a new account or an existing tenant account (one login for
- * several organizations); an existing account keeps its password and profile.
+ * The administrator is given only where the account owner is the one acting: self-service
+ * sign-up (a new account) or a logged-in account creating another organization (it keeps its
+ * password and profile). The platform console passes no administrator; the organization then
+ * has no member until the invited address accepts (OrganizationInvitations::inviteFirstAdmin).
  */
 final class OrganizationProvisioner
 {
@@ -33,10 +35,10 @@ final class OrganizationProvisioner
 
     /**
      * @param  array<string, mixed>  $organization  code + profile fields
-     * @param  array{name: string, email: string, password: string}|User  $admin  new account data, or an existing tenant account
-     * @return array{organization: Organization, admin: User}
+     * @param  array{name: string, email: string, password: string}|User|null  $admin  new account data, an existing tenant account acting for itself, or none
+     * @return array{organization: Organization, admin: User|null}
      */
-    public function provision(array $organization, array|User $admin, bool $adminMustChangePassword = true): array
+    public function provision(array $organization, array|User|null $admin, bool $adminMustChangePassword = true): array
     {
         if (! $this->tenancy->isUnrestricted()) {
             throw ApiException::forbidden();
@@ -53,6 +55,12 @@ final class OrganizationProvisioner
             $settings->forceFill(['organization_id' => $org->id])->save();
 
             $roles = $this->createRoles($org);
+
+            if ($admin === null) {
+                $this->audit->record('organization.created', $org, after: ['code' => $org->code, 'name' => $org->name], organizationId: $org->id);
+
+                return ['organization' => $org, 'admin' => null];
+            }
 
             $existing = $admin instanceof User;
             if ($existing) {

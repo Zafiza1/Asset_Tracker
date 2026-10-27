@@ -58,6 +58,7 @@ class InvitationController extends Controller
             'employee_number' => ['nullable', 'string', 'max:50'],
             'job_title' => ['nullable', 'string', 'max:100'],
             'home_department_id' => ['nullable', 'uuid'],
+            'license_code_id' => ['required', 'uuid'],
             'role_ids' => ['required_without:memberships', 'array', 'min:1'],
             'role_ids.*' => ['uuid'],
             'memberships' => ['sometimes', 'array', 'min:1'],
@@ -81,9 +82,9 @@ class InvitationController extends Controller
             ], $data['memberships'])
             : [['organization_id' => $currentId, 'role_ids' => $data['role_ids'], 'scopes' => $data['scopes']]];
 
-        $invitations = $this->members->invite($this->tenancy->tenant()->user, $data['email'], $profile, $grants);
+        $invitations = $this->members->invite($this->tenancy->tenant()->user, $data['email'], $profile, $grants, $data['license_code_id'] ?? null);
         $current = $invitations[$currentId] ?? null;
-        $current?->load('inviter');
+        $current?->load('inviter', 'licenseCode');
 
         // data describes the current organization's invitation; null when only others were invited.
         return response()->json([

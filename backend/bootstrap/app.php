@@ -3,6 +3,7 @@
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Exceptions\ApiExceptionRenderer;
 use App\Http\Middleware\AssignRequestId;
+use App\Http\Middleware\EnsureLicensed;
 use App\Http\Middleware\EnsureModuleAvailable;
 use App\Http\Middleware\RequirePermission;
 use App\Http\Middleware\ResolvePlatform;
@@ -34,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'tenant' => ResolveTenant::class,
+            'license' => EnsureLicensed::class,
             'platform' => ResolvePlatform::class,
             'permission' => RequirePermission::class,
             'module' => EnsureModuleAvailable::class,

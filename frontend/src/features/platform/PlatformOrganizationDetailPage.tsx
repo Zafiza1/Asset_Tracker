@@ -6,13 +6,141 @@ import { statusTone } from '../../components/ui/badgeTones'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
-import { Field, Textarea } from '../../components/ui/Field'
+import { Field, Input, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { api } from '../../lib/api/client'
-import type { Organization, Resource } from '../../lib/api/types'
+import type { AdminOnboarding, EmailDelivery, Organization, OrganizationInvitation, Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { errorMessage } from '../../lib/forms'
-import { formatDateTime, orgStatusLabel } from '../../lib/format'
+import { formatDateTime, invitationStatusLabel, orgStatusLabel } from '../../lib/format'
+
+type WithDelivery<T> = { data: T; meta: { email_delivery: EmailDelivery } }
+
+/** Never claim an email was sent when the server only writes it to its log. */
+function sentNotice(email: string, delivery: EmailDelivery): string {
+  return delivery === 'mail'
+    ? `Undangan dikirim ke ${email}.`
+    : `Undangan untuk ${email} dibuat, tetapi email hanya ditulis ke log server dan tidak terkirim ke penerima.`
+}
+
+/**
+ * The organization's first administrator is invited, never assigned: nobody has access until the
+ * owner of the address accepts with a verified account (or signs up through the invitation).
+ */
+function AdminOnboardingCard({ organization }: { organization: Organization }) {
+  const { can } = useAuth()
+  const queryClient = useQueryClient()
+  const [notice, setNotice] = useState<string | null>(null)
+  const [inviting, setInviting] = useState(false)
+  const [email, setEmail] = useState('')
+  const base = `/platform/organizations/${organization.id}/admin-invitation`
+  const queryKey = ['platform', 'organizations', organization.id, 'admin-invitation']
+  const query = useQuery({ queryKey, queryFn: () => api.get<WithDelivery<AdminOnboarding>>(base) })
+  const mutation = useMutation({
+    mutationFn: (action: 'invite' | 'resend' | 'revoke') =>
+      api.post<WithDelivery<OrganizationInvitation>>(action === 'invite' ? base : `${base}/${action}`, action === 'invite' ? { email } : undefined),
+    onSuccess: async (res, action) => {
+      await queryClient.invalidateQueries({ queryKey })
+      setInviting(false)
+      setEmail('')
+      setNotice(action === 'revoke' ? `Undangan untuk ${res.data.email} dicabut.` : sentNotice(res.data.email, res.meta.email_delivery))
+    },
+  })
+
+  if (query.isLoading) return <Card title="Administrator pertama"><Spinner /></Card>
+  if (query.isError) return <Card title="Administrator pertama"><ErrorState error={query.error} /></Card>
+  const { data: onboarding, meta } = query.data!
+  const invitation = onboarding.invitation
+  const manageable = can('platform.organization.manage') && organization.status === 'active' && !onboarding.has_members
+  const reopenable = invitation !== null && (invitation.status === 'pending' || invitation.status === 'expired')
+  const run = (action: 'invite' | 'resend' | 'revoke') => (setNotice(null), mutation.mutate(action))
+
+  return (
+    <Card title="Administrator pertama">
+      <div className="space-y-3 p-4 text-sm">
+        {meta.email_delivery === 'log' && !onboarding.has_members && (
+          <Alert tone="warning">Server belum mengirim email sungguhan: email undangan hanya ditulis ke log server dan tidak sampai ke penerima.</Alert>
+        )}
+        {notice && <Alert tone="success">{notice}</Alert>}
+        {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
+        {onboarding.has_members ? (
+          <p className="text-slate-700">
+            Administrator sudah bergabung{invitation?.status === 'accepted' ? ` (${invitation.email}, ${formatDateTime(invitation.accepted_at)})` : ''}. Pengguna lain diundang oleh
+            administrator organisasi.
+          </p>
+        ) : (
+          <>
+            {invitation ? (
+              <dl className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-slate-500">Email diundang</dt>
+                  <dd className="break-all text-slate-800">{invitation.email}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Status undangan</dt>
+                  <dd>
+                    <Badge tone={statusTone[invitation.status]}>{invitationStatusLabel[invitation.status]}</Badge>
+                  </dd>
+                </div>
+                {invitation.status === 'pending' && (
+                  <div>
+                    <dt className="text-slate-500">Berlaku sampai</dt>
+                    <dd className="text-slate-800">{formatDateTime(invitation.expires_at)}</dd>
+                  </div>
+                )}
+              </dl>
+            ) : (
+              <p className="text-slate-700">Belum ada undangan administrator.</p>
+            )}
+            <p className="text-slate-600">
+              Belum ada yang dapat mengakses organisasi ini. Penerima menjadi Administrator Organisasi setelah menerima undangan dengan akun yang emailnya terverifikasi,
+              atau setelah mendaftar lewat tautan undangan.
+            </p>
+            {manageable && !inviting && (
+              <div className="flex flex-wrap gap-2">
+                {reopenable && (
+                  <>
+                    <Button variant="secondary" loading={mutation.isPending && mutation.variables === 'resend'} onClick={() => run('resend')}>
+                      Kirim ulang
+                    </Button>
+                    <Button variant="danger" loading={mutation.isPending && mutation.variables === 'revoke'} onClick={() => run('revoke')}>
+                      Cabut
+                    </Button>
+                  </>
+                )}
+                <Button variant={reopenable ? 'secondary' : 'primary'} onClick={() => (setNotice(null), setInviting(true))}>
+                  {invitation ? 'Undang email lain' : 'Undang administrator'}
+                </Button>
+              </div>
+            )}
+            {manageable && inviting && (
+              <form
+                className="space-y-3"
+                noValidate
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (email.trim()) run('invite')
+                }}
+              >
+                <Field label="Email administrator" required hint={reopenable ? 'Undangan yang masih terbuka akan dicabut.' : undefined}>
+                  {(p) => <Input {...p} type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />}
+                </Field>
+                <div className="flex justify-end gap-2">
+                  <Button variant="secondary" onClick={() => setInviting(false)}>
+                    Batal
+                  </Button>
+                  <Button type="submit" disabled={!email.trim()} loading={mutation.isPending}>
+                    Kirim undangan
+                  </Button>
+                </div>
+              </form>
+            )}
+          </>
+        )}
+      </div>
+    </Card>
+  )
+}
 
 export function PlatformOrganizationDetailPage() {
   const { id } = useParams()
@@ -72,6 +200,7 @@ export function PlatformOrganizationDetailPage() {
             ))}
           </dl>
         </Card>
+        <AdminOnboardingCard organization={org} />
         <Card title="Audit organisasi">
           <p className="p-4 text-sm text-slate-600">
             Aktivitas organisasi ini dapat ditelusuri di{' '}

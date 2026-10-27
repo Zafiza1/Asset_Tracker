@@ -29,5 +29,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="DB_CONTEXT_KEY" value="base64:jR6ehnrMLu61wX9NbAk7fdjrl5a0lFNN4KbGQaovAqM="/>
+        <env name="DB_CONTEXT_KID" value="1"/>
+        <env name="DB_CONTEXT_TTL" value="900"/>
     </php>
 </phpunit>

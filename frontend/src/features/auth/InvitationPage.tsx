@@ -170,6 +170,7 @@ function SignInOrSignUp({ token, preview, onJoined }: { token: string; preview: 
 const signUpSchema = z
   .object({
     name: z.string().trim().min(1, 'Nama wajib diisi.').max(150),
+    license_code: z.string().min(1, 'Kode lisensi wajib diisi.').max(19),
     password: z.string().refine(passwordRule.test, passwordRule.message),
     password_confirmation: z.string(),
   })
@@ -199,6 +200,9 @@ function SignUpForm({ token, preview, onJoined }: { token: string; preview: Invi
       <Field label="Email">{(p) => <Input {...p} type="email" value={preview.email} readOnly disabled />}</Field>
       <Field label="Nama lengkap" error={formState.errors.name?.message} required>
         {(p) => <Input {...p} autoComplete="name" {...register('name')} />}
+      </Field>
+      <Field label="Kode Lisensi" error={formState.errors.license_code?.message} hint="Masukkan kode lisensi yang Anda terima dari administrator. Format: LIC-XXXX-XXXX-XXXX" required>
+        {(p) => <Input {...p} placeholder="LIC-XXXX-XXXX-XXXX" className={p.className} {...register('license_code')} />}
       </Field>
       <Field label="Password" error={formState.errors.password?.message} hint={passwordRule.message} required>
         {(p) => <Input {...p} type="password" autoComplete="new-password" {...register('password')} />}

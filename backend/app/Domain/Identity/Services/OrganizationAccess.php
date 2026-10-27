@@ -69,7 +69,7 @@ final class OrganizationAccess
         $session->put(self::SESSION_KEY, $organization->id);
         $session->migrate(true);
         if ($user->last_organization_id !== $organization->id) {
-            $user->forceFill(['last_organization_id' => $organization->id])->save();
+            $this->tenancy->runAsSystem(fn () => $user->forceFill(['last_organization_id' => $organization->id])->save());
         }
     }
 

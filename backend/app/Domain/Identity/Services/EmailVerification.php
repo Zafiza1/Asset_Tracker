@@ -5,6 +5,7 @@ namespace App\Domain\Identity\Services;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Shared\Exceptions\ApiException;
+use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 
@@ -19,7 +20,10 @@ use Illuminate\Support\Facades\URL;
  */
 final class EmailVerification
 {
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly Tenancy $tenancy,
+    ) {}
 
     public static function link(User $user): string
     {
@@ -50,7 +54,7 @@ final class EmailVerification
             return;
         }
 
-        $user->markEmailAsVerified();
+        $this->tenancy->runAsSystem(fn () => $user->markEmailAsVerified());
         $this->audit->record('auth.email_verified', $user, metadata: ['method' => 'link'], organizationId: $organizationId, actor: $user);
     }
 }

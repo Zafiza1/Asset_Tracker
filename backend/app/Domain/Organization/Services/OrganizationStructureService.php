@@ -2,6 +2,7 @@
 
 namespace App\Domain\Organization\Services;
 
+use App\Domain\Authorization\Services\DataScopeGuard;
 use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
@@ -28,6 +29,7 @@ final class OrganizationStructureService
     public function __construct(
         private readonly MasterWriter $writer,
         private readonly MasterUsage $usage,
+        private readonly DataScopeGuard $scopeGuard,
     ) {}
 
     // ------------------------------------------------------------------ departments
@@ -55,6 +57,12 @@ final class OrganizationStructureService
     }
 
     // ------------------------------------------------------------------ locations
+    //
+    // Location scopes cover sub-locations (AssetScope), so the tree itself is access control:
+    // an actor limited to some locations may only change nodes inside their scope and may only
+    // attach nodes to parents inside it. Otherwise moving a location would pull its assets into
+    // the actor's scope, or push in-scope assets to users scoped elsewhere. New top-level
+    // locations are for organization-wide actors only.
 
     /** @param array<string, mixed> $data */
     public function createLocation(array $data): Location
@@ -63,6 +71,7 @@ final class OrganizationStructureService
         if (! empty($data['parent_id'])) {
             $this->active(Location::class, $data['parent_id'], 'Lokasi induk');
         }
+        $this->assertParentInScope($data['parent_id'] ?? null);
 
         return $this->writer->create(new Location, $data, 'location.created', self::LOCATION_AUDIT);
     }
@@ -70,6 +79,7 @@ final class OrganizationStructureService
     /** @param array<string, mixed> $data */
     public function updateLocation(Location $location, array $data): Location
     {
+        $this->assertInScope($location);
         if (isset($data['location_type_id']) && $data['location_type_id'] !== $location->location_type_id) {
             $this->activeLocationType($data['location_type_id']);
         }
@@ -78,6 +88,9 @@ final class OrganizationStructureService
         $moving = array_key_exists('parent_id', $data) && $data['parent_id'] !== $location->parent_id;
         if ($moving && $data['parent_id']) {
             $parent = $this->active(Location::class, $data['parent_id'], 'Lokasi induk');
+        }
+        if ($moving) {
+            $this->assertParentInScope($parent?->id);
         }
         if (($data['status'] ?? null) === MasterStatus::INACTIVE && $this->activeChildren($location)) {
             throw ApiException::conflict('LOCATION_HAS_CHILDREN', 'Lokasi masih memiliki sub-lokasi aktif.');
@@ -92,6 +105,7 @@ final class OrganizationStructureService
 
     public function archiveLocation(Location $location, ?string $reason): Location
     {
+        $this->assertInScope($location);
         if ($this->activeChildren($location)) {
             throw ApiException::conflict('LOCATION_HAS_CHILDREN', 'Lokasi masih memiliki sub-lokasi aktif.');
         }
@@ -104,6 +118,7 @@ final class OrganizationStructureService
 
     public function restoreLocation(Location $location): Location
     {
+        $this->assertInScope($location);
         if ($location->parent_id) {
             $this->active(Location::class, $location->parent_id, 'Lokasi induk');
         }
@@ -148,6 +163,22 @@ final class OrganizationStructureService
     }
 
     // ------------------------------------------------------------------ helpers
+
+    private function assertInScope(Location $location): void
+    {
+        if (! $this->scopeGuard->allowsLocation($location->id)) {
+            throw ApiException::forbidden('LOCATION_OUT_OF_SCOPE', 'Lokasi berada di luar cakupan data Anda.');
+        }
+    }
+
+    /** NULL = top level. */
+    private function assertParentInScope(?string $parentId): void
+    {
+        if (! $this->scopeGuard->allowsLocation($parentId)) {
+            $message = 'Lokasi induk harus berada dalam cakupan data Anda.';
+            throw ApiException::unprocessable('LOCATION_OUT_OF_SCOPE', $message, ['fields' => ['parent_id' => [$message]]]);
+        }
+    }
 
     /** Built-in types are visible to every organization but only the platform may change them. */
     private function ownLocationType(LocationType $type): void

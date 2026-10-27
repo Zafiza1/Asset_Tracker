@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useNavigate } from 'react-router'
@@ -9,9 +9,9 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
-import { Field, Input } from '../../components/ui/Field'
+import { Field, Input, Select } from '../../components/ui/Field'
 import { api } from '../../lib/api/client'
-import type { OrganizationInvitation, UserOrganizationOption } from '../../lib/api/types'
+import type { LicenseCode, OrganizationInvitation, UserOrganizationOption } from '../../lib/api/types'
 import { applyApiErrors } from '../../lib/forms'
 import { RoleQuickCreateModal } from '../roles/RoleQuickCreateModal'
 import { useOrganizationOptions } from './api'
@@ -20,6 +20,7 @@ const schema = z.object({
   email: z.email('Masukkan email yang valid.'),
   employee_number: z.string().max(50).optional(),
   job_title: z.string().max(100).optional(),
+  license_code_id: z.string().uuid('Format ID kode lisensi tidak valid.'),
   // One entry per organization the user is invited to, each with its own roles.
   memberships: z
     .array(z.object({ organization_id: z.string(), role_ids: z.array(z.string()).min(1, 'Pilih minimal satu role.') }))
@@ -53,6 +54,13 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
   const [creatingRole, setCreatingRole] = useState(false)
   const current = organizations.find((o) => o.is_current)
   const multiple = organizations.length > 1
+
+  // Fetch available license codes
+  const licenseCodesQuery = useQuery({
+    queryKey: ['license-codes', { status: 'available' }],
+    queryFn: () => api.get<{ data: LicenseCode[] }>('/license-codes?status=available'),
+  })
+
   const { register, handleSubmit, setError, formState, control, setValue } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { memberships: current ? [{ organization_id: current.id, role_ids: [] }] : [] },
@@ -121,6 +129,19 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
           <Field label="Jabatan" error={formState.errors.job_title?.message}>
             {(p) => <Input {...p} {...register('job_title')} />}
           </Field>
+          {current && (
+            <Field label="Kode Lisensi" error={formState.errors.license_code_id?.message} hint="Pilih kode lisensi untuk ditugaskan ke pengguna ini." required>
+              {(p) => (
+                <Select {...p} {...register('license_code_id')}>
+                  {licenseCodesQuery.data?.data.map((code) => (
+                    <option key={code.id} value={code.id}>
+                      {code.code} {code.notes ? `- ${code.notes}` : ''}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          )}
           <fieldset className="space-y-3 sm:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <legend className="text-sm font-medium text-slate-700">

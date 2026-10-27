@@ -25,7 +25,9 @@ class HealthController extends Controller
                 $disk->put('.health', (string) time());
                 $disk->delete('.health');
             }),
-            'queue' => $this->check(fn () => DB::table('jobs')->limit(1)->count()),
+            // Sessions/cache and the queue use their own database roles (SEC-07).
+            'session' => $this->check(fn () => DB::connection(config('session.connection'))->table('sessions')->limit(1)->count()),
+            'queue' => $this->check(fn () => DB::connection(config('queue.connections.database.connection'))->table('jobs')->limit(1)->count()),
         ];
         $ok = ! in_array(false, $checks, true);
 

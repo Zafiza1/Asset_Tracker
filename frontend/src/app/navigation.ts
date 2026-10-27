@@ -39,6 +39,7 @@ export const tenantNavigation: NavSection[] = [
     items: [
       { to: '/organisasi', label: 'Organisasi', icon: Building2, permission: 'organization.view' },
       { to: '/pengguna', label: 'Pengguna', icon: Users, permission: 'user.view' },
+      { to: '/kode-lisensi', label: 'Kode Lisensi', icon: KeyRound, permission: 'user.create' },
       { to: '/pengaturan', label: 'Pengaturan', icon: Settings, permission: 'settings.manage' },
       { to: '/audit', label: 'Audit Trail', icon: FileClock, permission: 'audit.view' },
     ],
@@ -71,6 +72,7 @@ export const breadcrumbLabels: Record<string, string> = {
   pengguna: 'Pengguna',
   role: 'Role & Permission',
   undangan: 'Undangan',
+  'kode-lisensi': 'Kode Lisensi',
   pengaturan: 'Pengaturan',
   audit: 'Audit Trail',
   platform: 'Platform',

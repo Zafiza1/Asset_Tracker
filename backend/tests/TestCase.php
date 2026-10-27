@@ -15,6 +15,8 @@ use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Notifications\OrganizationInvitationNotification;
+use App\Domain\Licensing\Models\OrganizationLicense;
+use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
@@ -30,6 +32,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Notifications\AnonymousNotifiable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\TestResponse;
@@ -44,7 +47,9 @@ use Illuminate\Testing\TestResponse;
  */
 abstract class TestCase extends BaseTestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase {
+        migrateDatabases as migrateFresh;
+    }
 
     protected bool $seed = true;
 
@@ -65,6 +70,27 @@ abstract class TestCase extends BaseTestCase
         ];
     }
 
+    /** migrate:fresh recreates the context key store; the runtime role needs the key (SEC-07). */
+    protected function migrateDatabases()
+    {
+        $this->migrateFresh();
+        $this->artisan('db:context-key', ['action' => 'install'])->assertSuccessful();
+    }
+
+    /**
+     * Requests start without any context, as in production (PHP state does not carry over
+     * between requests), and the test's own context is restored afterwards.
+     */
+    public function call($method, $uri, $parameters = [], $cookies = [], $files = [], $server = [], $content = null)
+    {
+        $previous = $this->tenancy()->enter(new TenancyState(null, null, false));
+        try {
+            return parent::call($method, $uri, $parameters, $cookies, $files, $server, $content);
+        } finally {
+            $this->tenancy()->restore($previous);
+        }
+    }
+
     /**
      * Guards are resolved once per application; in production every request gets a new
      * application, but tests reuse it. Forget cached guards so switching users works.
@@ -82,18 +108,40 @@ abstract class TestCase extends BaseTestCase
     }
 
     /** @return array{organization: Organization, admin: User} */
-    protected function createOrganization(string $code, string $status = Organization::STATUS_ACTIVE): array
+    protected function createOrganization(string $code, string $status = Organization::STATUS_ACTIVE, int $seats = 50): array
     {
         $result = $this->app->make(OrganizationProvisioner::class)->provision(
             ['code' => $code, 'name' => "Organisasi {$code}"],
             ['name' => "Admin {$code}", 'email' => strtolower($code).'-admin@example.test', 'password' => self::PASSWORD],
             adminMustChangePassword: false,
         );
+        $this->grantLicense($result['organization'], $seats);
         if ($status !== Organization::STATUS_ACTIVE) {
             $result['organization']->forceFill(['status' => $status])->save();
         }
 
         return $result;
+    }
+
+    /**
+     * A base license plus $seats extra seats, valid for a year (system context).
+     * Returns the license(s) created, base first.
+     *
+     * @return list<OrganizationLicense>
+     */
+    protected function grantLicense(Organization $organization, int $seats = 50, ?Carbon $expiresAt = null, bool $base = true): array
+    {
+        $licensing = $this->app->make(Licensing::class);
+        $expiresAt ??= now()->addYear();
+        $granted = [];
+        if ($base) {
+            $granted[] = $licensing->grant($organization, OrganizationLicense::KIND_BASE, 1, now()->subMinute(), $expiresAt);
+        }
+        if ($seats > 0) {
+            $granted[] = $licensing->grant($organization, OrganizationLicense::KIND_SEATS, $seats, now()->subMinute(), $expiresAt);
+        }
+
+        return $granted;
     }
 
     /**

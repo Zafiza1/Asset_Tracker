@@ -41,9 +41,10 @@ return [
 
         'database' => [
             'driver' => 'database',
-            'connection' => env('DB_CACHE_CONNECTION'),
+            // Own role (SEC-07): rate limits and locks are out of reach of the runtime connection.
+            'connection' => env('DB_CACHE_CONNECTION', 'pgsql_session'),
             'table' => env('DB_CACHE_TABLE', 'cache'),
-            'lock_connection' => env('DB_CACHE_LOCK_CONNECTION'),
+            'lock_connection' => env('DB_CACHE_LOCK_CONNECTION', 'pgsql_session'),
             'lock_table' => env('DB_CACHE_LOCK_TABLE'),
         ],
 

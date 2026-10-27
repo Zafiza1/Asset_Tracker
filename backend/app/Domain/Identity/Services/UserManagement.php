@@ -6,10 +6,12 @@ use App\Domain\Audit\AuditLogger;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\Models\UserDataScope;
 use App\Domain\Authorization\PermissionResolver;
+use App\Domain\Authorization\Services\DataScopeGuard;
 use App\Domain\Authorization\Services\OrgAdminGuard;
 use App\Domain\Authorization\Services\RoleManagement;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
+use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Exceptions\ApiException;
@@ -43,6 +45,8 @@ final class UserManagement
         private readonly SessionTerminator $sessions,
         private readonly PermissionResolver $permissions,
         private readonly OrganizationAccess $access,
+        private readonly DataScopeGuard $scopeGuard,
+        private readonly Licensing $licensing,
     ) {}
 
     /**
@@ -108,8 +112,15 @@ final class UserManagement
         $this->assertReferences($data);
         $member = $this->membership($user);
         $account = array_intersect_key($data, array_flip(self::ACCOUNT_FIELDS));
-        if (array_diff_assoc(array_map('strval', $account), array_map('strval', $user->only(array_keys($account)))) !== []) {
+        $profile = array_intersect_key($data, array_flip(OrganizationMember::PROFILE_FIELDS));
+        $accountChanged = self::changes($account, $user->only(array_keys($account)));
+        if ($accountChanged) {
             $this->assertExclusive($user);
+        }
+        // Changing the login data of a broader account would be a step towards taking it over,
+        // and its job data (title, department) is not the actor's to manage either.
+        if ($accountChanged || self::changes($profile, $member->only(array_keys($profile)))) {
+            $this->assertManageable($user);
         }
 
         return DB::transaction(function () use ($user, $member, $data, $account) {
@@ -140,12 +151,16 @@ final class UserManagement
         if ($member->status === User::STATUS_DEACTIVATED) {
             throw ApiException::conflict('USER_DEACTIVATED', 'Akun yang sudah dinonaktifkan tidak dapat diaktifkan kembali.');
         }
-        $this->roles->assertGrantable($this->permissionsOf($user));
+        $this->assertManageable($user);
 
         return DB::transaction(function () use ($user, $member, $status) {
             $orgId = $this->tenancy->organizationId();
             $this->adminGuard->lock($orgId);
             $before = $member->status;
+            // Only active members use a seat; suspending or deactivating frees it for somebody else.
+            if ($status === User::STATUS_ACTIVE && $before !== User::STATUS_ACTIVE) {
+                $this->licensing->assertSeats($orgId);
+            }
             $member->forceFill(['status' => $status])->save();
             $this->adminGuard->assertHasActiveAdmin($orgId);
 
@@ -160,14 +175,16 @@ final class UserManagement
         });
     }
 
-    /** @param list<string> $roleIds */
+    /**
+     * Roles being removed must also be within the actor's own permissions, and the member's
+     * scope within the actor's: a role given to a broader member would apply beyond the actor's scope.
+     *
+     * @param  list<string>  $roleIds
+     */
     public function syncRoles(User $user, array $roleIds): User
     {
         $newRoles = $this->resolveAssignableRoles($roleIds);
-        // Roles being removed must also be within the actor's own permissions.
-        foreach ($user->roles()->get() as $current) {
-            $this->roles->assertEditable($current);
-        }
+        $this->assertManageable($user);
 
         return DB::transaction(function () use ($user, $newRoles) {
             $orgId = $this->tenancy->organizationId();
@@ -187,9 +204,21 @@ final class UserManagement
         });
     }
 
-    /** @param list<array{scope_type: string, ref_id?: string|null}> $scopes */
+    /**
+     * Nobody changes their own scope, and an actor limited to some locations/departments can
+     * only manage members (and hand out scopes) within them; see assertManageable().
+     *
+     * @param  list<array{scope_type: string, ref_id?: string|null}>  $scopes
+     */
     public function syncScopes(User $user, array $scopes): User
     {
+        if ($user->id === $this->tenancy->tenant()->userId()) {
+            throw ApiException::unprocessable('CANNOT_CHANGE_OWN_SCOPE', 'Anda tidak dapat mengubah cakupan data Anda sendiri.');
+        }
+        $this->assertManageable($user);
+        $this->normalizeScopes($scopes);
+        $this->scopeGuard->assertGrantable($scopes);
+
         return DB::transaction(function () use ($user, $scopes) {
             $before = $this->scopeSnapshot($user);
             $this->replaceScopes($user, $scopes);
@@ -202,7 +231,7 @@ final class UserManagement
     public function resetPassword(User $user, string $temporaryPassword): void
     {
         $this->assertExclusive($user);
-        $this->roles->assertGrantable($this->permissionsOf($user));
+        $this->assertManageable($user);
 
         DB::transaction(function () use ($user, $temporaryPassword) {
             $user->forceFill([
@@ -305,6 +334,25 @@ final class UserManagement
         if (! empty($data['home_department_id']) && ! Department::query()->whereKey($data['home_department_id'])->exists()) {
             throw ApiException::unprocessable('INVALID_REFERENCE', 'Departemen tidak ditemukan.');
         }
+    }
+
+    /**
+     * The actor may act on this member's access only if the member is not more powerful:
+     * every permission and every scope entry of the member is within the actor's own.
+     */
+    private function assertManageable(User $user): void
+    {
+        $this->roles->assertGrantable($this->permissionsOf($user));
+        $this->scopeGuard->assertCoversUser($user);
+    }
+
+    /**
+     * @param  array<string, mixed>  $requested
+     * @param  array<string, mixed>  $current
+     */
+    private static function changes(array $requested, array $current): bool
+    {
+        return array_diff_assoc(array_map('strval', $requested), array_map('strval', $current)) !== [];
     }
 
     /** @return list<string> */

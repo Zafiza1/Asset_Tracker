@@ -7,6 +7,7 @@ use App\Domain\Identity\Services\OrganizationAccess;
 use App\Domain\Identity\Services\OrganizationInvitations;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Exceptions\ApiException;
+use App\Domain\Shared\Tenancy\Tenancy;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,10 @@ use Illuminate\Validation\Rules\Password;
  */
 class InvitationAcceptanceController extends Controller
 {
-    public function __construct(private readonly OrganizationInvitations $invitations) {}
+    public function __construct(
+        private readonly OrganizationInvitations $invitations,
+        private readonly Tenancy $tenancy,
+    ) {}
 
     public function inspect(Request $request): JsonResponse
     {
@@ -31,7 +35,7 @@ class InvitationAcceptanceController extends Controller
         return response()->json(['data' => [
             'email' => $invitation->email,
             'organization' => $this->summary($organization),
-            'invited_by' => $inviter->name,
+            'invited_by' => $inviter?->name ?? OrganizationInvitations::PLATFORM_INVITER_NAME,
             'roles' => $roles->map(fn ($r) => ['code' => $r->code, 'name' => $r->name])->values(),
             'expires_at' => $invitation->expires_at->toIso8601String(),
         ]]);
@@ -42,7 +46,8 @@ class InvitationAcceptanceController extends Controller
     {
         $data = $request->validate(['token' => ['required', 'string', 'max:128']]);
         /** @var User $user */
-        $user = User::query()->findOrFail($request->user()->getKey());
+        // No context on these routes; RLS protects accounts (SEC-07).
+        $user = $this->tenancy->runAsSystem(fn () => User::query()->findOrFail($request->user()->getKey()));
         if (! $user->isActive()) {
             throw new ApiException('ACCOUNT_INACTIVE', 'Akun Anda tidak aktif.', 401);
         }
@@ -62,13 +67,19 @@ class InvitationAcceptanceController extends Controller
             'token' => ['required', 'string', 'max:128'],
             'name' => ['required', 'string', 'max:150'],
             'password' => ['required', 'string', 'confirmed', 'max:200', Password::min(12)->letters()->mixedCase()->numbers()],
+            'license_code' => ['nullable', 'string', 'max:19'],
         ]);
 
-        ['user' => $user, 'organization' => $organization] = $this->invitations->registerAndAccept($data['token'], $data['name'], $data['password']);
+        ['user' => $user, 'organization' => $organization] = $this->invitations->registerAndAccept(
+            $data['token'],
+            $data['name'],
+            $data['password'],
+            $data['license_code']
+        );
 
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
-        $user->forceFill(['last_login_at' => now()])->save();
+        $this->tenancy->runAsSystem(fn () => $user->forceFill(['last_login_at' => now()])->save());
         $access->switch($request->session(), $user, $organization);
 
         return response()->json(['data' => ['organization' => $this->summary($organization)]], 201);

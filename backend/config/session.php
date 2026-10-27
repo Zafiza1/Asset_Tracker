@@ -73,7 +73,8 @@ return [
     |
     */
 
-    'connection' => env('SESSION_CONNECTION'),
+    // Own role (SEC-07): the runtime connection has no access to session payloads.
+    'connection' => env('SESSION_CONNECTION', 'pgsql_session'),
 
     /*
     |--------------------------------------------------------------------------

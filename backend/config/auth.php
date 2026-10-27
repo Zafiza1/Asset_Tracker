@@ -63,7 +63,8 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'eloquent',
+            // Eloquent, with each lookup in the system context (AccountUserProvider, SEC-07).
+            'driver' => 'account',
             'model' => env('AUTH_MODEL', User::class),
         ],
 

@@ -8,6 +8,7 @@ use App\Http\Controllers\Platform\GenericCategoryController;
 use App\Http\Controllers\Platform\GenericDefinitionController;
 use App\Http\Controllers\Platform\GenericReferenceController;
 use App\Http\Controllers\Platform\GenericVersionController;
+use App\Http\Controllers\Platform\LicenseController as PlatformLicenseController;
 use App\Http\Controllers\Platform\OrganizationController as PlatformOrganizationController;
 use App\Http\Controllers\Platform\PlatformAuditLogController;
 use App\Http\Controllers\Tenant\AuditLogController;
@@ -15,6 +16,8 @@ use App\Http\Controllers\Tenant\CategoryAttributeController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\GenericCatalogController;
 use App\Http\Controllers\Tenant\InvitationController;
+use App\Http\Controllers\Tenant\LicenseCodeController;
+use App\Http\Controllers\Tenant\LicenseController;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\LocationTypeController;
 use App\Http\Controllers\Tenant\OrganizationProfileController;
@@ -64,6 +67,17 @@ Route::prefix('platform')->middleware(['auth:sanctum', 'platform'])->group(funct
     Route::patch('/organizations/{organization}', [PlatformOrganizationController::class, 'update'])->middleware('permission:platform.organization.manage');
     Route::post('/organizations/{organization}/suspend', [PlatformOrganizationController::class, 'suspend'])->middleware('permission:platform.organization.manage');
     Route::post('/organizations/{organization}/activate', [PlatformOrganizationController::class, 'activate'])->middleware('permission:platform.organization.manage');
+    // First administrator: invited, never assigned; only while the organization has no member.
+    Route::get('/organizations/{organization}/admin-invitation', [PlatformOrganizationController::class, 'adminInvitation'])->middleware('permission:platform.organization.view');
+    Route::post('/organizations/{organization}/admin-invitation', [PlatformOrganizationController::class, 'inviteAdmin'])->middleware('permission:platform.organization.manage');
+    Route::post('/organizations/{organization}/admin-invitation/resend', [PlatformOrganizationController::class, 'resendAdminInvitation'])->middleware('permission:platform.organization.manage');
+    Route::post('/organizations/{organization}/admin-invitation/revoke', [PlatformOrganizationController::class, 'revokeAdminInvitation'])->middleware('permission:platform.organization.manage');
+
+    // Licenses bought by the organization: the Asset Tracker (base) license and seat packs.
+    Route::get('/organizations/{organization}/licenses', [PlatformLicenseController::class, 'index'])->middleware('permission:platform.organization.view');
+    Route::post('/organizations/{organization}/licenses', [PlatformLicenseController::class, 'store'])->middleware('permission:platform.organization.manage');
+    Route::post('/organizations/{organization}/licenses/{license}/revoke', [PlatformLicenseController::class, 'revoke'])
+        ->middleware('permission:platform.organization.manage')->scopeBindings();
 
     Route::get('/audit-logs', [PlatformAuditLogController::class, 'index'])->middleware('permission:platform.audit.view');
 
@@ -107,7 +121,10 @@ Route::prefix('platform')->middleware(['auth:sanctum', 'platform'])->group(funct
     });
 });
 
-Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
+Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
+    // Seats and expiry of the organization's license (read-only banner, seat usage).
+    Route::get('/license', [LicenseController::class, 'show'])->middleware('permission:organization.view');
+
     Route::get('/organization', [OrganizationProfileController::class, 'show'])->middleware('permission:organization.view');
     Route::put('/organization', [OrganizationProfileController::class, 'update'])->middleware('permission:organization.manage');
     Route::get('/settings', [OrganizationProfileController::class, 'settings'])->middleware('permission:settings.manage');
@@ -119,9 +136,9 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     Route::get('/users/{user}/organizations', [UserController::class, 'organizations'])->middleware('permission:user.view');
     Route::post('/users/{user}/organizations', [UserController::class, 'grantOrganization'])->middleware('permission:user.create,role.manage');
     Route::patch('/users/{user}', [UserController::class, 'update'])->middleware('permission:user.update');
-    Route::post('/users/{user}/suspend', [UserController::class, 'suspend'])->middleware('permission:user.deactivate');
+    Route::post('/users/{user}/suspend', [UserController::class, 'suspend'])->middleware('permission:user.deactivate')->withoutMiddleware('license');
     Route::post('/users/{user}/activate', [UserController::class, 'activate'])->middleware('permission:user.deactivate');
-    Route::post('/users/{user}/deactivate', [UserController::class, 'deactivate'])->middleware('permission:user.deactivate');
+    Route::post('/users/{user}/deactivate', [UserController::class, 'deactivate'])->middleware('permission:user.deactivate')->withoutMiddleware('license');
     Route::put('/users/{user}/roles', [UserController::class, 'syncRoles'])->middleware('permission:role.manage');
     Route::put('/users/{user}/scopes', [UserController::class, 'syncScopes'])->middleware('permission:user.update');
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->middleware(['permission:user.update', 'throttle:sensitive']);
@@ -130,7 +147,15 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
     Route::get('/invitations', [InvitationController::class, 'index'])->middleware('permission:user.view');
     Route::post('/invitations', [InvitationController::class, 'store'])->middleware('permission:user.create,role.manage');
     Route::post('/invitations/{invitation}/resend', [InvitationController::class, 'resend'])->middleware('permission:user.create,role.manage');
-    Route::post('/invitations/{invitation}/revoke', [InvitationController::class, 'revoke'])->middleware('permission:user.create,role.manage');
+    Route::post('/invitations/{invitation}/revoke', [InvitationController::class, 'revoke'])->middleware('permission:user.create,role.manage')->withoutMiddleware('license');
+
+    // License codes: reusable activation codes for user accounts
+    Route::get('/license-codes', [LicenseCodeController::class, 'index'])->middleware('permission:user.view');
+    Route::post('/license-codes', [LicenseCodeController::class, 'store'])->middleware('permission:user.create,role.manage');
+    Route::get('/license-codes/{licenseCode}', [LicenseCodeController::class, 'show'])->middleware('permission:user.view');
+    Route::post('/license-codes/{licenseCode}/assign', [LicenseCodeController::class, 'assign'])->middleware('permission:user.create,role.manage');
+    Route::post('/license-codes/{licenseCode}/release', [LicenseCodeController::class, 'release'])->middleware('permission:user.create,role.manage');
+    Route::post('/license-codes/{licenseCode}/revoke', [LicenseCodeController::class, 'revoke'])->middleware('permission:user.create,role.manage');
 
     Route::get('/roles', [RoleController::class, 'index'])->middleware('permission:role.view');
     Route::post('/roles', [RoleController::class, 'store'])->middleware('permission:role.manage');

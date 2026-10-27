@@ -22,6 +22,23 @@ return [
     // Runtime (non-owner) database role; migrations grant/revoke privileges for it.
     'app_role' => env('DB_USERNAME', 'ate_app'),
 
+    // NOLOGIN role that owns the context verifier and its key (created by the DBA, see README).
+    'context_role' => env('DB_CONTEXT_ROLE', 'ate_ctx'),
+
+    /*
+    | Signed database context (SEC-07). Row-Level Security trusts only a claim signed with this
+    | key and verified inside PostgreSQL, never a plain session setting. The key comes from the
+    | environment's secret store; it is installed into the database with `php artisan
+    | db:context-key install` and must never be committed, logged or stored where the runtime
+    | role can read it.
+    */
+    'context' => [
+        'key' => env('DB_CONTEXT_KEY'),
+        'kid' => (int) env('DB_CONTEXT_KID', 1),
+        // Seconds a claim stays valid; claims are re-issued after half of it.
+        'ttl' => (int) env('DB_CONTEXT_TTL', 900),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Database Connections
@@ -114,6 +131,39 @@ return [
             'database' => env('DB_DATABASE', 'laravel'),
             'username' => env('DB_OWNER_USERNAME', 'ate_owner'),
             'password' => env('DB_OWNER_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'timezone' => 'UTC',
+        ],
+
+        // Sessions and cache (rate limits, locks) under their own role (SEC-07): the runtime role
+        // cannot read or swap session payloads, or reset login throttling, through SQL.
+        'pgsql_session' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_SESSION_USERNAME', 'ate_session'),
+            'password' => env('DB_SESSION_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'timezone' => 'UTC',
+        ],
+
+        // Queue tables (jobs, job_batches, failed_jobs) under their own role (SEC-07).
+        'pgsql_queue' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_QUEUE_USERNAME', 'ate_queue'),
+            'password' => env('DB_QUEUE_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,

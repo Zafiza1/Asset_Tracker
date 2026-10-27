@@ -6,21 +6,29 @@ import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
 import { api } from '../../lib/api/client'
-import type { OrganizationSettings, Resource } from '../../lib/api/types'
+import type { License, OrganizationSettings, Resource } from '../../lib/api/types'
 import { applyApiErrors } from '../../lib/forms'
+import { LicenseCard } from './LicenseCard'
 
 type FormValues = Omit<OrganizationSettings, 'updated_at'>
 
 export function SettingsPage() {
-  const query = useQuery({ queryKey: ['settings'], queryFn: () => api.get<Resource<OrganizationSettings>>('/settings') })
+  const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: () => api.get<Resource<OrganizationSettings>>('/settings') })
+  const licenseQuery = useQuery({ queryKey: ['license'], queryFn: () => api.get<Resource<License>>('/license') })
 
-  if (query.isLoading) return <Spinner />
-  if (query.isError) return <ErrorState error={query.error} />
+  console.log('License data:', licenseQuery.data)
+  console.log('License error:', licenseQuery.error)
+
+  if (settingsQuery.isLoading || licenseQuery.isLoading) return <Spinner />
+  if (settingsQuery.isError) return <ErrorState error={settingsQuery.error} />
 
   return (
     <>
       <PageHeader title="Pengaturan" description="Kebijakan umum organisasi." />
-      <SettingsForm settings={query.data!.data} />
+      <div className="grid gap-6">
+        <LicenseCard license={licenseQuery.data?.data} />
+        <SettingsForm settings={settingsQuery.data!.data} />
+      </div>
     </>
   )
 }

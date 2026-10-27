@@ -15,6 +15,7 @@ final class RoleManagement
     public function __construct(
         private readonly Tenancy $tenancy,
         private readonly AuditLogger $audit,
+        private readonly DataScopeGuard $scopeGuard,
     ) {}
 
     /**
@@ -49,6 +50,11 @@ final class RoleManagement
                 throw ApiException::unprocessable('ROLE_LOCKED', 'Permission role terkunci tidak dapat diubah.');
             }
             $this->assertGrantable($permissions);
+            // New permissions apply wherever the role's holders have access, so they must be within the actor's scope.
+            $current = $role->permissions()->pluck('code')->all();
+            if (array_diff($permissions, $current) !== [] || array_diff($current, $permissions) !== []) {
+                $this->scopeGuard->assertCoversRoleHolders($role);
+            }
         }
 
         return DB::transaction(function () use ($role, $data, $permissions) {

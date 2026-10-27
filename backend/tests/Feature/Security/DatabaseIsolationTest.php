@@ -135,7 +135,8 @@ class DatabaseIsolationTest extends TestCase
         $membership = fn () => DB::table('organization_members')->where('organization_id', $this->orgA->id)->where('user_id', $this->adminA->id);
 
         $this->expectQueryError('P0001', fn () => DB::table('users')->where('id', $this->adminA->id)->update(['user_type' => 'platform']));
-        $this->expectQueryError('P0001', fn () => DB::table('users')->where('id', $this->adminA->id)->delete());
+        // The runtime role has no DELETE on users at all (SEC-07); users_no_delete still guards the owner.
+        $this->expectQueryError('42501', fn () => DB::table('users')->where('id', $this->adminA->id)->delete());
         $this->expectQueryError('P0001', fn () => $membership()->update(['organization_id' => $this->orgB->id]));
         $this->expectQueryError('P0001', fn () => $membership()->update(['user_id' => $other->id]));
         $this->expectQueryError('P0001', fn () => $membership()->delete());

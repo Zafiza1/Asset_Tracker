@@ -4,14 +4,19 @@ namespace App\Providers;
 
 use App\Domain\Assets\AssetMasterUsage;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Services\AccountUserProvider;
 use App\Domain\Identity\Services\EmailVerification;
 use App\Domain\Shared\Masters\MasterUsage;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Events\ConnectionEstablished;
+use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +36,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::shouldBeStrict(! $this->app->isProduction());
+
+        Auth::provider('account', fn ($app, array $config) => new AccountUserProvider($app['hash'], $config['model'], $app->make(Tenancy::class)));
 
         foreach (self::UUID_ROUTE_PARAMETERS as $parameter) {
             Route::pattern($parameter, '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}');
@@ -62,5 +69,10 @@ class AppServiceProvider extends ServiceProvider
         // Each queued job starts without any tenant context; jobs establish it explicitly.
         Queue::before(fn () => $this->app->make(Tenancy::class)->reset());
         Queue::after(fn () => $this->app->make(Tenancy::class)->reset());
+
+        // The database context lives in session settings: a new backend has none, and a rollback
+        // restores the value from before the transaction or savepoint (SEC-07).
+        Event::listen(ConnectionEstablished::class, fn (ConnectionEstablished $e) => $this->app->make(Tenancy::class)->connected($e->connection));
+        Event::listen(TransactionRolledBack::class, fn (TransactionRolledBack $e) => $this->app->make(Tenancy::class)->rolledBack($e->connection));
     }
 }

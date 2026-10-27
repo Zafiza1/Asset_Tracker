@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Domain\Identity\Models\OrganizationInvitation;
+use App\Domain\Licensing\Models\LicenseCode;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,6 +27,11 @@ class OrganizationInvitationResource extends JsonResource
             'employee_number' => $this->employee_number,
             'job_title' => $this->job_title,
             'home_department_id' => $this->home_department_id,
+            'license_code_id' => $this->license_code_id,
+            'license_code' => $this->whenLoaded('licenseCode', fn () => $this->licenseCode ? [
+                'id' => $this->licenseCode->id,
+                'code' => $this->licenseCode->code,
+            ] : null),
             'invited_by' => $this->whenLoaded('inviter', fn () => $this->inviter ? ['id' => $this->inviter->id, 'name' => $this->inviter->name] : null),
             'expires_at' => $this->expires_at->toIso8601String(),
             'last_sent_at' => $this->last_sent_at?->toIso8601String(),

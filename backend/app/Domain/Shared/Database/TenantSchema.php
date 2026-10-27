@@ -16,6 +16,9 @@ final class TenantSchema
 {
     /**
      * Enable and force RLS on a table whose rows are owned by `organization_id`.
+     *
+     * The context functions are wrapped in `(SELECT ...)` so PostgreSQL evaluates them once per
+     * statement (InitPlan): they verify a signed claim (SEC-07), which must not run per row.
      */
     public static function enableRls(string $table, bool $allowPlatformRowsInsert = false): void
     {
@@ -26,16 +29,16 @@ final class TenantSchema
             // Rows with organization_id NULL belong to the platform (e.g. audit of a failed
             // login for an unknown email). Only the platform context can read them.
             DB::statement("CREATE POLICY tenant_select ON {$table} FOR SELECT
-                USING (organization_id = ate_current_org() OR ate_platform_context())");
+                USING (organization_id = (SELECT ate_current_org()) OR (SELECT ate_platform_context()))");
             DB::statement("CREATE POLICY tenant_insert ON {$table} FOR INSERT
-                WITH CHECK (organization_id IS NULL OR organization_id = ate_current_org() OR ate_platform_context())");
+                WITH CHECK (organization_id IS NULL OR organization_id = (SELECT ate_current_org()) OR (SELECT ate_platform_context()))");
 
             return;
         }
 
         DB::statement("CREATE POLICY tenant_isolation ON {$table}
-            USING (organization_id = ate_current_org() OR ate_platform_context())
-            WITH CHECK (organization_id = ate_current_org() OR ate_platform_context())");
+            USING (organization_id = (SELECT ate_current_org()) OR (SELECT ate_platform_context()))
+            WITH CHECK (organization_id = (SELECT ate_current_org()) OR (SELECT ate_platform_context()))");
     }
 
     /**

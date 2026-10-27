@@ -18,6 +18,7 @@ final class OrganizationInvitationNotification extends Notification
         public readonly string $inviterName,
         public readonly string $token,
         public readonly Carbon $expiresAt,
+        public readonly ?string $licenseCode = null,
     ) {}
 
     /** @return list<string> */
@@ -28,13 +29,21 @@ final class OrganizationInvitationNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        $mail = (new MailMessage)
             ->subject("Undangan bergabung dengan {$this->organizationName}")
             ->greeting('Halo,')
-            ->line("{$this->inviterName} mengundang Anda bergabung dengan {$this->organizationName} di Asset Tracker.")
-            ->action('Lihat undangan', self::url($this->token))
+            ->line("{$this->inviterName} mengundang Anda bergabung dengan {$this->organizationName} di Asset Tracker.");
+
+        if ($this->licenseCode) {
+            $mail->line("Kode Lisensi: **{$this->licenseCode}**")
+                ->line('Kode lisensi ini sudah terhubung dengan undangan Anda. Tidak perlu memasukkannya lagi saat mendaftar.');
+        }
+
+        $mail->action('Lihat undangan', self::url($this->token))
             ->line('Undangan berlaku sampai '.$this->expiresAt->format('d-m-Y H:i T').' dan hanya dapat diterima satu kali, oleh akun dengan alamat email ini.')
             ->line('Abaikan email ini bila Anda tidak mengenal organisasi tersebut.');
+
+        return $mail;
     }
 
     public static function url(string $token): string

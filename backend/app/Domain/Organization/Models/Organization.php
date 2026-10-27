@@ -2,10 +2,12 @@
 
 namespace App\Domain\Organization\Models;
 
+use App\Domain\Licensing\Models\OrganizationLicense;
 use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
@@ -43,5 +45,10 @@ class Organization extends Model
     public function settings(): HasOne
     {
         return $this->hasOne(OrganizationSetting::class);
+    }
+
+    public function licenses(): HasMany
+    {
+        return $this->hasMany(OrganizationLicense::class);
     }
 }

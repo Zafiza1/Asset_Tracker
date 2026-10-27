@@ -32,6 +32,47 @@ export interface OrganizationSettings {
   updated_at: string
 }
 
+export interface License {
+  active: boolean
+  over_limit: boolean
+  seats: {
+    capacity: number
+    active_members: number
+    pending_invitations: number
+    available: number
+  }
+  licenses: LicenseEntry[]
+}
+
+export interface LicenseEntry {
+  id: string
+  kind: 'base' | 'seats'
+  seats: number
+  source: 'purchase' | 'trial' | 'migration'
+  reference: string | null
+  notes: string | null
+  starts_at: string
+  expires_at: string
+  revoked_at: string | null
+  revoke_reason: string | null
+  granted_by: string | null
+  status: 'active' | 'scheduled' | 'expired' | 'revoked'
+}
+
+export type LicenseCodeStatus = 'available' | 'assigned' | 'revoked'
+
+export interface LicenseCode {
+  id: string
+  code: string
+  status: LicenseCodeStatus
+  assigned_to_user_id: string | null
+  assigned_user?: { id: string; name: string; email: string } | null
+  assigned_at: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type UserStatus = 'invited' | 'active' | 'suspended' | 'deactivated'
 export type ScopeType = 'organization' | 'department' | 'location'
 
@@ -79,6 +120,8 @@ export interface OrganizationInvitation {
   employee_number: string | null
   job_title: string | null
   home_department_id: string | null
+  license_code_id: string | null
+  license_code?: { id: string; code: string } | null
   invited_by?: { id: string; name: string } | null
   expires_at: string
   last_sent_at: string | null
@@ -86,6 +129,15 @@ export interface OrganizationInvitation {
   accepted_at: string | null
   revoked_at: string | null
   created_at: string | null
+}
+
+/** "log": the server only writes emails to its log (development); nothing reaches the recipient. */
+export type EmailDelivery = 'mail' | 'log'
+
+/** First administrator of an organization created on the platform console (GET /platform/organizations/{id}/admin-invitation). */
+export interface AdminOnboarding {
+  has_members: boolean
+  invitation: OrganizationInvitation | null
 }
 
 /** What the holder of an invitation token is invited to (POST /auth/invitation/inspect). */

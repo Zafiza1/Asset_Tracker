@@ -16,7 +16,7 @@ import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { Organization, Paginated, Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
-import { applyApiErrors, passwordRule } from '../../lib/forms'
+import { applyApiErrors } from '../../lib/forms'
 import { formatDate, orgStatusLabel } from '../../lib/format'
 
 const columns: Column<Organization>[] = [
@@ -85,7 +85,7 @@ export function PlatformOrganizationsPage() {
 interface CreateValues {
   code: string
   name: string
-  admin: { name: string; email: string; password: string }
+  admin: { email: string }
 }
 
 function CreateOrganizationModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -116,14 +116,12 @@ function CreateOrganizationModal({ open, onClose }: { open: boolean; onClose: ()
         </Field>
         <fieldset className="space-y-3 rounded-md p-3 ring-1 ring-slate-200">
           <legend className="px-1 text-sm font-semibold text-slate-700">Administrator pertama</legend>
-          <Field label="Nama" error={formState.errors.admin?.name?.message} required>
-            {(p) => <Input {...p} {...register('admin.name', { required: 'Nama wajib diisi.' })} />}
-          </Field>
-          <Field label="Email" error={formState.errors.admin?.email?.message} required>
-            {(p) => <Input {...p} type="email" {...register('admin.email', { required: 'Email wajib diisi.' })} />}
-          </Field>
-          <Field label="Password sementara" error={formState.errors.admin?.password?.message} hint={passwordRule.message} required>
-            {(p) => <Input {...p} type="password" autoComplete="new-password" {...register('admin.password', { validate: (v) => passwordRule.test(v) || passwordRule.message })} />}
+          <p className="text-sm text-slate-600">
+            Sistem mengirim undangan ke email ini. Pemiliknya menjadi Administrator Organisasi setelah menerima undangan, dengan masuk ke akun yang emailnya
+            sudah terverifikasi, atau dengan mendaftar akun lewat tautan undangan. Sebelum itu, belum ada yang dapat mengakses organisasi.
+          </p>
+          <Field label="Email administrator" error={formState.errors.admin?.email?.message} required>
+            {(p) => <Input {...p} type="email" autoComplete="off" {...register('admin.email', { required: 'Email wajib diisi.' })} />}
           </Field>
         </fieldset>
         <div className="flex justify-end gap-2">
@@ -131,7 +129,7 @@ function CreateOrganizationModal({ open, onClose }: { open: boolean; onClose: ()
             Batal
           </Button>
           <Button type="submit" loading={mutation.isPending}>
-            Buat organisasi
+            Buat & kirim undangan
           </Button>
         </div>
       </form>

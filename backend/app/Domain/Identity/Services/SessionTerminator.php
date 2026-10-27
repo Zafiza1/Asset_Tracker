@@ -17,7 +17,8 @@ final class SessionTerminator
             return;
         }
 
-        DB::table(config('session.table', 'sessions'))
+        // The session store's own connection: the runtime role has no access to sessions (SEC-07).
+        DB::connection(config('session.connection'))->table(config('session.table', 'sessions'))
             ->where('user_id', $user->id)
             ->when($exceptSessionId, fn ($q) => $q->where('id', '!=', $exceptSessionId))
             ->delete();

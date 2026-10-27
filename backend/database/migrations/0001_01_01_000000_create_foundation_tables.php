@@ -12,6 +12,11 @@ return new class extends Migration
     {
         DB::statement('CREATE EXTENSION IF NOT EXISTS citext');
 
+        // The runtime role gets DML on the tables of migrations up to 001300 by default; migration
+        // 001400 revokes the default, so later tables are closed until granted explicitly.
+        // (Formerly a manual step in the README; a no-op where it was done that way.)
+        DB::statement('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO '.config('database.app_role'));
+
         // Tenant context for Row-Level Security; set per request/job by App\Domain\Shared\Tenancy\Tenancy.
         DB::statement(<<<'SQL'
             CREATE OR REPLACE FUNCTION ate_current_org() RETURNS uuid

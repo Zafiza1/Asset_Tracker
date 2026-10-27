@@ -40,7 +40,7 @@ final class ResolvePlatform
         }
         if (! $user->isPlatformUser()) {
             // Indistinguishable from a missing route for tenant users.
-            throw ApiException::forbidden();
+            throw ApiException::forbidden('PLATFORM_USER_REQUIRED', 'Akses ini hanya untuk platform user.');
         }
         if ($user->must_change_password) {
             throw ApiException::forbidden('PASSWORD_CHANGE_REQUIRED', 'Anda harus mengganti password sebelum melanjutkan.');

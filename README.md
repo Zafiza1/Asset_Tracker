@@ -23,11 +23,24 @@ Menu aplikasi hanya menampilkan modul yang sudah berfungsi. Data internal (Gener
 
 ### 1. Database (sekali saja, sebagai superuser PostgreSQL)
 
-Aplikasi memakai dua role: `ate_owner` (pemilik tabel, khusus migrasi) dan `ate_app` (runtime, tunduk pada RLS).
+Butuh PostgreSQL 16 atau lebih baru. Aplikasi memakai lima role (SEC-07, `docs/asset-tracker-audit.md`):
+
+| Role | Login | Untuk |
+|---|---|---|
+| `ate_owner` | ya | pemilik tabel; hanya migrasi, seeder, dan `db:context-key` |
+| `ate_app` | ya | runtime; tunduk pada RLS dan hanya menerima konteks bertanda tangan (`app.context`) |
+| `ate_session` | ya | koneksi `pgsql_session`: tabel `sessions`, `cache`, `cache_locks` |
+| `ate_queue` | ya | koneksi `pgsql_queue`: tabel `jobs`, `job_batches`, `failed_jobs` |
+| `ate_ctx` | tidak | pemilik fungsi verifikasi konteks dan kuncinya (skema `ate_ctx`, `ate_private`) |
 
 ```sql
-CREATE ROLE ate_owner LOGIN PASSWORD '<owner-password>';
-CREATE ROLE ate_app   LOGIN PASSWORD '<app-password>';
+CREATE ROLE ate_owner   LOGIN PASSWORD '<owner-password>';
+CREATE ROLE ate_app     LOGIN PASSWORD '<app-password>';
+CREATE ROLE ate_session LOGIN PASSWORD '<session-password>';
+CREATE ROLE ate_queue   LOGIN PASSWORD '<queue-password>';
+CREATE ROLE ate_ctx NOLOGIN BYPASSRLS;        -- membaca keanggotaan untuk verifikasi konteks
+GRANT pg_read_all_stats TO ate_ctx;           -- backend_start koneksi lain (pengikatan klaim)
+GRANT ate_ctx TO ate_owner WITH INHERIT FALSE, SET TRUE;  -- migrasi membuat objek sebagai ate_ctx
 CREATE DATABASE asset_tracker_v1      OWNER ate_owner;
 CREATE DATABASE asset_tracker_v1_test OWNER ate_owner;
 -- Lalu, di masing-masing database:
@@ -35,18 +48,22 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 ALTER SCHEMA public OWNER TO ate_owner;
 GRANT USAGE ON SCHEMA public TO ate_app;
 CREATE EXTENSION IF NOT EXISTS citext;
-ALTER DEFAULT PRIVILEGES FOR ROLE ate_owner IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ate_app;
 ALTER DEFAULT PRIVILEGES FOR ROLE ate_owner IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO ate_app;
 ```
+
+Hak tabel diatur oleh migrasi. Sejak migrasi `001400`, tabel baru **tidak** otomatis bisa diakses `ate_app`: migrasinya harus memberi GRANT sendiri, dan tabel tanpa RLS harus didaftarkan di `tests/Feature/Security/DatabasePrivilegesTest.php`.
 
 ### 2. Backend
 
 ```bash
 cd backend
 composer install
-cp .env.example .env              # isi DB_PASSWORD (ate_app) dan DB_OWNER_PASSWORD (ate_owner)
+cp .env.example .env              # isi password ate_app, ate_owner, ate_session, ate_queue
 php artisan key:generate
+# Kunci konteks DB: "base64:" + 32 byte acak, beda per lingkungan, simpan di secret store.
+php -r 'echo "DB_CONTEXT_KEY=base64:".base64_encode(random_bytes(32)).PHP_EOL;' >> .env
 php artisan migrate --database=pgsql_owner
+php artisan db:context-key install                            # setelah setiap migrate:fresh juga
 php artisan db:seed --database=pgsql_owner                    # data referensi (+ admin platform bila PLATFORM_ADMIN_* diisi)
 php artisan db:seed --database=pgsql_owner --class=DemoSeeder # opsional, lokal saja: 2 organisasi demo
 php artisan serve
@@ -69,4 +86,6 @@ cd backend && php artisan test         # buat .env.testing (salinan .env dengan 
 cd frontend && npm run typecheck && npm run lint && npm test && npm run build
 ```
 
-Suite backend menjalankan migrasi lewat koneksi owner, tetapi test dan aplikasi berjalan sebagai `ate_app`. Dengan begitu isolasi tenant diuji di ketiga lapisan: aplikasi, composite foreign key, dan RLS.
+Suite backend menjalankan migrasi lewat koneksi owner, tetapi test dan aplikasi berjalan sebagai `ate_app`. Dengan begitu isolasi tenant diuji di ketiga lapisan: aplikasi, composite foreign key, dan RLS. `.env.testing` juga butuh `DB_CONTEXT_KEY` serta password `ate_session`/`ate_queue`; suite memasang kunci sendiri setelah `migrate:fresh`. Setiap request di test dimulai tanpa konteks, sama seperti di produksi.
+
+Role adalah objek tingkat cluster: uji perubahan role atau hak akses di cluster PostgreSQL terpisah, bukan di server yang juga dipakai database development.

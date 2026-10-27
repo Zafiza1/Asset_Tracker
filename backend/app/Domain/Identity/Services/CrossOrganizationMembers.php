@@ -68,20 +68,23 @@ final class CrossOrganizationMembers
      *
      * @param  array<string, mixed>  $profile  membership fields
      * @param  list<array{organization_id: string, role_ids: list<string>, scopes?: list<array{scope_type: string, ref_id?: string|null}>}>  $grants
+     * @param  string|null  $licenseCodeId  Optional license code to assign (only for current organization)
      * @return array<string, OrganizationInvitation> by organization id, roles attached
      */
-    public function invite(User $actor, string $email, array $profile, array $grants): array
+    public function invite(User $actor, string $email, array $profile, array $grants, ?string $licenseCodeId = null): array
     {
         $organizations = $this->resolveTargets($actor, $grants);
         $currentId = $this->tenancy->organizationId();
 
-        return DB::transaction(function () use ($actor, $email, $profile, $grants, $organizations, $currentId) {
+        return DB::transaction(function () use ($actor, $email, $profile, $grants, $organizations, $currentId, $licenseCodeId) {
             $invitations = [];
             foreach ($grants as $grant) {
                 $organization = $organizations[$grant['organization_id']];
                 $orgProfile = $organization->id === $currentId ? $profile : array_diff_key($profile, ['home_department_id' => true]);
-                $invitations[$organization->id] = $this->inOrganization($actor, $organization, fn () => $this->labelled($organization, function () use ($email, $orgProfile, $grant) {
-                    $invitation = $this->invitations->create($email, $orgProfile, $grant['role_ids'], $grant['scopes'] ?? [['scope_type' => 'organization']]);
+                // License code only applies to the current organization
+                $orgLicenseCodeId = $organization->id === $currentId ? $licenseCodeId : null;
+                $invitations[$organization->id] = $this->inOrganization($actor, $organization, fn () => $this->labelled($organization, function () use ($email, $orgProfile, $grant, $orgLicenseCodeId) {
+                    $invitation = $this->invitations->create($email, $orgProfile, $grant['role_ids'], $grant['scopes'] ?? [['scope_type' => 'organization']], $orgLicenseCodeId);
                     $this->invitations->withRoles([$invitation]);
 
                     return $invitation;

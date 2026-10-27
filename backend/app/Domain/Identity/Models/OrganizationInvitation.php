@@ -2,6 +2,7 @@
 
 namespace App\Domain\Identity\Models;
 
+use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -13,17 +14,22 @@ use Illuminate\Support\Carbon;
  * An invitation for an email address to join one organization with the given access.
  * Only the SHA-256 hash of the token is stored; the token itself exists only in the email.
  * A pending invitation past expires_at counts as expired even before expireStale() marks it.
+ * It is issued either by a member of the organization (invited_by) or, for the first
+ * Organization Administrator of an organization created on the platform console, by a platform
+ * account (invited_by_platform_user_id).
  *
  * @property string $id
  * @property string $organization_id
  * @property string $email
  * @property string $token_hash
- * @property string $invited_by
+ * @property string|null $invited_by
+ * @property string|null $invited_by_platform_user_id
  * @property list<string> $role_ids
  * @property list<array{scope_type: string, ref_id?: string|null}> $scopes
  * @property string|null $employee_number
  * @property string|null $job_title
  * @property string|null $home_department_id
+ * @property string|null $license_code_id
  * @property string $status
  * @property Carbon $expires_at
  * @property Carbon|null $last_sent_at
@@ -84,8 +90,19 @@ class OrganizationInvitation extends Model
         };
     }
 
+    /** Issued on the platform console for the organization's first administrator. */
+    public function isPlatformIssued(): bool
+    {
+        return $this->invited_by_platform_user_id !== null;
+    }
+
     public function inviter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'invited_by');
+    }
+
+    public function licenseCode(): BelongsTo
+    {
+        return $this->belongsTo(LicenseCode::class, 'license_code_id');
     }
 }
