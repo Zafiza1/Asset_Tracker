@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/Badge'
 import { statusTone } from '../../components/ui/badgeTones'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
+import { ColumnToggle } from '../../components/ui/ColumnToggle'
 import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
@@ -56,6 +57,10 @@ export interface MasterListConfig<T extends MasterRecord> {
   emptyHint?: string
   /** Rows that cannot be changed here (e.g. built-in records): no action buttons. */
   isReadOnly?: (row: T) => boolean
+  /** Enable column visibility toggle. */
+  showColumnToggle?: boolean
+  /** Default columns to show (used when column toggle is enabled). */
+  defaultColumns?: string[]
 }
 
 type Values = Record<string, string>
@@ -74,7 +79,26 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const filterValues = Object.fromEntries((config.filters ?? []).map((f) => [f.name, params.get(f.name) ?? '']))
   const advanced = useFilterDraft(params, [...(config.filters ?? []).map((f) => f.name), 'status'])
   const draft = advanced.draft
-  const listParams = { page: params.get('page'), search: params.get('search'), status: params.get('status'), ...filterValues }
+  const listParams = { page: params.get('page'), search: params.get('search'), status: params.get('status'), columns: params.get('columns'), ...filterValues }
+
+  const visibleColumns = config.showColumnToggle
+    ? (params.get('columns') ?? config.defaultColumns?.join(',') ?? config.columns.map((c) => c.key).join(',')).split(',').filter(Boolean)
+    : undefined
+
+  const toggleColumn = config.showColumnToggle
+    ? (key: string) => {
+        const next = visibleColumns!.includes(key)
+          ? visibleColumns!.filter((c) => c !== key)
+          : [...visibleColumns!, key]
+        update({ columns: next.join(',') })
+      }
+    : undefined
+
+  const resetColumns = config.showColumnToggle
+    ? () => {
+        update({ columns: config.defaultColumns?.join(',') ?? config.columns.map((c) => c.key).join(',') })
+      }
+    : undefined
 
   const query = useQuery({
     queryKey: [config.endpoint, listParams],
@@ -161,7 +185,23 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const body = (
     <Card>
       <FilterPanel>
-        <SearchForm value={search} onChange={setSearch} onSubmit={() => update({ search, page: '' })} placeholder="Cari kode atau nama" label={`Cari ${config.title}`} />
+        <SearchForm
+          value={search}
+          onChange={setSearch}
+          onSubmit={() => update({ search, page: '' })}
+          placeholder="Cari kode atau nama"
+          label={`Cari ${config.title}`}
+          aside={
+            config.showColumnToggle && toggleColumn && resetColumns ? (
+              <ColumnToggle
+                columns={columns}
+                visibleColumns={visibleColumns ?? columns.map((c) => c.key)}
+                onToggle={toggleColumn}
+                onReset={resetColumns}
+              />
+            ) : undefined
+          }
+        />
         <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update({ ...draft, page: '' })} onClear={() => advanced.set(advanced.empty)}>
           {config.filters?.map((f) => (
             <Select key={f.name} value={draft[f.name]} onChange={(e) => advanced.set({ [f.name]: e.target.value })} aria-label={f.label}>
@@ -197,7 +237,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
         <EmptyState title={chips.length > 0 ? 'Tidak ada data yang cocok' : 'Belum ada data'} description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : config.emptyHint} />
       ) : (
         <>
-          <DataTable columns={columns} rows={query.data!.data} />
+          <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} />
           <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} />
         </>
       )}

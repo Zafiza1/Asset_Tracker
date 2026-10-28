@@ -16,13 +16,14 @@ class LicenseCodeResource extends JsonResource
             'code' => $this->code,
             'status' => $this->status,
             'assigned_to_user_id' => $this->assigned_to_user_id,
-            'assigned_user' => $this->whenLoaded('assignedUser', fn () => $this->assignedUser && $this->assignedUser->user ? [
-                'id' => $this->assignedUser->user_id,
-                'name' => $this->assignedUser->user->name,
-                'email' => $this->assignedUser->user->email,
+            'assigned_user' => $this->whenLoaded('assignedUser', fn () => $this->assignedUser ? [
+                'id' => $this->assignedUser->id,
+                'name' => $this->assignedUser->name,
+                'email' => $this->assignedUser->email,
             ] : null),
             'assigned_at' => $this->assigned_at?->toIso8601String(),
             'notes' => $this->notes,
+            'reference' => $this->getAttribute('reference'),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

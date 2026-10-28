@@ -41,7 +41,17 @@ final class CrossOrganizationMembers
         return $this->organizationsWhere($actor, self::MANAGE_PERMISSIONS)
             ->map(fn (Organization $o) => [
                 'organization' => $o,
-                'roles' => $this->inOrganization($actor, $o, fn () => Role::query()->withCount('permissions')->orderBy('name')->get()),
+                'roles' => $this->inOrganization($actor, $o, fn () => Role::query()
+                    ->with('permissions')
+                    ->withCount('permissions')
+                    ->orderByRaw("CASE
+                        WHEN code = 'SUPER_ADMIN' THEN 0
+                        WHEN code = 'SUPERVISOR' THEN 1
+                        WHEN code = 'ADMIN' THEN 2
+                        ELSE 3
+                    END")
+                    ->orderBy('name')
+                    ->get()),
             ]);
     }
 

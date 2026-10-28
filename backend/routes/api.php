@@ -4,13 +4,14 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\InvitationAcceptanceController;
 use App\Http\Controllers\HealthController;
-use App\Http\Controllers\Platform\GenericCategoryController;
-use App\Http\Controllers\Platform\GenericDefinitionController;
-use App\Http\Controllers\Platform\GenericReferenceController;
-use App\Http\Controllers\Platform\GenericVersionController;
-use App\Http\Controllers\Platform\LicenseController as PlatformLicenseController;
-use App\Http\Controllers\Platform\OrganizationController as PlatformOrganizationController;
-use App\Http\Controllers\Platform\PlatformAuditLogController;
+// Platform controllers removed - platform admin system deprecated
+// use App\Http\Controllers\Platform\GenericCategoryController;
+// use App\Http\Controllers\Platform\GenericDefinitionController;
+// use App\Http\Controllers\Platform\GenericReferenceController;
+// use App\Http\Controllers\Platform\GenericVersionController;
+// use App\Http\Controllers\Platform\LicenseController as PlatformLicenseController;
+// use App\Http\Controllers\Platform\OrganizationController as PlatformOrganizationController;
+// use App\Http\Controllers\Platform\PlatformAuditLogController;
 use App\Http\Controllers\Tenant\AuditLogController;
 use App\Http\Controllers\Tenant\CategoryAttributeController;
 use App\Http\Controllers\Tenant\DepartmentController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Tenant\GenericCatalogController;
 use App\Http\Controllers\Tenant\InvitationController;
 use App\Http\Controllers\Tenant\LicenseCodeController;
 use App\Http\Controllers\Tenant\LicenseController;
+use App\Http\Controllers\Tenant\LicensePurchaseController;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\LocationTypeController;
 use App\Http\Controllers\Tenant\OrganizationProfileController;
@@ -31,7 +33,6 @@ use Illuminate\Support\Facades\Route;
 /*
 | Route groups:
 |  - auth:      session login/logout/profile (no tenant context; works while must_change_password)
-|  - platform:  /api/platform/*  platform accounts only, platform permissions
 |  - tenant:    everything else  active organization from the session (membership checked), tenant permissions
 */
 
@@ -60,66 +61,7 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::prefix('platform')->middleware(['auth:sanctum', 'platform'])->group(function () {
-    Route::get('/organizations', [PlatformOrganizationController::class, 'index'])->middleware('permission:platform.organization.view');
-    Route::post('/organizations', [PlatformOrganizationController::class, 'store'])->middleware('permission:platform.organization.manage');
-    Route::get('/organizations/{organization}', [PlatformOrganizationController::class, 'show'])->middleware('permission:platform.organization.view');
-    Route::patch('/organizations/{organization}', [PlatformOrganizationController::class, 'update'])->middleware('permission:platform.organization.manage');
-    Route::post('/organizations/{organization}/suspend', [PlatformOrganizationController::class, 'suspend'])->middleware('permission:platform.organization.manage');
-    Route::post('/organizations/{organization}/activate', [PlatformOrganizationController::class, 'activate'])->middleware('permission:platform.organization.manage');
-    // First administrator: invited, never assigned; only while the organization has no member.
-    Route::get('/organizations/{organization}/admin-invitation', [PlatformOrganizationController::class, 'adminInvitation'])->middleware('permission:platform.organization.view');
-    Route::post('/organizations/{organization}/admin-invitation', [PlatformOrganizationController::class, 'inviteAdmin'])->middleware('permission:platform.organization.manage');
-    Route::post('/organizations/{organization}/admin-invitation/resend', [PlatformOrganizationController::class, 'resendAdminInvitation'])->middleware('permission:platform.organization.manage');
-    Route::post('/organizations/{organization}/admin-invitation/revoke', [PlatformOrganizationController::class, 'revokeAdminInvitation'])->middleware('permission:platform.organization.manage');
-
-    // Licenses bought by the organization: the Asset Tracker (base) license and seat packs.
-    Route::get('/organizations/{organization}/licenses', [PlatformLicenseController::class, 'index'])->middleware('permission:platform.organization.view');
-    Route::post('/organizations/{organization}/licenses', [PlatformLicenseController::class, 'store'])->middleware('permission:platform.organization.manage');
-    Route::post('/organizations/{organization}/licenses/{license}/revoke', [PlatformLicenseController::class, 'revoke'])
-        ->middleware('permission:platform.organization.manage')->scopeBindings();
-
-    Route::get('/audit-logs', [PlatformAuditLogController::class, 'index'])->middleware('permission:platform.audit.view');
-
-    // Generic Master: drafts are edited with master.generic.manage; release/deprecate need master.generic.release.
-    Route::prefix('generic-masters')->group(function () {
-        $view = 'permission:master.generic.view';
-        $manage = 'permission:master.generic.manage';
-        $release = 'permission:master.generic.release';
-
-        Route::get('/categories', [GenericCategoryController::class, 'index'])->middleware($view);
-        Route::post('/categories', [GenericCategoryController::class, 'store'])->middleware($manage);
-        Route::patch('/categories/{genericCategory}', [GenericCategoryController::class, 'update'])->middleware($manage);
-        Route::post('/categories/{genericCategory}/archive', [GenericCategoryController::class, 'archive'])->middleware($manage);
-        Route::post('/categories/{genericCategory}/restore', [GenericCategoryController::class, 'restore'])->middleware($manage);
-
-        Route::get('/definitions', [GenericDefinitionController::class, 'index'])->middleware($view);
-        Route::post('/definitions', [GenericDefinitionController::class, 'store'])->middleware($manage);
-        Route::get('/definitions/{genericDefinition}', [GenericDefinitionController::class, 'show'])->middleware($view);
-        Route::patch('/definitions/{genericDefinition}', [GenericDefinitionController::class, 'update'])->middleware($manage);
-        Route::post('/definitions/{genericDefinition}/archive', [GenericDefinitionController::class, 'archive'])->middleware($manage);
-        Route::post('/definitions/{genericDefinition}/restore', [GenericDefinitionController::class, 'restore'])->middleware($manage);
-        Route::post('/definitions/{genericDefinition}/versions', [GenericDefinitionController::class, 'createVersion'])->middleware($manage);
-
-        Route::get('/versions/{genericVersion}', [GenericVersionController::class, 'show'])->middleware($view);
-        Route::patch('/versions/{genericVersion}', [GenericVersionController::class, 'update'])->middleware($manage);
-        Route::delete('/versions/{genericVersion}', [GenericVersionController::class, 'destroy'])->middleware($manage);
-        Route::post('/versions/{genericVersion}/release', [GenericVersionController::class, 'release'])->middleware($release);
-        Route::post('/versions/{genericVersion}/deprecate', [GenericVersionController::class, 'deprecate'])->middleware($release);
-        Route::post('/versions/{genericVersion}/attributes', [GenericVersionController::class, 'storeAttribute'])->middleware($manage);
-        Route::patch('/attributes/{genericAttribute}', [GenericVersionController::class, 'updateAttribute'])->middleware($manage);
-        Route::delete('/attributes/{genericAttribute}', [GenericVersionController::class, 'destroyAttribute'])->middleware($manage);
-
-        Route::get('/units', [GenericReferenceController::class, 'units'])->middleware($view);
-        Route::post('/units', [GenericReferenceController::class, 'storeUnit'])->middleware($manage);
-        Route::patch('/units/{unit}', [GenericReferenceController::class, 'updateUnit'])->middleware($manage);
-        Route::get('/location-types', [GenericReferenceController::class, 'locationTypes'])->middleware($view);
-        Route::post('/location-types', [GenericReferenceController::class, 'storeLocationType'])->middleware($manage);
-        Route::patch('/location-types/{locationType}', [GenericReferenceController::class, 'updateLocationType'])->middleware($manage);
-        Route::get('/transaction-types', [GenericReferenceController::class, 'transactionTypes'])->middleware($view);
-        Route::patch('/transaction-types/{transactionType}', [GenericReferenceController::class, 'updateTransactionType'])->middleware($manage);
-    });
-});
+// Platform routes removed - platform admin system deprecated
 
 Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     // Seats and expiry of the organization's license (read-only banner, seat usage).
@@ -149,13 +91,18 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     Route::post('/invitations/{invitation}/resend', [InvitationController::class, 'resend'])->middleware('permission:user.create,role.manage');
     Route::post('/invitations/{invitation}/revoke', [InvitationController::class, 'revoke'])->middleware('permission:user.create,role.manage')->withoutMiddleware('license');
 
-    // License codes: reusable activation codes for user accounts
-    Route::get('/license-codes', [LicenseCodeController::class, 'index'])->middleware('permission:user.view');
-    Route::post('/license-codes', [LicenseCodeController::class, 'store'])->middleware('permission:user.create,role.manage');
-    Route::get('/license-codes/{licenseCode}', [LicenseCodeController::class, 'show'])->middleware('permission:user.view');
-    Route::post('/license-codes/{licenseCode}/assign', [LicenseCodeController::class, 'assign'])->middleware('permission:user.create,role.manage');
-    Route::post('/license-codes/{licenseCode}/release', [LicenseCodeController::class, 'release'])->middleware('permission:user.create,role.manage');
-    Route::post('/license-codes/{licenseCode}/revoke', [LicenseCodeController::class, 'revoke'])->middleware('permission:user.create,role.manage');
+    // License codes: reusable activation codes for user accounts (automatically created on license purchase)
+    Route::get('/license-codes', [LicenseCodeController::class, 'index'])->middleware('permission:license.manage');
+    Route::get('/license-codes/debug', [LicenseCodeController::class, 'debug'])->middleware('permission:license.manage');
+    Route::post('/license-codes/generate-missing', [LicenseCodeController::class, 'generateMissing'])->middleware('permission:license.manage');
+    Route::get('/license-codes/{licenseCode}', [LicenseCodeController::class, 'show'])->middleware('permission:license.manage');
+    Route::post('/license-codes/{licenseCode}/assign', [LicenseCodeController::class, 'assign'])->middleware('permission:license.manage');
+    Route::post('/license-codes/{licenseCode}/release', [LicenseCodeController::class, 'release'])->middleware('permission:license.manage');
+    Route::post('/license-codes/{licenseCode}/revoke', [LicenseCodeController::class, 'revoke'])->middleware('permission:license.manage');
+
+    // License purchase: Super Admin can buy additional user licenses (payment bypassed)
+    Route::post('/licenses/purchase', [LicensePurchaseController::class, 'purchase'])->middleware('permission:organization.manage');
+    Route::get('/licenses/history', [LicensePurchaseController::class, 'history'])->middleware('permission:organization.view');
 
     Route::get('/roles', [RoleController::class, 'index'])->middleware('permission:role.view');
     Route::post('/roles', [RoleController::class, 'store'])->middleware('permission:role.manage');

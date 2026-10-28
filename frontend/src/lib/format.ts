@@ -47,6 +47,9 @@ export const permissionGroupLabel: Record<string, string> = {
   audit: 'Audit',
   workflow: 'Workflow',
   settings: 'Pengaturan',
+  license: 'Lisensi',
+  generic_master: 'Generic Master',
+  platform: 'Platform',
 }
 
 export const masterStatusLabel: Record<string, string> = {

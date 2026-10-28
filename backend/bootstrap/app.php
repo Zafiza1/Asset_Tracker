@@ -6,7 +6,7 @@ use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\EnsureLicensed;
 use App\Http\Middleware\EnsureModuleAvailable;
 use App\Http\Middleware\RequirePermission;
-use App\Http\Middleware\ResolvePlatform;
+// use App\Http\Middleware\ResolvePlatform; // Removed - platform admin system deprecated
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
@@ -36,7 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant' => ResolveTenant::class,
             'license' => EnsureLicensed::class,
-            'platform' => ResolvePlatform::class,
+            // 'platform' => ResolvePlatform::class, // Removed - platform admin system deprecated
             'permission' => RequirePermission::class,
             'module' => EnsureModuleAvailable::class,
         ]);
@@ -44,7 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Context and permission checks must run before route model binding, so bindings are
         // tenant-scoped and an unauthorized caller gets 403 without learning whether an id exists.
         $middleware->prependToPriorityList(SubstituteBindings::class, ResolveTenant::class);
-        $middleware->prependToPriorityList(SubstituteBindings::class, ResolvePlatform::class);
+        // $middleware->prependToPriorityList(SubstituteBindings::class, ResolvePlatform::class); // Removed - platform admin system deprecated
         $middleware->prependToPriorityList(SubstituteBindings::class, RequirePermission::class);
 
         $middleware->redirectGuestsTo(fn () => null);

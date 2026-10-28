@@ -1,13 +1,16 @@
-import { CheckCircle2, AlertCircle, Clock, XCircle, Users, UserPlus, Calendar, CreditCard } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Clock, XCircle, Users, UserPlus, Calendar, CreditCard, Key } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
-import type { License } from '../../lib/api/types'
+import type { License, LicenseCode } from '../../lib/api/types'
 
 interface LicenseCardProps {
   license?: License
+  licenseCodes?: LicenseCode[]
 }
 
-export function LicenseCard({ license }: LicenseCardProps) {
-  console.log('LicenseCard received:', license)
+export function LicenseCard({ license, licenseCodes = [] }: LicenseCardProps) {
+  console.log('LicenseCard received:', license, licenseCodes)
+  console.log('License codes references:', licenseCodes.map(c => ({ code: c.code, reference: c.reference })))
+  console.log('License references:', license.licenses.map(l => ({ id: l.id, reference: l.reference })))
   if (!license) return null
 
   const { active, over_limit, seats, licenses } = license
@@ -55,7 +58,12 @@ export function LicenseCard({ license }: LicenseCardProps) {
     }
   }
 
-  const getKindLabel = (kind: string) => {
+  const getKindLabel = (kind: string, reference?: string | null) => {
+    // Check if this is SUPER_ADMIN_FREE license
+    if (reference === 'SUPER_ADMIN_FREE') {
+      return 'Lisensi Super Admin'
+    }
+
     switch (kind) {
       case 'base':
         return 'Lisensi Dasar'
@@ -67,7 +75,9 @@ export function LicenseCard({ license }: LicenseCardProps) {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return dateString
+    return date.toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -128,46 +138,77 @@ export function LicenseCard({ license }: LicenseCardProps) {
         <div>
           <h4 className="mb-3 text-sm font-medium text-slate-700">Detail Lisensi</h4>
           <div className="space-y-2">
-            {licenses.map((license) => (
-              <div key={license.id} className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="mb-2 flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-slate-900">{getKindLabel(license.kind)}</span>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(license.status)}`}>
-                        {getStatusIcon(license.status)}
-                        {license.status === 'active' ? 'Aktif' : license.status === 'scheduled' ? 'Terjadwal' : license.status === 'expired' ? 'Kadaluarsa' : 'Dicabut'}
-                      </span>
+            {licenses.map((license) => {
+              // Find license code for this license by matching reference
+              const licenseCode = licenseCodes.find(code => code.reference === license.reference)
+              console.log(`License ${license.id} (ref: ${license.reference}) -> matched code:`, licenseCode?.code || 'NOT FOUND')
+              return (
+                <div key={license.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="mb-2 flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-slate-900">{getKindLabel(license.kind, license.reference)}</span>
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(license.status)}`}>
+                          {getStatusIcon(license.status)}
+                          {license.status === 'active' ? 'Aktif' : license.status === 'scheduled' ? 'Terjadwal' : license.status === 'expired' ? 'Kadaluarsa' : 'Dicabut'}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-sm text-slate-600">
+                        {license.reference === 'SUPER_ADMIN_FREE' ? '' :
+                         license.kind === 'base' ? '1 seat' : `${license.seats} seat`}
+                      </div>
                     </div>
-                    <div className="mt-1 text-sm text-slate-600">
-                      {license.kind === 'base' ? '1 seat (administrator)' : `${license.seats} seat`}
+                    <div className="text-right">
+                      <div className="text-xs text-slate-500">{getSourceLabel(license.source)}</div>
+                      {license.reference && <div className="text-xs text-slate-500">{license.reference}</div>}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs text-slate-500">{getSourceLabel(license.source)}</div>
-                    {license.reference && <div className="text-xs text-slate-500">{license.reference}</div>}
+                  <div className="flex items-center gap-4 text-xs text-slate-500">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="size-3" />
+                      <span>Mulai: {formatDate(license.starts_at)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="size-3" />
+                      <span>Berakhir: {formatDate(license.expires_at)}</span>
+                    </div>
                   </div>
+                  {licenseCode && (
+                    <div className="mt-3 rounded-md bg-slate-50 p-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Key className="size-3.5 text-slate-500" />
+                          <span className="font-mono text-sm font-medium text-slate-900">{licenseCode.code}</span>
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                            licenseCode.status === 'available' ? 'bg-green-100 text-green-800' :
+                            licenseCode.status === 'assigned' ? 'bg-blue-100 text-blue-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {licenseCode.status === 'available' ? 'Tersedia' :
+                             licenseCode.status === 'assigned' ? 'Ditugaskan' :
+                             'Dicabut'}
+                          </span>
+                        </div>
+                        {licenseCode.assigned_user && (
+                          <div className="text-right">
+                            <div className="text-xs font-medium text-slate-900">{licenseCode.assigned_user.name}</div>
+                            <div className="text-xs text-slate-500">{licenseCode.assigned_user.email}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {license.revoked_at && (
+                    <div className="mt-2 text-xs text-red-600">
+                      Dicabut pada {formatDate(license.revoked_at)}: {license.revoke_reason}
+                    </div>
+                  )}
+                  {license.notes && (
+                    <div className="mt-2 text-xs text-slate-600 italic">{license.notes}</div>
+                  )}
                 </div>
-                <div className="flex items-center gap-4 text-xs text-slate-500">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="size-3" />
-                    <span>Mulai: {formatDate(license.starts_at)}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="size-3" />
-                    <span>Berakhir: {formatDate(license.expires_at)}</span>
-                  </div>
-                </div>
-                {license.revoked_at && (
-                  <div className="mt-2 text-xs text-red-600">
-                    Dicabut pada {formatDate(license.revoked_at)}: {license.revoke_reason}
-                  </div>
-                )}
-                {license.notes && (
-                  <div className="mt-2 text-xs text-slate-600 italic">{license.notes}</div>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 

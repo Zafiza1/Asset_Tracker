@@ -6,6 +6,7 @@ use App\Domain\Audit\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\OrganizationAccess;
 use App\Domain\Identity\Services\SessionTerminator;
+use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Platform\Services\OrganizationProvisioner;
@@ -90,6 +91,7 @@ class AuthController extends Controller
                 'name' => ['required', 'string', 'max:150'],
                 'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')],
                 'password' => ['required', 'string', 'confirmed', 'max:200', Password::min(12)->letters()->mixedCase()->numbers()],
+                'license_quantity' => ['nullable', 'integer', 'min:0', 'max:100'],
             ], [
                 'organization_code.unique' => 'Kode organisasi sudah dipakai.',
                 'email.unique' => 'Email sudah terdaftar. Silakan masuk, lalu buat organisasi baru dari menu organisasi.',
@@ -102,6 +104,55 @@ class AuthController extends Controller
                     adminMustChangePassword: false,
                 );
                 $licensing->grantTrial($result['organization']);
+
+                // Assign SUPER_ADMIN_FREE license code to the admin automatically
+                $superAdminCode = LicenseCode::where('organization_id', $result['organization']->id)
+                    ->where('reference', 'SUPER_ADMIN_FREE')
+                    ->first();
+                if ($superAdminCode && $superAdminCode->isAvailable()) {
+                    $superAdminCode->assignTo($result['admin']->id);
+                }
+
+                // Purchase additional licenses and create license codes if requested
+                if (isset($data['license_quantity']) && $data['license_quantity'] > 0) {
+                    $quantity = $data['license_quantity'];
+                    $start = now();
+                    $end = $start->copy()->addYears(1);
+
+                    for ($i = 0; $i < $quantity; $i++) {
+                        $reference = 'REGISTRATION-' . date('Ymd') . '-' . str_pad($i + 1, 3, '0', STR_PAD_LEFT);
+                        $licensing->grant(
+                            organization: $result['organization'],
+                            kind: \App\Domain\Licensing\Models\OrganizationLicense::KIND_BASE,
+                            seats: 1,
+                            startsAt: $start,
+                            expiresAt: $end,
+                            reference: $reference,
+                            notes: 'Pembelian lisensi saat registrasi',
+                            source: \App\Domain\Licensing\Models\OrganizationLicense::SOURCE_PURCHASE,
+                        );
+
+                        // Create license code for each purchased license with reference
+                        try {
+                            $licenseCode = \App\Domain\Licensing\Services\LicenseCodeService::createForOrganization(
+                                $result['organization'],
+                                'Lisensi dari pembelian saat registrasi',
+                                $reference
+                            );
+                            \Log::info('License code created during registration', [
+                                'reference' => $reference,
+                                'code' => $licenseCode->code,
+                                'organization_id' => $result['organization']->id,
+                            ]);
+                        } catch (\Exception $e) {
+                            \Log::error('Failed to create license code during registration', [
+                                'error' => $e->getMessage(),
+                                'reference' => $reference,
+                                'organization_id' => $result['organization']->id,
+                            ]);
+                        }
+                    }
+                }
 
                 return $result;
             });

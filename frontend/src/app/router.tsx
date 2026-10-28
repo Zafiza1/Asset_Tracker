@@ -8,7 +8,6 @@ import { RegisterPage } from '../features/auth/RegisterPage'
 import { AssetDetailPage } from '../features/assets/AssetDetailPage'
 import { AssetsPage } from '../features/assets/AssetsPage'
 import { LocationsPage, LocationTypesPage, TenantCategoriesPage } from '../features/master/StructurePages'
-import { LicenseCodesPage } from '../features/organization/LicenseCodesPage'
 import { OrganizationPage } from '../features/organization/OrganizationPage'
 import { CreateOrganizationPage, SelectOrganizationPage } from '../features/organizations/OrganizationPages'
 import { SettingsPage } from '../features/organization/SettingsPage'
@@ -66,7 +65,6 @@ export const router = createBrowserRouter([
           { path: '/pengguna', element: tenant('user.view', <UsersPage />) },
           { path: '/pengguna/baru', element: tenant('user.create', <UserCreatePage />) },
           { path: '/pengguna/undangan', element: tenant('user.view', <InvitationsPage />) },
-          { path: '/kode-lisensi', element: tenant('user.create', <LicenseCodesPage />) },
           { path: '/pengguna/role', element: tenant('role.view', <RolesPage />) },
           { path: '/pengguna/role/baru', element: tenant('role.manage', <RoleFormPage />) },
           { path: '/pengguna/role/:id', element: tenant('role.view', <RoleFormPage />) },

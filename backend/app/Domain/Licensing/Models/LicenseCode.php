@@ -3,6 +3,7 @@
 namespace App\Domain\Licensing\Models;
 
 use App\Domain\Identity\Models\OrganizationMember;
+use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $assigned_to_user_id
  * @property Carbon|null $assigned_at
  * @property string|null $notes
+ * @property string|null $reference
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
@@ -38,7 +40,7 @@ class LicenseCode extends Model
 
     public const STATUSES = [self::STATUS_AVAILABLE, self::STATUS_ASSIGNED, self::STATUS_REVOKED];
 
-    protected $fillable = ['code', 'status', 'assigned_to_user_id', 'assigned_at', 'notes'];
+    protected $fillable = ['code', 'status', 'assigned_to_user_id', 'assigned_at', 'notes', 'reference'];
 
     protected function casts(): array
     {
@@ -65,10 +67,10 @@ class LicenseCode extends Model
         return $query->where('status', self::STATUS_REVOKED);
     }
 
-    /** Relationship to the organization member this code is currently assigned to. */
+    /** Relationship to the user this code is currently assigned to. */
     public function assignedUser(): BelongsTo
     {
-        return $this->belongsTo(OrganizationMember::class, 'assigned_to_user_id', 'user_id');
+        return $this->belongsTo(User::class, 'assigned_to_user_id');
     }
 
     /** Relationship to the organization that owns this code. */

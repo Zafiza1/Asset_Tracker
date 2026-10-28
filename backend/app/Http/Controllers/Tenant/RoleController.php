@@ -23,7 +23,17 @@ class RoleController extends Controller
     public function index(): AnonymousResourceCollection
     {
         return RoleResource::collection(
-            Role::query()->with('permissions')->withCount('users')->orderBy('name')->get()
+            Role::query()
+                ->with('permissions')
+                ->withCount('users')
+                ->orderByRaw("CASE
+                    WHEN code = 'SUPER_ADMIN' THEN 0
+                    WHEN code = 'SUPERVISOR' THEN 1
+                    WHEN code = 'ADMIN' THEN 2
+                    ELSE 3
+                END")
+                ->orderBy('name')
+                ->get()
         );
     }
 

@@ -11,15 +11,19 @@ export interface Column<T> {
   className?: string
   /** Hide on small screens to keep tables readable on mobile. */
   hideOnMobile?: boolean
+  /** Default visibility (used for column toggle). */
+  defaultVisible?: boolean
 }
 
-export function DataTable<T extends { id: string }>({ columns, rows, onRowClick }: { columns: Column<T>[]; rows: T[]; onRowClick?: (row: T) => void }) {
+export function DataTable<T extends { id: string }>({ columns, rows, onRowClick, visibleColumns }: { columns: Column<T>[]; rows: T[]; onRowClick?: (row: T) => void; visibleColumns?: string[] }) {
+  const displayedColumns = visibleColumns ? columns.filter((c) => visibleColumns.includes(c.key)) : columns
+
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
         <thead className="bg-slate-50/80">
           <tr>
-            {columns.map((c) => (
+            {displayedColumns.map((c) => (
               <th key={c.key} scope="col" className={clsx('whitespace-nowrap px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500', c.hideOnMobile && 'hidden md:table-cell', c.className)}>
                 {c.header}
               </th>
@@ -44,7 +48,7 @@ export function DataTable<T extends { id: string }>({ columns, rows, onRowClick 
               }
               className={clsx('transition-colors duration-100', onRowClick && 'cursor-pointer hover:bg-brand-50/60 focus-visible:bg-brand-50/60 focus-visible:outline-offset-[-2px]')}
             >
-              {columns.map((c) => (
+              {displayedColumns.map((c) => (
                 <td key={c.key} className={clsx('px-4 py-3 align-top text-slate-700', c.hideOnMobile && 'hidden md:table-cell', c.className)}>
                   {c.cell(row)}
                 </td>

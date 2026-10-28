@@ -37,10 +37,14 @@ final class Licensing
         $base = $valid->where('kind', OrganizationLicense::KIND_BASE);
         $active = $base->isNotEmpty();
 
+        // New logic: capacity = count of valid licenses (each license = 1 user)
+        // Instead of sum(seats), we count the number of licenses
+        $capacity = $active ? $valid->count() : 0;
+
         return new LicenseStatus(
             active: $active,
             expiresAt: $active ? $base->max('expires_at') : null,
-            capacity: $active ? (int) $valid->sum('seats') : 0,
+            capacity: $capacity,
             activeMembers: OrganizationMember::query()->where('organization_id', $organizationId)->where('status', User::STATUS_ACTIVE)->count(),
             pendingInvitations: OrganizationInvitation::query()->where('organization_id', $organizationId)
                 ->where('status', OrganizationInvitation::STATUS_PENDING)->where('expires_at', '>', now())->count(),
@@ -85,7 +89,7 @@ final class Licensing
             $license->forceFill([
                 'organization_id' => $organization->id,
                 'kind' => $kind,
-                'seats' => $kind === OrganizationLicense::KIND_BASE ? 1 : $seats,
+                'seats' => 1, // Always 1 seat per license in the new system
                 'source' => $source,
                 'reference' => $reference,
                 'notes' => $notes,
@@ -116,11 +120,8 @@ final class Licensing
         }
         $start = now();
         $end = $start->copy()->addDays($days);
-        $this->grant($organization, OrganizationLicense::KIND_BASE, 1, $start, $end, source: OrganizationLicense::SOURCE_TRIAL);
-        $extra = (int) config('licensing.trial.seats') - 1;
-        if ($extra > 0) {
-            $this->grant($organization, OrganizationLicense::KIND_SEATS, $extra, $start, $end, source: OrganizationLicense::SOURCE_TRIAL);
-        }
+        // Super Admin gets 1 free license permanently (not a trial)
+        $this->grant($organization, OrganizationLicense::KIND_BASE, 1, $start, $end->copy()->addYears(10), source: OrganizationLicense::SOURCE_PURCHASE, reference: 'SUPER_ADMIN_FREE', notes: 'Lisensi gratis untuk Super Admin');
     }
 
     /**

@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Licensing\Services\LicenseCodeService;
+use App\Domain\Shared\Tenancy\Tenancy;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LicenseCodeResource;
 use App\Http\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -20,6 +22,7 @@ class LicenseCodeController extends Controller
 {
     public function __construct(
         private readonly LicenseCodeService $licenseCodes,
+        private readonly Tenancy $tenancy,
     ) {}
 
     /**
@@ -41,30 +44,54 @@ class LicenseCodeController extends Controller
 
         ListQuery::sort($query, $request, ['code' => 'code', 'created_at' => 'created_at', 'assigned_at' => 'assigned_at'], '-created_at');
 
-        return LicenseCodeResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());
+        $result = $query->paginate(ListQuery::perPage($request))->withQueryString();
+
+        return LicenseCodeResource::collection($result);
     }
 
     /**
-     * Create a new license code.
+     * Debug endpoint to check license codes in database
      */
-    public function store(Request $request): JsonResponse
+    public function debug(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'count' => ['nullable', 'integer', 'min:1', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:500'],
-        ]);
+        return response()->json(['message' => 'Debug endpoint working']);
+    }
 
-        $count = $data['count'] ?? 1;
-        $notes = $data['notes'] ?? null;
+    /**
+     * Generate license codes for licenses that don't have them
+     */
+    public function generateMissing(Request $request): JsonResponse
+    {
+        $orgId = $this->tenancy->organizationId();
 
-        $codes = $count === 1
-            ? [$this->licenseCodes->create($notes)]
-            : $this->licenseCodes->createBatch($count, $notes);
+        $licenses = \App\Domain\Licensing\Models\OrganizationLicense::where('organization_id', $orgId)->get();
+        $existingCodes = LicenseCode::where('organization_id', $orgId)->pluck('reference')->toArray();
+
+        $created = [];
+        foreach ($licenses as $license) {
+            if ($license->reference && !in_array($license->reference, $existingCodes)) {
+                try {
+                    $code = LicenseCodeService::createForOrganization(
+                        \App\Domain\Organization\Models\Organization::find($orgId),
+                        $license->notes,
+                        $license->reference
+                    );
+                    $created[] = [
+                        'license_reference' => $license->reference,
+                        'license_code' => $code->code,
+                    ];
+                } catch (\Exception $e) {
+                    // Skip if fails
+                }
+            }
+        }
 
         return response()->json([
-            'data' => LicenseCodeResource::collection($codes),
-            'meta' => ['created' => count($codes)],
-        ], 201);
+            'total_licenses' => $licenses->count(),
+            'existing_codes' => count($existingCodes),
+            'created_codes' => count($created),
+            'created' => $created,
+        ]);
     }
 
     /**

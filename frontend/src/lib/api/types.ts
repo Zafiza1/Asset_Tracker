@@ -69,6 +69,7 @@ export interface LicenseCode {
   assigned_user?: { id: string; name: string; email: string } | null
   assigned_at: string | null
   notes: string | null
+  reference: string | null
   created_at: string
   updated_at: string
 }
@@ -104,7 +105,7 @@ export interface UserOrganizationOption {
   code: string
   name: string
   is_current: boolean
-  roles: { id: string; code: string; name: string; description: string | null; permissions_count: number }[]
+  roles: { id: string; code: string; name: string; description: string | null; permissions_count: number; permissions?: string[] }[]
 }
 
 export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked'

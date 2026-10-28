@@ -7,6 +7,7 @@ import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
+import { ColumnToggle } from '../../components/ui/ColumnToggle'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
@@ -18,8 +19,9 @@ import { assetStatusLabel, assetStatusTone, type Asset, type AssetStatus } from 
 import { AssetFormModal } from './AssetFormModal'
 import { CategoryFilter } from './CategoryFilter'
 
-const FILTERS = ['page', 'search', 'category_ids', 'location_id', 'status', 'archived', 'sort'] as const
+const FILTERS = ['page', 'search', 'category_ids', 'location_id', 'status', 'archived', 'sort', 'columns'] as const
 const ADVANCED = ['category_ids', 'location_id', 'status', 'archived'] as const
+const DEFAULT_COLUMNS = ['code', 'name', 'serial_number', 'category', 'location', 'status']
 
 /** Asset Management module: search and filter the asset register, register new assets. */
 export function AssetsPage() {
@@ -32,6 +34,19 @@ export function AssetsPage() {
   const selectedCategories = (params.get('category_ids') ?? '').split(',').filter(Boolean)
   const advanced = useFilterDraft(params, ADVANCED)
   const draft = advanced.draft
+
+  const visibleColumns = (params.get('columns') ?? DEFAULT_COLUMNS.join(',')).split(',').filter(Boolean)
+
+  const toggleColumn = (key: string) => {
+    const next = visibleColumns.includes(key)
+      ? visibleColumns.filter((c) => c !== key)
+      : [...visibleColumns, key]
+    update({ columns: next.join(',') })
+  }
+
+  const resetColumns = () => {
+    update({ columns: DEFAULT_COLUMNS.join(',') })
+  }
 
   const categoryRows = useOptions('/tenant-masters/categories').data
   const categories = toOptions(categoryRows)
@@ -118,12 +133,20 @@ export function AssetsPage() {
             placeholder="Cari nama, kode, atau no seri"
             label="Cari aset"
             aside={
-              <Select value={params.get('sort') ?? ''} onChange={(e) => update({ sort: e.target.value })} className="sm:w-64" aria-label="Urutkan">
-                <option value="">Urutkan: terbaru ditambahkan</option>
-                <option value="asset_number">Urutkan: kode</option>
-                <option value="name">Urutkan: nama (A–Z)</option>
-                <option value="-acquisition_date">Urutkan: tanggal perolehan terbaru</option>
-              </Select>
+              <div className="flex gap-2">
+                <ColumnToggle
+                  columns={columns}
+                  visibleColumns={visibleColumns}
+                  onToggle={toggleColumn}
+                  onReset={resetColumns}
+                />
+                <Select value={params.get('sort') ?? ''} onChange={(e) => update({ sort: e.target.value })} className="sm:w-64" aria-label="Urutkan">
+                  <option value="">Urutkan: terbaru ditambahkan</option>
+                  <option value="asset_number">Urutkan: kode</option>
+                  <option value="name">Urutkan: nama (A–Z)</option>
+                  <option value="-acquisition_date">Urutkan: tanggal perolehan terbaru</option>
+                </Select>
+              </div>
             }
           />
           <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update(draft)} onClear={() => advanced.set(advanced.empty)}>
@@ -163,7 +186,7 @@ export function AssetsPage() {
           />
         ) : (
           <>
-            <DataTable columns={columns} rows={query.data!.data} onRowClick={(a) => navigate(`/aset/${a.id}`)} />
+            <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} onRowClick={(a) => navigate(`/aset/${a.id}`)} />
             <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} />
           </>
         )}

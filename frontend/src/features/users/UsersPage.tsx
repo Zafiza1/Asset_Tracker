@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/Badge'
 import { statusTone } from '../../components/ui/badgeTones'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
+import { ColumnToggle } from '../../components/ui/ColumnToggle'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
 import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
@@ -17,6 +18,7 @@ import { useAuth } from '../../lib/auth/context'
 import { formatDateTime, userStatusLabel } from '../../lib/format'
 import { UserAdminTabs } from './UserAdminTabs'
 
+const DEFAULT_COLUMNS = ['name', 'roles', 'job', 'status', 'login']
 const columns: Column<User>[] = [
   {
     key: 'name',
@@ -42,6 +44,19 @@ export function UsersPage() {
   const page = Number(params.get('page') ?? 1)
   const status = params.get('status') ?? ''
   const advanced = useFilterDraft(params, ['status'])
+
+  const visibleColumns = (params.get('columns') ?? DEFAULT_COLUMNS.join(',')).split(',').filter(Boolean)
+
+  const toggleColumn = (key: string) => {
+    const next = visibleColumns.includes(key)
+      ? visibleColumns.filter((c) => c !== key)
+      : [...visibleColumns, key]
+    update({ columns: next.join(',') })
+  }
+
+  const resetColumns = () => {
+    update({ columns: DEFAULT_COLUMNS.join(',') })
+  }
 
   const query = useQuery({
     queryKey: ['users', { page, status, search: params.get('search') }],
@@ -80,7 +95,21 @@ export function UsersPage() {
       <UserAdminTabs />
       <Card>
         <FilterPanel>
-          <SearchForm value={search} onChange={setSearch} onSubmit={() => update({ search, page: '' })} placeholder="Cari nama, email, atau NIK" label="Cari pengguna" />
+          <SearchForm
+            value={search}
+            onChange={setSearch}
+            onSubmit={() => update({ search, page: '' })}
+            placeholder="Cari nama, email, atau NIK"
+            label="Cari pengguna"
+            aside={
+              <ColumnToggle
+                columns={columns}
+                visibleColumns={visibleColumns}
+                onToggle={toggleColumn}
+                onReset={resetColumns}
+              />
+            }
+          />
           <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update({ ...advanced.draft, page: '' })} onClear={() => advanced.set(advanced.empty)}>
             <Select value={advanced.draft.status} onChange={(e) => advanced.set({ status: e.target.value })} aria-label="Filter status">
               <option value="">Status: semua</option>
@@ -101,7 +130,7 @@ export function UsersPage() {
           <EmptyState title={chips.length > 0 ? 'Tidak ada pengguna yang cocok' : 'Belum ada pengguna'} description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : undefined} />
         ) : (
           <>
-            <DataTable columns={columns} rows={query.data!.data} onRowClick={(u) => navigate(`/pengguna/${u.id}`)} />
+            <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} onRowClick={(u) => navigate(`/pengguna/${u.id}`)} />
             <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} />
           </>
         )}

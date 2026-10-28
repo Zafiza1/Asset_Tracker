@@ -67,6 +67,7 @@ class UserController extends Controller
             ...$this->organizationSummary($row['organization'], $currentId),
             'roles' => $row['roles']->map(fn ($r) => [
                 'id' => $r->id, 'code' => $r->code, 'name' => $r->name, 'description' => $r->description, 'permissions_count' => $r->permissions_count,
+                'permissions' => $r->permissions->pluck('code')->sort()->values(),
             ])->values(),
         ])->values()]);
     }

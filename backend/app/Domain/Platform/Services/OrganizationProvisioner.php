@@ -78,7 +78,8 @@ final class OrganizationProvisioner
                 'user_id' => $user->id,
                 'status' => User::STATUS_ACTIVE,
             ])->save();
-            $user->roles()->attach($roles[RoleTemplates::ADMIN]->id, ['organization_id' => $org->id]);
+            // First user who registers organization becomes SUPER_ADMIN
+            $user->roles()->attach($roles[RoleTemplates::SUPER_ADMIN]->id, ['organization_id' => $org->id]);
             UserDataScope::grant($org->id, $user->id, 'organization');
 
             $this->audit->record('organization.created', $org, after: [

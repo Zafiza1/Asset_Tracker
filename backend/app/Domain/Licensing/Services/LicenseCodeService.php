@@ -43,20 +43,57 @@ final class LicenseCodeService
     /**
      * Create a new license code for the current organization.
      */
-    public function create(string $notes = null): LicenseCode
+    public function create(string $notes = null, string $reference = null): LicenseCode
     {
-        return DB::transaction(function () use ($notes) {
+        return DB::transaction(function () use ($notes, $reference) {
             $code = new LicenseCode;
             $code->forceFill([
                 'organization_id' => $this->tenancy->organizationId(),
                 'code' => $this->generateCode(),
                 'status' => LicenseCode::STATUS_AVAILABLE,
                 'notes' => $notes,
+                'reference' => $reference,
             ]);
             $code->save();
 
             return $code;
         });
+    }
+
+    /**
+     * Create a new license code for a specific organization (static method for system context).
+     */
+    public static function createForOrganization(\App\Domain\Organization\Models\Organization $organization, string $notes = null, string $reference = null): LicenseCode
+    {
+        return DB::transaction(function () use ($organization, $notes, $reference) {
+            $code = new LicenseCode;
+            $code->forceFill([
+                'organization_id' => $organization->id,
+                'code' => self::generateCodeStatic(),
+                'status' => LicenseCode::STATUS_AVAILABLE,
+                'notes' => $notes,
+                'reference' => $reference,
+            ]);
+            $code->save();
+
+            return $code;
+        });
+    }
+
+    /**
+     * Generate a new unique license code (static version for system context).
+     * Format: LIC-XXXX-XXXX-XXXX
+     */
+    private static function generateCodeStatic(): string
+    {
+        do {
+            $segment1 = strtoupper(Str::random(4));
+            $segment2 = strtoupper(Str::random(4));
+            $segment3 = strtoupper(Str::random(4));
+            $code = sprintf('%s-%s-%s-%s', self::CODE_PREFIX, $segment1, $segment2, $segment3);
+        } while (LicenseCode::query()->where('code', $code)->exists());
+
+        return $code;
     }
 
     /**

@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { SlidersHorizontal } from 'lucide-react'
+import { Plus, SlidersHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -52,40 +52,50 @@ function LocationTabs() {
     { to: '/master/lokasi/jenis', label: 'Jenis Lokasi' },
   ]
   return (
-    <>
-      <PageHeader title="Lokasi" />
-      <nav aria-label="Lokasi" className="mb-4 flex gap-1 border-b border-slate-200">
-        {tabs.map((t) => (
-          <NavLink
-            key={t.to}
-            to={t.to}
-            end
-            className={({ isActive }) =>
-              clsx(
-                '-mb-px border-b-2 px-3 py-2 text-sm font-medium',
-                isActive ? 'border-brand-700 text-brand-700' : 'border-transparent text-slate-600 hover:text-slate-900',
-              )
-            }
-          >
-            {t.label}
-          </NavLink>
-        ))}
-      </nav>
-    </>
+    <nav aria-label="Lokasi" className="mb-4 flex gap-1 border-b border-slate-200">
+      {tabs.map((t) => (
+        <NavLink
+          key={t.to}
+          to={t.to}
+          end
+          className={({ isActive }) =>
+            clsx(
+              '-mb-px border-b-2 px-3 py-2 text-sm font-medium',
+              isActive ? 'border-brand-700 text-brand-700' : 'border-transparent text-slate-600 hover:text-slate-900',
+            )
+          }
+        >
+          {t.label}
+        </NavLink>
+      ))}
+    </nav>
   )
 }
 
 export function LocationsPage() {
   const locations = useOptions<Location>('/locations').data
   const types = toOptions(useOptions('/location-types').data)
+  const permissions = useMasterPermissions()
   return (
     <>
+      <PageHeader
+        title="Lokasi"
+        actions={
+          permissions.canCreate && (
+            <Button onClick={() => permissions.canCreate && console.log('Tambah lokasi')}>
+              <Plus className="size-4" aria-hidden /> Tambah lokasi
+            </Button>
+          )
+        }
+      />
       <LocationTabs />
       <MasterListPage<Location>
         title="Lokasi"
         embedded
         endpoint="/locations"
-        {...useMasterPermissions()}
+        canCreate={false}
+        canUpdate={permissions.canUpdate}
+        canArchive={permissions.canArchive}
         filters={[
           { name: 'location_type_id', label: 'Jenis', options: types },
         ]}
@@ -107,20 +117,35 @@ export function LocationsPage() {
           { name: 'address', label: 'Alamat', type: 'textarea' },
         ]}
         emptyHint="Tambahkan lokasi pertama, misalnya gudang atau kantor."
+        showColumnToggle
+        defaultColumns={['name', 'code', 'type']}
       />
     </>
   )
 }
 
 export function LocationTypesPage() {
+  const permissions = useMasterPermissions()
   return (
     <>
+      <PageHeader
+        title="Jenis Lokasi"
+        actions={
+          permissions.canCreate && (
+            <Button onClick={() => permissions.canCreate && console.log('Tambah jenis lokasi')}>
+              <Plus className="size-4" aria-hidden /> Tambah jenis lokasi
+            </Button>
+          )
+        }
+      />
       <LocationTabs />
       <MasterListPage<LocationType>
         title="Jenis Lokasi"
         embedded
         endpoint="/location-types"
-        {...useMasterPermissions()}
+        canCreate={false}
+        canUpdate={permissions.canUpdate}
+        canArchive={permissions.canArchive}
         isReadOnly={(r) => r.is_built_in}
         columns={[
           { key: 'name', header: 'Nama', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
@@ -133,6 +158,8 @@ export function LocationTypesPage() {
           { name: 'description', label: 'Deskripsi', type: 'textarea' },
         ]}
         emptyHint="Tambahkan jenis lokasi, misalnya gudang dingin atau ruang arsip."
+        showColumnToggle
+        defaultColumns={['name', 'code', 'source']}
       />
     </>
   )
@@ -168,6 +195,8 @@ export function TenantCategoriesPage() {
           { name: 'description', label: 'Deskripsi', type: 'textarea' },
         ]}
         emptyHint="Tambahkan kategori pertama, misalnya Perangkat IT, Kendaraan, atau Furnitur."
+        showColumnToggle
+        defaultColumns={['name', 'code', 'attributes']}
       />
       {attributesOf && <CategoryAttributesModal category={attributesOf} canUpdate={permissions.canUpdate} onClose={() => setAttributesOf(null)} />}
     </>

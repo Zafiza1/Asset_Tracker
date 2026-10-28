@@ -68,6 +68,7 @@ final class PermissionCatalog
         'workflow.view' => ['tenant', 'workflow', 'Melihat konfigurasi workflow'],
         'workflow.manage' => ['tenant', 'workflow', 'Mengelola workflow approval'],
         'settings.manage' => ['tenant', 'settings', 'Mengelola pengaturan organisasi'],
+        'license.manage' => ['tenant', 'license', 'Mengelola lisensi dan kode lisensi'],
     ];
 
     /** @return list<string> */

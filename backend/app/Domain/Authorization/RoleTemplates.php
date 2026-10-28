@@ -17,18 +17,31 @@ final class RoleTemplates
     /** @return array<string, array{name: string, description: string, locked: bool, permissions: list<string>}> */
     public static function tenant(): array
     {
+        $allTenantPermissions = PermissionCatalog::codes(PermissionCatalog::SCOPE_TENANT);
+        $supervisorPermissions = array_filter($allTenantPermissions, fn($perm) => $perm !== 'license.manage');
+        $adminPermissions = array_filter($supervisorPermissions, fn($perm) =>
+            !str_starts_with($perm, 'user.') &&
+            !str_starts_with($perm, 'organization.')
+        );
+
         return [
-            self::ADMIN => [
-                'name' => 'Admin',
-                'description' => 'Akses penuh atas organisasi.',
+            self::SUPER_ADMIN => [
+                'name' => 'Super Admin',
+                'description' => 'Pemilik organisasi dengan akses penuh dan hak beli lisensi.',
                 'locked' => true,
-                'permissions' => PermissionCatalog::codes(PermissionCatalog::SCOPE_TENANT),
+                'permissions' => $allTenantPermissions,
             ],
             self::SUPERVISOR => [
                 'name' => 'Supervisor',
-                'description' => 'Akses baca aset, transaksi, dan laporan.',
+                'description' => 'Akses penuh atas organisasi (kecuali manajemen lisensi).',
                 'locked' => false,
-                'permissions' => ['organization.view', 'catalog.generic.view', 'master.tenant.view', 'asset.view', 'transaction.view', 'report.view'],
+                'permissions' => array_values($supervisorPermissions),
+            ],
+            self::ADMIN => [
+                'name' => 'Admin',
+                'description' => 'Akses manajemen aset dan transaksi (kecuali user, organisasi, dan lisensi).',
+                'locked' => false,
+                'permissions' => array_values($adminPermissions),
             ],
         ];
     }

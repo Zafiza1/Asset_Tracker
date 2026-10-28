@@ -7,6 +7,7 @@ import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
+import { ColumnToggle } from '../../components/ui/ColumnToggle'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
@@ -18,8 +19,9 @@ import { transactionTypeLabel, type AssetTransaction, type TransactionType } fro
 import { TransactionChanges } from './TransactionChanges'
 import { TransactionFormModal } from './TransactionFormModal'
 
-const FILTERS = ['page', 'search', 'type', 'date_from', 'date_to'] as const
+const FILTERS = ['page', 'search', 'type', 'date_from', 'date_to', 'columns'] as const
 const ADVANCED = ['type', 'date_from', 'date_to'] as const
+const DEFAULT_COLUMNS = ['number', 'asset', 'type', 'changes', 'by']
 
 /** Asset Transactions module: every recorded activity, searchable and filterable. */
 export function TransactionsPage() {
@@ -30,6 +32,19 @@ export function TransactionsPage() {
   const filters = Object.fromEntries(FILTERS.map((k) => [k, params.get(k)]))
   const advanced = useFilterDraft(params, ADVANCED)
   const draft = advanced.draft
+
+  const visibleColumns = (params.get('columns') ?? DEFAULT_COLUMNS.join(',')).split(',').filter(Boolean)
+
+  const toggleColumn = (key: string) => {
+    const next = visibleColumns.includes(key)
+      ? visibleColumns.filter((c) => c !== key)
+      : [...visibleColumns, key]
+    update({ columns: next.join(',') })
+  }
+
+  const resetColumns = () => {
+    update({ columns: DEFAULT_COLUMNS.join(',') })
+  }
 
   const query = useQuery({
     queryKey: ['/transactions', filters],
@@ -97,7 +112,21 @@ export function TransactionsPage() {
       />
       <Card>
         <FilterPanel>
-          <SearchForm value={search} onChange={setSearch} onSubmit={() => update({ search })} placeholder="Cari nomor transaksi, aset, peminjam, catatan" label="Cari transaksi" />
+          <SearchForm
+            value={search}
+            onChange={setSearch}
+            onSubmit={() => update({ search })}
+            placeholder="Cari nomor transaksi, aset, peminjam, catatan"
+            label="Cari transaksi"
+            aside={
+              <ColumnToggle
+                columns={columns}
+                visibleColumns={visibleColumns}
+                onToggle={toggleColumn}
+                onReset={resetColumns}
+              />
+            }
+          />
           <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update(draft)} onClear={() => advanced.set(advanced.empty)}>
             <Select value={draft.type} onChange={(e) => advanced.set({ type: e.target.value })} aria-label="Jenis transaksi">
               <option value="">Jenis: semua</option>
@@ -122,7 +151,7 @@ export function TransactionsPage() {
           />
         ) : (
           <>
-            <DataTable columns={columns} rows={query.data!.data} />
+            <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} />
             <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} />
           </>
         )}
