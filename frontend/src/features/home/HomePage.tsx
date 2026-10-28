@@ -52,7 +52,7 @@ export function HomePage() {
         </Card>
         <Card title="Akses cepat" className="lg:col-span-2">
           {available.length === 0 ? (
-            <p className="p-4 text-sm text-slate-500">Belum ada modul yang dapat Anda akses. Hubungi administrator organisasi.</p>
+            <p className="p-4 text-sm text-slate-500">Belum ada modul yang dapat Anda akses. Hubungi Admin organisasi.</p>
           ) : (
             <ul className="grid gap-3 p-4 sm:grid-cols-2">
               {available.map((s) => (

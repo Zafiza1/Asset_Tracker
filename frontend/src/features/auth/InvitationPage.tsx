@@ -25,11 +25,11 @@ function tokenFromHash(hash: string): string | null {
 /** Why an invitation link cannot be used, by API error code. */
 const closedReasons: Record<string, { title: string; description: string }> = {
   INVITATION_INVALID: { title: 'Tautan undangan tidak valid', description: 'Periksa kembali tautan di email undangan, atau minta administrator mengirim undangan baru.' },
-  INVITATION_EXPIRED: { title: 'Undangan sudah kedaluwarsa', description: 'Minta administrator organisasi untuk mengirim ulang undangan.' },
-  INVITATION_REVOKED: { title: 'Undangan sudah dicabut', description: 'Administrator organisasi telah membatalkan undangan ini.' },
+  INVITATION_EXPIRED: { title: 'Undangan sudah kedaluwarsa', description: 'Minta Admin organisasi untuk mengirim ulang undangan.' },
+  INVITATION_REVOKED: { title: 'Undangan sudah dicabut', description: 'Admin organisasi telah membatalkan undangan ini.' },
   INVITATION_USED: { title: 'Undangan sudah digunakan', description: 'Undangan ini sudah diterima. Masuk untuk membuka organisasi tersebut.' },
-  INVITATION_UNAVAILABLE: { title: 'Undangan tidak dapat diterima', description: 'Undangan ini tidak berlaku lagi. Minta administrator organisasi mengirim undangan baru.' },
-  INVITATION_CLOSED: { title: 'Undangan tidak dapat diterima', description: 'Undangan ini tidak berlaku lagi. Minta administrator organisasi mengirim undangan baru.' },
+  INVITATION_UNAVAILABLE: { title: 'Undangan tidak dapat diterima', description: 'Undangan ini tidak berlaku lagi. Minta Admin organisasi mengirim undangan baru.' },
+  INVITATION_CLOSED: { title: 'Undangan tidak dapat diterima', description: 'Undangan ini tidak berlaku lagi. Minta Admin organisasi mengirim undangan baru.' },
 }
 
 /**

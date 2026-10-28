@@ -51,7 +51,7 @@ Catatan relasi penting:
 - `user_roles`, `user_data_scopes`, dan kolom pembuat/pengubah pada data tenant memakai composite FK `(organization_id, user_id) → organization_members(organization_id, user_id)`, sehingga hanya anggota organisasi yang sama yang dapat direferensikan.
 - Status `invited | active | suspended | deactivated` berlaku per keanggotaan; `users.status` adalah status akun global (memblokir semua organisasi).
 - `user_data_scopes.scope_type ∈ {organization, branch, department, location}`; `scope_ref_id` NULL hanya bila `organization`. Integritas `scope_ref_id` divalidasi oleh 3 composite FK parsial (kolom `branch_id`/`department_id`/`location_id` terpisah + CHECK tepat satu terisi) — bukan polymorphic bebas.
-- `roles` hanya tenant. Template role (Organization Administrator, Asset Manager, dst.) dikopi saat organisasi dibuat dengan `template_code` sebagai identitas sumber. Role `ORG_ADMIN` `is_locked` (permission inti tidak dapat dicabut) dan sistem menolak operasi yang membuat organisasi tanpa admin aktif.
+- `roles` hanya tenant. Template role (Admin, Supervisor) dikopi saat organisasi dibuat dengan `template_code` sebagai identitas sumber. Role `ADMIN` `is_locked` (permission inti tidak dapat dicabut) dan sistem menolak operasi yang membuat organisasi tanpa admin aktif.
 - `permissions.scope ∈ {platform, tenant}`; trigger/validasi menolak permission platform pada `role_permissions`.
 
 ## 2. Generic Master & Tenant Custom Master

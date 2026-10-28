@@ -54,8 +54,8 @@ class DatabaseIsolationTest extends TestCase
     public function test_row_level_security_hides_other_tenants_even_without_global_scope(): void
     {
         $this->asTenantA(function () {
-            $this->assertSame(6, Role::query()->withoutGlobalScopes()->count());
-            $this->assertSame(6, DB::table('roles')->count());
+            $this->assertSame(2, Role::query()->withoutGlobalScopes()->count());
+            $this->assertSame(2, DB::table('roles')->count());
             $this->assertSame(0, DB::table('roles')->where('organization_id', $this->orgB->id)->count());
             $this->assertSame(1, DB::table('user_data_scopes')->count());
         });
@@ -107,7 +107,7 @@ class DatabaseIsolationTest extends TestCase
 
     public function test_composite_foreign_keys_reject_cross_tenant_relations(): void
     {
-        $roleB = $this->roleId($this->orgB, 'VIEWER');
+        $roleB = $this->roleId($this->orgB, 'SUPERVISOR');
 
         // user of A + role of B, labelled as A
         $this->expectQueryError('23503', fn () => DB::table('user_roles')->insert([
@@ -165,7 +165,7 @@ class DatabaseIsolationTest extends TestCase
         $platformRole = PlatformRole::query()->firstOrFail();
 
         $this->expectQueryError('P0001', fn () => DB::table('role_permissions')->insert([
-            'organization_id' => $this->orgA->id, 'role_id' => $this->roleId($this->orgA, 'VIEWER'), 'permission_id' => $platformPermission,
+            'organization_id' => $this->orgA->id, 'role_id' => $this->roleId($this->orgA, 'SUPERVISOR'), 'permission_id' => $platformPermission,
         ]));
         $this->expectQueryError('P0001', fn () => DB::table('platform_role_permissions')->insert([
             'platform_role_id' => $platformRole->id, 'permission_id' => $tenantPermission,

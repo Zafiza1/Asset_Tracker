@@ -66,7 +66,7 @@ function AdminOnboardingCard({ organization }: { organization: Organization }) {
         {onboarding.has_members ? (
           <p className="text-slate-700">
             Administrator sudah bergabung{invitation?.status === 'accepted' ? ` (${invitation.email}, ${formatDateTime(invitation.accepted_at)})` : ''}. Pengguna lain diundang oleh
-            administrator organisasi.
+            Admin organisasi.
           </p>
         ) : (
           <>
@@ -93,7 +93,7 @@ function AdminOnboardingCard({ organization }: { organization: Organization }) {
               <p className="text-slate-700">Belum ada undangan administrator.</p>
             )}
             <p className="text-slate-600">
-              Belum ada yang dapat mengakses organisasi ini. Penerima menjadi Administrator Organisasi setelah menerima undangan dengan akun yang emailnya terverifikasi,
+              Belum ada yang dapat mengakses organisasi ini. Penerima menjadi Admin organisasi setelah menerima undangan dengan akun yang emailnya terverifikasi,
               atau setelah mendaftar lewat tautan undangan.
             </p>
             {manageable && !inviting && (

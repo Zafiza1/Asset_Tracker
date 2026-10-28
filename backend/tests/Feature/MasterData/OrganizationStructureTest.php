@@ -175,9 +175,9 @@ class OrganizationStructureTest extends TestCase
         $this->assertErrorCode($this->patchJson("/api/platform/generic-masters/location-types/{$own}", ['name' => 'X']), 404, 'NOT_FOUND');
     }
 
-    public function test_operator_can_read_but_not_manage_structure(): void
+    public function test_supervisor_can_read_but_not_manage_structure(): void
     {
-        $this->actingAs($this->createTenantUser($this->org, ['OPERATOR']), 'web');
+        $this->actingAs($this->createTenantUser($this->org, ['SUPERVISOR']), 'web');
 
         $this->getJson('/api/departments')->assertOk();
         $this->getJson('/api/locations?all=1')->assertOk();

@@ -117,7 +117,7 @@ function CreateOrganizationModal({ open, onClose }: { open: boolean; onClose: ()
         <fieldset className="space-y-3 rounded-md p-3 ring-1 ring-slate-200">
           <legend className="px-1 text-sm font-semibold text-slate-700">Administrator pertama</legend>
           <p className="text-sm text-slate-600">
-            Sistem mengirim undangan ke email ini. Pemiliknya menjadi Administrator Organisasi setelah menerima undangan, dengan masuk ke akun yang emailnya
+            Sistem mengirim undangan ke email ini. Pemiliknya menjadi Admin organisasi setelah menerima undangan, dengan masuk ke akun yang emailnya
             sudah terverifikasi, atau dengan mendaftar akun lewat tautan undangan. Sebelum itu, belum ada yang dapat mengakses organisasi.
           </p>
           <Field label="Email administrator" error={formState.errors.admin?.email?.message} required>

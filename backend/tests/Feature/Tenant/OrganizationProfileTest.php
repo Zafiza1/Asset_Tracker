@@ -29,7 +29,7 @@ class OrganizationProfileTest extends TestCase
     public function test_viewer_can_read_profile_but_not_change_it(): void
     {
         ['organization' => $org] = $this->createOrganization('ALPHA');
-        $this->actingAs($this->createTenantUser($org, ['VIEWER']), 'web');
+        $this->actingAs($this->createTenantUser($org, ['SUPERVISOR']), 'web');
 
         $this->getJson('/api/organization')->assertOk();
         $this->assertErrorCode($this->putJson('/api/organization', ['name' => 'X']), 403, 'FORBIDDEN');

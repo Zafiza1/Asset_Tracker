@@ -13,7 +13,7 @@ const preview = {
   email: 'budi@perusahaan.test',
   organization: { id: 'org-a', code: 'ALPHA', name: 'PT Alpha' },
   invited_by: 'Admin Alpha',
-  roles: [{ code: 'OPERATOR', name: 'Operator' }],
+  roles: [{ code: 'SUPERVISOR', name: 'Supervisor' }],
   expires_at: '2026-10-27T10:00:00+00:00',
 }
 const userOf = (email: string, verified = true) => ({

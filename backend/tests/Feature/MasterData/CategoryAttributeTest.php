@@ -187,7 +187,7 @@ class CategoryAttributeTest extends TestCase
 
     public function test_viewer_cannot_manage_fields_and_other_tenants_fields_are_invisible(): void
     {
-        $viewer = $this->createTenantUser($this->org, ['VIEWER']);
+        $viewer = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $category = $this->masters['category'];
         $this->field($category, ['label' => 'Merek', 'data_type' => 'string'])->assertCreated();
 

@@ -13,6 +13,10 @@ use Tests\TestCase;
 /** Asset Transactions container: manual transactions, their effect on assets, and the history. */
 class AssetTransactionTest extends TestCase
 {
+    private const OPERATOR = ['organization.view', 'master.tenant.view', 'asset.view', 'asset.status_change', 'transaction.view', 'transaction.create'];
+
+    private const MANAGER = [...self::OPERATOR, 'asset.create', 'asset.transfer', 'asset.dispose', 'report.view'];
+
     private Organization $org;
 
     private User $admin;
@@ -73,17 +77,17 @@ class AssetTransactionTest extends TestCase
         $this->assertErrorCode($this->record($asset, 'status_change', ['to_status' => 'on_loan']), 422, 'VALIDATION_FAILED');
 
         // Operators may change status but not dispose assets.
-        $operator = $this->createTenantUser($this->org, ['OPERATOR']);
+        $operator = $this->createTenantUser($this->org, [$this->createRole($this->org, 'OPERATOR', self::OPERATOR)->code]);
         $this->actingAs($operator, 'web');
         $this->record($asset, 'status_change', ['to_status' => 'under_maintenance'])->assertCreated()
             ->assertJsonPath('data.from_status', 'available')->assertJsonPath('data.to_status', 'under_maintenance');
         $this->assertErrorCode($this->record($asset, 'status_change', ['to_status' => 'disposed']), 403, 'FORBIDDEN');
 
-        $this->actingAs($this->createTenantUser($this->org, ['ASSET_MANAGER']), 'web');
+        $this->actingAs($this->createTenantUser($this->org, [$this->createRole($this->org, 'MANAGER', self::MANAGER)->code]), 'web');
         $this->record($asset, 'status_change', ['to_status' => 'disposed'])->assertCreated();
         $this->assertErrorCode($this->record($asset, 'transfer', ['to_location_id' => $this->otherLocation->id]), 409, 'INVALID_ASSET_STATUS');
 
-        $this->actingAs($this->createTenantUser($this->org, ['VIEWER']), 'web');
+        $this->actingAs($this->createTenantUser($this->org, ['SUPERVISOR']), 'web');
         $this->assertErrorCode($this->record($asset, 'note', ['notes' => 'cek']), 403, 'FORBIDDEN');
         $this->getJson('/api/transactions')->assertOk();
     }
@@ -141,7 +145,7 @@ class AssetTransactionTest extends TestCase
         $outside = $this->asset('Di pusat', $this->otherLocation->id);
         $subLocation = $this->location('LOC1-A', 'Rak A', $this->masters['location']);
 
-        $scoped = $this->createTenantUser($this->org, ['ASSET_MANAGER'], [['scope_type' => 'location', 'ref_id' => $this->masters['location']->id]]);
+        $scoped = $this->createTenantUser($this->org, [$this->createRole($this->org, 'MANAGER', self::MANAGER)->code], [['scope_type' => 'location', 'ref_id' => $this->masters['location']->id]]);
         $this->actingAs($scoped, 'web');
 
         $this->assertSame([$inside], collect($this->getJson('/api/assets')->json('data'))->pluck('id')->all());

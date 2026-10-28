@@ -57,7 +57,7 @@ class OrganizationProvisioningTest extends TestCase
             ->assertJsonMissingPath('meta.admin_user_id')
             ->assertJsonMissingPath('meta.admin_invitation.token');
         $org = Organization::query()->where('code', 'GAMMA')->sole();
-        $this->assertSame(6, Role::query()->where('organization_id', $org->id)->count());
+        $this->assertSame(2, Role::query()->where('organization_id', $org->id)->count());
         $this->assertTrue(OrganizationSetting::query()->where('organization_id', $org->id)->exists());
 
         // Nobody has access yet; no account was created.
@@ -68,11 +68,11 @@ class OrganizationProvisioningTest extends TestCase
         $invitation = OrganizationInvitation::query()->where('organization_id', $org->id)->sole();
         $this->assertSame($platform->id, $invitation->invited_by_platform_user_id);
         $this->assertNull($invitation->invited_by);
-        $this->assertSame([$this->roleId($org, 'ORG_ADMIN')], $invitation->role_ids);
+        $this->assertSame([$this->roleId($org, 'ADMIN')], $invitation->role_ids);
         $this->assertSame('organization', $invitation->scopes[0]['scope_type']);
         Notification::assertSentOnDemand(OrganizationInvitationNotification::class,
             fn (OrganizationInvitationNotification $n, array $channels, object $notifiable) => $notifiable->routes['mail'] === 'admin@gamma.test'
-                && $n->organizationName === 'PT Gamma Sejahtera' && $n->inviterName === 'Administrator platform Asset Tracker');
+                && $n->organizationName === 'PT Gamma Sejahtera' && $n->inviterName === 'Super Admin Asset Tracker');
 
         $created = AuditLog::query()->where('action', 'organization.created')->sole();
         $this->assertSame($org->id, $created->organization_id);
@@ -81,7 +81,7 @@ class OrganizationProvisioningTest extends TestCase
         $this->assertSame($org->id, $invited->organization_id);
         $this->assertSame($platform->id, $invited->actor_user_id);
         $this->assertSame('platform_console', $invited->metadata['source']);
-        $this->assertSame(['ORG_ADMIN'], $invited->after['roles']);
+        $this->assertSame(['ADMIN'], $invited->after['roles']);
         $token = $this->sentInvitationToken('admin@gamma.test');
         $this->assertStringNotContainsString($token, AuditLog::query()->get()->toJson());
     }
@@ -261,7 +261,7 @@ class OrganizationProvisioningTest extends TestCase
         $tenantUser = $this->createOrganization('ALPHA')['admin'];
         $row = fn (array $inviter) => DB::table('organization_invitations')->insert([
             'id' => fake()->uuid(), 'organization_id' => $org->id, 'email' => fake()->unique()->safeEmail(), 'token_hash' => hash('sha256', fake()->uuid()),
-            'role_ids' => json_encode([$this->roleId($org, 'ORG_ADMIN')]), 'scopes' => '[]', 'status' => 'pending', 'expires_at' => now()->addDay(),
+            'role_ids' => json_encode([$this->roleId($org, 'ADMIN')]), 'scopes' => '[]', 'status' => 'pending', 'expires_at' => now()->addDay(),
             'created_at' => now(), 'updated_at' => now(), ...$inviter,
         ]);
 

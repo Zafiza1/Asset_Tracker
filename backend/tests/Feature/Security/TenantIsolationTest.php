@@ -32,7 +32,7 @@ class TenantIsolationTest extends TestCase
 
     public function test_user_list_only_contains_own_organization(): void
     {
-        $this->createTenantUser($this->orgB, ['VIEWER']);
+        $this->createTenantUser($this->orgB, ['SUPERVISOR']);
         $this->actingAs($this->adminA, 'web');
 
         $ids = collect($this->getJson('/api/users?per_page=100')->assertOk()->json('data'))->pluck('id');
@@ -65,25 +65,25 @@ class TenantIsolationTest extends TestCase
     public function test_cannot_read_or_modify_role_of_another_organization(): void
     {
         $this->actingAs($this->adminA, 'web');
-        $roleB = $this->roleId($this->orgB, 'VIEWER');
+        $roleB = $this->roleId($this->orgB, 'SUPERVISOR');
 
         $this->assertErrorCode($this->getJson("/api/roles/{$roleB}"), 404, 'NOT_FOUND');
         $this->assertErrorCode($this->patchJson("/api/roles/{$roleB}", ['name' => 'X']), 404, 'NOT_FOUND');
         $this->assertErrorCode($this->deleteJson("/api/roles/{$roleB}"), 404, 'NOT_FOUND');
 
-        $this->assertSame('Viewer', Role::query()->find($roleB)->name);
+        $this->assertSame('Supervisor', Role::query()->find($roleB)->name);
     }
 
     public function test_cannot_assign_role_of_another_organization(): void
     {
-        $user = $this->createTenantUser($this->orgA, ['VIEWER']);
+        $user = $this->createTenantUser($this->orgA, ['SUPERVISOR']);
         $this->actingAs($this->adminA, 'web');
 
         $this->assertErrorCode(
-            $this->putJson("/api/users/{$user->id}/roles", ['role_ids' => [$this->roleId($this->orgB, 'ORG_ADMIN')]]),
+            $this->putJson("/api/users/{$user->id}/roles", ['role_ids' => [$this->roleId($this->orgB, 'ADMIN')]]),
             422, 'INVALID_ROLE',
         );
-        $this->assertSame(['VIEWER'], $user->roles()->pluck('code')->all());
+        $this->assertSame(['SUPERVISOR'], $user->roles()->pluck('code')->all());
     }
 
     public function test_organization_id_in_request_body_is_ignored(): void
@@ -144,7 +144,7 @@ class TenantIsolationTest extends TestCase
 
     public function test_access_is_revoked_immediately_when_user_is_suspended(): void
     {
-        $user = $this->createTenantUser($this->orgA, ['VIEWER']);
+        $user = $this->createTenantUser($this->orgA, ['SUPERVISOR']);
         $this->actingAs($user, 'web');
         $this->getJson('/api/organization')->assertOk();
 
@@ -165,19 +165,20 @@ class TenantIsolationTest extends TestCase
 
     public function test_permission_changes_apply_on_next_request(): void
     {
-        $user = $this->createTenantUser($this->orgA, ['AUDITOR']);
+        $auditor = $this->createRole($this->orgA, 'AUDITOR', ['organization.view', 'audit.view']);
+        $user = $this->createTenantUser($this->orgA, [$auditor->code]);
         $this->actingAs($user, 'web');
         $this->getJson('/api/audit-logs')->assertOk();
 
         $user->roles()->detach();
-        $user->roles()->attach($this->roleId($this->orgA, 'VIEWER'), ['organization_id' => $this->orgA->id]);
+        $user->roles()->attach($this->roleId($this->orgA, 'SUPERVISOR'), ['organization_id' => $this->orgA->id]);
 
         $this->assertErrorCode($this->getJson('/api/audit-logs'), 403, 'FORBIDDEN');
     }
 
     public function test_forbidden_is_returned_before_existence_is_revealed(): void
     {
-        $viewer = $this->createTenantUser($this->orgA, ['VIEWER']);
+        $viewer = $this->createTenantUser($this->orgA, ['SUPERVISOR']);
         $this->actingAs($viewer, 'web');
 
         // Same response for an id of the own tenant, another tenant, or a non-existent one.

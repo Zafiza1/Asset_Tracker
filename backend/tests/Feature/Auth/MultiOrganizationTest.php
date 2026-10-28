@@ -28,7 +28,7 @@ class MultiOrganizationTest extends TestCase
         $this->withHeader('Origin', 'http://localhost:5173');
         ['organization' => $this->alpha, 'admin' => $this->owner] = $this->createOrganization('ALPHA');
         ['organization' => $this->beta] = $this->createOrganization('BETA');
-        $this->addMembership($this->owner, $this->beta, 'VIEWER');
+        $this->addMembership($this->owner, $this->beta, 'SUPERVISOR');
     }
 
     public function test_same_login_lists_every_organization_and_requires_a_choice(): void
@@ -113,7 +113,7 @@ class MultiOrganizationTest extends TestCase
             ->assertJsonCount(3, 'data.organizations');
         $this->assertContains('user.create', $response->json('data.permissions'));
         $gamma = Organization::query()->where('code', 'GAMMA')->sole();
-        $this->assertSame(['ORG_ADMIN'], $this->owner->roles()->where('roles.organization_id', $gamma->id)->pluck('code')->all());
+        $this->assertSame(['ADMIN'], $this->owner->roles()->where('roles.organization_id', $gamma->id)->pluck('code')->all());
         $this->assertSame(1, User::query()->where('email', $this->owner->email)->count());
         $this->getJson('/api/organization')->assertOk()->assertJsonPath('data.id', $gamma->id);
 

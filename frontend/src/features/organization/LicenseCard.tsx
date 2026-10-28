@@ -120,7 +120,7 @@ export function LicenseCard({ license }: LicenseCardProps) {
         {over_limit && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
             <AlertCircle className="mb-1 inline-block size-4" />
-            Organisasi melebihi batas seat. Silakan hubungi administrator platform untuk menambah lisensi atau menonaktifkan anggota.
+            Organisasi melebihi batas seat. Silakan hubungi Super Admin untuk menambah lisensi atau menonaktifkan anggota.
           </div>
         )}
 
@@ -174,7 +174,7 @@ export function LicenseCard({ license }: LicenseCardProps) {
         {!active && (
           <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             <AlertCircle className="mb-1 inline-block size-4" />
-            Lisensi tidak aktif. Organisasi dalam mode read-only. Silakan hubungi administrator platform untuk memperbarui lisensi.
+            Lisensi tidak aktif. Organisasi dalam mode read-only. Silakan hubungi Super Admin untuk memperbarui lisensi.
           </div>
         )}
       </div>

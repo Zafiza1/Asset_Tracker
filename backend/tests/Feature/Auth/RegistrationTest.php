@@ -41,7 +41,7 @@ class RegistrationTest extends TestCase
         $this->assertSame('PT Baru Jaya', $org->name);
         $this->assertTrue($user->memberships()->where('organization_id', $org->id)->where('status', 'active')->exists());
         $this->assertAuthenticatedAs($user, 'web');
-        $this->assertSame(6, Role::query()->where('organization_id', $org->id)->count());
+        $this->assertSame(2, Role::query()->where('organization_id', $org->id)->count());
         $this->assertTrue(AuditLog::query()->where('action', 'auth.registered')->where('actor_user_id', $user->id)->exists());
     }
 

@@ -40,7 +40,7 @@ class InvitationTest extends TestCase
         $response = $this->postJson('/api/invitations', $this->payload('budi@alpha.test'))->assertCreated()
             ->assertJsonPath('data.email', 'budi@alpha.test')
             ->assertJsonPath('data.status', 'pending')
-            ->assertJsonPath('data.roles.0.code', 'OPERATOR')
+            ->assertJsonPath('data.roles.0.code', 'SUPERVISOR')
             ->assertJsonPath('data.scopes', [['scope_type' => 'organization', 'ref_id' => null]])
             ->assertJsonPath('data.invited_by.id', $this->admin->id)
             ->assertJsonPath('data.send_count', 1)
@@ -59,14 +59,14 @@ class InvitationTest extends TestCase
 
         $log = AuditLog::query()->where('action', 'invitation.created')->sole();
         $this->assertSame($this->org->id, $log->organization_id);
-        $this->assertSame(['OPERATOR'], $log->after['roles']);
+        $this->assertSame(['SUPERVISOR'], $log->after['roles']);
         $this->assertStringNotContainsString($token, json_encode($log->getAttributes()));
         $this->assertStringNotContainsString($invitation->token_hash, json_encode($log->getAttributes()));
     }
 
     public function test_inviting_requires_user_create_and_role_manage(): void
     {
-        $operator = $this->createTenantUser($this->org, ['OPERATOR']);
+        $operator = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $creatorOnly = $this->createTenantUser($this->org, []);
         $creatorOnly->roles()->attach($this->customRole('CREATOR', ['user.view', 'user.create'])->id, ['organization_id' => $this->org->id]);
 
@@ -115,9 +115,9 @@ class InvitationTest extends TestCase
         $manager->roles()->attach($this->customRole('USER_ADMIN', ['user.view', 'user.create', 'role.view', 'role.manage'])->id, ['organization_id' => $this->org->id]);
         $this->actingAs($manager);
 
-        $this->assertErrorCode($this->postJson('/api/invitations', $this->payload('x@alpha.test', 'ORG_ADMIN')), 403, 'PRIVILEGE_ESCALATION');
+        $this->assertErrorCode($this->postJson('/api/invitations', $this->payload('x@alpha.test', 'ADMIN')), 403, 'PRIVILEGE_ESCALATION');
         $this->assertErrorCode($this->postJson('/api/invitations', [
-            ...$this->payload('x@alpha.test'), 'role_ids' => [$this->roleId($this->createOrganization('BETA')['organization'], 'VIEWER')],
+            ...$this->payload('x@alpha.test'), 'role_ids' => [$this->roleId($this->createOrganization('BETA')['organization'], 'SUPERVISOR')],
         ]), 422, 'INVALID_ROLE');
         $this->assertSame(0, OrganizationInvitation::query()->count());
     }
@@ -127,7 +127,7 @@ class InvitationTest extends TestCase
         $warehouse = $this->location('GDG');
         $rack = $this->location('RAK', $warehouse);
         $office = $this->location('KTR');
-        $manager = $this->createTenantUser($this->org, ['ORG_ADMIN'], [['scope_type' => 'location', 'ref_id' => $warehouse->id]]);
+        $manager = $this->createTenantUser($this->org, ['ADMIN'], [['scope_type' => 'location', 'ref_id' => $warehouse->id]]);
         $this->actingAs($manager);
 
         foreach ([[['scope_type' => 'organization']], [['scope_type' => 'location', 'ref_id' => $office->id]]] as $i => $scopes) {
@@ -216,7 +216,7 @@ class InvitationTest extends TestCase
         ['organization' => $beta, 'admin' => $adminB] = $this->createOrganization('BETA');
         $this->actingAs($adminB);
         $id = $this->postJson('/api/invitations', [
-            'email' => 'tamu@beta.test', 'role_ids' => [$this->roleId($beta, 'VIEWER')], 'scopes' => [['scope_type' => 'organization']],
+            'email' => 'tamu@beta.test', 'role_ids' => [$this->roleId($beta, 'SUPERVISOR')], 'scopes' => [['scope_type' => 'organization']],
         ])->assertCreated()->json('data.id');
 
         $this->actingAs($this->admin);
@@ -244,7 +244,7 @@ class InvitationTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function payload(string $email, string $role = 'OPERATOR'): array
+    private function payload(string $email, string $role = 'SUPERVISOR'): array
     {
         return ['email' => $email, 'role_ids' => [$this->roleId($this->org, $role)], 'scopes' => [['scope_type' => 'organization']]];
     }

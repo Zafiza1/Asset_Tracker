@@ -78,7 +78,7 @@ class LicenseCodeTest extends TestCase
         $this->loginAs($this->admin);
 
         $code = $this->createLicenseCode();
-        $user = $this->createTenantUser($this->organization, ['VIEWER']);
+        $user = $this->createTenantUser($this->organization, ['SUPERVISOR']);
 
         $this->postJson("/api/license-codes/{$code->id}/assign", ['user_id' => $user->id])->assertOk();
 
@@ -93,8 +93,8 @@ class LicenseCodeTest extends TestCase
         $this->loginAs($this->admin);
 
         $code = $this->createLicenseCode();
-        $user1 = $this->createTenantUser($this->organization, ['VIEWER']);
-        $user2 = $this->createTenantUser($this->organization, ['VIEWER']);
+        $user1 = $this->createTenantUser($this->organization, ['SUPERVISOR']);
+        $user2 = $this->createTenantUser($this->organization, ['SUPERVISOR']);
 
         $this->postJson("/api/license-codes/{$code->id}/assign", ['user_id' => $user1->id])->assertOk();
 
@@ -107,7 +107,7 @@ class LicenseCodeTest extends TestCase
         $this->loginAs($this->admin);
 
         $code = $this->createLicenseCode();
-        $user = $this->createTenantUser($this->organization, ['VIEWER']);
+        $user = $this->createTenantUser($this->organization, ['SUPERVISOR']);
 
         $this->postJson("/api/license-codes/{$code->id}/assign", ['user_id' => $user->id])->assertOk();
         $this->postJson("/api/license-codes/{$code->id}/release")->assertOk();
@@ -146,7 +146,7 @@ class LicenseCodeTest extends TestCase
 
         $this->postJson('/api/invitations', [
             'email' => 'new@test.com',
-            'role_ids' => [$this->roleId($this->organization, 'VIEWER')],
+            'role_ids' => [$this->roleId($this->organization, 'SUPERVISOR')],
             'scopes' => [['scope_type' => 'organization']],
         ])->assertStatus(422)
             ->assertJsonPath('error.code', 'VALIDATION_FAILED');
@@ -154,7 +154,7 @@ class LicenseCodeTest extends TestCase
         $code = $this->createLicenseCode();
         $this->postJson('/api/invitations', [
             'email' => 'new@test.com',
-            'role_ids' => [$this->roleId($this->organization, 'VIEWER')],
+            'role_ids' => [$this->roleId($this->organization, 'SUPERVISOR')],
             'scopes' => [['scope_type' => 'organization']],
             'license_code_id' => $code->id,
         ])->assertCreated();
@@ -170,7 +170,7 @@ class LicenseCodeTest extends TestCase
         $code = $this->createLicenseCode();
         $this->postJson('/api/invitations', [
             'email' => 'new@test.com',
-            'role_ids' => [$this->roleId($this->organization, 'VIEWER')],
+            'role_ids' => [$this->roleId($this->organization, 'SUPERVISOR')],
             'scopes' => [['scope_type' => 'organization']],
             'license_code_id' => $code->id,
         ])->assertCreated();
@@ -199,7 +199,7 @@ class LicenseCodeTest extends TestCase
         $code = $this->createLicenseCode();
         $this->postJson('/api/invitations', [
             'email' => 'new@test.com',
-            'role_ids' => [$this->roleId($this->organization, 'VIEWER')],
+            'role_ids' => [$this->roleId($this->organization, 'SUPERVISOR')],
             'scopes' => [['scope_type' => 'organization']],
             'license_code_id' => $code->id,
         ])->assertCreated();
@@ -241,7 +241,7 @@ class LicenseCodeTest extends TestCase
 
         $this->postJson('/api/invitations', [
             'email' => 'new@test.com',
-            'role_ids' => [$this->roleId($this->organization, 'VIEWER')],
+            'role_ids' => [$this->roleId($this->organization, 'SUPERVISOR')],
             'scopes' => [['scope_type' => 'organization']],
             'license_code_id' => $code->id,
         ])->assertStatus(422);

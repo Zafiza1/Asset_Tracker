@@ -55,7 +55,7 @@ describe('Platform: create organization', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Organisasi baru/ }))
     expect(screen.queryByLabelText(/Password/)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/^Nama$/)).not.toBeInTheDocument()
-    expect(screen.getByText(/menjadi Administrator Organisasi setelah menerima undangan/)).toBeInTheDocument()
+    expect(screen.getByText(/menjadi Admin organisasi setelah menerima undangan/)).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(/^Kode/), { target: { value: 'GAMMA' } })
     fireEvent.change(screen.getByLabelText(/^Nama organisasi/), { target: { value: 'PT Gamma' } })

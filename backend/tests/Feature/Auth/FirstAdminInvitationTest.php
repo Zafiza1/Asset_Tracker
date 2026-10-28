@@ -49,8 +49,8 @@ class FirstAdminInvitationTest extends TestCase
 
         $this->postJson('/api/auth/invitation/inspect', ['token' => $token])->assertOk()
             ->assertJsonPath('data.organization.code', 'GAMMA')
-            ->assertJsonPath('data.invited_by', 'Administrator platform Asset Tracker')
-            ->assertJsonPath('data.roles.0.code', 'ORG_ADMIN');
+            ->assertJsonPath('data.invited_by', 'Super Admin Asset Tracker')
+            ->assertJsonPath('data.roles.0.code', 'ADMIN');
 
         // Extra input cannot redirect the invitation to another organization.
         $this->postJson('/api/auth/invitation/accept', ['token' => $token, 'organization_id' => $this->alpha->id])->assertOk()
@@ -58,10 +58,10 @@ class FirstAdminInvitationTest extends TestCase
 
         $member = OrganizationMember::query()->where('organization_id', $this->gamma->id)->where('user_id', $this->existing->id)->sole();
         $this->assertSame('active', $member->status);
-        $this->assertSame(['ORG_ADMIN'], $this->existing->roles()->wherePivot('organization_id', $this->gamma->id)->pluck('code')->all());
+        $this->assertSame(['ADMIN'], $this->existing->roles()->wherePivot('organization_id', $this->gamma->id)->pluck('code')->all());
         $this->assertSame(['organization'], UserDataScope::query()->where('organization_id', $this->gamma->id)->where('user_id', $this->existing->id)->pluck('scope_type')->all());
         // Nothing changed in ALPHA, and the account itself is untouched.
-        $this->assertSame(['ORG_ADMIN'], $this->existing->roles()->wherePivot('organization_id', $this->alpha->id)->pluck('code')->all());
+        $this->assertSame(['ADMIN'], $this->existing->roles()->wherePivot('organization_id', $this->alpha->id)->pluck('code')->all());
         $this->assertTrue(Hash::check(self::PASSWORD, $this->existing->fresh()->password));
         $this->assertEqualsCanonicalizing([$this->alpha->id, $this->gamma->id], $this->app->make(OrganizationAccess::class)->accessible($this->existing)->pluck('id')->all());
 
@@ -79,7 +79,7 @@ class FirstAdminInvitationTest extends TestCase
         $this->assertSame($this->existing->id, $added->actor_user_id);
         $this->assertSame($invitation->id, $added->metadata['invitation_id']);
         $this->assertSame($this->platform->id, $added->metadata['invited_by_platform_user_id']);
-        $this->assertSame(['ORG_ADMIN'], $added->after['roles']);
+        $this->assertSame(['ADMIN'], $added->after['roles']);
         $accepted = AuditLog::query()->where('action', 'invitation.accepted')->sole();
         $this->assertSame($this->gamma->id, $accepted->organization_id);
         $this->assertSame($this->existing->id, $accepted->actor_user_id);
@@ -111,7 +111,7 @@ class FirstAdminInvitationTest extends TestCase
         $this->beGuest();
         $this->assertErrorCode($this->postJson('/api/auth/invitation/accept', ['token' => $token]), 401, 'UNAUTHENTICATED');
 
-        $other = $this->createTenantUser($this->alpha, ['VIEWER']);
+        $other = $this->createTenantUser($this->alpha, ['SUPERVISOR']);
         $other->forceFill(['email_verified_at' => now()])->save();
         $this->loginAs($other);
         $this->assertErrorCode($this->postJson('/api/auth/invitation/accept', ['token' => $token]), 403, 'INVITATION_EMAIL_MISMATCH');
@@ -188,7 +188,7 @@ class FirstAdminInvitationTest extends TestCase
         $this->assertNotNull($user->email_verified_at);
         $this->assertFalse($user->must_change_password);
         $this->assertTrue(Hash::check('Rahasia-Kuat-2026', $user->password));
-        $this->assertSame(['ORG_ADMIN'], $user->roles()->pluck('code')->all());
+        $this->assertSame(['ADMIN'], $user->roles()->pluck('code')->all());
         $this->getJson('/api/organization')->assertOk()->assertJsonPath('data.code', 'GAMMA');
         foreach (['auth.registered', 'auth.email_verified', 'user.member_added', 'invitation.accepted'] as $action) {
             $log = AuditLog::query()->where('action', $action)->where('actor_user_id', $user->id)->sole();
@@ -238,7 +238,7 @@ class FirstAdminInvitationTest extends TestCase
     public function test_acceptance_is_refused_once_the_organization_has_a_member(): void
     {
         $token = $this->createGamma($this->existing->email);
-        $this->addMembership($this->createTenantUser($this->alpha), $this->gamma, 'ORG_ADMIN');
+        $this->addMembership($this->createTenantUser($this->alpha), $this->gamma, 'ADMIN');
         $this->loginAs($this->existing);
 
         $response = $this->postJson('/api/auth/invitation/accept', ['token' => $token]);

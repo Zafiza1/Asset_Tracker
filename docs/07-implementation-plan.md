@@ -37,7 +37,7 @@ Setiap fase ditutup dengan: seluruh test hijau, ringkasan perubahan, dan pembaru
 | R5 | Race condition transaksi/nomor | Tinggi | Partial unique index, row lock, `lock_version`, idempotency key, test paralel |
 | R6 | Performa EAV atribut dinamis | Sedang | Kolom inti di `assets`, nilai bertipe + index komposit, filter atribut dibatasi ke atribut `is_searchable` |
 | R7 | Konfigurasi workflow membuat transaksi buntu (tidak ada approver) | Sedang | Validasi saat publish (setiap step harus punya ≥ 1 kandidat approver aktif), peringatan di inbox admin, cancel selalu tersedia |
-| R8 | Lockout admin organisasi | Sedang | Invarian ≥ 1 ORG_ADMIN aktif ditegakkan service |
+| R8 | Lockout admin organisasi | Sedang | Invarian ≥ 1 ADMIN aktif ditegakkan service |
 | R9 | Over-scope V1.0 / jadwal | Sedang | Fase berurutan dengan DoD per fase; fitur di luar lingkup hanya di roadmap |
 | R10 | Lingkungan dev Windows tanpa Docker | Rendah | Jalankan dengan PHP + PostgreSQL lokal; `docker-compose.dev.yml` tetap disediakan untuk tim lain |
 | R11 | Audit log dapat diubah DBA | Rendah | Didokumentasikan; append-only di level app/role DB; hash-chain sebagai kontrol tambahan di roadmap |

@@ -22,7 +22,7 @@ const SCOPE_ESCALATION = new ApiError(403, 'SCOPE_ESCALATION', 'Anda tidak dapat
 const user: User = {
   id: 'u-1', name: 'Budi', email: 'budi@alpha.test', status: 'active', employee_number: null, job_title: 'Staf', phone: null,
   home_department_id: null, must_change_password: false, last_login_at: null, created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z',
-  roles: [{ id: 'r-vw', code: 'VIEWER', name: 'Viewer' }],
+  roles: [{ id: 'r-vw', code: 'SUPERVISOR', name: 'Supervisor' }],
   data_scopes: [{ scope_type: 'location', ref_id: 'loc-a' }],
 }
 const role: Role = {
@@ -36,7 +36,7 @@ function mockReads(current: () => User = () => user) {
     if (path === '/users/u-1') return { data: current() }
     if (path.startsWith('/locations')) return { data: [{ id: 'loc-a', code: 'GDA', name: 'Gedung A' }] }
     if (path.startsWith('/departments')) return { data: [] }
-    if (path === '/roles') return { data: [{ ...role, id: 'r-vw', code: 'VIEWER', name: 'Viewer' }, role] }
+    if (path === '/roles') return { data: [{ ...role, id: 'r-vw', code: 'SUPERVISOR', name: 'Supervisor' }, role] }
     if (path === '/roles/r-ed') return { data: role }
     if (path === '/permissions') return { data: [{ code: 'asset.view', group: 'asset', description: 'Lihat aset' }] }
     throw new Error(`unexpected GET ${path}`)

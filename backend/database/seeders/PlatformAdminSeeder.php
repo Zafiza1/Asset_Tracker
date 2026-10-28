@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Domain\Authorization\Models\PlatformRole;
 use App\Domain\Authorization\RoleTemplates;
 use App\Domain\Identity\Models\User;
+use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  */
 class PlatformAdminSeeder extends Seeder
 {
-    public function run(): void
+    public function run(Tenancy $tenancy): void
     {
         $email = env('PLATFORM_ADMIN_EMAIL');
         $password = env('PLATFORM_ADMIN_PASSWORD');
@@ -24,22 +25,29 @@ class PlatformAdminSeeder extends Seeder
 
             return;
         }
-        if (User::query()->where('email', $email)->exists()) {
-            $this->command?->info("Platform administrator {$email} already exists.");
+        // users and platform_user_roles are writable only in the system context; set it here too,
+        // so the seeder also works on its own (--class=PlatformAdminSeeder).
+        $tenancy->runAsSystem(function () use ($email, $password) {
+            if (User::query()->where('email', $email)->exists()) {
+                $this->command?->info("Platform administrator {$email} already exists.");
 
-            return;
-        }
+                return;
+            }
 
-        $user = new User(['name' => 'Platform Administrator', 'email' => $email, 'password' => $password]);
-        $user->forceFill([
-            'user_type' => User::TYPE_PLATFORM,
-            'status' => User::STATUS_ACTIVE,
-            'must_change_password' => true,
-        ])->save();
+            $role = PlatformRole::query()->where('code', RoleTemplates::SUPER_ADMIN)->firstOrFail();
 
-        $role = PlatformRole::query()->where('code', RoleTemplates::PLATFORM_ADMIN)->firstOrFail();
-        DB::table('platform_user_roles')->insert(['user_id' => $user->id, 'platform_role_id' => $role->id]);
+            DB::transaction(function () use ($email, $password, $role) {
+                $user = new User(['name' => 'Super Admin', 'email' => $email, 'password' => $password]);
+                $user->forceFill([
+                    'user_type' => User::TYPE_PLATFORM,
+                    'status' => User::STATUS_ACTIVE,
+                    'must_change_password' => true,
+                ])->save();
 
-        $this->command?->info("Platform administrator {$email} created (must change password at first login).");
+                DB::table('platform_user_roles')->insert(['user_id' => $user->id, 'platform_role_id' => $role->id]);
+            });
+
+            $this->command?->info("Platform administrator {$email} created (must change password at first login).");
+        });
     }
 }

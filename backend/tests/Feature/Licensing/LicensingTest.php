@@ -73,7 +73,7 @@ class LicensingTest extends TestCase
 
     public function test_a_seat_is_not_tied_to_a_person(): void
     {
-        $leaving = $this->createTenantUser($this->org, ['OPERATOR']);
+        $leaving = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->actingAs($this->admin);
         $this->assertErrorCode($this->postJson('/api/invitations', $this->invite('pengganti@alpha.test')), 409, 'SEAT_LIMIT_REACHED');
 
@@ -84,7 +84,7 @@ class LicensingTest extends TestCase
 
     public function test_reactivating_a_suspended_member_needs_a_free_seat(): void
     {
-        $member = $this->createTenantUser($this->org, ['OPERATOR']);
+        $member = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->actingAs($this->admin);
 
         $this->postJson("/api/users/{$member->id}/suspend")->assertOk();
@@ -94,7 +94,7 @@ class LicensingTest extends TestCase
 
     public function test_without_a_base_license_the_organization_is_read_only(): void
     {
-        $member = $this->createTenantUser($this->org, ['OPERATOR']);
+        $member = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->revokeAll(OrganizationLicense::KIND_BASE);
         $this->actingAs($this->admin);
 
@@ -117,7 +117,7 @@ class LicensingTest extends TestCase
 
     public function test_over_the_seat_limit_only_freeing_seats_is_allowed(): void
     {
-        $member = $this->createTenantUser($this->org, ['OPERATOR']);
+        $member = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->revokeAll(OrganizationLicense::KIND_SEATS);
         $this->actingAs($this->admin);
 
@@ -220,7 +220,7 @@ class LicensingTest extends TestCase
     /** @return array<string, mixed> */
     private function invite(string $email): array
     {
-        return ['email' => $email, 'role_ids' => [$this->roleId($this->org, 'OPERATOR')], 'scopes' => [['scope_type' => 'organization']]];
+        return ['email' => $email, 'role_ids' => [$this->roleId($this->org, 'SUPERVISOR')], 'scopes' => [['scope_type' => 'organization']]];
     }
 
     private function revokeAll(string $kind): void

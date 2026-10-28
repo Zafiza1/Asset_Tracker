@@ -31,7 +31,7 @@ class RoleManagementTest extends TestCase
         foreach ($roles as $role) {
             $this->assertEqualsCanonicalizing(RoleTemplates::tenant()[$role['code']]['permissions'], $role['permissions']);
         }
-        $orgAdmin = collect($roles)->firstWhere('code', 'ORG_ADMIN');
+        $orgAdmin = collect($roles)->firstWhere('code', 'ADMIN');
         $this->assertTrue($orgAdmin['is_locked']);
         $this->assertSame(1, $orgAdmin['users_count']);
     }
@@ -79,7 +79,7 @@ class RoleManagementTest extends TestCase
     {
         $this->createOrganization('BETA');
 
-        $this->postJson('/api/roles', ['code' => 'VIEWER', 'name' => 'Dup', 'permissions' => []])
+        $this->postJson('/api/roles', ['code' => 'SUPERVISOR', 'name' => 'Dup', 'permissions' => []])
             ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['fields' => ['code']]]]);
         $this->postJson('/api/roles', ['code' => 'KHUSUS', 'name' => 'Khusus', 'permissions' => []])->assertCreated();
     }
@@ -93,7 +93,7 @@ class RoleManagementTest extends TestCase
 
     public function test_locked_admin_role_permissions_cannot_change_or_be_deleted(): void
     {
-        $orgAdmin = $this->roleId($this->org, 'ORG_ADMIN');
+        $orgAdmin = $this->roleId($this->org, 'ADMIN');
 
         $this->assertErrorCode($this->patchJson("/api/roles/{$orgAdmin}", ['permissions' => ['asset.view']]), 422, 'ROLE_LOCKED');
         $this->assertErrorCode($this->deleteJson("/api/roles/{$orgAdmin}"), 422, 'ROLE_LOCKED');
@@ -102,9 +102,9 @@ class RoleManagementTest extends TestCase
 
     public function test_role_in_use_cannot_be_deleted(): void
     {
-        $this->createTenantUser($this->org, ['VIEWER']);
+        $this->createTenantUser($this->org, ['SUPERVISOR']);
 
-        $this->assertErrorCode($this->deleteJson('/api/roles/'.$this->roleId($this->org, 'VIEWER')), 409, 'ROLE_IN_USE');
+        $this->assertErrorCode($this->deleteJson('/api/roles/'.$this->roleId($this->org, 'SUPERVISOR')), 409, 'ROLE_IN_USE');
     }
 
     public function test_unknown_or_platform_permissions_are_rejected(): void

@@ -33,12 +33,12 @@ class UserManagementTest extends TestCase
             'email' => 'budi@alpha.test',
             'employee_number' => 'EMP-001',
             'home_department_id' => $department->id,
-            'role_ids' => [$this->roleId($this->org, 'OPERATOR')],
+            'role_ids' => [$this->roleId($this->org, 'SUPERVISOR')],
             'scopes' => [['scope_type' => 'department', 'ref_id' => $department->id]],
         ])->assertCreated()
             ->assertJsonPath('data.email', 'budi@alpha.test')
             ->assertJsonPath('data.status', 'pending')
-            ->assertJsonPath('data.roles.0.code', 'OPERATOR')
+            ->assertJsonPath('data.roles.0.code', 'SUPERVISOR')
             ->assertJsonPath('data.employee_number', 'EMP-001');
 
         // Direct account creation with a temporary password no longer exists.
@@ -48,7 +48,7 @@ class UserManagementTest extends TestCase
 
     public function test_user_without_permission_cannot_create_users(): void
     {
-        $operator = $this->createTenantUser($this->org, ['OPERATOR']);
+        $operator = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->actingAs($operator, 'web');
 
         $this->assertErrorCode($this->postJson('/api/invitations', []), 403, 'FORBIDDEN');
@@ -72,7 +72,7 @@ class UserManagementTest extends TestCase
         $this->actingAs($this->admin, 'web');
         $payload = [
             'email' => $adminB->email, 'job_title' => 'Konsultan',
-            'role_ids' => [$this->roleId($this->org, 'VIEWER')], 'scopes' => [['scope_type' => 'organization']],
+            'role_ids' => [$this->roleId($this->org, 'SUPERVISOR')], 'scopes' => [['scope_type' => 'organization']],
         ];
 
         $this->postJson('/api/invitations', $payload)->assertCreated()->assertJsonPath('data.status', 'pending');
@@ -84,15 +84,15 @@ class UserManagementTest extends TestCase
         $this->assertErrorCode($this->getJson("/api/users/{$adminB->id}"), 404, 'NOT_FOUND');
 
         // Actual members are managed on their user page instead of being invited again.
-        $member = $this->createTenantUser($this->org, ['VIEWER']);
+        $member = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->assertErrorCode($this->postJson('/api/invitations', [...$payload, 'email' => $member->email]), 409, 'ALREADY_MEMBER');
     }
 
     public function test_shared_account_data_cannot_be_changed_by_one_organization(): void
     {
         ['organization' => $beta] = $this->createOrganization('BETA');
-        $shared = $this->createTenantUser($this->org, ['VIEWER']);
-        $this->addMembership($shared, $beta, 'VIEWER');
+        $shared = $this->createTenantUser($this->org, ['SUPERVISOR']);
+        $this->addMembership($shared, $beta, 'SUPERVISOR');
         $this->actingAs($this->admin, 'web');
 
         // Membership data is per organization and stays editable.
@@ -113,7 +113,7 @@ class UserManagementTest extends TestCase
     {
         ['organization' => $orgB] = $this->createOrganization('BETA');
         $departmentB = $this->department($orgB, 'DIST');
-        $user = $this->createTenantUser($this->org, ['VIEWER']);
+        $user = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->actingAs($this->admin, 'web');
 
         $this->assertErrorCode(
@@ -126,7 +126,7 @@ class UserManagementTest extends TestCase
     public function test_scopes_are_replaced_and_audited(): void
     {
         $department = $this->department($this->org, 'OPS');
-        $user = $this->createTenantUser($this->org, ['VIEWER']);
+        $user = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->actingAs($this->admin, 'web');
 
         $this->putJson("/api/users/{$user->id}/scopes", ['scopes' => [['scope_type' => 'department', 'ref_id' => $department->id]]])
@@ -142,10 +142,10 @@ class UserManagementTest extends TestCase
         $this->actingAs($this->admin, 'web');
 
         $this->assertErrorCode(
-            $this->putJson("/api/users/{$this->admin->id}/roles", ['role_ids' => [$this->roleId($this->org, 'VIEWER')]]),
+            $this->putJson("/api/users/{$this->admin->id}/roles", ['role_ids' => [$this->roleId($this->org, 'SUPERVISOR')]]),
             409, 'LAST_ORG_ADMIN',
         );
-        $this->assertSame(['ORG_ADMIN'], $this->admin->roles()->pluck('code')->all());
+        $this->assertSame(['ADMIN'], $this->admin->roles()->pluck('code')->all());
     }
 
     public function test_admin_cannot_change_own_status(): void
@@ -157,7 +157,7 @@ class UserManagementTest extends TestCase
 
     public function test_second_admin_can_be_suspended_but_not_the_last_active_one(): void
     {
-        $admin2 = $this->createTenantUser($this->org, ['ORG_ADMIN']);
+        $admin2 = $this->createTenantUser($this->org, ['ADMIN']);
         $this->actingAs($this->admin, 'web');
 
         $this->postJson("/api/users/{$admin2->id}/suspend")->assertOk()->assertJsonPath('data.status', 'suspended');
@@ -170,14 +170,14 @@ class UserManagementTest extends TestCase
         // ...but a suspended admin + the actor makes the actor the last one; deactivating the actor is impossible
         // (own status), and removing actor's admin role is blocked.
         $this->assertErrorCode(
-            $this->putJson("/api/users/{$admin2->id}/roles", ['role_ids' => [$this->roleId($this->org, 'VIEWER')]]),
+            $this->putJson("/api/users/{$admin2->id}/roles", ['role_ids' => [$this->roleId($this->org, 'SUPERVISOR')]]),
             409, 'LAST_ORG_ADMIN',
         );
     }
 
     public function test_deactivated_user_cannot_be_reactivated(): void
     {
-        $user = $this->createTenantUser($this->org, ['VIEWER']);
+        $user = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->actingAs($this->admin, 'web');
 
         $this->postJson("/api/users/{$user->id}/deactivate")->assertOk();
@@ -190,16 +190,16 @@ class UserManagementTest extends TestCase
         $userAdminRole = $this->customRole('USER_ADMIN', ['user.view', 'user.create', 'user.update', 'role.view', 'role.manage', 'organization.view']);
         $manager = $this->createTenantUser($this->org, []);
         $manager->roles()->attach($userAdminRole->id, ['organization_id' => $this->org->id]);
-        $victim = $this->createTenantUser($this->org, ['VIEWER']);
+        $victim = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->actingAs($manager, 'web');
 
         // Cannot assign a role with permissions they lack (to others or themselves).
         $this->assertErrorCode(
-            $this->putJson("/api/users/{$victim->id}/roles", ['role_ids' => [$this->roleId($this->org, 'ORG_ADMIN')]]),
+            $this->putJson("/api/users/{$victim->id}/roles", ['role_ids' => [$this->roleId($this->org, 'ADMIN')]]),
             403, 'PRIVILEGE_ESCALATION',
         );
         $this->assertErrorCode(
-            $this->putJson("/api/users/{$manager->id}/roles", ['role_ids' => [$userAdminRole->id, $this->roleId($this->org, 'ASSET_MANAGER')]]),
+            $this->putJson("/api/users/{$manager->id}/roles", ['role_ids' => [$userAdminRole->id, $this->customRole('MANAGER', ['asset.view', 'asset.create'])->id]]),
             403, 'PRIVILEGE_ESCALATION',
         );
         // Cannot create a role with permissions they lack, nor widen their own role.
@@ -217,13 +217,13 @@ class UserManagementTest extends TestCase
             403, 'PRIVILEGE_ESCALATION',
         );
 
-        $this->assertSame(['VIEWER'], $victim->roles()->pluck('code')->all());
+        $this->assertSame(['SUPERVISOR'], $victim->roles()->pluck('code')->all());
         $this->assertFalse(Role::query()->where('code', 'SUPER')->exists());
     }
 
     public function test_reset_password_forces_change_and_is_audited(): void
     {
-        $user = $this->createTenantUser($this->org, ['VIEWER']);
+        $user = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->actingAs($this->admin, 'web');
 
         $this->postJson("/api/users/{$user->id}/reset-password", ['password' => 'Sementara-Baru-77'])->assertNoContent();
@@ -237,8 +237,8 @@ class UserManagementTest extends TestCase
 
     public function test_user_list_supports_search_filter_and_safe_sorting(): void
     {
-        $this->createTenantUser($this->org, ['VIEWER'], attributes: ['name' => 'Zainal Viewer']);
-        $suspended = $this->createTenantUser($this->org, ['VIEWER'], attributes: ['name' => 'Ani Suspended']);
+        $this->createTenantUser($this->org, ['SUPERVISOR'], attributes: ['name' => 'Zainal Viewer']);
+        $suspended = $this->createTenantUser($this->org, ['SUPERVISOR'], attributes: ['name' => 'Ani Suspended']);
         $suspended->forceFill(['status' => User::STATUS_SUSPENDED])->save();
         $this->actingAs($this->admin, 'web');
 

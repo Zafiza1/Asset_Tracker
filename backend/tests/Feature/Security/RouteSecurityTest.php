@@ -97,7 +97,7 @@ class RouteSecurityTest extends TestCase
         $categoryAttribute->save();
         $invitation = (new OrganizationInvitation)->forceFill(['organization_id' => $orgB->id, 'email' => 'tamu@beta.test',
             'token_hash' => OrganizationInvitation::hashToken('fixture'), 'invited_by' => $adminB->id,
-            'role_ids' => [$this->roleId($orgB, 'VIEWER')], 'scopes' => [['scope_type' => 'organization']], 'expires_at' => now()->addDay()]);
+            'role_ids' => [$this->roleId($orgB, 'SUPERVISOR')], 'scopes' => [['scope_type' => 'organization']], 'expires_at' => now()->addDay()]);
         $invitation->save();
 
         return [
@@ -105,7 +105,7 @@ class RouteSecurityTest extends TestCase
             'asset' => $asset->id,
             'assetTransaction' => $transaction->id,
             'user' => $adminB->id,
-            'role' => $this->roleId($orgB, 'VIEWER'),
+            'role' => $this->roleId($orgB, 'SUPERVISOR'),
             'department' => $masters['department']->id,
             'location' => $masters['location']->id,
             'locationType' => $locationType->id,

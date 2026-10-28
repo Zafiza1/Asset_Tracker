@@ -178,7 +178,7 @@ class DatabasePrivilegesTest extends TestCase
     {
         $exclusive = $this->createTenantUser($this->orgA);
         $shared = $this->createTenantUser($this->orgB);
-        $this->addMembership($shared, $this->orgA, 'VIEWER');
+        $this->addMembership($shared, $this->orgA, 'SUPERVISOR');
 
         $this->asTenantA(function () use ($exclusive, $shared) {
             $this->assertSame(1, DB::table('users')->where('id', $exclusive->id)->update(['password' => Hash::make('x')]));

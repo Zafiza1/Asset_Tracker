@@ -87,7 +87,7 @@ class AuthenticationTest extends TestCase
     public function test_suspended_user_cannot_log_in(): void
     {
         ['organization' => $org] = $this->createOrganization('ALPHA');
-        $user = $this->createTenantUser($org, ['VIEWER'], attributes: []);
+        $user = $this->createTenantUser($org, ['SUPERVISOR'], attributes: []);
         $user->forceFill(['status' => User::STATUS_SUSPENDED])->save();
 
         $this->assertErrorCode(
@@ -142,7 +142,7 @@ class AuthenticationTest extends TestCase
     public function test_user_must_change_temporary_password_before_using_tenant_api(): void
     {
         ['organization' => $org] = $this->createOrganization('ALPHA');
-        $user = $this->createTenantUser($org, ['VIEWER']);
+        $user = $this->createTenantUser($org, ['SUPERVISOR']);
         $user->forceFill(['must_change_password' => true])->save();
         $this->actingAs($user, 'web');
 

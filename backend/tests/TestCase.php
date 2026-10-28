@@ -4,9 +4,11 @@ namespace Tests;
 
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\Authorization\Models\Permission;
 use App\Domain\Authorization\Models\PlatformRole;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\Models\UserDataScope;
+use App\Domain\Authorization\PermissionCatalog;
 use App\Domain\Authorization\RoleTemplates;
 use App\Domain\GenericMaster\Models\GenericAssetCategory;
 use App\Domain\GenericMaster\Models\GenericAssetDefinition;
@@ -162,6 +164,22 @@ abstract class TestCase extends BaseTestCase
         return $user;
     }
 
+    /**
+     * A tenant role outside the templates (ADMIN, SUPERVISOR), for permission sets in between.
+     *
+     * @param  list<string>  $permissions
+     */
+    protected function createRole(Organization $organization, string $code, array $permissions): Role
+    {
+        $role = new Role(['code' => $code, 'name' => $code]);
+        $role->forceFill(['organization_id' => $organization->id])->save();
+        $ids = Permission::query()->where('scope', PermissionCatalog::SCOPE_TENANT)->whereIn('code', $permissions)->pluck('id');
+        $this->assertCount(count($permissions), $ids);
+        $role->permissions()->attach($ids->mapWithKeys(fn (string $id) => [$id => ['organization_id' => $organization->id]])->all());
+
+        return $role;
+    }
+
     /** Gives an existing tenant account access to another organization (same login). */
     protected function addMembership(User $user, Organization $organization, string $roleCode, string $status = User::STATUS_ACTIVE): void
     {
@@ -174,7 +192,7 @@ abstract class TestCase extends BaseTestCase
     {
         $user = User::factory()->platform()->create();
         if ($withRole) {
-            $role = PlatformRole::query()->where('code', RoleTemplates::PLATFORM_ADMIN)->firstOrFail();
+            $role = PlatformRole::query()->where('code', RoleTemplates::SUPER_ADMIN)->firstOrFail();
             DB::table('platform_user_roles')->insert(['user_id' => $user->id, 'platform_role_id' => $role->id]);
         }
 

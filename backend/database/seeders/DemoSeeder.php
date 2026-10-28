@@ -38,11 +38,7 @@ class DemoSeeder extends Seeder
     private const SHARED_OWNER = 'pemilik@grup.test';
 
     private const USERS = [
-        'ASSET_MANAGER' => ['manager', 'Asset Manager'],
-        'OPERATOR' => ['operator', 'Operator'],
-        'APPROVER' => ['approver', 'Approver'],
-        'AUDITOR' => ['auditor', 'Auditor'],
-        'VIEWER' => ['viewer', 'Viewer'],
+        'SUPERVISOR' => ['supervisor', 'Supervisor'],
     ];
 
     public function run(Tenancy $tenancy, OrganizationProvisioner $provisioner): void
@@ -117,7 +113,7 @@ class DemoSeeder extends Seeder
         $owner = new User(['name' => 'Pemilik Grup Demo', 'email' => self::SHARED_OWNER, 'password' => $password]);
         $owner->forceFill(['user_type' => User::TYPE_TENANT, 'status' => User::STATUS_ACTIVE])->save();
         foreach (Organization::query()->whereIn('code', array_keys(self::ORGANIZATIONS))->pluck('id') as $orgId) {
-            $this->addMember($owner, $orgId, 'ORG_ADMIN', ['job_title' => 'Pemilik']);
+            $this->addMember($owner, $orgId, 'ADMIN', ['job_title' => 'Pemilik']);
         }
     }
 

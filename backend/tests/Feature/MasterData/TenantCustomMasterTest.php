@@ -231,7 +231,7 @@ class TenantCustomMasterTest extends TestCase
     public function test_viewer_can_read_but_not_change_tenant_masters(): void
     {
         $definitionId = $this->adopt()['id'];
-        $this->actingAs($this->createTenantUser($this->org, ['VIEWER']), 'web');
+        $this->actingAs($this->createTenantUser($this->org, ['SUPERVISOR']), 'web');
 
         $this->getJson('/api/asset-definitions')->assertOk()->assertJsonCount(1, 'data');
         $this->getJson("/api/asset-definitions/{$definitionId}")->assertOk();

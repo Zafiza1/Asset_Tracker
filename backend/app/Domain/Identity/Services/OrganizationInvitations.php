@@ -42,7 +42,7 @@ use Illuminate\Support\Facades\Notification;
  *    token was delivered only to that mailbox, so using it proves the address (verified).
  *  - inviteFirstAdmin/resendFirstAdmin/revokeFirstAdmin: the platform console invites the first
  *    Organization Administrator of an organization it created, in the platform context. Only
- *    while the organization has no member at all, and only for its locked ORG_ADMIN role with
+ *    while the organization has no member at all, and only for its locked ADMIN role with
  *    organization-wide scope; the platform never adds anybody to a running organization.
  *    Accepting re-checks the platform account and that the organization still has no member,
  *    then creates the membership in the organization's tenant context, as the accepting account.
@@ -56,7 +56,7 @@ final class OrganizationInvitations
     public const PLATFORM_MANAGE_PERMISSION = 'platform.organization.manage';
 
     /** How the invitation names a platform inviter (platform staff stay anonymous to invitees). */
-    public const PLATFORM_INVITER_NAME = 'Administrator platform Asset Tracker';
+    public const PLATFORM_INVITER_NAME = 'Super Admin Asset Tracker';
 
     public function __construct(
         private readonly Tenancy $tenancy,
@@ -216,8 +216,8 @@ final class OrganizationInvitations
             }
             $this->licensing->assertSeats($org->id);
 
-            $roleId = Role::query()->where('organization_id', $org->id)->where('template_code', RoleTemplates::ORG_ADMIN)->where('is_locked', true)->value('id')
-                ?? throw ApiException::conflict('ORG_ADMIN_ROLE_MISSING', 'Role Administrator Organisasi tidak ditemukan.');
+            $roleId = Role::query()->where('organization_id', $org->id)->where('template_code', RoleTemplates::ADMIN)->where('is_locked', true)->value('id')
+                ?? throw ApiException::conflict('ORG_ADMIN_ROLE_MISSING', 'Role Admin tidak ditemukan.');
 
             $invitation = new OrganizationInvitation;
             $invitation->forceFill([
@@ -233,7 +233,7 @@ final class OrganizationInvitations
 
             $this->audit->record('invitation.created', $invitation, after: [
                 'email' => $email,
-                'roles' => [RoleTemplates::ORG_ADMIN],
+                'roles' => [RoleTemplates::ADMIN],
                 'scopes' => ['organization'],
                 'expires_at' => $invitation->expires_at->toIso8601String(),
             ], metadata: ['source' => 'platform_console', 'first_admin' => true], organizationId: $org->id);
@@ -495,7 +495,7 @@ final class OrganizationInvitations
                 }
                 $this->assertSeatForInvitee($organization->id);
                 $role = Role::query()->where('organization_id', $organization->id)
-                    ->where('template_code', RoleTemplates::ORG_ADMIN)->where('is_locked', true)->first();
+                    ->where('template_code', RoleTemplates::ADMIN)->where('is_locked', true)->first();
                 $scopes = $locked->scopes;
                 if ($role === null || $locked->role_ids !== [$role->id] || count($scopes) !== 1 || $scopes[0]['scope_type'] !== 'organization') {
                     throw $this->unavailable('invalid_access');
@@ -519,7 +519,7 @@ final class OrganizationInvitations
             'name' => $user->name,
             'email' => $user->email,
             'status' => User::STATUS_ACTIVE,
-            'roles' => [RoleTemplates::ORG_ADMIN],
+            'roles' => [RoleTemplates::ADMIN],
             'scopes' => ['organization'],
         ], metadata: ['invitation_id' => $locked->id, 'invited_by_platform_user_id' => $locked->invited_by_platform_user_id, 'first_admin' => true], actor: $user);
 
@@ -555,7 +555,7 @@ final class OrganizationInvitations
             throw ApiException::conflict('ORGANIZATION_INACTIVE', 'Organisasi tidak aktif. Aktifkan organisasi sebelum mengundang administrator.');
         }
         if ($this->hasMembers($org)) {
-            throw ApiException::conflict('ORGANIZATION_HAS_MEMBERS', 'Organisasi ini sudah memiliki anggota. Pengguna baru diundang oleh administrator organisasi.');
+            throw ApiException::conflict('ORGANIZATION_HAS_MEMBERS', 'Organisasi ini sudah memiliki anggota. Pengguna baru diundang oleh Admin organisasi.');
         }
 
         return $org;
@@ -630,8 +630,8 @@ final class OrganizationInvitations
         match ($invitation->effectiveStatus()) {
             OrganizationInvitation::STATUS_PENDING => null,
             OrganizationInvitation::STATUS_ACCEPTED => throw ApiException::conflict('INVITATION_USED', 'Undangan ini sudah diterima dan tidak dapat dipakai lagi.'),
-            OrganizationInvitation::STATUS_REVOKED => throw new ApiException('INVITATION_REVOKED', 'Undangan ini telah dibatalkan oleh administrator organisasi.', 410),
-            default => throw new ApiException('INVITATION_EXPIRED', 'Undangan ini sudah kedaluwarsa. Minta administrator organisasi mengirim ulang undangan.', 410),
+            OrganizationInvitation::STATUS_REVOKED => throw new ApiException('INVITATION_REVOKED', 'Undangan ini telah dibatalkan oleh Admin organisasi.', 410),
+            default => throw new ApiException('INVITATION_EXPIRED', 'Undangan ini sudah kedaluwarsa. Minta Admin organisasi mengirim ulang undangan.', 410),
         };
     }
 
@@ -653,7 +653,7 @@ final class OrganizationInvitations
             $this->licensing->assertSeats($organizationId, 0);
         } catch (ApiException $e) {
             throw ApiException::conflict('ORGANIZATION_NO_SEAT',
-                'Organisasi ini sedang tidak memiliki seat lisensi untuk Anda. Hubungi administrator organisasi, lalu coba lagi.',
+                'Organisasi ini sedang tidak memiliki seat lisensi untuk Anda. Hubungi Admin organisasi, lalu coba lagi.',
                 ['reason' => strtolower($e->errorCode)]);
         }
     }
@@ -661,7 +661,7 @@ final class OrganizationInvitations
     private function unavailable(string $reason): ApiException
     {
         return new ApiException('INVITATION_UNAVAILABLE',
-            'Undangan ini tidak dapat digunakan lagi. Minta administrator organisasi mengirim undangan baru.', 410, ['reason' => $reason]);
+            'Undangan ini tidak dapat digunakan lagi. Minta Admin organisasi mengirim undangan baru.', 410, ['reason' => $reason]);
     }
 
     private function lock(OrganizationInvitation $invitation): OrganizationInvitation

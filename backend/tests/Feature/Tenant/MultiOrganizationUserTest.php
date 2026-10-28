@@ -27,9 +27,9 @@ class MultiOrganizationUserTest extends TestCase
         ['organization' => $this->alpha, 'admin' => $this->owner] = $this->createOrganization('ALPHA');
         ['organization' => $this->beta] = $this->createOrganization('BETA');
         ['organization' => $this->gamma] = $this->createOrganization('GAMMA');
-        $this->addMembership($this->owner, $this->beta, 'ORG_ADMIN');
+        $this->addMembership($this->owner, $this->beta, 'ADMIN');
         // Only a viewer in GAMMA: may not add members there.
-        $this->addMembership($this->owner, $this->gamma, 'VIEWER');
+        $this->addMembership($this->owner, $this->gamma, 'SUPERVISOR');
         $this->owner->forceFill(['last_organization_id' => $this->alpha->id])->save();
         $this->actingAs($this->owner);
     }
@@ -40,8 +40,8 @@ class MultiOrganizationUserTest extends TestCase
 
         $this->assertSame([$this->alpha->id, $this->beta->id], array_column($response->json('data'), 'id'));
         $response->assertJsonPath('data.0.is_current', true)->assertJsonPath('data.1.is_current', false);
-        $this->assertContains($this->roleId($this->beta, 'OPERATOR'), array_column($response->json('data.1.roles'), 'id'));
-        $this->assertNotContains($this->roleId($this->alpha, 'OPERATOR'), array_column($response->json('data.1.roles'), 'id'));
+        $this->assertContains($this->roleId($this->beta, 'SUPERVISOR'), array_column($response->json('data.1.roles'), 'id'));
+        $this->assertNotContains($this->roleId($this->alpha, 'SUPERVISOR'), array_column($response->json('data.1.roles'), 'id'));
     }
 
     public function test_one_address_is_invited_to_several_organizations(): void
@@ -49,10 +49,10 @@ class MultiOrganizationUserTest extends TestCase
         Notification::fake();
 
         $this->postJson('/api/invitations', $this->payload([
-            ['organization_id' => $this->alpha->id, 'role_ids' => [$this->roleId($this->alpha, 'OPERATOR')]],
-            ['organization_id' => $this->beta->id, 'role_ids' => [$this->roleId($this->beta, 'AUDITOR')]],
+            ['organization_id' => $this->alpha->id, 'role_ids' => [$this->roleId($this->alpha, 'SUPERVISOR')]],
+            ['organization_id' => $this->beta->id, 'role_ids' => [$this->roleId($this->beta, 'SUPERVISOR')]],
         ]))->assertCreated()
-            ->assertJsonPath('data.roles.0.code', 'OPERATOR')
+            ->assertJsonPath('data.roles.0.code', 'SUPERVISOR')
             ->assertJsonPath('data.job_title', 'Staf Gudang')
             ->assertJsonPath('meta.organization_ids', [$this->alpha->id, $this->beta->id]);
 
@@ -60,7 +60,7 @@ class MultiOrganizationUserTest extends TestCase
         $this->assertFalse(User::query()->where('email', 'sari@grup.test')->exists());
         $invitations = OrganizationInvitation::query()->where('email', 'sari@grup.test')->get()->keyBy('organization_id');
         $this->assertEqualsCanonicalizing([$this->alpha->id, $this->beta->id], $invitations->keys()->all());
-        $this->assertSame([$this->roleId($this->beta, 'AUDITOR')], $invitations[$this->beta->id]->role_ids);
+        $this->assertSame([$this->roleId($this->beta, 'SUPERVISOR')], $invitations[$this->beta->id]->role_ids);
         $this->assertSame('Staf Gudang', $invitations[$this->beta->id]->job_title);
         $this->assertTrue(AuditLog::query()->where('action', 'invitation.created')->where('organization_id', $this->beta->id)->exists());
         Notification::assertSentOnDemandTimes(OrganizationInvitationNotification::class, 2);
@@ -69,7 +69,7 @@ class MultiOrganizationUserTest extends TestCase
     public function test_invitations_can_be_sent_to_other_organizations_only(): void
     {
         $this->postJson('/api/invitations', $this->payload([
-            ['organization_id' => $this->beta->id, 'role_ids' => [$this->roleId($this->beta, 'VIEWER')]],
+            ['organization_id' => $this->beta->id, 'role_ids' => [$this->roleId($this->beta, 'SUPERVISOR')]],
         ]))->assertCreated()->assertJsonPath('data', null)->assertJsonPath('meta.organization_ids', [$this->beta->id]);
 
         $this->assertSame([$this->beta->id], OrganizationInvitation::query()->where('email', 'sari@grup.test')->pluck('organization_id')->all());
@@ -78,8 +78,8 @@ class MultiOrganizationUserTest extends TestCase
     public function test_all_invitations_are_rejected_when_one_organization_is_not_manageable(): void
     {
         $this->assertErrorCode($this->postJson('/api/invitations', $this->payload([
-            ['organization_id' => $this->alpha->id, 'role_ids' => [$this->roleId($this->alpha, 'OPERATOR')]],
-            ['organization_id' => $this->gamma->id, 'role_ids' => [$this->roleId($this->gamma, 'VIEWER')]],
+            ['organization_id' => $this->alpha->id, 'role_ids' => [$this->roleId($this->alpha, 'SUPERVISOR')]],
+            ['organization_id' => $this->gamma->id, 'role_ids' => [$this->roleId($this->gamma, 'SUPERVISOR')]],
         ])), 403, 'ORGANIZATION_ACCESS_DENIED');
 
         $this->assertFalse(OrganizationInvitation::query()->where('email', 'sari@grup.test')->exists());
@@ -91,8 +91,8 @@ class MultiOrganizationUserTest extends TestCase
 
         // A role of ALPHA cannot be assigned in BETA.
         $response = $this->postJson('/api/invitations', $this->payload([
-            ['organization_id' => $this->alpha->id, 'role_ids' => [$this->roleId($this->alpha, 'OPERATOR')]],
-            ['organization_id' => $this->beta->id, 'role_ids' => [$this->roleId($this->alpha, 'VIEWER')]],
+            ['organization_id' => $this->alpha->id, 'role_ids' => [$this->roleId($this->alpha, 'SUPERVISOR')]],
+            ['organization_id' => $this->beta->id, 'role_ids' => [$this->roleId($this->alpha, 'SUPERVISOR')]],
         ]));
 
         $this->assertErrorCode($response, 422, 'INVALID_ROLE');
@@ -107,7 +107,7 @@ class MultiOrganizationUserTest extends TestCase
     {
         $this->postJson('/api/invitations', $this->payload([
             ['organization_id' => $this->alpha->id, 'role_ids' => []],
-            ['organization_id' => $this->alpha->id, 'role_ids' => [$this->roleId($this->alpha, 'VIEWER')]],
+            ['organization_id' => $this->alpha->id, 'role_ids' => [$this->roleId($this->alpha, 'SUPERVISOR')]],
         ]))->assertStatus(422)
             ->assertJsonPath('error.code', 'VALIDATION_FAILED')
             ->assertJsonStructure(['error' => ['details' => ['fields' => ['memberships.0.role_ids', 'memberships.1.organization_id']]]]);
@@ -115,38 +115,38 @@ class MultiOrganizationUserTest extends TestCase
 
     public function test_member_detail_lists_organization_access_and_invites_to_another(): void
     {
-        $member = $this->createTenantUser($this->alpha, ['OPERATOR']);
-        $grant = ['organization_id' => $this->beta->id, 'role_ids' => [$this->roleId($this->beta, 'APPROVER')]];
+        $member = $this->createTenantUser($this->alpha, ['SUPERVISOR']);
+        $grant = ['organization_id' => $this->beta->id, 'role_ids' => [$this->roleId($this->beta, 'SUPERVISOR')]];
 
         $this->getJson("/api/users/{$member->id}/organizations")->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $this->alpha->id)
-            ->assertJsonPath('data.0.roles.0.code', 'OPERATOR');
+            ->assertJsonPath('data.0.roles.0.code', 'SUPERVISOR');
 
         // An invitation to BETA, not a membership: the member decides whether to join.
         $this->postJson("/api/users/{$member->id}/organizations", $grant)->assertCreated()
             ->assertJsonPath('data.organization_id', $this->beta->id)
             ->assertJsonPath('data.email', $member->email)
             ->assertJsonPath('data.status', 'pending')
-            ->assertJsonPath('data.roles.0.code', 'APPROVER');
+            ->assertJsonPath('data.roles.0.code', 'SUPERVISOR');
         $this->assertSame([$this->alpha->id], $member->memberships()->pluck('organization_id')->all());
         $this->getJson("/api/users/{$member->id}/organizations")->assertOk()->assertJsonCount(1, 'data');
 
         $this->assertErrorCode($this->postJson("/api/users/{$member->id}/organizations", $grant), 409, 'INVITATION_PENDING');
         $this->assertErrorCode($this->postJson("/api/users/{$member->id}/organizations", [
-            'organization_id' => $this->gamma->id, 'role_ids' => [$this->roleId($this->gamma, 'VIEWER')],
+            'organization_id' => $this->gamma->id, 'role_ids' => [$this->roleId($this->gamma, 'SUPERVISOR')],
         ]), 403, 'ORGANIZATION_ACCESS_DENIED');
 
         // Members of the target organization are not invited again.
-        $this->addMembership($member, $this->beta, 'VIEWER');
+        $this->addMembership($member, $this->beta, 'SUPERVISOR');
         $this->assertErrorCode($this->postJson("/api/users/{$member->id}/organizations", $grant), 409, 'ALREADY_MEMBER');
     }
 
     public function test_member_access_list_hides_organizations_the_actor_cannot_view(): void
     {
-        $member = $this->createTenantUser($this->alpha, ['OPERATOR']);
+        $member = $this->createTenantUser($this->alpha, ['SUPERVISOR']);
         ['organization' => $delta] = $this->createOrganization('DELTA');
-        $this->addMembership($member, $delta, 'VIEWER');
+        $this->addMembership($member, $delta, 'SUPERVISOR');
 
         $this->getJson("/api/users/{$member->id}/organizations")->assertOk()
             ->assertJsonCount(1, 'data')

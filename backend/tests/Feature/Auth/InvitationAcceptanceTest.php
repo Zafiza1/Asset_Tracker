@@ -44,7 +44,7 @@ class InvitationAcceptanceTest extends TestCase
     public function test_existing_verified_account_accepts_and_gets_exactly_the_invited_access(): void
     {
         $location = $this->location();
-        $token = $this->invite($this->invitee->email, 'OPERATOR', [['scope_type' => 'location', 'ref_id' => $location->id]], ['job_title' => 'Teknisi']);
+        $token = $this->invite($this->invitee->email, 'SUPERVISOR', [['scope_type' => 'location', 'ref_id' => $location->id]], ['job_title' => 'Teknisi']);
         $this->loginAs($this->invitee);
         $this->putJson('/api/auth/organization', ['organization_id' => $this->beta->id])->assertOk();
 
@@ -56,7 +56,7 @@ class InvitationAcceptanceTest extends TestCase
         $this->assertSame('active', $member->status);
         $this->assertSame('Teknisi', $member->job_title);
         $this->assertSame($this->admin->id, $member->created_by);
-        $this->assertSame(['OPERATOR'], $this->invitee->roles()->wherePivot('organization_id', $this->alpha->id)->pluck('code')->all());
+        $this->assertSame(['SUPERVISOR'], $this->invitee->roles()->wherePivot('organization_id', $this->alpha->id)->pluck('code')->all());
         $this->assertSame([['location', $location->id]], UserDataScope::query()->where('organization_id', $this->alpha->id)->where('user_id', $this->invitee->id)
             ->get()->map(fn ($s) => [$s->scope_type, $s->refId()])->all());
 
@@ -77,7 +77,7 @@ class InvitationAcceptanceTest extends TestCase
         $this->assertSame($this->invitee->id, $added->actor_user_id);
         $this->assertSame($invitation->id, $added->metadata['invitation_id']);
         $this->assertSame($this->admin->id, $added->metadata['invited_by']);
-        $this->assertSame(['OPERATOR'], $added->after['roles']);
+        $this->assertSame(['SUPERVISOR'], $added->after['roles']);
         $this->assertStringNotContainsString($token, AuditLog::query()->get()->toJson());
     }
 
@@ -93,7 +93,7 @@ class InvitationAcceptanceTest extends TestCase
     public function test_another_account_cannot_accept_someone_elses_invitation(): void
     {
         $token = $this->invite($this->invitee->email);
-        $other = $this->createTenantUser($this->beta, ['VIEWER']);
+        $other = $this->createTenantUser($this->beta, ['SUPERVISOR']);
         $other->forceFill(['email_verified_at' => now()])->save();
         $this->loginAs($other);
 
@@ -191,12 +191,12 @@ class InvitationAcceptanceTest extends TestCase
 
     public function test_access_is_validated_again_when_accepting(): void
     {
-        $manager = $this->createTenantUser($this->alpha, ['ORG_ADMIN']);
-        $token = $this->invite($this->invitee->email, 'ORG_ADMIN', inviter: $manager);
+        $manager = $this->createTenantUser($this->alpha, ['ADMIN']);
+        $token = $this->invite($this->invitee->email, 'ADMIN', inviter: $manager);
 
         // The inviter lost the right to give this access before the invitation was accepted.
         $manager->roles()->detach();
-        $manager->roles()->attach($this->roleId($this->alpha, 'VIEWER'), ['organization_id' => $this->alpha->id]);
+        $manager->roles()->attach($this->roleId($this->alpha, 'SUPERVISOR'), ['organization_id' => $this->alpha->id]);
 
         $this->loginAs($this->invitee);
         $response = $this->postJson('/api/auth/invitation/accept', ['token' => $token]);
@@ -205,7 +205,7 @@ class InvitationAcceptanceTest extends TestCase
         $this->assertNotMember($this->invitee);
 
         // Same when the inviter left the organization.
-        $manager2 = $this->createTenantUser($this->alpha, ['ORG_ADMIN']);
+        $manager2 = $this->createTenantUser($this->alpha, ['ADMIN']);
         $token2 = $this->invite('lain@luar.test', inviter: $manager2);
         OrganizationMember::query()->where('organization_id', $this->alpha->id)->where('user_id', $manager2->id)->update(['status' => 'suspended']);
         $this->beGuest();
@@ -215,14 +215,14 @@ class InvitationAcceptanceTest extends TestCase
 
     public function test_inspect_describes_only_valid_tokens_without_secrets(): void
     {
-        $token = $this->invite($this->invitee->email, 'AUDITOR');
+        $token = $this->invite($this->invitee->email, 'SUPERVISOR');
         $this->beGuest();
 
         $this->postJson('/api/auth/invitation/inspect', ['token' => $token])->assertOk()
             ->assertJsonPath('data.email', $this->invitee->email)
             ->assertJsonPath('data.organization.code', 'ALPHA')
             ->assertJsonPath('data.invited_by', $this->admin->name)
-            ->assertJsonPath('data.roles.0.code', 'AUDITOR')
+            ->assertJsonPath('data.roles.0.code', 'SUPERVISOR')
             ->assertJsonMissingPath('data.token')
             ->assertJsonMissingPath('data.account_exists');
 
@@ -234,7 +234,7 @@ class InvitationAcceptanceTest extends TestCase
 
     public function test_new_address_signs_up_through_the_invitation_and_joins(): void
     {
-        $token = $this->invite('baru@luar.test', 'OPERATOR');
+        $token = $this->invite('baru@luar.test', 'SUPERVISOR');
         $this->beGuest();
 
         $this->postJson('/api/auth/invitation/register', $this->signUp($token))->assertCreated()
@@ -246,7 +246,7 @@ class InvitationAcceptanceTest extends TestCase
         $this->assertNotNull($user->email_verified_at);
         $this->assertFalse($user->must_change_password);
         $this->assertTrue(Hash::check('Rahasia-Kuat-2026', $user->password));
-        $this->assertSame(['OPERATOR'], $user->roles()->pluck('code')->all());
+        $this->assertSame(['SUPERVISOR'], $user->roles()->pluck('code')->all());
         $this->getJson('/api/auth/me')->assertOk()
             ->assertJsonPath('data.organization.id', $this->alpha->id)
             ->assertJsonPath('data.user.email_verified_at', $user->email_verified_at->toIso8601String());
@@ -274,12 +274,12 @@ class InvitationAcceptanceTest extends TestCase
         OrganizationMember::query()->where('user_id', $this->admin->id)->update(['employee_number' => 'K-001']);
         $this->loginAs($this->admin);
 
-        $this->assertErrorCode($this->postJson('/api/invitations', [...$this->payload('satu@luar.test', 'VIEWER'), 'scopes' => [['scope_type' => 'organization']], 'employee_number' => 'K-001']),
+        $this->assertErrorCode($this->postJson('/api/invitations', [...$this->payload('satu@luar.test', 'SUPERVISOR'), 'scopes' => [['scope_type' => 'organization']], 'employee_number' => 'K-001']),
             409, 'EMPLOYEE_NUMBER_TAKEN');
 
         $this->invite('dua@luar.test', profile: ['employee_number' => 'K-002']);
         $this->loginAs($this->admin);
-        $this->assertErrorCode($this->postJson('/api/invitations', [...$this->payload('tiga@luar.test', 'VIEWER'), 'scopes' => [['scope_type' => 'organization']], 'employee_number' => 'K-002']),
+        $this->assertErrorCode($this->postJson('/api/invitations', [...$this->payload('tiga@luar.test', 'SUPERVISOR'), 'scopes' => [['scope_type' => 'organization']], 'employee_number' => 'K-002']),
             409, 'EMPLOYEE_NUMBER_TAKEN');
     }
 
@@ -313,7 +313,7 @@ class InvitationAcceptanceTest extends TestCase
      * @param  list<array{scope_type: string, ref_id?: string}>  $scopes
      * @param  array<string, mixed>  $profile
      */
-    private function invite(string $email, string $role = 'VIEWER', array $scopes = [['scope_type' => 'organization']], array $profile = [], ?User $inviter = null): string
+    private function invite(string $email, string $role = 'SUPERVISOR', array $scopes = [['scope_type' => 'organization']], array $profile = [], ?User $inviter = null): string
     {
         $this->loginAs($inviter ?? $this->admin);
         $this->postJson('/api/invitations', [...$this->payload($email, $role), 'scopes' => $scopes, ...$profile])->assertCreated();

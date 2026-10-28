@@ -49,7 +49,7 @@ Asumsi yang **mempengaruhi desain** ditandai ⚑ — mohon dikonfirmasi saat rev
 | A7 ⚑ | **Tenant harus "mengadopsi" definisi generik** menjadi `tenant_asset_definition` sebelum dipakai; definisi sepenuhnya kustom diturunkan dari definisi generik baseline `GEN-UMUM` (Aset Umum). | Setiap aset selalu punya referensi Generic Master + versi yang jelas. |
 | A8 | Data scope melekat pada **user** (bukan per role). Scope = gabungan (union) entri; entri `organization` berarti seluruh data. | Model mudah dipahami admin; cukup untuk V1.0. |
 | A9 | Default self-approval: **dilarang** (pemohon tidak bisa menyetujui transaksinya sendiri); bisa diizinkan per versi workflow. | Sesuai kontrol independen. |
-| A10 | Platform Administrator **tidak** otomatis melihat data bisnis tenant. Akses baca data tenant hanya lewat *support access session* (alasan wajib, berbatas waktu, read-only, diaudit). | Least privilege. |
+| A10 | Super Admin **tidak** otomatis melihat data bisnis tenant. Akses baca data tenant hanya lewat *support access session* (alasan wajib, berbatas waktu, read-only, diaudit). | Least privilege. |
 | A11 | Dokumen disimpan di disk privat (lokal atau S3-compatible), diunduh lewat endpoint yang terotorisasi; maks 20 MB/file; whitelist MIME: pdf, jpg, png, webp, docx, xlsx, csv. | Keamanan upload. |
 | A12 | Mata uang nilai perolehan default mengikuti organisasi; tidak ada konversi kurs di V1.0. | Lingkup. |
 | A13 | Zona waktu disimpan UTC (`timestamptz`), ditampilkan sesuai zona waktu organisasi. | Konsistensi multi-tenant. |
