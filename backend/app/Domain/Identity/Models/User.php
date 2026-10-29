@@ -49,8 +49,6 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public const STATUS_ACTIVE = 'active';
 
-    public const STATUS_SUSPENDED = 'suspended';
-
     public const STATUS_DEACTIVATED = 'deactivated';
 
     protected $fillable = [

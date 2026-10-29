@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
  *    Asset Tracker license itself and carries 1 seat (its administrator); kind 'seats' adds
  *    seats for further members. Each row is valid from starts_at until expires_at, unless revoked.
  *  - Seats are not tied to people: an active member or a pending invitation uses one, and
- *    suspending/deactivating the member or revoking the invitation frees it for somebody else.
+ *    deactivating the member or revoking the invitation frees it for somebody else.
  *  - Only the platform/system context writes licenses; the organization reads its own rows.
  *    Rows are never deleted; the terms of a purchase never change, only a revocation is added.
  *  - Existing organizations get a base license and enough seats for their current members,

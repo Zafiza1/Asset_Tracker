@@ -142,13 +142,13 @@ class TenantIsolationTest extends TestCase
         $this->assertErrorCode($this->getJson('/api/organization'), 403, 'TENANT_USER_REQUIRED');
     }
 
-    public function test_access_is_revoked_immediately_when_user_is_suspended(): void
+    public function test_access_is_revoked_immediately_when_user_is_deactivated(): void
     {
         $user = $this->createTenantUser($this->orgA, ['SUPERVISOR']);
         $this->actingAs($user, 'web');
         $this->getJson('/api/organization')->assertOk();
 
-        $user->forceFill(['status' => User::STATUS_SUSPENDED])->save();
+        $user->forceFill(['status' => User::STATUS_DEACTIVATED])->save();
 
         $this->assertErrorCode($this->getJson('/api/organization'), 401, 'ACCOUNT_INACTIVE');
     }

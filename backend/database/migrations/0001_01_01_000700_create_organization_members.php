@@ -47,7 +47,7 @@ return new class extends Migration
             $table->unique(['organization_id', 'employee_number']);
             $table->index('user_id');
         });
-        DB::statement("ALTER TABLE organization_members ADD CONSTRAINT organization_members_status_check CHECK (status IN ('invited','active','suspended','deactivated'))");
+        DB::statement("ALTER TABLE organization_members ADD CONSTRAINT organization_members_status_check CHECK (status IN ('invited','active','deactivated'))");
         TenantSchema::tenantForeign('organization_members', 'home_department_id', 'departments');
         DB::statement(<<<'SQL'
             CREATE OR REPLACE FUNCTION ate_check_member_is_tenant_user() RETURNS trigger

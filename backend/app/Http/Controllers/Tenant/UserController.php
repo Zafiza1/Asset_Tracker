@@ -32,7 +32,7 @@ class UserController extends Controller
     {
         $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', Rule::in([User::STATUS_ACTIVE, User::STATUS_SUSPENDED, User::STATUS_DEACTIVATED, User::STATUS_INVITED])],
+            'status' => ['nullable', Rule::in([User::STATUS_ACTIVE, User::STATUS_DEACTIVATED, User::STATUS_INVITED])],
             'role_id' => ['nullable', 'uuid'],
         ]);
 
@@ -111,11 +111,6 @@ class UserController extends Controller
         ]);
 
         return new UserResource($this->users->update($user, $data)->load('roles', 'dataScopes', 'membership'));
-    }
-
-    public function suspend(User $user): UserResource
-    {
-        return new UserResource($this->users->changeStatus($user, User::STATUS_SUSPENDED)->load('membership'));
     }
 
     public function activate(User $user): UserResource

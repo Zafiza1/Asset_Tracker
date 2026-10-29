@@ -101,10 +101,10 @@ class UserManagementTest extends TestCase
         $this->assertErrorCode($this->patchJson("/api/users/{$shared->id}", ['name' => 'Diganti']), 422, 'SHARED_ACCOUNT');
         $this->assertErrorCode($this->postJson("/api/users/{$shared->id}/reset-password", ['password' => 'Sementara-Rahasia-9']), 422, 'SHARED_ACCOUNT');
 
-        // Suspending in ALPHA leaves the account usable in BETA.
-        $this->postJson("/api/users/{$shared->id}/suspend")->assertOk()->assertJsonPath('data.status', 'suspended');
+        // Deactivating in ALPHA leaves the account usable in BETA.
+        $this->postJson("/api/users/{$shared->id}/deactivate")->assertOk()->assertJsonPath('data.status', 'deactivated');
         $this->assertSame(User::STATUS_ACTIVE, $shared->fresh()->status);
-        $this->assertSame(User::STATUS_SUSPENDED, $this->membership($shared)->status);
+        $this->assertSame(User::STATUS_DEACTIVATED, $this->membership($shared)->status);
         $this->assertSame(User::STATUS_ACTIVE, OrganizationMember::query()->where('organization_id', $beta->id)->where('user_id', $shared->id)->value('status'));
         $this->assertTrue(Hash::check(self::PASSWORD, $shared->fresh()->password));
     }
@@ -152,22 +152,22 @@ class UserManagementTest extends TestCase
     {
         $this->actingAs($this->admin, 'web');
 
-        $this->assertErrorCode($this->postJson("/api/users/{$this->admin->id}/suspend"), 422, 'CANNOT_CHANGE_OWN_STATUS');
+        $this->assertErrorCode($this->postJson("/api/users/{$this->admin->id}/deactivate"), 422, 'CANNOT_CHANGE_OWN_STATUS');
     }
 
-    public function test_second_admin_can_be_suspended_but_not_the_last_active_one(): void
+    public function test_second_admin_can_be_deactivated_but_not_the_last_active_one(): void
     {
         $admin2 = $this->createTenantUser($this->org, ['ADMIN']);
         $this->actingAs($this->admin, 'web');
 
-        $this->postJson("/api/users/{$admin2->id}/suspend")->assertOk()->assertJsonPath('data.status', 'suspended');
+        $this->postJson("/api/users/{$admin2->id}/deactivate")->assertOk()->assertJsonPath('data.status', 'deactivated');
         $this->postJson("/api/users/{$admin2->id}/activate")->assertOk()->assertJsonPath('data.status', 'active');
 
-        // admin2 now tries to suspend the original admin while being the only other admin: allowed,
+        // admin2 now tries to deactivate the original admin while being the only other admin: allowed,
         // because admin2 remains active.
         $this->actingAs($admin2, 'web');
-        $this->postJson("/api/users/{$this->admin->id}/suspend")->assertOk();
-        // ...but a suspended admin + the actor makes the actor the last one; deactivating the actor is impossible
+        $this->postJson("/api/users/{$this->admin->id}/deactivate")->assertOk();
+        // ...but a deactivated admin + the actor makes the actor the last one; deactivating the actor is impossible
         // (own status), and removing actor's admin role is blocked.
         $this->assertErrorCode(
             $this->putJson("/api/users/{$admin2->id}/roles", ['role_ids' => [$this->roleId($this->org, 'SUPERVISOR')]]),
@@ -175,13 +175,13 @@ class UserManagementTest extends TestCase
         );
     }
 
-    public function test_deactivated_user_cannot_be_reactivated(): void
+    public function test_deactivated_user_can_be_reactivated(): void
     {
         $user = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->actingAs($this->admin, 'web');
 
         $this->postJson("/api/users/{$user->id}/deactivate")->assertOk();
-        $this->assertErrorCode($this->postJson("/api/users/{$user->id}/activate"), 409, 'USER_DEACTIVATED');
+        $this->postJson("/api/users/{$user->id}/activate")->assertOk()->assertJsonPath('data.status', 'active');
         $this->assertSame(User::STATUS_DEACTIVATED, $this->membership($user)->status);
     }
 
@@ -238,12 +238,12 @@ class UserManagementTest extends TestCase
     public function test_user_list_supports_search_filter_and_safe_sorting(): void
     {
         $this->createTenantUser($this->org, ['SUPERVISOR'], attributes: ['name' => 'Zainal Viewer']);
-        $suspended = $this->createTenantUser($this->org, ['SUPERVISOR'], attributes: ['name' => 'Ani Suspended']);
-        $suspended->forceFill(['status' => User::STATUS_SUSPENDED])->save();
+        $deactivated = $this->createTenantUser($this->org, ['SUPERVISOR'], attributes: ['name' => 'Ani Deactivated']);
+        $deactivated->forceFill(['status' => User::STATUS_DEACTIVATED])->save();
         $this->actingAs($this->admin, 'web');
 
         $this->getJson('/api/users?search=zainal')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'Zainal Viewer');
-        $this->getJson('/api/users?status=suspended')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/users?status=deactivated')->assertOk()->assertJsonCount(1, 'data');
         $this->getJson('/api/users?sort=-name')->assertOk()->assertJsonPath('data.0.name', 'Zainal Viewer');
         // Unknown sort keys fall back to the default instead of reaching SQL.
         $this->getJson('/api/users?sort=password;drop table users')->assertOk();

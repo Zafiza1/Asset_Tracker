@@ -11,6 +11,7 @@ use App\Domain\Authorization\Services\OrgAdminGuard;
 use App\Domain\Authorization\Services\RoleManagement;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
+use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
@@ -148,16 +149,13 @@ final class UserManagement
             throw ApiException::unprocessable('CANNOT_CHANGE_OWN_STATUS', 'Anda tidak dapat mengubah status akun Anda sendiri.');
         }
         $member = $this->membership($user);
-        if ($member->status === User::STATUS_DEACTIVATED) {
-            throw ApiException::conflict('USER_DEACTIVATED', 'Akun yang sudah dinonaktifkan tidak dapat diaktifkan kembali.');
-        }
         $this->assertManageable($user);
 
         return DB::transaction(function () use ($user, $member, $status) {
             $orgId = $this->tenancy->organizationId();
             $this->adminGuard->lock($orgId);
             $before = $member->status;
-            // Only active members use a seat; suspending or deactivating frees it for somebody else.
+            // Only active members use a seat; deactivating frees it for somebody else.
             if ($status === User::STATUS_ACTIVE && $before !== User::STATUS_ACTIVE) {
                 $this->licensing->assertSeats($orgId);
             }
@@ -169,6 +167,17 @@ final class UserManagement
             if ($status !== User::STATUS_ACTIVE && $this->access->isExclusiveTo($user, $orgId)) {
                 $this->sessions->terminateAll($user);
             }
+
+            // Release license code when user is deactivated
+            if ($status === User::STATUS_DEACTIVATED) {
+                $licenseCode = LicenseCode::where('organization_id', $orgId)
+                    ->where('assigned_to_user_id', $user->id)
+                    ->first();
+                if ($licenseCode) {
+                    $licenseCode->release();
+                }
+            }
+
             $this->audit->record('user.status_changed', $user, before: ['status' => $before], after: ['status' => $status]);
 
             return $user;

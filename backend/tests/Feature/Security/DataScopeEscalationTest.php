@@ -311,12 +311,11 @@ class DataScopeEscalationTest extends TestCase
         $inside = $this->createTenantUser($this->org, ['SUPERVISOR'], $this->scopeAt($this->a1));
         $this->loginAs($manager);
 
-        $this->assertErrorCode($this->postJson("/api/users/{$wide->id}/suspend"), 403, 'SCOPE_ESCALATION');
         $this->assertErrorCode($this->postJson("/api/users/{$wide->id}/deactivate"), 403, 'SCOPE_ESCALATION');
         $this->assertSame(User::STATUS_ACTIVE, $wide->membership()->value('status'));
 
-        $this->postJson("/api/users/{$inside->id}/suspend")->assertOk();
-        $this->assertSame(User::STATUS_SUSPENDED, $inside->membership()->value('status'));
+        $this->postJson("/api/users/{$inside->id}/deactivate")->assertOk();
+        $this->assertSame(User::STATUS_DEACTIVATED, $inside->membership()->value('status'));
     }
 
     public function test_scoped_user_cannot_change_the_job_data_of_a_broader_member(): void

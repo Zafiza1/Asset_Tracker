@@ -78,7 +78,6 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     Route::get('/users/{user}/organizations', [UserController::class, 'organizations'])->middleware('permission:user.view');
     Route::post('/users/{user}/organizations', [UserController::class, 'grantOrganization'])->middleware('permission:user.create,role.manage');
     Route::patch('/users/{user}', [UserController::class, 'update'])->middleware('permission:user.update');
-    Route::post('/users/{user}/suspend', [UserController::class, 'suspend'])->middleware('permission:user.deactivate')->withoutMiddleware('license');
     Route::post('/users/{user}/activate', [UserController::class, 'activate'])->middleware('permission:user.deactivate');
     Route::post('/users/{user}/deactivate', [UserController::class, 'deactivate'])->middleware('permission:user.deactivate')->withoutMiddleware('license');
     Route::put('/users/{user}/roles', [UserController::class, 'syncRoles'])->middleware('permission:role.manage');

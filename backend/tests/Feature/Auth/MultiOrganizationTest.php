@@ -75,7 +75,7 @@ class MultiOrganizationTest extends TestCase
 
         $this->assertErrorCode($this->putJson('/api/auth/organization', ['organization_id' => $gamma->id]), 403, 'ORGANIZATION_ACCESS_DENIED');
 
-        $this->membershipIn($this->beta)->forceFill(['status' => User::STATUS_SUSPENDED])->save();
+        $this->membershipIn($this->beta)->forceFill(['status' => User::STATUS_DEACTIVATED])->save();
         $this->assertErrorCode($this->putJson('/api/auth/organization', ['organization_id' => $this->beta->id]), 403, 'ORGANIZATION_ACCESS_DENIED');
     }
 
@@ -84,7 +84,7 @@ class MultiOrganizationTest extends TestCase
         $this->login();
         $this->putJson('/api/auth/organization', ['organization_id' => $this->beta->id])->assertOk();
 
-        $this->membershipIn($this->beta)->forceFill(['status' => User::STATUS_SUSPENDED])->save();
+        $this->membershipIn($this->beta)->forceFill(['status' => User::STATUS_DEACTIVATED])->save();
 
         $this->assertErrorCode($this->getJson('/api/organization'), 403, 'ORGANIZATION_INACTIVE');
         $this->getJson('/api/auth/me')->assertOk()->assertJsonPath('data.organization.code', 'ALPHA')->assertJsonCount(1, 'data.organizations');

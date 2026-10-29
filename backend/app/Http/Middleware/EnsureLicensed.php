@@ -12,7 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Tenant routes, after ResolveTenant: without a base license in force the organization is
  * read-only, and so it is while it uses more seats than licensed (a seat pack expired or was
- * revoked). Reads always pass. The actions that free seats (suspending or deactivating a member,
+ * revoked). Reads always pass. The actions that free seats (deactivating a member,
  * revoking an invitation) are excluded from this middleware in routes/api.php.
  */
 final class EnsureLicensed

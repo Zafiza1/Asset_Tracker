@@ -84,11 +84,11 @@ class AuthenticationTest extends TestCase
         $this->assertSame('unknown_email', $log->metadata['reason']);
     }
 
-    public function test_suspended_user_cannot_log_in(): void
+    public function test_deactivated_user_cannot_log_in(): void
     {
         ['organization' => $org] = $this->createOrganization('ALPHA');
         $user = $this->createTenantUser($org, ['SUPERVISOR'], attributes: []);
-        $user->forceFill(['status' => User::STATUS_SUSPENDED])->save();
+        $user->forceFill(['status' => User::STATUS_DEACTIVATED])->save();
 
         $this->assertErrorCode(
             $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => self::PASSWORD]),

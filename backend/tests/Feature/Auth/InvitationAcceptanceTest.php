@@ -207,7 +207,7 @@ class InvitationAcceptanceTest extends TestCase
         // Same when the inviter left the organization.
         $manager2 = $this->createTenantUser($this->alpha, ['ADMIN']);
         $token2 = $this->invite('lain@luar.test', inviter: $manager2);
-        OrganizationMember::query()->where('organization_id', $this->alpha->id)->where('user_id', $manager2->id)->update(['status' => 'suspended']);
+        OrganizationMember::query()->where('organization_id', $this->alpha->id)->where('user_id', $manager2->id)->update(['status' => 'deactivated']);
         $this->beGuest();
         $this->assertErrorCode($this->postJson('/api/auth/invitation/register', $this->signUp($token2)), 410, 'INVITATION_UNAVAILABLE');
         $this->assertFalse(User::query()->where('email', 'lain@luar.test')->exists());

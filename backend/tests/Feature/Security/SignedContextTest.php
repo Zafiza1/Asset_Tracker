@@ -85,13 +85,13 @@ class SignedContextTest extends TestCase
     public function test_tenant_claim_requires_an_active_member_of_an_active_organization(): void
     {
         $outsider = $this->createTenantUser($this->orgB);
-        $suspendedMember = $this->createTenantUser($this->orgA);
-        DB::table('organization_members')->where('user_id', $suspendedMember->id)->update(['status' => 'suspended']);
-        $suspendedAccount = $this->createTenantUser($this->orgA, attributes: ['status' => 'suspended']);
+        $deactivatedMember = $this->createTenantUser($this->orgA);
+        DB::table('organization_members')->where('user_id', $deactivatedMember->id)->update(['status' => 'deactivated']);
+        $deactivatedAccount = $this->createTenantUser($this->orgA, attributes: ['status' => 'deactivated']);
 
         $this->expectRejected($this->sign('tenant', $this->orgA->id, $outsider->id), 'database context is not authorized');
-        $this->expectRejected($this->sign('tenant', $this->orgA->id, $suspendedMember->id), 'database context is not authorized');
-        $this->expectRejected($this->sign('tenant', $this->orgA->id, $suspendedAccount->id), 'database context is not authorized');
+        $this->expectRejected($this->sign('tenant', $this->orgA->id, $deactivatedMember->id), 'database context is not authorized');
+        $this->expectRejected($this->sign('tenant', $this->orgA->id, $deactivatedAccount->id), 'database context is not authorized');
 
         $this->orgA->forceFill(['status' => Organization::STATUS_SUSPENDED])->save();
         $this->expectRejected($this->sign('tenant', $this->orgA->id, $this->adminA->id), 'database context is not authorized');
@@ -104,7 +104,7 @@ class SignedContextTest extends TestCase
         $this->assertTrue($this->dbContext()['platform']);
 
         $this->expectRejected($this->sign('platform', null, $this->adminA->id), 'database context is not authorized');
-        $platform->forceFill(['status' => User::STATUS_SUSPENDED])->save();
+        $platform->forceFill(['status' => User::STATUS_DEACTIVATED])->save();
         $this->expectRejected($this->sign('platform', null, $platform->id), 'database context is not authorized');
     }
 

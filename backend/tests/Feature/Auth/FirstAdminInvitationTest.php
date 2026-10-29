@@ -219,7 +219,7 @@ class FirstAdminInvitationTest extends TestCase
         $this->assertErrorCode($response, 410, 'INVITATION_UNAVAILABLE');
         $response->assertJsonPath('error.details.reason', 'inviter_lacks_permission');
 
-        $this->platform->forceFill(['status' => User::STATUS_SUSPENDED])->save();
+        $this->platform->forceFill(['status' => User::STATUS_DEACTIVATED])->save();
         $this->assertErrorCode($this->postJson('/api/auth/invitation/accept', ['token' => $token]), 410, 'INVITATION_UNAVAILABLE');
         $this->assertNoAccess($this->existing);
     }

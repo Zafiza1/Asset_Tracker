@@ -88,8 +88,8 @@ class LicensingTest extends TestCase
         // Now invitation should succeed
         $this->postJson('/api/invitations', $this->invite('pengganti@alpha.test'))->assertCreated();
 
-        // Suspend member (frees seat)
-        $this->postJson("/api/users/{$member->id}/suspend")->assertOk();
+        // Deactivate member (frees seat)
+        $this->postJson("/api/users/{$member->id}/deactivate")->assertOk();
 
         // Should have 1 available seat now
         $this->getJson('/api/license')->assertOk()
@@ -107,7 +107,7 @@ class LicensingTest extends TestCase
         $this->assertErrorCode($this->putJson('/api/organization', ['name' => 'Baru']), 403, 'LICENSE_INACTIVE');
         $this->assertErrorCode($this->postJson('/api/invitations', $this->invite('x@alpha.test')), 403, 'LICENSE_INACTIVE');
         // Freeing seats stays possible (but will fail due to no seats to free)
-        $this->postJson("/api/users/{$member->id}/suspend")->assertOk();
+        $this->postJson("/api/users/{$member->id}/deactivate")->assertOk();
     }
 
     public function test_an_expired_license_ends_access_to_writes(): void
@@ -127,8 +127,8 @@ class LicensingTest extends TestCase
         // Buy 1 license (total 2: 1 free + 1 purchased)
         $this->postJson('/api/licenses/purchase', ['quantity' => 1])->assertCreated();
 
-        // Suspend member to free seat
-        $this->postJson("/api/users/{$member->id}/suspend")->assertOk();
+        // Deactivate member to free seat
+        $this->postJson("/api/users/{$member->id}/deactivate")->assertOk();
 
         $this->getJson('/api/license')->assertOk()->assertJsonPath('data.seats.available', 1);
     }

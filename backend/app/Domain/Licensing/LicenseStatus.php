@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
  * Licensing state of one organization at a point in time.
  *
  * Seats only count while the base license is in force. Used seats are active members plus
- * open (pending, unexpired) invitations; deactivated/suspended members and revoked/expired
+ * open (pending, unexpired) invitations; deactivated members and revoked/expired
  * invitations free theirs.
  */
 final readonly class LicenseStatus
