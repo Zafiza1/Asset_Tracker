@@ -4,15 +4,21 @@ import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
+import { Badge } from '../../components/ui/Badge'
+import { DataTable, Pagination } from '../../components/ui/Table'
+import { AdvancedFilters, FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { ColumnToggle } from '../../components/ui/ColumnToggle'
 import { ApiError, api, qs } from '../../lib/api/client'
 import type { Paginated } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { errorMessage } from '../../lib/forms'
 import { toOptions, useOptions } from '../master/options'
-import { assetStatusLabel, type Asset, type AssetStatus } from '../assets/api'
+import { assetStatusLabel, assetStatusTone, type Asset, type AssetStatus } from '../assets/api'
+import { CategoryFilter } from '../assets/CategoryFilter'
 import { allowedTypes, transactionTypeLabel, typePermission, type ManualTransactionType } from './api'
 
 const selectableStatuses: AssetStatus[] = ['available', 'in_use', 'under_maintenance', 'disposed']
+const DEFAULT_COLUMNS = ['code', 'name', 'serial_number', 'category', 'location', 'status']
 
 function today(): string {
   const d = new Date()
@@ -31,22 +37,60 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   const { can } = useAuth()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
   const [picked, setPicked] = useState<Asset | null>(fixedAsset ?? null)
   const asset = fixedAsset ?? picked
   const types = allowedTypes(asset?.status).filter((t) => !typePermission[t] || can(typePermission[t]!))
   const [type, setType] = useState<ManualTransactionType | ''>(initialType && types.includes(initialType) ? initialType : '')
   const [values, setValues] = useState<Record<string, string>>({ transaction_date: today() })
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
+  const [filters, setFilters] = useState({ location_id: '', status: '', category_ids: '' })
+  const [visibleColumns, setVisibleColumns] = useState(DEFAULT_COLUMNS)
 
   const locations = toOptions(useOptions('/locations').data)
+  const categoryRows = useOptions('/tenant-masters/categories').data
+  const categories = toOptions(categoryRows)
+
+  const columns = [
+    { key: 'code', header: 'Kode', cell: (a: Asset) => <span className="font-mono text-xs">{a.asset_number}</span> },
+    { key: 'name', header: 'Aset', cell: (a: Asset) => <span className="font-medium text-slate-900">{a.name}</span> },
+    { key: 'serial_number', header: 'No Seri', cell: (a: Asset) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>) },
+    { key: 'category', header: 'Kategori', cell: (a: Asset) => a.category?.name ?? '—' },
+    { key: 'location', header: 'Lokasi', cell: (a: Asset) => a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span> },
+    { key: 'status', header: 'Status', cell: (a: Asset) => <Badge tone={assetStatusTone[a.status]}>{assetStatusLabel[a.status]}</Badge> },
+  ]
+
+  const toggleColumn = (key: string) => {
+    setVisibleColumns((prev) => (prev.includes(key) ? prev.filter((c) => c !== key) : [...prev, key]))
+  }
+
+  const resetColumns = () => {
+    setVisibleColumns(DEFAULT_COLUMNS)
+  }
+
   const candidates = useQuery({
-    queryKey: ['/assets', 'picker', search],
-    queryFn: () => api.get<Paginated<Asset>>(`/assets${qs({ search, per_page: 10 })}`),
+    queryKey: ['/assets', 'picker', search, currentPage, filters],
+    queryFn: () => api.get<Paginated<Asset>>(`/assets${qs({ search, per_page: 10, page: currentPage, ...filters })}`),
     enabled: !fixedAsset && !picked,
   })
 
   const set = (name: string) => (e: { target: { value: string } }) => setValues((v) => ({ ...v, [name]: e.target.value }))
   const err = (name: string) => fieldErrors[name]?.[0]
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setCurrentPage(1)
+  }
+
+  const handleFilterChange = (newFilters: Record<string, string>) => {
+    setFilters((prev) => ({ ...prev, ...newFilters }))
+    setCurrentPage(1)
+  }
+
+  const resetFilters = () => {
+    setFilters({ location_id: '', status: '', category_ids: '' })
+    setCurrentPage(1)
+  }
 
   const save = useMutation({
     mutationFn: () => {
@@ -104,26 +148,73 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
             )}
           </div>
         ) : (
-          <Field label="Aset" required error={err('asset_id')} hint="Cari berdasarkan nama, nomor aset, atau nomor seri.">
-            {(p) => (
-              <div className="space-y-2">
-                <Input {...p} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ketik untuk mencari aset" />
-                <ul className="max-h-48 divide-y divide-slate-100 overflow-y-auto rounded-md ring-1 ring-slate-200" aria-label="Hasil pencarian aset">
-                  {candidates.data?.data.map((a) => (
-                    <li key={a.id}>
-                      <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-brand-50" onClick={() => setPicked(a)}>
-                        <span className="font-medium text-slate-900">{a.name}</span>
-                        <span className="block text-xs text-slate-500">
-                          {a.asset_number} · {assetStatusLabel[a.status]}
-                        </span>
-                      </button>
-                    </li>
+          <div className="space-y-2">
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+              Aset <span className="text-red-600">*</span>
+            </label>
+            {err('asset_id') && <p className="mt-1.5 text-sm text-red-700">{err('asset_id')}</p>}
+            <p className="mt-1.5 text-xs text-slate-500">Cari berdasarkan nama, nomor aset, atau nomor seri.</p>
+            <FilterPanel>
+              <SearchForm
+                value={search}
+                onChange={handleSearchChange}
+                onSubmit={() => setCurrentPage(1)}
+                placeholder="Ketik untuk mencari aset"
+                label="Cari aset"
+                aside={
+                  <ColumnToggle
+                    columns={columns}
+                    visibleColumns={visibleColumns}
+                    onToggle={toggleColumn}
+                    onReset={resetColumns}
+                  />
+                }
+              />
+              <AdvancedFilters
+                activeCount={Object.values(filters).filter(Boolean).length}
+                dirty={false}
+                onApply={() => setCurrentPage(1)}
+                onClear={resetFilters}
+              >
+                <CategoryFilter
+                  options={categories}
+                  selected={filters.category_ids.split(',').filter(Boolean)}
+                  onChange={(ids) => handleFilterChange({ category_ids: ids.join(',') })}
+                />
+                <Select value={filters.location_id} onChange={(e) => handleFilterChange({ location_id: e.target.value })} aria-label="Filter lokasi">
+                  <option value="">Lokasi: semua</option>
+                  {locations.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
                   ))}
-                  {candidates.data?.data.length === 0 && <li className="px-3 py-2 text-sm text-slate-500">Aset tidak ditemukan.</li>}
-                </ul>
-              </div>
+                </Select>
+                <Select value={filters.status} onChange={(e) => handleFilterChange({ status: e.target.value })} aria-label="Filter status">
+                  <option value="">Status: semua</option>
+                  {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
+                    <option key={s} value={s}>
+                      {assetStatusLabel[s]}
+                    </option>
+                  ))}
+                </Select>
+              </AdvancedFilters>
+            </FilterPanel>
+            {candidates.data?.data.length === 0 ? (
+              <p className="text-sm text-slate-500">Aset tidak ditemukan.</p>
+            ) : (
+              <>
+                <DataTable
+                  columns={columns}
+                  rows={candidates.data?.data ?? []}
+                  visibleColumns={visibleColumns}
+                  onRowClick={(a) => setPicked(a)}
+                />
+                {candidates.data?.meta && (
+                  <Pagination meta={candidates.data.meta} onPage={setCurrentPage} />
+                )}
+              </>
             )}
-          </Field>
+          </div>
         )}
 
         {asset && (

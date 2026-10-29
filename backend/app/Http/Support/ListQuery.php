@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
  */
 final class ListQuery
 {
-    public const MAX_PER_PAGE = 100;
+    public const MAX_PER_PAGE = 10000;
 
     public static function perPage(Request $request, int $default = 10): int
     {

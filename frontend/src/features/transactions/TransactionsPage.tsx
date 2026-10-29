@@ -35,6 +35,7 @@ export function TransactionsPage() {
   const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters('/transactions')
 
   const filters = Object.fromEntries(FILTERS.map((k) => [k, params.get(k)]))
+  filters.per_page = '10000'
   const advanced = useFilterDraft(params, ADVANCED)
   const draft = advanced.draft
 
