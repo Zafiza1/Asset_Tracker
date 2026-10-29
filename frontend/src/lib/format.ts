@@ -179,6 +179,14 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
     },
   },
   {
+    label: 'Atribut Kategori',
+    actions: {
+      'category_attribute.created': 'Menambah atribut kategori',
+      'category_attribute.updated': 'Mengubah atribut kategori',
+      'category_attribute.archived': 'Mengarsipkan atribut kategori',
+    },
+  },
+  {
     label: 'Jenis Aset',
     actions: {
       'tenant_definition.adopted': 'Mengadopsi jenis aset dari katalog',

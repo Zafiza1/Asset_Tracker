@@ -20,7 +20,7 @@ export function DataTable<T extends { id: string }>({ columns, rows, onRowClick,
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
+      <table className="w-full divide-y divide-slate-200 text-sm table-fixed">
         <thead className="bg-slate-50/80">
           <tr>
             {displayedColumns.map((c) => (
@@ -49,7 +49,7 @@ export function DataTable<T extends { id: string }>({ columns, rows, onRowClick,
               className={clsx('transition-colors duration-100', onRowClick && 'cursor-pointer hover:bg-brand-50/60 focus-visible:bg-brand-50/60 focus-visible:outline-offset-[-2px]')}
             >
               {displayedColumns.map((c) => (
-                <td key={c.key} className={clsx('px-4 py-3 align-top text-slate-700', c.hideOnMobile && 'hidden md:table-cell', c.className)}>
+                <td key={c.key} className={clsx('px-4 py-3 align-top text-slate-700 overflow-hidden text-ellipsis whitespace-nowrap', c.hideOnMobile && 'hidden md:table-cell', c.className)}>
                   {c.cell(row)}
                 </td>
               ))}
