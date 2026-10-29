@@ -112,7 +112,7 @@ class AssetController extends Controller
     {
         $history = $asset->transactions()->with(['fromLocation', 'toLocation', 'creator'])
             ->orderByDesc('seq')
-            ->paginate(ListQuery::perPage($request, 50));
+            ->paginate(ListQuery::perPage($request, 10));
 
         return AssetTransactionResource::collection($history);
     }

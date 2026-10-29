@@ -13,7 +13,7 @@ final class ListQuery
 {
     public const MAX_PER_PAGE = 100;
 
-    public static function perPage(Request $request, int $default = 25): int
+    public static function perPage(Request $request, int $default = 10): int
     {
         return max(1, min(self::MAX_PER_PAGE, (int) $request->query('per_page', (string) $default)));
     }

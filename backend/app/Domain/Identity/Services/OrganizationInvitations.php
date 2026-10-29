@@ -433,6 +433,7 @@ final class OrganizationInvitations
             $locked = $this->lock($invitation);
             $this->assertOpen($locked);
             $this->assertSeatForInvitee($organization->id);
+
             try {
                 if (! collect(self::MANAGE_PERMISSIONS)->every(fn (string $p) => $this->tenancy->tenant()->can($p))) {
                     throw $this->unavailable('inviter_lacks_permission');
@@ -440,22 +441,22 @@ final class OrganizationInvitations
                 $this->assertWithinActorScope($locked->scopes);
                 $this->users->addMember($user, $this->profileOf($locked), $locked->role_ids, $locked->scopes,
                     metadata: ['invitation_id' => $locked->id, 'invited_by' => $locked->invited_by], actor: $user);
+
+                $locked->forceFill([
+                    'status' => OrganizationInvitation::STATUS_ACCEPTED,
+                    'accepted_at' => now(),
+                    'accepted_user_id' => $user->id,
+                ])->save();
+
+                // Assign license code to the user if one was provided
+                if ($locked->license_code_id !== null) {
+                    $this->licenseCodes->assign($locked->license_code_id, $user->id);
+                }
+
+                $this->audit->record('invitation.accepted', $locked, after: ['status' => OrganizationInvitation::STATUS_ACCEPTED, 'accepted_user_id' => $user->id], actor: $user);
             } catch (ApiException $e) {
                 throw in_array($e->errorCode, ['ALREADY_MEMBER', 'INVITATION_UNAVAILABLE'], true) ? $e : $this->unavailable(strtolower($e->errorCode));
             }
-
-            $locked->forceFill([
-                'status' => OrganizationInvitation::STATUS_ACCEPTED,
-                'accepted_at' => now(),
-                'accepted_user_id' => $user->id,
-            ])->save();
-
-            // Assign license code to the user if one was provided
-            if ($locked->license_code_id !== null) {
-                $this->licenseCodes->assign($locked->license_code_id, $user->id);
-            }
-
-            $this->audit->record('invitation.accepted', $locked, after: ['status' => OrganizationInvitation::STATUS_ACCEPTED, 'accepted_user_id' => $user->id], actor: $user);
 
             return ['organization' => $organization, 'invitation' => $locked];
         }));

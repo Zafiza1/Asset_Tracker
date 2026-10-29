@@ -78,9 +78,11 @@ class InvitationAcceptanceController extends Controller
         );
 
         Auth::guard('web')->login($user);
-        $request->session()->regenerate();
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+            $access->switch($request->session(), $user, $organization);
+        }
         $this->tenancy->runAsSystem(fn () => $user->forceFill(['last_login_at' => now()])->save());
-        $access->switch($request->session(), $user, $organization);
 
         return response()->json(['data' => ['organization' => $this->summary($organization)]], 201);
     }
