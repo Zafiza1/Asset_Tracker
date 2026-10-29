@@ -62,6 +62,10 @@ export interface MasterListConfig<T extends MasterRecord> {
   showColumnToggle?: boolean
   /** Default columns to show (used when column toggle is enabled). */
   defaultColumns?: string[]
+  /** External editing state (for custom create buttons). */
+  editing?: T | 'new' | null
+  /** Callback when editing state changes. */
+  onEditChange?: (value: T | 'new' | null) => void
 }
 
 type Values = Record<string, string>
@@ -75,7 +79,9 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const queryClient = useQueryClient()
   const [params, setParams] = usePersistedSearchParams(config.endpoint)
   const [search, setSearch] = useState(params.get('search') ?? '')
-  const [editing, setEditing] = useState<T | 'new' | null>(null)
+  const [internalEditing, setInternalEditing] = useState<T | 'new' | null>(null)
+  const editing = config.editing !== undefined ? config.editing : internalEditing
+  const setEditing = config.onEditChange ?? setInternalEditing
   const [archiving, setArchiving] = useState<T | null>(null)
   const [deleting, setDeleting] = useState<T | null>(null)
 

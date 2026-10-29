@@ -307,7 +307,7 @@ class CustomDummyDataSeeder extends Seeder
             'decimal' => rand(1, 1000) / 10,
             'boolean' => (bool) rand(0, 1),
             'date' => now()->subDays(rand(1, 365))->toDateString(),
-            'enum' => $options && !empty($options) ? $options[array_rand($options)] ?? null : null,
+            'enum' => $options && !empty($options) ? ($options[array_rand($options)]['value'] ?? null) : null,
             default => null,
         };
     }

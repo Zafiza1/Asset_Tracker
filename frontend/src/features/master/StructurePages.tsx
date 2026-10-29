@@ -76,13 +76,14 @@ export function LocationsPage() {
   const locations = useOptions<Location>('/locations').data
   const types = toOptions(useOptions('/location-types').data)
   const permissions = useMasterPermissions()
+  const [editing, setEditing] = useState<Location | 'new' | null>(null)
   return (
     <>
       <PageHeader
         title="Lokasi"
         actions={
           permissions.canCreate && (
-            <Button onClick={() => permissions.canCreate && console.log('Tambah lokasi')}>
+            <Button onClick={() => setEditing('new')}>
               <Plus className="size-4" aria-hidden /> Tambah lokasi
             </Button>
           )
@@ -96,6 +97,8 @@ export function LocationsPage() {
         canCreate={false}
         canUpdate={permissions.canUpdate}
         canArchive={permissions.canArchive}
+        editing={editing}
+        onEditChange={setEditing}
         filters={[
           { name: 'location_type_id', label: 'Jenis', options: types },
         ]}
@@ -126,13 +129,14 @@ export function LocationsPage() {
 
 export function LocationTypesPage() {
   const permissions = useMasterPermissions()
+  const [editing, setEditing] = useState<LocationType | 'new' | null>(null)
   return (
     <>
       <PageHeader
         title="Jenis Lokasi"
         actions={
           permissions.canCreate && (
-            <Button onClick={() => permissions.canCreate && console.log('Tambah jenis lokasi')}>
+            <Button onClick={() => setEditing('new')}>
               <Plus className="size-4" aria-hidden /> Tambah jenis lokasi
             </Button>
           )
@@ -146,6 +150,8 @@ export function LocationTypesPage() {
         canCreate={false}
         canUpdate={permissions.canUpdate}
         canArchive={permissions.canArchive}
+        editing={editing}
+        onEditChange={setEditing}
         isReadOnly={(r) => r.is_built_in}
         columns={[
           { key: 'name', header: 'Nama', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },

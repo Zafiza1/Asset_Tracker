@@ -36,7 +36,25 @@ final class CategoryAttributeService
         'basic_information' => [
             ['label' => 'Merek', 'data_type' => AttributeType::STRING, 'is_required' => false],
             ['label' => 'Model', 'data_type' => AttributeType::STRING, 'is_required' => false],
-            ['label' => 'Satuan', 'data_type' => AttributeType::STRING, 'is_required' => false],
+            ['label' => 'Satuan', 'data_type' => AttributeType::ENUM, 'is_required' => false, 'options' => [
+                ['value' => 'PCS', 'label' => 'PCS'],
+                ['value' => 'SET', 'label' => 'SET'],
+                ['value' => 'MTR', 'label' => 'MTR'],
+                ['value' => 'LTR', 'label' => 'LTR'],
+                ['value' => 'RIM', 'label' => 'RIM'],
+                ['value' => 'BK', 'label' => 'BK'],
+                ['value' => 'KG', 'label' => 'KG'],
+                ['value' => 'BOX', 'label' => 'BOX'],
+                ['value' => 'CMS', 'label' => 'CMS'],
+                ['value' => 'M2', 'label' => 'M2'],
+                ['value' => 'JRG', 'label' => 'JRG'],
+                ['value' => 'M3', 'label' => 'M3'],
+                ['value' => 'GLN', 'label' => 'GLN'],
+                ['value' => 'LBR', 'label' => 'LBR'],
+                ['value' => 'ROLL', 'label' => 'ROLL'],
+                ['value' => 'PCK', 'label' => 'PCK'],
+                ['value' => 'SCK', 'label' => 'SCK'],
+            ]],
         ],
         // No "Location" here: assets already have the built-in location (Lokasi) field.
         'location_ownership' => [
@@ -268,11 +286,17 @@ final class CategoryAttributeService
      */
     public function resolveValues(string $categoryId, array $current, ?array $submitted): array
     {
-        $merged = array_merge($current, $submitted ?? []);
+        // If submitted is null, keep current values unchanged
+        if ($submitted === null) {
+            return $current;
+        }
+
         $out = [];
         $errors = [];
         foreach ($this->effective($categoryId) as $attribute) {
-            $value = $merged[$attribute->key] ?? null;
+            // Use submitted value if explicitly sent, otherwise keep current value
+            $value = array_key_exists($attribute->key, $submitted) ? $submitted[$attribute->key] : ($current[$attribute->key] ?? null);
+
             if (is_string($value) && $attribute->data_type !== AttributeType::TEXT) {
                 $value = trim($value);
             }

@@ -30,7 +30,7 @@ final class AttributeValueValidator
             AttributeType::DECIMAL => $this->decimal($value, $rules),
             AttributeType::BOOLEAN => is_bool($value) ? null : 'Harus bernilai ya/tidak.',
             AttributeType::DATE => $this->date($value, $rules),
-            AttributeType::ENUM => is_string($value) && in_array($value, self::optionValues($spec), true) ? null : 'Pilihan tidak valid.',
+            AttributeType::ENUM => (is_string($value) && in_array($value, self::optionValues($spec), true)) ? null : 'Pilihan tidak valid.',
             AttributeType::MULTI_ENUM => $this->multiEnum($value, $spec),
             default => 'Tipe data tidak dikenal.',
         };
