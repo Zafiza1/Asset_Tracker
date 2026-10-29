@@ -12,7 +12,6 @@ export function formatDate(value: string | null | undefined): string {
 export const userStatusLabel: Record<string, string> = {
   invited: 'Diundang',
   active: 'Aktif',
-  suspended: 'Ditangguhkan',
   deactivated: 'Nonaktif',
 }
 

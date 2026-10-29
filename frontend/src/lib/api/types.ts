@@ -74,7 +74,7 @@ export interface LicenseCode {
   updated_at: string
 }
 
-export type UserStatus = 'invited' | 'active' | 'suspended' | 'deactivated'
+export type UserStatus = 'invited' | 'active' | 'deactivated'
 export type ScopeType = 'organization' | 'department' | 'location'
 
 export interface DataScopeEntry {

@@ -389,9 +389,8 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
 }
 
 const statusActions = {
-  suspend: { label: 'Tangguhkan', confirm: 'Pengguna tidak dapat login sampai diaktifkan kembali. Sesi aktif akan diakhiri.', variant: 'secondary' as const },
   activate: { label: 'Aktifkan', confirm: 'Pengguna dapat login kembali.', variant: 'secondary' as const },
-  deactivate: { label: 'Nonaktifkan permanen', confirm: 'Akun dinonaktifkan permanen dan tidak dapat diaktifkan kembali. Riwayat tetap tersimpan.', variant: 'danger' as const },
+  deactivate: { label: 'Nonaktifkan', confirm: 'Akun dinonaktifkan dan kode lisensi akan terlepas. Pengguna dapat didaftarkan kembali dengan email yang sama.', variant: 'danger' as const },
 }
 
 function StatusActions({ user }: { user: User }) {
@@ -404,9 +403,9 @@ function StatusActions({ user }: { user: User }) {
       setAction(null)
     },
   })
-  if (user.status === 'deactivated') return null
+  if (user.status === 'deactivated' || user.status === 'invited') return null
 
-  const available: (keyof typeof statusActions)[] = user.status === 'active' ? ['suspend', 'deactivate'] : ['activate', 'deactivate']
+  const available: (keyof typeof statusActions)[] = user.status === 'active' ? ['deactivate'] : ['activate']
 
   return (
     <>

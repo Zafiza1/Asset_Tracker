@@ -84,8 +84,8 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
         {formError && <Alert tone="error">{formError}</Alert>}
         <Card title="Informasi role">
           <div className="grid gap-4 p-4 sm:grid-cols-2">
-            <Field label="Nama" error={formState.errors.name?.message} required>
-              {(p) => <Input {...p} disabled={!editable} {...register('name', { required: 'Nama wajib diisi.' })} />}
+            <Field label="Role" error={formState.errors.name?.message} required>
+              {(p) => <Input {...p} disabled={!editable} {...register('name', { required: 'Role wajib diisi.' })} />}
             </Field>
             <Field label="Deskripsi" error={formState.errors.description?.message}>
               {(p) => <Input {...p} disabled={!editable} {...register('description')} />}
