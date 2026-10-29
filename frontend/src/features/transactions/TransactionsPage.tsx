@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link } from 'react-router'
 import { ActiveFilters, AdvancedFilters, DateRangeFilter, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { Badge } from '../../components/ui/Badge'
@@ -14,6 +14,7 @@ import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { Paginated } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
+import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { formatDate } from '../../lib/format'
 import { transactionTypeLabel, type AssetTransaction, type TransactionType } from './api'
 import { TransactionChanges } from './TransactionChanges'
@@ -26,9 +27,13 @@ const DEFAULT_COLUMNS = ['number', 'asset', 'type', 'changes', 'by']
 /** Asset Transactions module: every recorded activity, searchable and filterable. */
 export function TransactionsPage() {
   const { can } = useAuth()
-  const [params, setParams] = useSearchParams()
+  const [params, setParams] = usePersistedSearchParams('/transactions')
   const [search, setSearch] = useState(params.get('search') ?? '')
   const [creating, setCreating] = useState(false)
+
+  // Persisted filters from localStorage
+  const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters('/transactions')
+
   const filters = Object.fromEntries(FILTERS.map((k) => [k, params.get(k)]))
   const advanced = useFilterDraft(params, ADVANCED)
   const draft = advanced.draft
@@ -55,8 +60,13 @@ export function TransactionsPage() {
   const update = (next: Record<string, string>) => {
     const merged = new URLSearchParams(params)
     for (const [k, v] of Object.entries(next)) {
-      if (v) merged.set(k, v)
-      else merged.delete(k)
+      if (v) {
+        merged.set(k, v)
+        persistFilter(k, v)
+      } else {
+        merged.delete(k)
+        unPersistFilter(k)
+      }
     }
     if (!('page' in next)) merged.delete('page')
     setParams(merged)
@@ -138,7 +148,7 @@ export function TransactionsPage() {
             </Select>
             <DateRangeFilter from={draft.date_from} to={draft.date_to} onChange={(from, to) => advanced.set({ date_from: from, date_to: to })} />
           </AdvancedFilters>
-          <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams()))} />
+          <ActiveFilters chips={chips} onReset={() => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))} />
         </FilterPanel>
         {query.isLoading ? (
           <Spinner />

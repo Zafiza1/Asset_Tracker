@@ -1,8 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Pencil, Plus, Power, RotateCcw } from 'lucide-react'
+import { Archive, Pencil, Plus, Power, RotateCcw, Trash2 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
-import { useSearchParams } from 'react-router'
+import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { Badge } from '../../components/ui/Badge'
 import { statusTone } from '../../components/ui/badgeTones'
 import { Button } from '../../components/ui/Button'
@@ -50,6 +50,7 @@ export interface MasterListConfig<T extends MasterRecord> {
   canUpdate: boolean
   /** False hides archive/restore (e.g. reference tables that are only deactivated). */
   canArchive: boolean
+  canDelete?: boolean
   filters?: MasterFilter[]
   headerActions?: ReactNode
   /** Render without page header (inside tabs). */
@@ -72,10 +73,15 @@ type Values = Record<string, string>
  */
 export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<T>) {
   const queryClient = useQueryClient()
-  const [params, setParams] = useSearchParams()
+  const [params, setParams] = usePersistedSearchParams(config.endpoint)
   const [search, setSearch] = useState(params.get('search') ?? '')
   const [editing, setEditing] = useState<T | 'new' | null>(null)
   const [archiving, setArchiving] = useState<T | null>(null)
+  const [deleting, setDeleting] = useState<T | null>(null)
+
+  // Persisted filters from localStorage
+  const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters(config.endpoint)
+
   const filterValues = Object.fromEntries((config.filters ?? []).map((f) => [f.name, params.get(f.name) ?? '']))
   const advanced = useFilterDraft(params, [...(config.filters ?? []).map((f) => f.name), 'status'])
   const draft = advanced.draft
@@ -121,8 +127,13 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const update = (next: Record<string, string>) => {
     const merged = new URLSearchParams(params)
     for (const [k, v] of Object.entries(next)) {
-      if (v) merged.set(k, v)
-      else merged.delete(k)
+      if (v) {
+        merged.set(k, v)
+        persistFilter(k, v)
+      } else {
+        merged.delete(k)
+        unPersistFilter(k)
+      }
     }
     setParams(merged)
   }
@@ -172,6 +183,11 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
             <RotateCcw className="size-4" aria-hidden />
           </Button>
         )}
+        {config.canDelete && row.status === 'archived' && (
+          <Button size="sm" variant="ghost" onClick={() => setDeleting(row)} aria-label={`Hapus permanen ${row.name}`} title="Hapus permanen">
+            <Trash2 className="size-4" aria-hidden />
+          </Button>
+        )}
       </div>
     ),
   }
@@ -180,7 +196,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
     header: 'Status',
     cell: (r) => <Badge tone={statusTone[r.status]}>{masterStatusLabel[r.status]}</Badge>,
   }
-  const columns = [...config.columns, statusColumn, ...(config.canUpdate || config.canArchive ? [actionsColumn] : [])]
+  const columns = [...config.columns, statusColumn, ...(config.canUpdate || config.canArchive || config.canDelete ? [actionsColumn] : [])]
 
   const body = (
     <Card>
@@ -222,7 +238,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
             ))}
           </Select>
         </AdvancedFilters>
-        <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams()))} />
+        <ActiveFilters chips={chips} onReset={() => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))} />
       </FilterPanel>
       {statusChange.isError && (
         <div className="p-3">
@@ -275,6 +291,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
       {body}
       {editing && <MasterFormModal config={config} record={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={refresh} />}
       {archiving && <ArchiveModal endpoint={config.endpoint} record={archiving} onClose={() => setArchiving(null)} onDone={refresh} />}
+      {deleting && <DeleteModal endpoint={config.endpoint} record={deleting} onClose={() => setDeleting(null)} onDone={refresh} />}
     </>
   )
 }
@@ -383,6 +400,37 @@ function ArchiveModal({ endpoint, record, onClose, onDone }: { endpoint: string;
       {archive.isError && <Alert tone="error">{errorMessage(archive.error)}</Alert>}
       <p className="text-sm text-slate-700">Data arsip tidak dapat dipilih untuk data baru, tetapi riwayatnya tetap tersimpan dan dapat dipulihkan.</p>
       <Field label="Alasan">{(p) => <Textarea {...p} rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />}</Field>
+    </Modal>
+  )
+}
+
+function DeleteModal({ endpoint, record, onClose, onDone }: { endpoint: string; record: MasterRecord; onClose: () => void; onDone: () => Promise<void> }) {
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`${endpoint}/${record.id}`),
+    onSuccess: async () => {
+      await onDone()
+      onClose()
+    },
+  })
+
+  return (
+    <Modal
+      open
+      title={`Hapus permanen ${record.name}?`}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Batal
+          </Button>
+          <Button variant="danger" loading={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
+            Hapus permanen
+          </Button>
+        </>
+      }
+    >
+      {deleteMutation.isError && <Alert tone="error">{errorMessage(deleteMutation.error)}</Alert>}
+      <p className="text-sm text-slate-700">Tindakan ini tidak dapat dibatalkan. Data akan dihapus permanen dari sistem.</p>
     </Modal>
   )
 }

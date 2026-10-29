@@ -175,6 +175,7 @@ export function TenantCategoriesPage() {
         title="Kategori Aset"
         endpoint="/tenant-masters/categories"
         {...permissions}
+        canDelete={permissions.canArchive}
         columns={[
           { key: 'name', header: 'Nama', cell: treeName },
           code<TenantCategory>(),

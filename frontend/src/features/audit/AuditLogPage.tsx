@@ -1,6 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useSearchParams } from 'react-router'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
@@ -10,6 +9,7 @@ import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { AuditLog, Paginated } from '../../lib/api/types'
+import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { auditActionGroups, auditActionLabel, formatDate, formatDateTime } from '../../lib/format'
 
 const ADVANCED = ['action', 'from', 'to'] as const
@@ -18,8 +18,12 @@ const actorLabel = (log: AuditLog) => log.actor?.name ?? (log.actor_type === 'sy
 
 /** Read-only audit trail. `endpoint` is /audit-logs (tenant) or /platform/audit-logs. */
 export function AuditLogPage({ endpoint, title }: { endpoint: string; title: string }) {
-  const [params, setParams] = useSearchParams()
+  const [params, setParams] = usePersistedSearchParams(endpoint)
   const [selected, setSelected] = useState<AuditLog | null>(null)
+
+  // Persisted filters from localStorage
+  const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters(endpoint)
+
   const filters = { page: params.get('page'), action: params.get('action'), from: params.get('from'), to: params.get('to'), organization_id: params.get('organization_id') }
   const advanced = useFilterDraft(params, ADVANCED)
   const draft = advanced.draft
@@ -33,8 +37,13 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
   const update = (next: Record<string, string>) => {
     const merged = new URLSearchParams(params)
     for (const [k, v] of Object.entries(next)) {
-      if (v) merged.set(k, v)
-      else merged.delete(k)
+      if (v) {
+        merged.set(k, v)
+        persistFilter(k, v)
+      } else {
+        merged.delete(k)
+        unPersistFilter(k)
+      }
     }
     setParams(merged)
   }
@@ -71,7 +80,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
             </Select>
             <DateRangeFilter from={draft.from} to={draft.to} onChange={(from, to) => advanced.set({ from, to })} />
           </AdvancedFilters>
-          <ActiveFilters chips={chips} onReset={() => setParams(new URLSearchParams())} />
+          <ActiveFilters chips={chips} onReset={() => (resetFilters(), setParams(new URLSearchParams()))} />
         </FilterPanel>
         {query.isLoading ? (
           <Spinner />

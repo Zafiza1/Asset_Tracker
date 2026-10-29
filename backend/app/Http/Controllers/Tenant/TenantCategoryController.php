@@ -24,7 +24,7 @@ class TenantCategoryController extends Controller
     {
         $request->validate(['generic_category_id' => ['nullable', 'uuid']]);
         $query = TenantAssetCategory::query()->with(self::RELATIONS)
-            ->withCount(['customAttributes as attributes_count' => fn ($q) => $q->where('status', MasterStatus::ACTIVE)])
+            ->withCount(['attributes as attributes_count' => fn ($q) => $q->where('status', MasterStatus::ACTIVE)])
             ->when($request->query('generic_category_id'), fn ($q, $id) => $q->where('generic_category_id', $id));
 
         return TenantCategoryResource::collection(MasterRequests::list($query, $request,
@@ -74,5 +74,11 @@ class TenantCategoryController extends Controller
     public function restore(TenantAssetCategory $tenantCategory): TenantCategoryResource
     {
         return new TenantCategoryResource($this->categories->restore($tenantCategory)->load(self::RELATIONS));
+    }
+
+    public function destroy(TenantAssetCategory $tenantCategory): \Illuminate\Http\JsonResponse
+    {
+        $this->categories->destroy($tenantCategory);
+        return response()->json(null, 204);
     }
 }

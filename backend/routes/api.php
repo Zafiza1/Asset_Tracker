@@ -143,6 +143,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
         Route::patch("/{$uri}/{{$param}}", [$controller, 'update'])->middleware($update);
         Route::post("/{$uri}/{{$param}}/archive", [$controller, 'archive'])->middleware($archive);
         Route::post("/{$uri}/{{$param}}/restore", [$controller, 'restore'])->middleware($archive);
+        Route::delete("/{$uri}/{{$param}}", [$controller, 'destroy'])->middleware($archive);
     }
 
     // Custom fields of asset categories; subcategories inherit their ancestors' fields.

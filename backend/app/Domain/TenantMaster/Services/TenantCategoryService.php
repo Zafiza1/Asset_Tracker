@@ -97,6 +97,16 @@ final class TenantCategoryService
         return $this->writer->restore($category, 'tenant_category.restored');
     }
 
+    public function destroy(TenantAssetCategory $category): void
+    {
+        $this->assertUnused($category);
+        if ($this->usage->inUse(MasterUsage::CATEGORY, $category->id)) {
+            throw ApiException::conflict('CATEGORY_IN_USE', 'Kategori masih dipakai oleh aset aktif. Pindahkan asetnya ke kategori lain terlebih dahulu.');
+        }
+
+        $category->delete();
+    }
+
     private function activeCategory(string $id): TenantAssetCategory
     {
         $category = TenantAssetCategory::query()->find($id);

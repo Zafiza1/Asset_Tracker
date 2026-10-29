@@ -24,6 +24,11 @@ export const tenantNavigation: NavSection[] = [
     title: 'Aset',
     items: [
       { to: '/aset', label: 'Pendataan Aset', icon: Boxes, permission: 'asset.view' },
+    ],
+  },
+  {
+    title: 'Transaksi',
+    items: [
       { to: '/transaksi', label: 'Transaksi Aset', icon: ArrowLeftRight, permission: 'transaction.view' },
     ],
   },

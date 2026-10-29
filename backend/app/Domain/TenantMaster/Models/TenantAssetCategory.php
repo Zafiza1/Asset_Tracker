@@ -52,4 +52,10 @@ class TenantAssetCategory extends Model
     {
         return $this->hasMany(TenantCategoryAttribute::class, 'category_id');
     }
+
+    /** All fields defined on this category itself (default + custom, not inherited ones). */
+    public function attributes(): HasMany
+    {
+        return $this->hasMany(TenantCategoryAttribute::class, 'category_id');
+    }
 }

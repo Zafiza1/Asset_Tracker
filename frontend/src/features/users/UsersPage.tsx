@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
 import { statusTone } from '../../components/ui/badgeTones'
 import { Button } from '../../components/ui/Button'
@@ -15,6 +15,7 @@ import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { Paginated, User } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
+import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { formatDateTime, userStatusLabel } from '../../lib/format'
 import { UserAdminTabs } from './UserAdminTabs'
 
@@ -39,10 +40,14 @@ const columns: Column<User>[] = [
 export function UsersPage() {
   const { can } = useAuth()
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
+  const [params, setParams] = usePersistedSearchParams('/users')
   const [search, setSearch] = useState(params.get('search') ?? '')
   const page = Number(params.get('page') ?? 1)
   const status = params.get('status') ?? ''
+
+  // Persisted filters from localStorage
+  const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters('/users')
+
   const advanced = useFilterDraft(params, ['status'])
 
   const visibleColumns = (params.get('columns') ?? DEFAULT_COLUMNS.join(',')).split(',').filter(Boolean)
@@ -67,8 +72,13 @@ export function UsersPage() {
   const update = (next: Record<string, string>) => {
     const merged = new URLSearchParams(params)
     for (const [k, v] of Object.entries(next)) {
-      if (v) merged.set(k, v)
-      else merged.delete(k)
+      if (v) {
+        merged.set(k, v)
+        persistFilter(k, v)
+      } else {
+        merged.delete(k)
+        unPersistFilter(k)
+      }
     }
     setParams(merged)
   }
@@ -120,7 +130,7 @@ export function UsersPage() {
               ))}
             </Select>
           </AdvancedFilters>
-          <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams()))} />
+          <ActiveFilters chips={chips} onReset={() => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))} />
         </FilterPanel>
         {query.isLoading ? (
           <Spinner />
