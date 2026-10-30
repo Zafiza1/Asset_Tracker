@@ -1,10 +1,11 @@
 import clsx from 'clsx'
-import { Plus, SlidersHorizontal } from 'lucide-react'
+import { Plus, SlidersHorizontal, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { PageHeader } from '../../components/ui/Card'
+import { ImportModal } from '../../components/ui/ImportModal'
 import type { Column } from '../../components/ui/Table'
 import type { Department, Location, LocationType, TenantCategory } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
@@ -77,15 +78,21 @@ export function LocationsPage() {
   const types = toOptions(useOptions('/location-types').data)
   const permissions = useMasterPermissions()
   const [editing, setEditing] = useState<Location | 'new' | null>(null)
+  const [importing, setImporting] = useState(false)
   return (
     <>
       <PageHeader
         title="Lokasi"
         actions={
           permissions.canCreate && (
-            <Button onClick={() => setEditing('new')}>
-              <Plus className="size-4" aria-hidden /> Tambah lokasi
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setImporting(true)}>
+                <Upload className="size-4" aria-hidden /> Import
+              </Button>
+              <Button onClick={() => setEditing('new')}>
+                <Plus className="size-4" aria-hidden /> Tambah lokasi
+              </Button>
+            </div>
           )
         }
       />
@@ -123,6 +130,16 @@ export function LocationsPage() {
         showColumnToggle
         defaultColumns={['name', 'code', 'type']}
       />
+      {importing && (
+        <ImportModal
+          open={importing}
+          onClose={() => setImporting(false)}
+          title="Import Lokasi"
+          endpoint="/locations/import"
+          templateEndpoint="/locations/template"
+          templateFilename="template_lokasi.xlsx"
+        />
+      )}
     </>
   )
 }
@@ -175,6 +192,7 @@ export function TenantCategoriesPage() {
   const categories = toOptions(useOptions<TenantCategory>('/tenant-masters/categories').data)
   const permissions = useMasterPermissions()
   const [attributesOf, setAttributesOf] = useState<TenantCategory | null>(null)
+  const [importing, setImporting] = useState(false)
   return (
     <>
       <MasterListPage<TenantCategory>
@@ -182,6 +200,13 @@ export function TenantCategoriesPage() {
         endpoint="/tenant-masters/categories"
         {...permissions}
         canDelete={permissions.canArchive}
+        headerActions={
+          permissions.canCreate && (
+            <Button variant="secondary" onClick={() => setImporting(true)}>
+              <Upload className="size-4" aria-hidden /> Import
+            </Button>
+          )
+        }
         columns={[
           { key: 'name', header: 'Nama', cell: treeName },
           code<TenantCategory>(),
@@ -206,6 +231,16 @@ export function TenantCategoriesPage() {
         defaultColumns={['name', 'code', 'attributes']}
       />
       {attributesOf && <CategoryAttributesModal category={attributesOf} canUpdate={permissions.canUpdate} onClose={() => setAttributesOf(null)} />}
+      {importing && (
+        <ImportModal
+          open={importing}
+          onClose={() => setImporting(false)}
+          title="Import Kategori Aset"
+          endpoint="/tenant-masters/categories/import"
+          templateEndpoint="/tenant-masters/categories/template"
+          templateFilename="template_kategori_aset.xlsx"
+        />
+      )}
     </>
   )
 }

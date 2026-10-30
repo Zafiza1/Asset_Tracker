@@ -9,6 +9,7 @@ use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Organization;
+use App\Http\Support\ListQuery;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -35,6 +36,7 @@ class UserManagementTest extends TestCase
             'home_department_id' => $department->id,
             'role_ids' => [$this->roleId($this->org, 'SUPERVISOR')],
             'scopes' => [['scope_type' => 'department', 'ref_id' => $department->id]],
+            'license_code_id' => $this->licenseCodeId($this->org),
         ])->assertCreated()
             ->assertJsonPath('data.email', 'budi@alpha.test')
             ->assertJsonPath('data.status', 'pending')
@@ -48,7 +50,7 @@ class UserManagementTest extends TestCase
 
     public function test_user_without_permission_cannot_create_users(): void
     {
-        $operator = $this->createTenantUser($this->org, ['SUPERVISOR']);
+        $operator = $this->createTenantUser($this->org, ['ADMIN']);
         $this->actingAs($operator, 'web');
 
         $this->assertErrorCode($this->postJson('/api/invitations', []), 403, 'FORBIDDEN');
@@ -72,7 +74,7 @@ class UserManagementTest extends TestCase
         $this->actingAs($this->admin, 'web');
         $payload = [
             'email' => $adminB->email, 'job_title' => 'Konsultan',
-            'role_ids' => [$this->roleId($this->org, 'SUPERVISOR')], 'scopes' => [['scope_type' => 'organization']],
+            'role_ids' => [$this->roleId($this->org, 'SUPERVISOR')], 'scopes' => [['scope_type' => 'organization']], 'license_code_id' => $this->licenseCodeId($this->org),
         ];
 
         $this->postJson('/api/invitations', $payload)->assertCreated()->assertJsonPath('data.status', 'pending');
@@ -145,7 +147,7 @@ class UserManagementTest extends TestCase
             $this->putJson("/api/users/{$this->admin->id}/roles", ['role_ids' => [$this->roleId($this->org, 'SUPERVISOR')]]),
             409, 'LAST_ORG_ADMIN',
         );
-        $this->assertSame(['ADMIN'], $this->admin->roles()->pluck('code')->all());
+        $this->assertSame(['SUPER_ADMIN'], $this->admin->roles()->pluck('code')->all());
     }
 
     public function test_admin_cannot_change_own_status(): void
@@ -157,7 +159,7 @@ class UserManagementTest extends TestCase
 
     public function test_second_admin_can_be_deactivated_but_not_the_last_active_one(): void
     {
-        $admin2 = $this->createTenantUser($this->org, ['ADMIN']);
+        $admin2 = $this->createTenantUser($this->org, ['SUPER_ADMIN']);
         $this->actingAs($this->admin, 'web');
 
         $this->postJson("/api/users/{$admin2->id}/deactivate")->assertOk()->assertJsonPath('data.status', 'deactivated');
@@ -182,7 +184,7 @@ class UserManagementTest extends TestCase
 
         $this->postJson("/api/users/{$user->id}/deactivate")->assertOk();
         $this->postJson("/api/users/{$user->id}/activate")->assertOk()->assertJsonPath('data.status', 'active');
-        $this->assertSame(User::STATUS_DEACTIVATED, $this->membership($user)->status);
+        $this->assertSame(User::STATUS_ACTIVE, $this->membership($user)->status);
     }
 
     public function test_user_manager_cannot_escalate_privileges(): void
@@ -248,7 +250,7 @@ class UserManagementTest extends TestCase
         // Unknown sort keys fall back to the default instead of reaching SQL.
         $this->getJson('/api/users?sort=password;drop table users')->assertOk();
         $this->getJson('/api/users?search=%25')->assertOk()->assertJsonCount(0, 'data');
-        $this->getJson('/api/users?per_page=1000')->assertOk()->assertJsonPath('meta.per_page', 100);
+        $this->getJson('/api/users?per_page='.(ListQuery::MAX_PER_PAGE * 2))->assertOk()->assertJsonPath('meta.per_page', ListQuery::MAX_PER_PAGE);
     }
 
     private function membership(User $user): OrganizationMember

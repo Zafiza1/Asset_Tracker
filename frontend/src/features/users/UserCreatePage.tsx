@@ -57,6 +57,7 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
   const queryClient = useQueryClient()
   const [formError, setFormError] = useState<string | null>(null)
   const [creatingRole, setCreatingRole] = useState(false)
+  const [expandedPermissions, setExpandedPermissions] = useState<string[]>([])
   const current = organizations.find((o) => o.is_current)
   const multiple = organizations.length > 1
 
@@ -182,7 +183,7 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
               const index = memberships.findIndex((m) => m.organization_id === org.id)
               const selected = index >= 0
               const roleError = selected ? membershipErrors?.[index]?.role_id?.message ?? membershipErrors?.[index]?.organization_id?.message : undefined
-              const [showPermissions, setShowPermissions] = useState(false)
+              const showPermissions = expandedPermissions.includes(org.id)
               const selectedRole = org.roles.find(r => r.id === memberships[index]?.role_id)
 
               return (
@@ -218,7 +219,7 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
                         <div>
                           <button
                             type="button"
-                            onClick={() => setShowPermissions(!showPermissions)}
+                            onClick={() => setExpandedPermissions((ids) => (showPermissions ? ids.filter((id) => id !== org.id) : [...ids, org.id]))}
                             className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-900"
                           >
                             {showPermissions ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}

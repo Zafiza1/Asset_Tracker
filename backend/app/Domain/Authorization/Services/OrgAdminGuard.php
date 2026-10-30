@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Invariant: an organization always keeps at least one active user holding the locked
- * ADMIN role, so it can never lock itself out.
+ * SUPER_ADMIN role, so it can never lock itself out.
  */
 final class OrgAdminGuard
 {
@@ -29,7 +29,7 @@ final class OrgAdminGuard
                 ->on('organization_members.organization_id', '=', 'user_roles.organization_id')
                 ->on('organization_members.user_id', '=', 'user_roles.user_id'))
             ->where('user_roles.organization_id', $organizationId)
-            ->where('roles.template_code', RoleTemplates::ADMIN)
+            ->where('roles.template_code', RoleTemplates::SUPER_ADMIN)
             ->where('roles.is_locked', true)
             ->where('users.status', User::STATUS_ACTIVE)
             ->where('organization_members.status', User::STATUS_ACTIVE)
@@ -37,7 +37,7 @@ final class OrgAdminGuard
             ->count('users.id');
 
         if ($count < 1) {
-            throw ApiException::conflict('LAST_ORG_ADMIN', 'Organisasi harus memiliki minimal satu Admin yang aktif.');
+            throw ApiException::conflict('LAST_ORG_ADMIN', 'Organisasi harus memiliki minimal satu Super Admin yang aktif.');
         }
     }
 }

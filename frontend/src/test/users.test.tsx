@@ -17,8 +17,14 @@ const organizations: UserOrganizationOption[] = [
   { id: 'org-b', code: 'BETA', name: 'PT Beta', is_current: false, roles: [role('op-b', 'Operator'), role('au-b', 'Auditor')] },
 ]
 
+const licenseCodeId = '01a18ab7-0000-7000-8000-000000000001'
+
 function renderPage(options: UserOrganizationOption[]) {
-  vi.mocked(api.get).mockResolvedValue({ data: options })
+  vi.mocked(api.get).mockImplementation(async (path: string) => {
+    if (path.startsWith('/license-codes')) return { data: [{ id: licenseCodeId, code: 'LIC-AAAA-BBBB-CCCC', notes: null }] }
+    if (path === '/permissions') return { data: [] }
+    return { data: options }
+  })
   vi.mocked(api.post).mockResolvedValue({ data: { id: 'inv-1' }, meta: { organization_ids: ['org-a', 'org-b'] } })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -55,10 +61,14 @@ describe('UserCreatePage (invite)', () => {
     renderPage(organizations)
     await screen.findByText(/Akses Organisasi & Role/)
     type(/^Email/, 'sari@grup.test')
+    const licenseCode = screen.getByLabelText(/^Kode Lisensi/)
+    await within(licenseCode).findByRole('option', { name: /LIC-AAAA-BBBB-CCCC/ })
+    fireEvent.change(licenseCode, { target: { value: licenseCodeId } })
 
-    fireEvent.click(within(screen.getByRole('group', { name: 'Role di PT Alpha' })).getByLabelText(/Operator/))
+    // One role per organization, in the order of the organization list.
+    fireEvent.change(screen.getAllByLabelText(/^Role/)[0], { target: { value: 'op-a' } })
     fireEvent.click(screen.getByRole('checkbox', { name: /PT Beta/ }))
-    fireEvent.click(within(screen.getByRole('group', { name: 'Role di PT Beta' })).getByLabelText(/Auditor/))
+    fireEvent.change(screen.getAllByLabelText(/^Role/)[1], { target: { value: 'au-b' } })
     fireEvent.click(screen.getByRole('button', { name: 'Kirim undangan' }))
 
     await waitFor(() =>
@@ -66,6 +76,7 @@ describe('UserCreatePage (invite)', () => {
         email: 'sari@grup.test',
         employee_number: '',
         job_title: '',
+        license_code_id: licenseCodeId,
         memberships: [
           { organization_id: 'org-a', role_ids: ['op-a'] },
           { organization_id: 'org-b', role_ids: ['au-b'] },
@@ -83,7 +94,7 @@ describe('UserCreatePage (invite)', () => {
     type(/^Email/, 'sari@grup.test')
 
     fireEvent.click(screen.getByRole('button', { name: 'Kirim undangan' }))
-    expect(await screen.findByText('Pilih minimal satu role.')).toBeInTheDocument()
+    expect((await screen.findAllByText('Pilih minimal satu role.')).length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('checkbox', { name: /PT Alpha/ }))
     expect(await screen.findByText('Pilih minimal satu organisasi.')).toBeInTheDocument()

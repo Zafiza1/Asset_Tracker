@@ -50,7 +50,7 @@ final class TenantCategoryService
 
         $category = $this->writer->create(new TenantAssetCategory, $data, 'tenant_category.created', self::AUDIT);
 
-        // Create default attributes for the new category
+        // Create default attributes for the new category (top-level only; subcategories inherit them)
         $this->attributes->createDefaultAttributes($category);
 
         return $category;

@@ -66,7 +66,7 @@ class InvitationTest extends TestCase
 
     public function test_inviting_requires_user_create_and_role_manage(): void
     {
-        $operator = $this->createTenantUser($this->org, ['SUPERVISOR']);
+        $operator = $this->createTenantUser($this->org, ['ADMIN']);
         $creatorOnly = $this->createTenantUser($this->org, []);
         $creatorOnly->roles()->attach($this->customRole('CREATOR', ['user.view', 'user.create'])->id, ['organization_id' => $this->org->id]);
 
@@ -127,7 +127,7 @@ class InvitationTest extends TestCase
         $warehouse = $this->location('GDG');
         $rack = $this->location('RAK', $warehouse);
         $office = $this->location('KTR');
-        $manager = $this->createTenantUser($this->org, ['ADMIN'], [['scope_type' => 'location', 'ref_id' => $warehouse->id]]);
+        $manager = $this->createTenantUser($this->org, ['SUPERVISOR'], [['scope_type' => 'location', 'ref_id' => $warehouse->id]]);
         $this->actingAs($manager);
 
         foreach ([[['scope_type' => 'organization']], [['scope_type' => 'location', 'ref_id' => $office->id]]] as $i => $scopes) {
@@ -217,6 +217,7 @@ class InvitationTest extends TestCase
         $this->actingAs($adminB);
         $id = $this->postJson('/api/invitations', [
             'email' => 'tamu@beta.test', 'role_ids' => [$this->roleId($beta, 'SUPERVISOR')], 'scopes' => [['scope_type' => 'organization']],
+            'license_code_id' => $this->licenseCodeId($beta),
         ])->assertCreated()->json('data.id');
 
         $this->actingAs($this->admin);
@@ -246,7 +247,7 @@ class InvitationTest extends TestCase
     /** @return array<string, mixed> */
     private function payload(string $email, string $role = 'SUPERVISOR'): array
     {
-        return ['email' => $email, 'role_ids' => [$this->roleId($this->org, $role)], 'scopes' => [['scope_type' => 'organization']]];
+        return ['email' => $email, 'role_ids' => [$this->roleId($this->org, $role)], 'scopes' => [['scope_type' => 'organization']], 'license_code_id' => $this->licenseCodeId($this->org)];
     }
 
     private function sentToken(string $email, bool $last = false): string

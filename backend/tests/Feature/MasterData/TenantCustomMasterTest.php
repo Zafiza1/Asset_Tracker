@@ -6,6 +6,7 @@ use App\Domain\GenericMaster\Models\GenericAssetCategory;
 use App\Domain\GenericMaster\Models\GenericAssetDefinition;
 use App\Domain\GenericMaster\Models\GenericAttributeDefinition;
 use App\Domain\GenericMaster\Models\GenericDefinitionVersion;
+use App\Domain\GenericMaster\Services\GenericCatalogService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\TenantContext;
@@ -52,8 +53,7 @@ class TenantCustomMasterTest extends TestCase
 
     public function test_cannot_adopt_draft_or_unknown_generic_versions(): void
     {
-        $this->actingAs($this->createPlatformAdmin(), 'web');
-        $draftId = $this->postJson("/api/platform/generic-masters/definitions/{$this->vehicle->id}/versions")->json('data.id');
+        $draftId = $this->app->make(GenericCatalogService::class)->createDraft($this->vehicle)->id;
         $this->actingAs($this->admin, 'web');
 
         $this->assertErrorCode($this->postJson('/api/asset-definitions', [
@@ -231,7 +231,7 @@ class TenantCustomMasterTest extends TestCase
     public function test_viewer_can_read_but_not_change_tenant_masters(): void
     {
         $definitionId = $this->adopt()['id'];
-        $this->actingAs($this->createTenantUser($this->org, ['SUPERVISOR']), 'web');
+        $this->actingAs($this->createTenantUser($this->org, [$this->viewerRole($this->org)]), 'web');
 
         $this->getJson('/api/asset-definitions')->assertOk()->assertJsonCount(1, 'data');
         $this->getJson("/api/asset-definitions/{$definitionId}")->assertOk();
@@ -262,16 +262,16 @@ class TenantCustomMasterTest extends TestCase
     /** Platform releases v2 of the vehicle definition with one extra attribute; returns its id. */
     private function releaseGenericV2(): string
     {
-        $this->actingAs($this->createPlatformAdmin(), 'web');
-        $v2 = $this->postJson("/api/platform/generic-masters/definitions/{$this->vehicle->id}/versions")->json('data.id');
-        $this->postJson("/api/platform/generic-masters/versions/{$v2}/attributes", ['key' => 'nomor_kir', 'label' => 'Nomor KIR', 'data_type' => 'string'])->assertCreated();
-        $this->patchJson("/api/platform/generic-masters/versions/{$v2}", ['changelog' => 'Tambah nomor KIR.', 'migration_notes' => 'Atribut opsional baru.'])->assertOk();
-        $this->postJson("/api/platform/generic-masters/versions/{$v2}/release")->assertOk();
-        $this->actingAs($this->admin, 'web');
+        // The Generic Master has no API since the platform console was removed; it changes through the service.
+        $catalog = $this->app->make(GenericCatalogService::class);
+        $v2 = $catalog->createDraft($this->vehicle);
+        $catalog->addAttribute($v2, ['key' => 'nomor_kir', 'label' => 'Nomor KIR', 'data_type' => 'string']);
+        $catalog->updateDraft($v2, ['changelog' => 'Tambah nomor KIR.', 'migration_notes' => 'Atribut opsional baru.']);
+        $catalog->release($v2->refresh());
 
-        $this->assertSame(GenericDefinitionVersion::RELEASED, GenericDefinitionVersion::query()->findOrFail($v2)->status);
+        $this->assertSame(GenericDefinitionVersion::RELEASED, GenericDefinitionVersion::query()->findOrFail($v2->id)->status);
 
-        return $v2;
+        return $v2->id;
     }
 
     private function expectQueryError(string $sqlState, callable $statement): void

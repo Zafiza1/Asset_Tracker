@@ -114,6 +114,7 @@ class RouteSecurityTest extends TestCase
             'tenantVersion' => $masters['version']->id,
             'tenantAttribute' => $masters['attribute']->id,
             'categoryAttribute' => $categoryAttribute->id,
+            'licenseCode' => $this->licenseCodeId($orgB),
         ];
     }
 

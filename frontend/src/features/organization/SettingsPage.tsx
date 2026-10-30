@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../../components/ui/Card'
 import { Spinner } from '../../components/ui/Feedback'
-import { api, qs } from '../../lib/api/client'
+import { api } from '../../lib/api/client'
 import type { License, LicenseCode, Paginated, Resource } from '../../lib/api/types'
 import { LicenseCard } from './LicenseCard'
 

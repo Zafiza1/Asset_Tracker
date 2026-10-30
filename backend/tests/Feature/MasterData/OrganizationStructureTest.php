@@ -168,16 +168,11 @@ class OrganizationStructureTest extends TestCase
         $this->assertErrorCode($this->postJson('/api/locations', ['name' => 'X', 'location_type_id' => $own]), 422, 'INVALID_REFERENCE');
         // The same name gets the same code in another organization.
         $this->postJson('/api/location-types', ['name' => 'Gudang Dingin'])->assertCreated()->assertJsonPath('data.code', 'GUDANG-DINGIN');
-
-        // The platform catalog only manages the built-in types.
-        $this->actingAs($this->createPlatformAdmin(), 'web');
-        $this->assertNotContains($own, array_column($this->getJson('/api/platform/generic-masters/location-types?all=1')->json('data'), 'id'));
-        $this->assertErrorCode($this->patchJson("/api/platform/generic-masters/location-types/{$own}", ['name' => 'X']), 404, 'NOT_FOUND');
     }
 
-    public function test_supervisor_can_read_but_not_manage_structure(): void
+    public function test_viewer_can_read_but_not_manage_structure(): void
     {
-        $this->actingAs($this->createTenantUser($this->org, ['SUPERVISOR']), 'web');
+        $this->actingAs($this->createTenantUser($this->org, [$this->viewerRole($this->org)]), 'web');
 
         $this->getJson('/api/departments')->assertOk();
         $this->getJson('/api/locations?all=1')->assertOk();

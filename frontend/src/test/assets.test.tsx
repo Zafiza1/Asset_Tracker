@@ -103,7 +103,7 @@ describe('dashboard charts', () => {
 
 describe('category attributes', () => {
   const field = (key: string, label: string, data_type: CategoryAttribute['data_type'], extra: Partial<CategoryAttribute> = {}): CategoryAttribute => ({
-    id: key, key, label, data_type, is_required: false, options: null, category_id: 'c', sort_order: 0, status: 'active', ...extra,
+    id: key, key, label, data_type, is_required: false, options: null, category_id: 'c', sort_order: 0, status: 'active', is_default: false, section: null, ...extra,
   })
   const fields = [
     field('nomor_polisi', 'Nomor Polisi', 'string', { is_required: true }),

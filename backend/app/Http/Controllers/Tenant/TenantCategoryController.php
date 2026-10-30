@@ -9,10 +9,15 @@ use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Services\TenantCategoryService;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TenantCategoryResource;
+use App\Http\Support\ImportColumn;
 use App\Http\Support\MasterRequests;
+use App\Http\Support\SpreadsheetImport;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class TenantCategoryController extends Controller
 {
@@ -80,5 +85,54 @@ class TenantCategoryController extends Controller
     {
         $this->categories->destroy($tenantCategory);
         return response()->json(null, 204);
+    }
+
+    /**
+     * Creates categories from an .xlsx (see the template). A parent may be an existing category
+     * or one on an earlier row of the same file; codes are generated from the name when empty.
+     */
+    public function import(Request $request, Tenancy $tenancy): JsonResponse
+    {
+        $columns = $this->importColumns();
+        $rows = SpreadsheetImport::read($request, $columns);
+
+        $imported = SpreadsheetImport::run($rows, function (array $row) use ($tenancy, $columns) {
+            $row['code'] = SpreadsheetImport::code($row['code']);
+            $data = Validator::make($row, [
+                'code' => [...MasterRequests::codeRules(optional: true), Rule::unique('tenant_asset_categories', 'code')->where('organization_id', $tenancy->organizationId())],
+                'name' => ['required', 'string', 'max:150'],
+                'parent_code' => ['nullable', 'string'],
+                'description' => ['nullable', 'string', 'max:1000'],
+            ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
+
+            $this->categories->create([
+                'code' => $data['code'] ?: CodeGenerator::fromName($data['name'], 'tenant_asset_categories', $tenancy->organizationId()),
+                'name' => $data['name'],
+                'description' => $data['description'],
+                'parent_id' => SpreadsheetImport::idByCode(TenantAssetCategory::query(), $data['parent_code'], 'Kategori induk'),
+            ]);
+        });
+
+        return response()->json(['data' => ['imported' => $imported]]);
+    }
+
+    public function downloadTemplate(): BinaryFileResponse
+    {
+        return SpreadsheetImport::template('template_kategori_aset.xlsx', 'Template Import Kategori Aset', $this->importColumns(), [
+            'Kategori Induk' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
+        ], [
+            'Untuk subkategori, isi Kategori Induk dengan kategori yang sudah ada (dropdown), atau dengan Kode kategori pada baris di atasnya dalam file ini.',
+        ]);
+    }
+
+    /** @return list<ImportColumn> */
+    private function importColumns(): array
+    {
+        return [
+            new ImportColumn('name', 'Nama Kategori', required: true, hint: 'Nama kategori, maksimal 150 karakter. Contoh: Perangkat IT', width: 30),
+            new ImportColumn('code', 'Kode', hint: 'Kode unik kategori (huruf, angka, - _ .). Jika kosong, dibuat otomatis dari nama.', width: 18),
+            new ImportColumn('parent_code', 'Kategori Induk', hint: 'Pilih kategori induk, atau ketik Kode kategori dari baris di atasnya. Kosongkan untuk kategori utama.', list: 'Kategori Induk', strictList: false, width: 34),
+            new ImportColumn('description', 'Deskripsi', hint: 'Penjelasan singkat kategori. Boleh dikosongkan.', width: 45),
+        ];
     }
 }

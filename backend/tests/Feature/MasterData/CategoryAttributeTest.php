@@ -6,8 +6,11 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
+use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /** Custom fields per asset category and the asset values that follow them. */
@@ -40,13 +43,17 @@ class CategoryAttributeTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.options.0.value', 'BENSIN')->assertJsonPath('data.options.0.label', 'Bensin');
 
-        $this->getJson("/api/tenant-masters/categories/{$cars->id}/attributes")->assertOk()
-            ->assertJsonPath('data.*.label', ['Nomor Polisi', 'Jumlah Kursi', 'Bahan Bakar'])
+        $carFields = $this->getJson("/api/tenant-masters/categories/{$cars->id}/attributes")->assertOk()
             ->assertJsonPath('data.0.category.code', 'KEND');
-        $this->getJson("/api/tenant-masters/categories/{$vehicles->id}/attributes")->assertOk()->assertJsonCount(1, 'data');
+        $this->assertSame(['Nomor Polisi', 'Jumlah Kursi', 'Bahan Bakar'], $this->customFields($carFields)->pluck('label')->all());
+        // The default fields come from the top-level category only, once.
+        $this->assertSame($this->defaultLabels(), collect($carFields->json('data'))->where('is_default', true)->pluck('label')->all());
+        $this->assertSame(['KEND'], collect($carFields->json('data'))->where('is_default', true)->pluck('category.code')->unique()->values()->all());
+        $vehicleFields = $this->getJson("/api/tenant-masters/categories/{$vehicles->id}/attributes")->assertOk();
+        $this->assertCount(1, $this->customFields($vehicleFields));
 
         $listed = collect($this->getJson('/api/tenant-masters/categories?all=1')->assertOk()->json('data'))->keyBy('code');
-        $this->assertSame(1, $listed['KEND']['attributes_count']);
+        $this->assertSame(1 + count($this->defaultLabels()), $listed['KEND']['attributes_count']);
         $this->assertSame(2, $listed['MOBIL']['attributes_count']);
 
         // Same label within the lineage is refused; another branch may reuse it (with its own key).
@@ -89,8 +96,8 @@ class CategoryAttributeTest extends TestCase
             'nomor_polisi' => ' B 1234 XY ', 'jumlah_kursi' => 7, 'tanggal_pajak' => null, 'tidak_dikenal' => 'x',
         ]])->assertCreated()->assertJsonPath('data.attributes', self::same(['nomor_polisi' => 'B 1234 XY', 'jumlah_kursi' => 7]))->json('data');
 
-        $this->getJson("/api/assets/{$asset['id']}")->assertOk()
-            ->assertJsonPath('attribute_fields.*.key', ['nomor_polisi', 'jumlah_kursi', 'tanggal_pajak']);
+        $fields = collect($this->getJson("/api/assets/{$asset['id']}")->assertOk()->json('attribute_fields'));
+        $this->assertSame(['nomor_polisi', 'jumlah_kursi', 'tanggal_pajak'], $fields->where('is_default', false)->pluck('key')->values()->all());
 
         // Editing other data does not touch (or revalidate) the values.
         $this->patchJson("/api/assets/{$asset['id']}", ['name' => 'Avanza Veloz'])->assertOk()
@@ -147,12 +154,13 @@ class CategoryAttributeTest extends TestCase
         $sync = fn (array $rows) => $this->putJson("/api/tenant-masters/categories/{$cars->id}/attributes", ['attributes' => $rows]);
 
         // Several new fields in one save; the response is the effective list (inherited first).
-        $saved = $sync([
+        $saved = $this->customFields($sync([
             ['label' => 'Jumlah Kursi', 'data_type' => 'integer', 'is_required' => true],
             ['label' => 'Bahan Bakar', 'data_type' => 'enum', 'options' => [['label' => 'Bensin'], ['label' => 'Solar']]],
             ['label' => 'Warna', 'data_type' => 'string'],
-        ])->assertOk()->assertJsonPath('data.*.label', ['Nomor Polisi', 'Jumlah Kursi', 'Bahan Bakar', 'Warna'])->json('data');
-        [, $seats, $fuel, $color] = $saved;
+        ])->assertOk());
+        $this->assertSame(['Nomor Polisi', 'Jumlah Kursi', 'Bahan Bakar', 'Warna'], $saved->pluck('label')->all());
+        [, $seats, $fuel, $color] = $saved->all();
 
         // Every problem is reported per row, and nothing is saved.
         $response = $sync([
@@ -167,27 +175,29 @@ class CategoryAttributeTest extends TestCase
             ['attributes.0.data_type', 'attributes.1.label', 'attributes.3.label', 'attributes.4.options'],
             array_keys($response->json('error.details.fields')),
         );
-        $this->getJson("/api/tenant-masters/categories/{$cars->id}/attributes")->assertJsonCount(4, 'data');
+        $this->assertCount(4, $this->customFields($this->getJson("/api/tenant-masters/categories/{$cars->id}/attributes")));
 
         // Update, reorder, add, and remove (left out) in one save; keys stay.
-        $sync([
+        $updated = $this->customFields($sync([
             ['id' => $fuel['id'], 'label' => 'Jenis BBM', 'data_type' => 'enum', 'options' => [...$fuel['options'], ['label' => 'Listrik']]],
             ['id' => $seats['id'], 'label' => 'Jumlah Kursi', 'data_type' => 'integer', 'is_required' => false],
             ['label' => 'Transmisi', 'data_type' => 'string'],
-        ])->assertOk()
-            ->assertJsonPath('data.*.label', ['Nomor Polisi', 'Jenis BBM', 'Jumlah Kursi', 'Transmisi'])
-            ->assertJsonPath('data.1.key', 'bahan_bakar')
-            ->assertJsonPath('data.1.options.2.value', 'LISTRIK')
-            ->assertJsonPath('data.2.is_required', false);
+        ])->assertOk());
+        $this->assertSame(['Nomor Polisi', 'Jenis BBM', 'Jumlah Kursi', 'Transmisi'], $updated->pluck('label')->all());
+        $this->assertSame('bahan_bakar', $updated[1]['key']);
+        $this->assertSame('LISTRIK', $updated[1]['options'][2]['value']);
+        $this->assertFalse($updated[2]['is_required']);
         $this->assertSame('archived', TenantCategoryAttribute::query()->findOrFail($color['id'])->status);
 
-        // An empty list removes all own fields; inherited ones stay.
-        $sync([])->assertOk()->assertJsonPath('data.*.label', ['Nomor Polisi']);
+        // An empty list removes all own fields; inherited ones (custom and default) stay.
+        $remaining = $sync([])->assertOk();
+        $this->assertSame(['Nomor Polisi'], $this->customFields($remaining)->pluck('label')->all());
+        $this->assertCount(count($this->defaultLabels()), collect($remaining->json('data'))->where('is_default', true));
     }
 
     public function test_viewer_cannot_manage_fields_and_other_tenants_fields_are_invisible(): void
     {
-        $viewer = $this->createTenantUser($this->org, ['SUPERVISOR']);
+        $viewer = $this->createTenantUser($this->org, [$this->viewerRole($this->org)]);
         $category = $this->masters['category'];
         $this->field($category, ['label' => 'Merek', 'data_type' => 'string'])->assertCreated();
 
@@ -219,6 +229,18 @@ class CategoryAttributeTest extends TestCase
     private function field(TenantAssetCategory $category, array $data)
     {
         return $this->postJson("/api/tenant-masters/categories/{$category->id}/attributes", $data);
+    }
+
+    /** The fields defined by users (not the defaults every top-level category gets), in order. */
+    private function customFields(TestResponse $response): Collection
+    {
+        return collect($response->json('data'))->where('is_default', false)->values();
+    }
+
+    /** @return list<string> */
+    private function defaultLabels(): array
+    {
+        return collect(CategoryAttributeService::DEFAULT_ATTRIBUTES)->flatten(1)->pluck('label')->all();
     }
 
     private function category(string $code, string $name, ?TenantAssetCategory $parent = null): TenantAssetCategory

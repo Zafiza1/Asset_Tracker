@@ -130,12 +130,15 @@ describe('InvitationPage', () => {
 
     await user.click(await screen.findByRole('tab', { name: 'Saya belum punya akun' }))
     await user.type(screen.getByLabelText(/Nama lengkap/), 'Budi')
+    await user.type(screen.getByLabelText(/^Kode Lisensi/), 'LIC-AAAA-BBBB-CCCC')
     await user.type(screen.getByLabelText(/^Password/), 'Rahasia-Kuat-2026')
     await user.type(screen.getByLabelText(/Ulangi password/), 'Rahasia-Kuat-2026')
     await user.click(screen.getByRole('button', { name: 'Daftar dan terima undangan' }))
 
     expect(await screen.findByText('Undangan diterima')).toBeInTheDocument()
-    expect(bodiesOf('/api/auth/invitation/register')).toEqual([{ name: 'Budi', password: 'Rahasia-Kuat-2026', password_confirmation: 'Rahasia-Kuat-2026', token: TOKEN }])
+    expect(bodiesOf('/api/auth/invitation/register')).toEqual([
+      { name: 'Budi', license_code: 'LIC-AAAA-BBBB-CCCC', password: 'Rahasia-Kuat-2026', password_confirmation: 'Rahasia-Kuat-2026', token: TOKEN },
+    ])
   })
 
   it('does not offer accepting to another account, and lets it log out', async () => {

@@ -42,7 +42,7 @@ use Illuminate\Support\Facades\Notification;
  *    token was delivered only to that mailbox, so using it proves the address (verified).
  *  - inviteFirstAdmin/resendFirstAdmin/revokeFirstAdmin: the platform console invites the first
  *    Organization Administrator of an organization it created, in the platform context. Only
- *    while the organization has no member at all, and only for its locked ADMIN role with
+ *    while the organization has no member at all, and only for its locked SUPER_ADMIN role with
  *    organization-wide scope; the platform never adds anybody to a running organization.
  *    Accepting re-checks the platform account and that the organization still has no member,
  *    then creates the membership in the organization's tenant context, as the accepting account.
@@ -216,7 +216,7 @@ final class OrganizationInvitations
             }
             $this->licensing->assertSeats($org->id);
 
-            $roleId = Role::query()->where('organization_id', $org->id)->where('template_code', RoleTemplates::ADMIN)->where('is_locked', true)->value('id')
+            $roleId = Role::query()->where('organization_id', $org->id)->where('template_code', RoleTemplates::SUPER_ADMIN)->where('is_locked', true)->value('id')
                 ?? throw ApiException::conflict('ORG_ADMIN_ROLE_MISSING', 'Role Admin tidak ditemukan.');
 
             $invitation = new OrganizationInvitation;
@@ -233,7 +233,7 @@ final class OrganizationInvitations
 
             $this->audit->record('invitation.created', $invitation, after: [
                 'email' => $email,
-                'roles' => [RoleTemplates::ADMIN],
+                'roles' => [RoleTemplates::SUPER_ADMIN],
                 'scopes' => ['organization'],
                 'expires_at' => $invitation->expires_at->toIso8601String(),
             ], metadata: ['source' => 'platform_console', 'first_admin' => true], organizationId: $org->id);
@@ -351,14 +351,15 @@ final class OrganizationInvitations
         $invitation = $this->findByToken($token);
         $this->assertOpen($invitation);
 
-        // License code is required: either from invitation or provided by user
+        // License code is required: either from invitation or provided by user. There is no tenant
+        // context before the account exists, so the code is looked up in the system context.
+        $licenseCodeId = null;
         if ($invitation->license_code_id === null) {
             $licenseCode = trim($licenseCode ?? '');
             if ($licenseCode === '') {
                 throw ApiException::unprocessable('LICENSE_CODE_REQUIRED', 'Kode lisensi wajib diisi untuk bergabung dengan organisasi ini.');
             }
-            $validatedCode = $this->licenseCodes->validateCode($licenseCode, $invitation->organization_id);
-            $invitation->license_code_id = $validatedCode->id;
+            $licenseCodeId = $this->tenancy->runAsSystem(fn () => $this->licenseCodes->validateCode($licenseCode, $invitation->organization_id))->id;
         }
 
         // Accounts are only visible and created in the system context (RLS on users, SEC-07).
@@ -366,7 +367,7 @@ final class OrganizationInvitations
             throw ApiException::conflict('ACCOUNT_EXISTS', 'Email ini sudah memiliki akun. Masuk dengan akun tersebut untuk menerima undangan.');
         }
 
-        return DB::transaction(function () use ($invitation, $name, $password) {
+        return DB::transaction(function () use ($invitation, $name, $password, $licenseCodeId) {
             $user = new User(['name' => $name, 'email' => $invitation->email, 'password' => $password]);
             $this->tenancy->runAsSystem(fn () => $user->forceFill([
                 'user_type' => User::TYPE_TENANT,
@@ -381,7 +382,7 @@ final class OrganizationInvitations
             $this->audit->record('auth.registered', $user, metadata: ['via' => 'invitation', 'invitation_id' => $invitation->id], organizationId: $orgId, actor: $user);
             $this->audit->record('auth.email_verified', $user, metadata: ['method' => 'invitation', 'invitation_id' => $invitation->id], organizationId: $orgId, actor: $user);
 
-            return ['user' => $user, ...$this->complete($user, $invitation)];
+            return ['user' => $user, ...$this->complete($user, $invitation, $licenseCodeId)];
         });
     }
 
@@ -411,10 +412,11 @@ final class OrganizationInvitations
     /**
      * Re-validates the invitation against its organization and inviter, then creates the
      * membership. Concurrent acceptances serialize on the row lock; the loser sees "used".
+     * $licenseCodeId is the code the invitee entered when the invitation carries none.
      *
      * @return array{organization: Organization, invitation: OrganizationInvitation}
      */
-    private function complete(User $user, OrganizationInvitation $invitation): array
+    private function complete(User $user, OrganizationInvitation $invitation, ?string $licenseCodeId = null): array
     {
         if ($invitation->isPlatformIssued()) {
             return $this->completeFirstAdmin($user, $invitation);
@@ -429,7 +431,7 @@ final class OrganizationInvitations
             throw $this->unavailable('inviter_inactive');
         }
 
-        return $this->tenancy->runAsTenant(new TenantContext($organization, $inviter), fn () => DB::transaction(function () use ($user, $invitation, $organization) {
+        return $this->tenancy->runAsTenant(new TenantContext($organization, $inviter), fn () => DB::transaction(function () use ($user, $invitation, $organization, $licenseCodeId) {
             $locked = $this->lock($invitation);
             $this->assertOpen($locked);
             $this->assertSeatForInvitee($organization->id);
@@ -446,6 +448,7 @@ final class OrganizationInvitations
                     'status' => OrganizationInvitation::STATUS_ACCEPTED,
                     'accepted_at' => now(),
                     'accepted_user_id' => $user->id,
+                    'license_code_id' => $locked->license_code_id ?? $licenseCodeId,
                 ])->save();
 
                 // Assign license code to the user if one was provided
@@ -496,7 +499,7 @@ final class OrganizationInvitations
                 }
                 $this->assertSeatForInvitee($organization->id);
                 $role = Role::query()->where('organization_id', $organization->id)
-                    ->where('template_code', RoleTemplates::ADMIN)->where('is_locked', true)->first();
+                    ->where('template_code', RoleTemplates::SUPER_ADMIN)->where('is_locked', true)->first();
                 $scopes = $locked->scopes;
                 if ($role === null || $locked->role_ids !== [$role->id] || count($scopes) !== 1 || $scopes[0]['scope_type'] !== 'organization') {
                     throw $this->unavailable('invalid_access');
@@ -520,7 +523,7 @@ final class OrganizationInvitations
             'name' => $user->name,
             'email' => $user->email,
             'status' => User::STATUS_ACTIVE,
-            'roles' => [RoleTemplates::ADMIN],
+            'roles' => [RoleTemplates::SUPER_ADMIN],
             'scopes' => ['organization'],
         ], metadata: ['invitation_id' => $locked->id, 'invited_by_platform_user_id' => $locked->invited_by_platform_user_id, 'first_admin' => true], actor: $user);
 

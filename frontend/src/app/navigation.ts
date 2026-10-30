@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BookOpen, Boxes, Building2, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, Settings, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, BookOpen, Boxes, Building2, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string

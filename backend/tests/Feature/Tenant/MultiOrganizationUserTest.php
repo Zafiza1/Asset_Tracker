@@ -27,9 +27,9 @@ class MultiOrganizationUserTest extends TestCase
         ['organization' => $this->alpha, 'admin' => $this->owner] = $this->createOrganization('ALPHA');
         ['organization' => $this->beta] = $this->createOrganization('BETA');
         ['organization' => $this->gamma] = $this->createOrganization('GAMMA');
-        $this->addMembership($this->owner, $this->beta, 'ADMIN');
+        $this->addMembership($this->owner, $this->beta, 'SUPER_ADMIN');
         // Only a viewer in GAMMA: may not add members there.
-        $this->addMembership($this->owner, $this->gamma, 'SUPERVISOR');
+        $this->addMembership($this->owner, $this->gamma, $this->viewerRole($this->gamma));
         $this->owner->forceFill(['last_organization_id' => $this->alpha->id])->save();
         $this->actingAs($this->owner);
     }
@@ -163,6 +163,7 @@ class MultiOrganizationUserTest extends TestCase
             'email' => 'sari@grup.test',
             'job_title' => 'Staf Gudang',
             'memberships' => $memberships,
+            'license_code_id' => $this->licenseCodeId($this->alpha),
         ];
     }
 }

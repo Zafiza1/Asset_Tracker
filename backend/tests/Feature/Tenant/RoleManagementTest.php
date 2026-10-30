@@ -31,7 +31,7 @@ class RoleManagementTest extends TestCase
         foreach ($roles as $role) {
             $this->assertEqualsCanonicalizing(RoleTemplates::tenant()[$role['code']]['permissions'], $role['permissions']);
         }
-        $orgAdmin = collect($roles)->firstWhere('code', 'ADMIN');
+        $orgAdmin = collect($roles)->firstWhere('code', 'SUPER_ADMIN');
         $this->assertTrue($orgAdmin['is_locked']);
         $this->assertSame(1, $orgAdmin['users_count']);
     }
@@ -91,13 +91,13 @@ class RoleManagementTest extends TestCase
         $this->postJson('/api/roles', ['name' => '2nd Shift', 'permissions' => []])->assertCreated()->assertJsonPath('data.code', 'ROLE_2ND_SHIFT');
     }
 
-    public function test_locked_admin_role_permissions_cannot_change_or_be_deleted(): void
+    public function test_locked_super_admin_role_permissions_cannot_change_or_be_deleted(): void
     {
-        $orgAdmin = $this->roleId($this->org, 'ADMIN');
+        $orgAdmin = $this->roleId($this->org, 'SUPER_ADMIN');
 
         $this->assertErrorCode($this->patchJson("/api/roles/{$orgAdmin}", ['permissions' => ['asset.view']]), 422, 'ROLE_LOCKED');
         $this->assertErrorCode($this->deleteJson("/api/roles/{$orgAdmin}"), 422, 'ROLE_LOCKED');
-        $this->patchJson("/api/roles/{$orgAdmin}", ['name' => 'Admin Utama'])->assertOk();
+        $this->patchJson("/api/roles/{$orgAdmin}", ['name' => 'Super Admin Utama'])->assertOk();
     }
 
     public function test_role_in_use_cannot_be_deleted(): void

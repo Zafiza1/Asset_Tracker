@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Identity\Models\User;
+use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Organization\Models\Organization;
 use Tests\TestCase;
 
@@ -41,7 +42,9 @@ class RegistrationTest extends TestCase
         $this->assertSame('PT Baru Jaya', $org->name);
         $this->assertTrue($user->memberships()->where('organization_id', $org->id)->where('status', 'active')->exists());
         $this->assertAuthenticatedAs($user, 'web');
-        $this->assertSame(2, Role::query()->where('organization_id', $org->id)->count());
+        $this->assertSame(['ADMIN', 'SUPERVISOR', 'SUPER_ADMIN'], Role::query()->where('organization_id', $org->id)->orderBy('code')->pluck('code')->all());
+        $this->assertSame(['SUPER_ADMIN'], $user->roles()->pluck('code')->all());
+        $this->assertSame($user->id, LicenseCode::query()->where('organization_id', $org->id)->where('reference', 'SUPER_ADMIN_FREE')->value('assigned_to_user_id'));
         $this->assertTrue(AuditLog::query()->where('action', 'auth.registered')->where('actor_user_id', $user->id)->exists());
     }
 

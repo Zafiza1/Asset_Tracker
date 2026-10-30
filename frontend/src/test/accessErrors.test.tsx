@@ -88,16 +88,16 @@ describe('UserDetailPage: rejected access changes', () => {
     expect(screen.getByRole('button', { name: 'Simpan role' })).toBeInTheDocument()
   })
 
-  it('keeps the confirmation open with the error when suspending a broader member is refused', async () => {
+  it('keeps the confirmation open with the error when deactivating a broader member is refused', async () => {
     vi.mocked(api.post).mockRejectedValue(SCOPE_ESCALATION)
     renderAt('/pengguna/u-1')
-    await screen.findByRole('button', { name: 'Tangguhkan' })
-    click('Tangguhkan')
-    click('Tangguhkan')
+    await screen.findByRole('button', { name: 'Nonaktifkan' })
+    click('Nonaktifkan')
+    click('Nonaktifkan')
 
     expect(await screen.findByText(SCOPE_ESCALATION.message)).toBeInTheDocument()
-    expect(api.post).toHaveBeenCalledWith('/users/u-1/suspend')
-    expect(screen.getByText(/tidak dapat login sampai diaktifkan kembali/)).toBeInTheDocument()
+    expect(api.post).toHaveBeenCalledWith('/users/u-1/deactivate')
+    expect(screen.getByText(/kode lisensi akan terlepas/)).toBeInTheDocument()
   })
 
   it('keeps the profile form open with the error when job data of a broader member is refused', async () => {

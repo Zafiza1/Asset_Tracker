@@ -99,8 +99,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     Route::post('/license-codes/{licenseCode}/release', [LicenseCodeController::class, 'release'])->middleware('permission:license.manage');
     Route::post('/license-codes/{licenseCode}/revoke', [LicenseCodeController::class, 'revoke'])->middleware('permission:license.manage');
 
-    // License purchase: Super Admin can buy additional user licenses (payment bypassed)
-    Route::post('/licenses/purchase', [LicensePurchaseController::class, 'purchase'])->middleware('permission:organization.manage');
+    // License purchase: Super Admin can buy additional user licenses (payment bypassed). Adding seats
+    // is how an organization over its limit or without a license recovers, so it bypasses 'license'.
+    Route::post('/licenses/purchase', [LicensePurchaseController::class, 'purchase'])->middleware('permission:license.manage')->withoutMiddleware('license');
     Route::get('/licenses/history', [LicensePurchaseController::class, 'history'])->middleware('permission:organization.view');
 
     Route::get('/roles', [RoleController::class, 'index'])->middleware('permission:role.view');
@@ -138,11 +139,19 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     foreach ($masters as $uri => [$controller, $param]) {
         Route::get("/{$uri}", [$controller, 'index'])->middleware($view);
         Route::post("/{$uri}", [$controller, 'store'])->middleware($create);
+        // Bulk import from .xlsx (registered before /{param} so "template" is not taken as an id).
+        if (in_array($uri, ['locations', 'tenant-masters/categories'], true)) {
+            Route::post("/{$uri}/import", [$controller, 'import'])->middleware($create);
+            Route::get("/{$uri}/template", [$controller, 'downloadTemplate'])->middleware($create);
+        }
         Route::get("/{$uri}/{{$param}}", [$controller, 'show'])->middleware($view);
         Route::patch("/{$uri}/{{$param}}", [$controller, 'update'])->middleware($update);
         Route::post("/{$uri}/{{$param}}/archive", [$controller, 'archive'])->middleware($archive);
         Route::post("/{$uri}/{{$param}}/restore", [$controller, 'restore'])->middleware($archive);
-        Route::delete("/{$uri}/{{$param}}", [$controller, 'destroy'])->middleware($archive);
+        // Permanent deletion only where the master supports it (categories); the others are archived.
+        if (method_exists($controller, 'destroy')) {
+            Route::delete("/{$uri}/{{$param}}", [$controller, 'destroy'])->middleware($archive);
+        }
     }
 
     // Custom fields of asset categories; subcategories inherit their ancestors' fields.

@@ -6,6 +6,7 @@ use App\Domain\Audit\AuditLogger;
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Authorization\Models\PlatformRole;
 use App\Domain\Authorization\Models\Role;
+use App\Domain\Authorization\RoleTemplates;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Organization;
@@ -54,10 +55,13 @@ class DatabaseIsolationTest extends TestCase
     public function test_row_level_security_hides_other_tenants_even_without_global_scope(): void
     {
         $this->asTenantA(function () {
-            $this->assertSame(2, Role::query()->withoutGlobalScopes()->count());
-            $this->assertSame(2, DB::table('roles')->count());
+            $templates = count(RoleTemplates::tenant());
+            $this->assertSame($templates, Role::query()->withoutGlobalScopes()->count());
+            $this->assertSame($templates, DB::table('roles')->count());
             $this->assertSame(0, DB::table('roles')->where('organization_id', $this->orgB->id)->count());
             $this->assertSame(1, DB::table('user_data_scopes')->count());
+            $this->assertGreaterThan(0, DB::table('license_codes')->count());
+            $this->assertSame(0, DB::table('license_codes')->where('organization_id', $this->orgB->id)->count());
         });
     }
 

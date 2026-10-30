@@ -87,7 +87,7 @@ class AssetTransactionTest extends TestCase
         $this->record($asset, 'status_change', ['to_status' => 'disposed'])->assertCreated();
         $this->assertErrorCode($this->record($asset, 'transfer', ['to_location_id' => $this->otherLocation->id]), 409, 'INVALID_ASSET_STATUS');
 
-        $this->actingAs($this->createTenantUser($this->org, ['SUPERVISOR']), 'web');
+        $this->actingAs($this->createTenantUser($this->org, [$this->viewerRole($this->org)]), 'web');
         $this->assertErrorCode($this->record($asset, 'note', ['notes' => 'cek']), 403, 'FORBIDDEN');
         $this->getJson('/api/transactions')->assertOk();
     }

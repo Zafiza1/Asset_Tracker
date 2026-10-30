@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { ColumnToggle } from '../../components/ui/ColumnToggle'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { ImportModal } from '../../components/ui/ImportModal'
 import { Select } from '../../components/ui/Field'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
@@ -31,6 +32,7 @@ export function AssetsPage() {
   const [params, setParams] = usePersistedSearchParams('/assets')
   const [search, setSearch] = useState(params.get('search') ?? '')
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   // Persisted filters from localStorage
   const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters('/assets')
@@ -128,9 +130,14 @@ export function AssetsPage() {
         title="Pendataan Aset"
         actions={
           can('asset.create') && (
-            <Button onClick={() => setCreating(true)}>
-              <Plus className="size-4" aria-hidden /> Tambah aset
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setImporting(true)}>
+                <Upload className="size-4" aria-hidden /> Import
+              </Button>
+              <Button onClick={() => setCreating(true)}>
+                <Plus className="size-4" aria-hidden /> Tambah aset
+              </Button>
+            </div>
           )
         }
       />
@@ -202,6 +209,16 @@ export function AssetsPage() {
         )}
       </Card>
       {creating && <AssetFormModal onClose={() => setCreating(false)} onSaved={(a) => navigate(`/aset/${a.id}`)} />}
+      {importing && (
+        <ImportModal
+          open={importing}
+          onClose={() => setImporting(false)}
+          title="Import Aset"
+          endpoint="/assets/import"
+          templateEndpoint="/assets/template"
+          templateFilename="template_aset.xlsx"
+        />
+      )}
     </>
   )
 }

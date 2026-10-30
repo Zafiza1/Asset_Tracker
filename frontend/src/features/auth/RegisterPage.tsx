@@ -105,7 +105,7 @@ export function RegisterPage() {
             {(p) => <Input {...p} className={`${p.className} uppercase`} placeholder="mis. MAJU" {...register('organization_code', { onChange: () => setCodeEdited(true) })} />}
           </Field>
           <Field label="Jumlah lisensi tambahan" error={err.license_quantity?.message} hint="Masukkan jumlah lisensi yang ingin dibeli untuk organisasi Anda. Biarkan kosong jika tidak ingin membeli.">
-            {(p) => <Input {...p} type="number" min="0" max="100" placeholder="0" {...register('license_quantity', { valueAsNumber: true })} />}
+            {(p) => <Input {...p} type="number" min="0" max="100" placeholder="0" {...register('license_quantity', { setValueAs: (v: string) => (v === '' ? undefined : Number(v)) })} />}
           </Field>
         </section>
         <section className="space-y-4 border-t border-slate-200 pt-4" aria-labelledby="reg-account">

@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertCircle, Clock, XCircle, Users, UserPlus, Calendar, CreditCard, Key } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Clock, XCircle, Users, UserPlus, Calendar, Key } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import type { License, LicenseCode } from '../../lib/api/types'
 
@@ -8,9 +8,6 @@ interface LicenseCardProps {
 }
 
 export function LicenseCard({ license, licenseCodes = [] }: LicenseCardProps) {
-  console.log('LicenseCard received:', license, licenseCodes)
-  console.log('License codes references:', licenseCodes.map(c => ({ code: c.code, reference: c.reference })))
-  console.log('License references:', license.licenses.map(l => ({ id: l.id, reference: l.reference })))
   if (!license) return null
 
   const { active, over_limit, seats, licenses } = license

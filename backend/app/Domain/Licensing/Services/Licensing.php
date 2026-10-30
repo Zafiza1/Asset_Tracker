@@ -111,8 +111,11 @@ final class Licensing
         });
     }
 
-    /** The trial of a self-service organization (config licensing.trial); none when disabled. */
-    public function grantTrial(Organization $organization): void
+    /**
+     * The free Super Admin license of a self-service organization (none when licensing.trial is
+     * disabled), with its license code; the code goes to $owner when given.
+     */
+    public function grantTrial(Organization $organization, ?User $owner = null): void
     {
         $days = (int) config('licensing.trial.days');
         if ($days <= 0) {
@@ -122,6 +125,10 @@ final class Licensing
         $end = $start->copy()->addDays($days);
         // Super Admin gets 1 free license permanently (not a trial)
         $this->grant($organization, OrganizationLicense::KIND_BASE, 1, $start, $end->copy()->addYears(10), source: OrganizationLicense::SOURCE_PURCHASE, reference: 'SUPER_ADMIN_FREE', notes: 'Lisensi gratis untuk Super Admin');
+        $code = LicenseCodeService::createForOrganization($organization, 'Lisensi gratis untuk Super Admin', 'SUPER_ADMIN_FREE');
+        if ($owner !== null) {
+            $code->assignTo($owner->id);
+        }
     }
 
     /**

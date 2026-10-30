@@ -47,8 +47,11 @@ class LicensePurchaseController extends Controller
             $organization = \App\Domain\Organization\Models\Organization::find($orgId);
 
             $licenses = [];
+            // References link each license to its code: continue the day's numbering instead of restarting it.
+            $prefix = 'PURCHASE-' . date('Ymd') . '-';
+            $taken = OrganizationLicense::query()->where('organization_id', $orgId)->where('reference', 'like', $prefix . '%')->count();
             for ($i = 0; $i < $quantity; $i++) {
-                $reference = 'PURCHASE-' . date('Ymd') . '-' . str_pad($i + 1, 3, '0', STR_PAD_LEFT);
+                $reference = $prefix . str_pad($taken + $i + 1, 3, '0', STR_PAD_LEFT);
                 $license = $this->licensing->grant(
                     organization: $organization,
                     kind: OrganizationLicense::KIND_BASE,

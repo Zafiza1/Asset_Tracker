@@ -14,10 +14,13 @@ use App\Domain\GenericMaster\Models\GenericAssetCategory;
 use App\Domain\GenericMaster\Models\GenericAssetDefinition;
 use App\Domain\GenericMaster\Models\GenericDefinitionVersion;
 use App\Domain\GenericMaster\Models\LocationType;
+use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Notifications\OrganizationInvitationNotification;
+use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Licensing\Models\OrganizationLicense;
+use App\Domain\Licensing\Services\LicenseCodeService;
 use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
@@ -110,7 +113,7 @@ abstract class TestCase extends BaseTestCase
     }
 
     /** @return array{organization: Organization, admin: User} */
-    protected function createOrganization(string $code, string $status = Organization::STATUS_ACTIVE, int $seats = 50): array
+    protected function createOrganization(string $code, string $status = Organization::STATUS_ACTIVE, int $seats = 10): array
     {
         $result = $this->app->make(OrganizationProvisioner::class)->provision(
             ['code' => $code, 'name' => "Organisasi {$code}"],
@@ -126,12 +129,12 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
-     * A base license plus $seats extra seats, valid for a year (system context).
-     * Returns the license(s) created, base first.
+     * A base license (the Super Admin's seat) plus $seats one-seat licenses, each with its license
+     * code as a purchase creates them, valid for a year (system context). Returns the licenses, base first.
      *
      * @return list<OrganizationLicense>
      */
-    protected function grantLicense(Organization $organization, int $seats = 50, ?Carbon $expiresAt = null, bool $base = true): array
+    protected function grantLicense(Organization $organization, int $seats = 10, ?Carbon $expiresAt = null, bool $base = true): array
     {
         $licensing = $this->app->make(Licensing::class);
         $expiresAt ??= now()->addYear();
@@ -139,11 +142,24 @@ abstract class TestCase extends BaseTestCase
         if ($base) {
             $granted[] = $licensing->grant($organization, OrganizationLicense::KIND_BASE, 1, now()->subMinute(), $expiresAt);
         }
-        if ($seats > 0) {
-            $granted[] = $licensing->grant($organization, OrganizationLicense::KIND_SEATS, $seats, now()->subMinute(), $expiresAt);
+        for ($i = 1; $i <= $seats; $i++) {
+            $reference = "TEST-SEAT-{$i}";
+            $granted[] = $licensing->grant($organization, OrganizationLicense::KIND_SEATS, 1, now()->subMinute(), $expiresAt, reference: $reference);
+            LicenseCodeService::createForOrganization($organization, reference: $reference);
         }
 
         return $granted;
+    }
+
+    /** An available license code of the organization that no pending invitation holds yet. */
+    protected function licenseCodeId(Organization $organization): string
+    {
+        $held = OrganizationInvitation::query()->where('organization_id', $organization->id)
+            ->where('status', OrganizationInvitation::STATUS_PENDING)->whereNotNull('license_code_id')->pluck('license_code_id');
+
+        return LicenseCode::query()->where('organization_id', $organization->id)->where('status', LicenseCode::STATUS_AVAILABLE)
+            ->whereNotIn('id', $held)->orderBy('reference')->value('id')
+            ?? $this->fail("Organization {$organization->code} has no available license code left");
     }
 
     /**
@@ -178,6 +194,20 @@ abstract class TestCase extends BaseTestCase
         $role->permissions()->attach($ids->mapWithKeys(fn (string $id) => [$id => ['organization_id' => $organization->id]])->all());
 
         return $role;
+    }
+
+    /**
+     * Code of a read-only role in the organization, created on first use: the templates
+     * (SUPER_ADMIN, SUPERVISOR, ADMIN) all manage something, a viewer is a custom role.
+     */
+    protected function viewerRole(Organization $organization): string
+    {
+        if (! Role::query()->where('organization_id', $organization->id)->where('code', 'VIEWER')->exists()) {
+            $this->createRole($organization, 'VIEWER',
+                ['organization.view', 'catalog.generic.view', 'master.tenant.view', 'asset.view', 'transaction.view', 'report.view']);
+        }
+
+        return 'VIEWER';
     }
 
     /** Gives an existing tenant account access to another organization (same login). */

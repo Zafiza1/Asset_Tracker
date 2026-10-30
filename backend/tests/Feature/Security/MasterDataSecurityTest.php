@@ -4,6 +4,7 @@ namespace Tests\Feature\Security;
 
 use App\Domain\GenericMaster\Models\GenericAssetDefinition;
 use App\Domain\GenericMaster\Models\GenericAttributeDefinition;
+use App\Domain\GenericMaster\Services\GenericCatalogService;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\TenantContext;
@@ -38,16 +39,16 @@ class MasterDataSecurityTest extends TestCase
         $this->mastersB = $this->createMasterFixtures($this->orgB);
     }
 
-    public function test_tenant_cannot_use_generic_master_management_endpoints(): void
+    public function test_generic_master_has_no_management_endpoints(): void
     {
         $this->actingAs($this->adminA, 'web');
         $definition = GenericAssetDefinition::query()->where('code', 'GEN-UMUM')->firstOrFail();
         $version = $definition->versions()->firstOrFail();
 
-        $this->assertErrorCode($this->postJson('/api/platform/generic-masters/categories', ['code' => 'X', 'name' => 'X']), 403, 'FORBIDDEN');
-        $this->assertErrorCode($this->patchJson("/api/platform/generic-masters/definitions/{$definition->id}", ['name' => 'Dibajak']), 403, 'FORBIDDEN');
-        $this->assertErrorCode($this->postJson("/api/platform/generic-masters/definitions/{$definition->id}/versions"), 403, 'FORBIDDEN');
-        $this->assertErrorCode($this->postJson("/api/platform/generic-masters/versions/{$version->id}/deprecate"), 403, 'FORBIDDEN');
+        $this->postJson('/api/platform/generic-masters/categories', ['code' => 'X', 'name' => 'X'])->assertNotFound();
+        $this->patchJson("/api/platform/generic-masters/definitions/{$definition->id}", ['name' => 'Dibajak'])->assertNotFound();
+        $this->postJson("/api/platform/generic-masters/definitions/{$definition->id}/versions")->assertNotFound();
+        $this->postJson("/api/platform/generic-masters/versions/{$version->id}/deprecate")->assertNotFound();
 
         $this->assertSame('Aset Umum', $definition->fresh()->name);
         $this->assertSame(1, $definition->versions()->count());
@@ -98,8 +99,7 @@ class MasterDataSecurityTest extends TestCase
     public function test_tenant_catalog_never_exposes_generic_drafts(): void
     {
         $definition = GenericAssetDefinition::query()->where('code', 'GEN-UMUM')->firstOrFail();
-        $this->actingAs($this->createPlatformAdmin(), 'web');
-        $draftId = $this->postJson("/api/platform/generic-masters/definitions/{$definition->id}/versions")->json('data.id');
+        $draftId = $this->app->make(GenericCatalogService::class)->createDraft($definition)->id;
 
         $this->actingAs($this->adminA, 'web');
         $this->assertErrorCode($this->getJson("/api/generic-masters/versions/{$draftId}"), 404, 'NOT_FOUND');

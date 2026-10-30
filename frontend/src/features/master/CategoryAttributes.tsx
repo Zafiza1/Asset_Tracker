@@ -66,9 +66,9 @@ export function AttributeFields({
 export function CategoryAttributesModal({ category, canUpdate, onClose }: { category: TenantCategory; canUpdate: boolean; onClose: () => void }) {
   const fields = useCategoryAttributes(category.id)
   const editable = canUpdate && category.status !== 'archived'
-  const own = fields.data?.filter((f) => f.category_id === category.id) ?? []
-  const defaultOwn = own.filter((f) => f.is_default)
-  const customOwn = own.filter((f) => !f.is_default)
+  // Default fields belong to the top-level category and apply to its subcategories too (read-only).
+  const defaults = fields.data?.filter((f) => f.is_default) ?? []
+  const customOwn = fields.data?.filter((f) => f.category_id === category.id && !f.is_default) ?? []
 
   if (fields.isLoading || fields.isError || !editable) {
     return (
@@ -88,12 +88,12 @@ export function CategoryAttributesModal({ category, canUpdate, onClose }: { cate
         ) : fields.isError ? (
           <Alert tone="error">{errorMessage(fields.error)}</Alert>
         ) : (
-          <ReadOnlyList fields={own} />
+          <ReadOnlyList fields={[...defaults, ...customOwn]} />
         )}
       </Modal>
     )
   }
-  return <AttributeListForm category={category} defaultOwn={defaultOwn} customOwn={customOwn} onClose={onClose} />
+  return <AttributeListForm category={category} defaults={defaults} customOwn={customOwn} onClose={onClose} />
 }
 
 function ReadOnlyList({ fields }: { fields: CategoryAttribute[] }) {
@@ -146,7 +146,7 @@ interface Row {
 let nextUid = 1
 const newRow = (): Row => ({ uid: nextUid++, label: '', data_type: 'string', is_required: false, options: [] })
 
-function AttributeListForm({ category, defaultOwn, customOwn, onClose }: { category: TenantCategory; defaultOwn: CategoryAttribute[]; customOwn: CategoryAttribute[]; onClose: () => void }) {
+function AttributeListForm({ category, defaults, customOwn, onClose }: { category: TenantCategory; defaults: CategoryAttribute[]; customOwn: CategoryAttribute[]; onClose: () => void }) {
   const queryClient = useQueryClient()
   const [rows, setRows] = useState<Row[]>(() =>
     customOwn.length > 0
@@ -194,7 +194,7 @@ function AttributeListForm({ category, defaultOwn, customOwn, onClose }: { categ
     },
   })
 
-  const groupedDefaults = defaultOwn.reduce((acc, attr) => {
+  const groupedDefaults = defaults.reduce((acc, attr) => {
     const section = attr.section || 'other'
     if (!acc[section]) acc[section] = []
     acc[section].push(attr)
@@ -222,7 +222,7 @@ function AttributeListForm({ category, defaultOwn, customOwn, onClose }: { categ
       {message && <Alert tone="error">{message}</Alert>}
 
       {/* Default Attributes (Read-only) */}
-      {defaultOwn.length > 0 && (
+      {defaults.length > 0 && (
         <div className="space-y-4 mb-6">
           <p className="text-sm font-medium text-slate-700">Atribut Default (hanya baca)</p>
           {Object.entries(groupedDefaults).map(([section, attrs]) => (

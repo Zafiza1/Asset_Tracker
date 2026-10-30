@@ -8,10 +8,12 @@ afterEach(() => vi.unstubAllGlobals())
 
 const category = { id: 'mobil', code: 'MOBIL', name: 'Mobil', status: 'active', depth: 1 } as TenantCategory
 const field = (id: string, label: string, category_id: string, extra: Partial<CategoryAttribute> = {}): CategoryAttribute => ({
-  id, key: id, label, data_type: 'string', is_required: false, options: null, category_id, sort_order: 0, status: 'active', ...extra,
+  id, key: id, label, data_type: 'string', is_required: false, options: null, category_id, sort_order: 0, status: 'active', is_default: false, section: null, ...extra,
 })
+const kendaraan = { id: 'kendaraan', code: 'KEND', name: 'Kendaraan' }
 const fields = [
-  field('nomor_polisi', 'Nomor Polisi', 'kendaraan', { category: { id: 'kendaraan', code: 'KEND', name: 'Kendaraan' } }),
+  field('merek', 'Merek', 'kendaraan', { category: kendaraan, is_default: true, section: 'basic_information' }),
+  field('nomor_polisi', 'Nomor Polisi', 'kendaraan', { category: kendaraan }),
   field('warna', 'Warna', 'mobil'),
   field('jumlah_kursi', 'Jumlah Kursi', 'mobil', { data_type: 'integer' }),
 ]
@@ -35,13 +37,16 @@ describe('CategoryAttributesModal', () => {
   it('edits, adds, and removes several attributes, then saves them in one request', async () => {
     const { onClose, putBody } = renderModal(true)
     expect(await screen.findByDisplayValue('Warna')).toBeInTheDocument()
-    expect(screen.getByText(/Nomor Polisi · Teks singkat \(Kendaraan\)/)).toBeInTheDocument()
+    // Only the category's own custom fields are rows; the defaults of the top-level category are listed read-only.
+    expect(screen.queryByDisplayValue('Nomor Polisi')).not.toBeInTheDocument()
+    expect(screen.getByText('Atribut Default (hanya baca)')).toBeInTheDocument()
+    expect(screen.getByText('Merek')).toBeInTheDocument()
 
     fireEvent.click(screen.getByLabelText('Hapus atribut 1'))
-    expect(screen.getByText('1 atribut akan dihapus saat disimpan.')).toBeInTheDocument()
+    expect(screen.getByText('1 atribut kustom akan dihapus saat disimpan.')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Tambah atribut'))
-    fireEvent.click(screen.getByText('Tambah atribut'))
+    fireEvent.click(screen.getByText('Tambah atribut kustom'))
+    fireEvent.click(screen.getByText('Tambah atribut kustom'))
     fireEvent.change(screen.getByLabelText(/Nama atribut 2/), { target: { value: 'Bahan Bakar' } })
     fireEvent.change(screen.getByLabelText('Tipe isian 2'), { target: { value: 'enum' } })
     fireEvent.change(screen.getByLabelText('Pilihan 1'), { target: { value: 'Bensin' } })

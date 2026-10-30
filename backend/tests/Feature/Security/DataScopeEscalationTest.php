@@ -29,7 +29,7 @@ use Tests\TestCase;
  * Fixture (organization ALPHA):
  *   Gedung A (root) ── A-1 (child)        Gedung B (root)
  *   asset "Aset A" at A-1, asset "Aset B" at Gedung B.
- *   "head": custom role KEPALA (SUPERVISOR's permissions plus user, master, asset and transaction
+ *   "head": custom role KEPALA (VIEWER's permissions plus user, master, asset and transaction
  *   management, no role.manage),
  *   data scope = location Gedung A.
  */
@@ -65,6 +65,7 @@ class DataScopeEscalationTest extends TestCase
         $this->assetA = $this->asset('A', $this->a1);
         $this->assetB = $this->asset('B', $this->gedungB);
 
+        $this->viewerRole($this->org);
         $this->customRole('KEPALA', [
             'organization.view', 'catalog.generic.view', 'user.view', 'user.update',
             'master.tenant.view', 'master.tenant.create', 'master.tenant.update', 'master.tenant.archive',
@@ -89,7 +90,7 @@ class DataScopeEscalationTest extends TestCase
 
     public function test_scope_outside_the_actors_own_scope_cannot_be_granted(): void
     {
-        $viewer = $this->createTenantUser($this->org, ['SUPERVISOR'], $this->scopeAt($this->a1));
+        $viewer = $this->createTenantUser($this->org, ['VIEWER'], $this->scopeAt($this->a1));
         $this->loginAs($this->head);
 
         foreach ([[['scope_type' => 'organization']], $this->scopeAt($this->gedungB), [...$this->scopeAt($this->a1), ...$this->scopeAt($this->gedungB)]] as $scopes) {
@@ -104,8 +105,8 @@ class DataScopeEscalationTest extends TestCase
 
     public function test_scope_of_a_user_broader_than_the_actor_cannot_be_changed(): void
     {
-        $wide = $this->createTenantUser($this->org, ['SUPERVISOR']);
-        $elsewhere = $this->createTenantUser($this->org, ['SUPERVISOR'], $this->scopeAt($this->gedungB));
+        $wide = $this->createTenantUser($this->org, ['VIEWER']);
+        $elsewhere = $this->createTenantUser($this->org, ['VIEWER'], $this->scopeAt($this->gedungB));
         $this->loginAs($this->head);
 
         $this->assertErrorCode($this->putJson("/api/users/{$wide->id}/scopes", ['scopes' => $this->scopeAt($this->a1)]), 403, 'SCOPE_ESCALATION');
@@ -126,7 +127,7 @@ class DataScopeEscalationTest extends TestCase
 
     public function test_scope_references_must_exist_in_this_organization(): void
     {
-        $viewer = $this->createTenantUser($this->org, ['SUPERVISOR'], $this->scopeAt($this->a1));
+        $viewer = $this->createTenantUser($this->org, ['VIEWER'], $this->scopeAt($this->a1));
         ['organization' => $beta] = $this->createOrganization('BETA');
         $betaLocation = $this->createMasterFixtures($beta, 'B')['location'];
         $this->loginAs($this->admin);
@@ -139,8 +140,8 @@ class DataScopeEscalationTest extends TestCase
 
     public function test_scoped_user_cannot_take_over_a_broader_account_by_resetting_its_password(): void
     {
-        $wide = $this->createTenantUser($this->org, ['SUPERVISOR']);
-        $inside = $this->createTenantUser($this->org, ['SUPERVISOR'], $this->scopeAt($this->a1));
+        $wide = $this->createTenantUser($this->org, ['VIEWER']);
+        $inside = $this->createTenantUser($this->org, ['VIEWER'], $this->scopeAt($this->a1));
         $this->loginAs($this->head);
         $password = 'Sementara-Baru-2026';
 
@@ -155,7 +156,7 @@ class DataScopeEscalationTest extends TestCase
 
     public function test_organization_admin_still_manages_any_scope_and_changes_are_audited(): void
     {
-        $viewer = $this->createTenantUser($this->org, ['SUPERVISOR'], $this->scopeAt($this->a1));
+        $viewer = $this->createTenantUser($this->org, ['VIEWER'], $this->scopeAt($this->a1));
         $this->loginAs($this->admin);
 
         $this->putJson("/api/users/{$viewer->id}/scopes", ['scopes' => [['scope_type' => 'organization']]])->assertOk();
@@ -207,7 +208,7 @@ class DataScopeEscalationTest extends TestCase
     {
         $this->customRole('PENGATUR_ROLE', ['role.view', 'role.manage', 'user.view', 'asset.view']);
         $actor = $this->createTenantUser($this->org, ['PENGATUR_ROLE']);
-        $viewer = $this->createTenantUser($this->org, ['SUPERVISOR']);
+        $viewer = $this->createTenantUser($this->org, ['VIEWER']);
         $ownRole = Role::query()->where('code', 'PENGATUR_ROLE')->sole();
         $this->loginAs($actor);
 
@@ -218,7 +219,7 @@ class DataScopeEscalationTest extends TestCase
         $this->assertErrorCode($this->postJson('/api/roles', ['code' => 'SUPER', 'name' => 'Super', 'permissions' => ['audit.view']]), 403, 'PRIVILEGE_ESCALATION');
 
         $this->assertSame(['PENGATUR_ROLE'], $actor->roles()->pluck('code')->all());
-        $this->assertSame(['SUPERVISOR'], $viewer->roles()->pluck('code')->all());
+        $this->assertSame(['VIEWER'], $viewer->roles()->pluck('code')->all());
         $this->assertNotContains('user.update', $ownRole->permissions()->pluck('code')->all());
     }
 
@@ -226,18 +227,18 @@ class DataScopeEscalationTest extends TestCase
     {
         Notification::fake();
         ['organization' => $beta] = $this->createOrganization('BETA');
-        $viewer = $this->createTenantUser($this->org, ['SUPERVISOR']);
+        $viewer = $this->createTenantUser($this->org, ['VIEWER']);
         $platformRole = PlatformRole::query()->where('code', RoleTemplates::SUPER_ADMIN)->value('id');
         $foreignRole = $this->roleId($beta, RoleTemplates::ADMIN);
         $this->loginAs($this->admin);
 
         foreach ([$platformRole, $foreignRole] as $roleId) {
             $this->assertErrorCode($this->putJson("/api/users/{$viewer->id}/roles", ['role_ids' => [$roleId]]), 422, 'INVALID_ROLE');
-            $this->assertErrorCode($this->postJson('/api/invitations', ['email' => 'calon@alpha.test', 'role_ids' => [$roleId], 'scopes' => [['scope_type' => 'organization']]]), 422, 'INVALID_ROLE');
+            $this->assertErrorCode($this->postJson('/api/invitations', ['email' => 'calon@alpha.test', 'role_ids' => [$roleId], 'scopes' => [['scope_type' => 'organization']], 'license_code_id' => $this->licenseCodeId($this->org)]), 422, 'INVALID_ROLE');
         }
         $this->assertErrorCode($this->postJson('/api/roles', ['code' => 'PLAT', 'name' => 'Plat', 'permissions' => [PermissionCatalog::codes(PermissionCatalog::SCOPE_PLATFORM)[0]]]), 422, 'UNKNOWN_PERMISSION');
 
-        $this->assertSame(['SUPERVISOR'], $viewer->roles()->pluck('code')->all());
+        $this->assertSame(['VIEWER'], $viewer->roles()->pluck('code')->all());
         $this->assertFalse(DB::table('platform_user_roles')->where('user_id', $viewer->id)->exists());
         Notification::assertNothingSent();
     }
@@ -246,16 +247,16 @@ class DataScopeEscalationTest extends TestCase
     {
         // Granting a role to an organization-wide user would let them use it outside the actor's scope.
         [$manager, $editor] = $this->scopedRoleManager();
-        $wide = $this->createTenantUser($this->org, ['SUPERVISOR']);
-        $inside = $this->createTenantUser($this->org, ['SUPERVISOR'], $this->scopeAt($this->a1));
+        $wide = $this->createTenantUser($this->org, ['VIEWER']);
+        $inside = $this->createTenantUser($this->org, ['VIEWER'], $this->scopeAt($this->a1));
         $this->loginAs($manager);
 
-        $this->assertErrorCode($this->putJson("/api/users/{$wide->id}/roles", ['role_ids' => [$this->roleId($this->org, 'SUPERVISOR'), $editor->id]]), 403, 'SCOPE_ESCALATION');
+        $this->assertErrorCode($this->putJson("/api/users/{$wide->id}/roles", ['role_ids' => [$this->roleId($this->org, 'VIEWER'), $editor->id]]), 403, 'SCOPE_ESCALATION');
         $this->assertErrorCode($this->putJson("/api/users/{$wide->id}/roles", ['role_ids' => []]), 403, 'SCOPE_ESCALATION');
-        $this->assertSame(['SUPERVISOR'], $wide->roles()->pluck('code')->all());
+        $this->assertSame(['VIEWER'], $wide->roles()->pluck('code')->all());
 
-        $this->putJson("/api/users/{$inside->id}/roles", ['role_ids' => [$this->roleId($this->org, 'SUPERVISOR'), $editor->id]])->assertOk();
-        $this->assertSame(['EDITOR', 'SUPERVISOR'], $inside->roles()->orderBy('code')->pluck('code')->all());
+        $this->putJson("/api/users/{$inside->id}/roles", ['role_ids' => [$this->roleId($this->org, 'VIEWER'), $editor->id]])->assertOk();
+        $this->assertSame(['EDITOR', 'VIEWER'], $inside->roles()->orderBy('code')->pluck('code')->all());
 
         $this->loginAs($wide);
         $this->patchJson("/api/assets/{$this->assetB->id}", ['name' => 'Diubah'])->assertForbidden();
@@ -264,7 +265,7 @@ class DataScopeEscalationTest extends TestCase
     public function test_scoped_role_manager_cannot_change_permissions_of_a_role_held_outside_their_scope(): void
     {
         [$manager, $editor] = $this->scopedRoleManager();
-        $wide = $this->createTenantUser($this->org, ['SUPERVISOR', 'EDITOR']);
+        $wide = $this->createTenantUser($this->org, ['VIEWER', 'EDITOR']);
         $permissions = ['asset.view', 'asset.update'];
         $this->loginAs($manager);
 
@@ -307,8 +308,8 @@ class DataScopeEscalationTest extends TestCase
     public function test_scoped_user_cannot_suspend_or_deactivate_a_broader_member(): void
     {
         [$manager] = $this->scopedRoleManager();
-        $wide = $this->createTenantUser($this->org, ['SUPERVISOR']);
-        $inside = $this->createTenantUser($this->org, ['SUPERVISOR'], $this->scopeAt($this->a1));
+        $wide = $this->createTenantUser($this->org, ['VIEWER']);
+        $inside = $this->createTenantUser($this->org, ['VIEWER'], $this->scopeAt($this->a1));
         $this->loginAs($manager);
 
         $this->assertErrorCode($this->postJson("/api/users/{$wide->id}/deactivate"), 403, 'SCOPE_ESCALATION');
@@ -320,8 +321,8 @@ class DataScopeEscalationTest extends TestCase
 
     public function test_scoped_user_cannot_change_the_job_data_of_a_broader_member(): void
     {
-        $wide = $this->createTenantUser($this->org, ['SUPERVISOR'], attributes: ['name' => 'Luas']);
-        $inside = $this->createTenantUser($this->org, ['SUPERVISOR'], $this->scopeAt($this->a1), ['name' => 'Dalam']);
+        $wide = $this->createTenantUser($this->org, ['VIEWER'], attributes: ['name' => 'Luas']);
+        $inside = $this->createTenantUser($this->org, ['VIEWER'], $this->scopeAt($this->a1), ['name' => 'Dalam']);
         $department = $this->masters['department'];
         $this->loginAs($this->head);
 
@@ -378,7 +379,7 @@ class DataScopeEscalationTest extends TestCase
     public function test_location_inside_the_scope_cannot_be_moved_out_of_it(): void
     {
         // Moving A-1 under B would hand its assets to everyone scoped to B.
-        $otherHead = $this->createTenantUser($this->org, ['SUPERVISOR'], $this->scopeAt($this->gedungB));
+        $otherHead = $this->createTenantUser($this->org, ['VIEWER'], $this->scopeAt($this->gedungB));
         $this->loginAs($this->head);
 
         $this->assertErrorCode($this->patchJson("/api/locations/{$this->a1->id}", ['parent_id' => $this->gedungB->id]), 422, 'LOCATION_OUT_OF_SCOPE');
@@ -626,6 +627,6 @@ class DataScopeEscalationTest extends TestCase
      */
     private function invitation(string $email, array $scopes): array
     {
-        return ['email' => $email, 'role_ids' => [$this->roleId($this->org, 'SUPERVISOR')], 'scopes' => $scopes];
+        return ['email' => $email, 'role_ids' => [$this->roleId($this->org, 'VIEWER')], 'scopes' => $scopes, 'license_code_id' => $this->licenseCodeId($this->org)];
     }
 }

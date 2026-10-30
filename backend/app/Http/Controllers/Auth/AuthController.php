@@ -6,7 +6,6 @@ use App\Domain\Audit\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\OrganizationAccess;
 use App\Domain\Identity\Services\SessionTerminator;
-use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Platform\Services\OrganizationProvisioner;
@@ -103,15 +102,8 @@ class AuthController extends Controller
                     ['name' => $data['name'], 'email' => $data['email'], 'password' => $data['password']],
                     adminMustChangePassword: false,
                 );
-                $licensing->grantTrial($result['organization']);
-
-                // Assign SUPER_ADMIN_FREE license code to the admin automatically
-                $superAdminCode = LicenseCode::where('organization_id', $result['organization']->id)
-                    ->where('reference', 'SUPER_ADMIN_FREE')
-                    ->first();
-                if ($superAdminCode && $superAdminCode->isAvailable()) {
-                    $superAdminCode->assignTo($result['admin']->id);
-                }
+                // The SUPER_ADMIN_FREE license code goes to the admin automatically.
+                $licensing->grantTrial($result['organization'], $result['admin']);
 
                 // Purchase additional licenses and create license codes if requested
                 if (isset($data['license_quantity']) && $data['license_quantity'] > 0) {
@@ -188,7 +180,7 @@ class AuthController extends Controller
                     ['code' => $data['organization_code'], 'name' => $data['organization_name']],
                     $user,
                 )['organization'];
-                $licensing->grantTrial($organization);
+                $licensing->grantTrial($organization, $user);
 
                 return $organization;
             });

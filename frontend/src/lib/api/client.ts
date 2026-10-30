@@ -69,11 +69,13 @@ export function onOrganizationChanged(listener: () => void): () => void {
   return () => organizationListeners.delete(listener)
 }
 
-export async function apiRequest<T>(method: Method, path: string, body?: unknown, retried = false): Promise<T> {
+export async function apiRequest<T>(method: Method, path: string, body?: unknown, retried = false, asBlob = false): Promise<T> {
   if (method !== 'GET') await ensureCsrfCookie()
 
   const headers: Record<string, string> = { Accept: 'application/json' }
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  // FormData (file upload) sets its own multipart Content-Type with the boundary.
+  const isForm = body instanceof FormData
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   const xsrf = readCookie('XSRF-TOKEN')
   if (xsrf) headers['X-XSRF-TOKEN'] = xsrf
   if (activeOrganizationId) headers['X-Organization-Id'] = activeOrganizationId
@@ -84,7 +86,7 @@ export async function apiRequest<T>(method: Method, path: string, body?: unknown
       method,
       headers,
       credentials: 'same-origin',
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     })
   } catch {
     throw new ApiError(0, 'NETWORK_ERROR', 'Tidak dapat terhubung ke server. Periksa koneksi Anda.')
@@ -92,6 +94,7 @@ export async function apiRequest<T>(method: Method, path: string, body?: unknown
 
   if (response.status === 204) return undefined as T
 
+  if (response.ok && asBlob) return (await response.blob()) as T
   const payload = await response.json().catch(() => null)
   if (response.ok) return payload as T
 
@@ -99,7 +102,7 @@ export async function apiRequest<T>(method: Method, path: string, body?: unknown
   // Expired CSRF token (e.g. after session regeneration): refresh it once and retry.
   if (response.status === 419 && !retried) {
     document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/'
-    return apiRequest<T>(method, path, body, true)
+    return apiRequest<T>(method, path, body, true, asBlob)
   }
   if (response.status === 401) unauthorizedListeners.forEach((l) => l())
   if (ORGANIZATION_CHANGED.has(error?.code)) organizationListeners.forEach((l) => l())
@@ -119,6 +122,18 @@ export const api = {
   put: <T>(path: string, body?: unknown) => apiRequest<T>('PUT', path, body ?? {}),
   patch: <T>(path: string, body?: unknown) => apiRequest<T>('PATCH', path, body ?? {}),
   delete: <T>(path: string) => apiRequest<T>('DELETE', path),
+  /** Multipart POST, e.g. a spreadsheet import. */
+  upload: <T>(path: string, form: FormData) => apiRequest<T>('POST', path, form),
+}
+
+/** Download a file from the API (same session/CSRF/organization handling) and save it under `filename`. */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const blob = await apiRequest<Blob>('GET', path, undefined, false, true)
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(link.href)
 }
 
 /** Build a query string, skipping empty values. */

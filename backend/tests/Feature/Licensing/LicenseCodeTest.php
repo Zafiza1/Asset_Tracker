@@ -7,8 +7,10 @@ use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Licensing\Models\LicenseCode;
+use App\Domain\Licensing\Models\OrganizationLicense;
 use App\Domain\Licensing\Services\LicenseCodeService;
 use App\Domain\Organization\Models\Organization;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -27,50 +29,63 @@ class LicenseCodeTest extends TestCase
         ['organization' => $this->organization, 'admin' => $this->admin] = $this->createOrganization('TEST');
     }
 
-    public function test_admin_can_create_license_codes(): void
+    public function test_purchase_creates_a_license_code_for_every_license(): void
     {
         $this->loginAs($this->admin);
 
-        $this->postJson('/api/license-codes', ['count' => 3, 'notes' => 'Initial batch'])->assertCreated()
-            ->assertJsonPath('meta.created', 3);
+        $this->postJson('/api/licenses/purchase', ['quantity' => 3, 'notes' => 'Initial batch'])->assertCreated()
+            ->assertJsonPath('meta.purchased', 3);
 
-        $codes = LicenseCode::query()->where('organization_id', $this->organization->id)->get();
+        $codes = $this->purchasedCodes();
         $this->assertCount(3, $codes);
-        $this->assertSame('available', $codes->first()->status);
+        $this->assertSame(['available'], $codes->pluck('status')->unique()->values()->all());
         $this->assertSame('Initial batch', $codes->first()->notes);
         $this->assertMatchesRegularExpression('/^LIC-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/', $codes->first()->code);
+        // Every code points at the license it was bought with.
+        $this->assertEqualsCanonicalizing(
+            OrganizationLicense::query()->where('organization_id', $this->organization->id)->where('reference', 'like', 'PURCHASE-%')->pluck('reference')->all(),
+            $codes->pluck('reference')->all(),
+        );
     }
 
-    public function test_admin_can_create_single_license_code(): void
+    public function test_license_codes_and_references_are_unique_across_purchases(): void
     {
         $this->loginAs($this->admin);
 
-        $this->postJson('/api/license-codes', ['notes' => 'Single code'])->assertCreated()
-            ->assertJsonPath('meta.created', 1);
+        $this->postJson('/api/licenses/purchase', ['quantity' => 2])->assertCreated();
+        $this->postJson('/api/licenses/purchase', ['quantity' => 3])->assertCreated();
 
-        $code = LicenseCode::query()->where('organization_id', $this->organization->id)->sole();
-        $this->assertSame('available', $code->status);
-        $this->assertSame('Single code', $code->notes);
+        $codes = $this->purchasedCodes();
+        $this->assertCount(5, $codes->pluck('code')->unique());
+        $this->assertCount(5, $codes->pluck('reference')->unique());
     }
 
-    public function test_license_codes_are_unique(): void
+    public function test_license_codes_are_only_created_by_purchases(): void
     {
         $this->loginAs($this->admin);
 
-        $this->postJson('/api/license-codes', ['count' => 10])->assertCreated();
+        $this->postJson('/api/license-codes', ['count' => 3])->assertStatus(405);
+        $this->assertCount(0, $this->purchasedCodes());
+    }
 
-        $codes = LicenseCode::query()->where('organization_id', $this->organization->id)->pluck('code');
-        $this->assertCount(10, $codes->unique());
+    public function test_only_the_super_admin_buys_licenses_and_manages_codes(): void
+    {
+        $this->loginAs($this->createTenantUser($this->organization, ['SUPERVISOR']));
+
+        $this->assertErrorCode($this->postJson('/api/licenses/purchase', ['quantity' => 1]), 403, 'FORBIDDEN');
+        $this->assertErrorCode($this->getJson('/api/license-codes'), 403, 'FORBIDDEN');
+        $this->assertCount(0, $this->purchasedCodes());
     }
 
     public function test_admin_can_list_available_license_codes(): void
     {
         $this->loginAs($this->admin);
+        $available = fn () => $this->getJson('/api/license-codes?status=available&per_page=100')->assertOk()->json('meta.total');
+        $before = $available();
 
-        $this->postJson('/api/license-codes', ['count' => 5])->assertCreated();
+        $this->postJson('/api/licenses/purchase', ['quantity' => 5])->assertCreated();
 
-        $this->getJson('/api/license-codes?status=available')->assertOk()
-            ->assertJsonCount(5, 'data');
+        $this->assertSame($before + 5, $available());
     }
 
     public function test_admin_can_assign_license_code_to_user(): void
@@ -192,28 +207,29 @@ class LicenseCodeTest extends TestCase
         $this->assertSame($user->id, $code->assigned_to_user_id);
     }
 
-    public function test_registration_requires_license_code(): void
+    public function test_registration_requires_license_code_when_the_invitation_has_none(): void
     {
         $this->loginAs($this->admin);
 
         $code = $this->createLicenseCode();
-        $this->postJson('/api/invitations', [
+        $id = $this->postJson('/api/invitations', [
             'email' => 'new@test.com',
             'role_ids' => [$this->roleId($this->organization, 'SUPERVISOR')],
             'scopes' => [['scope_type' => 'organization']],
-            'license_code_id' => $code->id,
-        ])->assertCreated();
+            'license_code_id' => $this->licenseCodeId($this->organization),
+        ])->assertCreated()->json('data.id');
+        // As for an invitation to another organization, which carries no code of its own.
+        OrganizationInvitation::query()->whereKey($id)->update(['license_code_id' => null]);
 
         $token = $this->sentInvitationToken('new@test.com', last: true);
+        $signUp = ['token' => $token, 'name' => 'New User', 'password' => 'Password-123', 'password_confirmation' => 'Password-123'];
 
         $this->flushSession();
-        $this->postJson('/api/auth/invitation/register', [
-            'token' => $token,
-            'name' => 'New User',
-            'password' => 'Password-123',
-            'password_confirmation' => 'Password-123',
-        ])->assertStatus(422)
-            ->assertJsonPath('error.code', 'VALIDATION_FAILED');
+        $this->assertErrorCode($this->postJson('/api/auth/invitation/register', $signUp), 422, 'LICENSE_CODE_REQUIRED');
+        $this->assertFalse(User::query()->where('email', 'new@test.com')->exists());
+
+        $this->postJson('/api/auth/invitation/register', [...$signUp, 'license_code' => $code->code])->assertCreated();
+        $this->assertSame(User::query()->where('email', 'new@test.com')->value('id'), $code->refresh()->assigned_to_user_id);
     }
 
     public function test_license_code_validation(): void
@@ -239,12 +255,19 @@ class LicenseCodeTest extends TestCase
         ]);
         $code->save();
 
-        $this->postJson('/api/invitations', [
+        $this->assertErrorCode($this->postJson('/api/invitations', [
             'email' => 'new@test.com',
             'role_ids' => [$this->roleId($this->organization, 'SUPERVISOR')],
             'scopes' => [['scope_type' => 'organization']],
             'license_code_id' => $code->id,
-        ])->assertStatus(422);
+        ]), 409, 'INVALID_LICENSE_CODE');
+        $this->assertFalse(OrganizationInvitation::query()->where('email', 'new@test.com')->exists());
+    }
+
+    /** @return Collection<int, LicenseCode> */
+    private function purchasedCodes(): Collection
+    {
+        return LicenseCode::query()->where('organization_id', $this->organization->id)->where('reference', 'like', 'PURCHASE-%')->get();
     }
 
     private function createLicenseCode(): LicenseCode

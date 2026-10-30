@@ -13,11 +13,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AssetResource;
 use App\Http\Resources\AssetTransactionResource;
 use App\Http\Resources\CategoryAttributeResource;
+use App\Http\Support\ImportColumn;
 use App\Http\Support\ListQuery;
+use App\Http\Support\SpreadsheetImport;
 use Illuminate\Contracts\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /** Asset Management container: list/search, detail, register, edit, deactivate, reactivate. */
 class AssetController extends Controller
@@ -105,6 +111,68 @@ class AssetController extends Controller
     public function restore(Asset $asset): AssetResource
     {
         return new AssetResource($this->assets->restore($asset)->load(self::RELATIONS));
+    }
+
+    /** Registers assets from an .xlsx (see the template); category and location are given by code. */
+    public function import(Request $request): JsonResponse
+    {
+        $columns = $this->importColumns();
+        $rows = SpreadsheetImport::read($request, $columns);
+        $rules = $this->descriptiveRules(creating: true);
+
+        $imported = SpreadsheetImport::run($rows, function (array $row) use ($rules, $columns) {
+            $row['status'] = $this->importStatus($row['status']);
+            $data = Validator::make($row, [
+                ...Arr::only($rules, ['name', 'serial_number', 'acquisition_date', 'acquisition_cost', 'description']),
+                'category_code' => ['required', 'string'],
+                'location_code' => ['nullable', 'string'],
+                'status' => ['nullable', Rule::in(AssetStatus::INITIAL)],
+            ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
+
+            $data['category_id'] = SpreadsheetImport::idByCode(TenantAssetCategory::query(), $data['category_code'], 'Kategori');
+            $data['location_id'] = SpreadsheetImport::idByCode(Location::query(), $data['location_code'] ?? null, 'Lokasi');
+            $this->assets->create(Arr::except($data, ['category_code', 'location_code']));
+        });
+
+        return response()->json(['data' => ['imported' => $imported]]);
+    }
+
+    public function downloadTemplate(): BinaryFileResponse
+    {
+        return SpreadsheetImport::template('template_aset.xlsx', 'Template Import Pendataan Aset', $this->importColumns(), [
+            'Kategori' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
+            'Lokasi' => SpreadsheetImport::codeList(Location::query()),
+            'Status' => array_map(fn ($s) => AssetStatus::LABELS[$s], AssetStatus::INITIAL),
+        ], [
+            'Kategori dan lokasi harus sudah dibuat sebelum mengimpor aset. Nomor aset dibuat otomatis oleh sistem.',
+        ]);
+    }
+
+    /** @return list<ImportColumn> */
+    private function importColumns(): array
+    {
+        return [
+            new ImportColumn('name', 'Nama Aset', required: true, hint: 'Nama aset, maksimal 150 karakter. Contoh: Laptop Dell Latitude 5440', width: 32),
+            new ImportColumn('category_code', 'Kategori', required: true, hint: 'Pilih kategori aset dari daftar.', list: 'Kategori', width: 34),
+            new ImportColumn('location_code', 'Lokasi', hint: 'Pilih lokasi aset dari daftar. Boleh dikosongkan.', list: 'Lokasi', width: 34),
+            new ImportColumn('status', 'Status', hint: 'Pilih status awal. Jika kosong: Tersedia.', list: 'Status', width: 18),
+            new ImportColumn('serial_number', 'Nomor Seri', hint: 'Nomor seri dari pabrik, harus unik. Boleh dikosongkan.', width: 22),
+            new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Tanggal pembelian/perolehan, format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
+            new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
+            new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Boleh dikosongkan.', width: 40),
+        ];
+    }
+
+    /** The status column accepts the key (in_use) or its label (Digunakan); empty means available. */
+    private function importStatus(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $key = str_replace(' ', '_', strtolower($value));
+        $byLabel = array_search(strtolower($value), array_map('strtolower', AssetStatus::LABELS), true);
+
+        return in_array($key, AssetStatus::ALL, true) ? $key : ($byLabel ?: $value);
     }
 
     /** Full history of one asset, newest first. */

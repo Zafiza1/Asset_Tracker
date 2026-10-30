@@ -28,6 +28,7 @@ class LicenseController extends Controller
                     'over_limit' => $status->overLimit(),
                     'seats' => [
                         'capacity' => $status->capacity,
+                        'used' => $status->used(),
                         'active_members' => $status->activeMembers,
                         'pending_invitations' => $status->pendingInvitations,
                         'available' => $status->available(),

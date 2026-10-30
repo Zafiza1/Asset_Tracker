@@ -191,12 +191,12 @@ class InvitationAcceptanceTest extends TestCase
 
     public function test_access_is_validated_again_when_accepting(): void
     {
-        $manager = $this->createTenantUser($this->alpha, ['ADMIN']);
-        $token = $this->invite($this->invitee->email, 'ADMIN', inviter: $manager);
+        $manager = $this->createTenantUser($this->alpha, ['SUPER_ADMIN']);
+        $token = $this->invite($this->invitee->email, 'SUPER_ADMIN', inviter: $manager);
 
         // The inviter lost the right to give this access before the invitation was accepted.
         $manager->roles()->detach();
-        $manager->roles()->attach($this->roleId($this->alpha, 'SUPERVISOR'), ['organization_id' => $this->alpha->id]);
+        $manager->roles()->attach($this->roleId($this->alpha, $this->viewerRole($this->alpha)), ['organization_id' => $this->alpha->id]);
 
         $this->loginAs($this->invitee);
         $response = $this->postJson('/api/auth/invitation/accept', ['token' => $token]);
@@ -205,7 +205,7 @@ class InvitationAcceptanceTest extends TestCase
         $this->assertNotMember($this->invitee);
 
         // Same when the inviter left the organization.
-        $manager2 = $this->createTenantUser($this->alpha, ['ADMIN']);
+        $manager2 = $this->createTenantUser($this->alpha, ['SUPER_ADMIN']);
         $token2 = $this->invite('lain@luar.test', inviter: $manager2);
         OrganizationMember::query()->where('organization_id', $this->alpha->id)->where('user_id', $manager2->id)->update(['status' => 'deactivated']);
         $this->beGuest();

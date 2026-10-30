@@ -29,8 +29,8 @@ class LicensingTest extends TestCase
     {
         parent::setUp();
         Notification::fake();
-        // Create organization with Super Admin
-        ['organization' => $this->org, 'admin' => $this->superAdmin] = $this->createOrganization('ALPHA');
+        // Create organization with Super Admin and only the free license
+        ['organization' => $this->org, 'admin' => $this->superAdmin] = $this->createOrganization('ALPHA', seats: 0);
     }
 
     public function test_super_admin_gets_free_license(): void
@@ -49,23 +49,18 @@ class LicensingTest extends TestCase
     {
         $this->actingAs($this->superAdmin);
 
-        // First invitation should fail (no seats available)
-        $this->assertErrorCode($this->postJson('/api/invitations', $this->invite('a@alpha.test')), 409, 'SEAT_LIMIT_REACHED');
-
-        // Buy additional license
+        // Buying a license adds a seat and its license code
         $this->postJson('/api/licenses/purchase', ['quantity' => 1])->assertCreated();
+        $code = $this->licenseCodeId($this->org);
 
-        // Now invitation should succeed
-        $first = $this->postJson('/api/invitations', $this->invite('a@alpha.test'))->assertCreated();
+        $first = $this->postJson('/api/invitations', $this->invite('a@alpha.test', $code))->assertCreated();
 
-        // Second invitation should fail again
-        $this->assertErrorCode($this->postJson('/api/invitations', $this->invite('b@alpha.test')), 409, 'SEAT_LIMIT_REACHED');
+        // The pending invitation holds the seat, whatever code is given
+        $this->assertErrorCode($this->postJson('/api/invitations', $this->invite('b@alpha.test', $code)), 409, 'SEAT_LIMIT_REACHED');
 
-        // Revoke first invitation
+        // Revoking the first invitation frees the seat
         $this->postJson("/api/invitations/{$first->json('data.id')}/revoke")->assertOk();
-
-        // Now second invitation should succeed
-        $this->postJson('/api/invitations', $this->invite('b@alpha.test'))->assertCreated();
+        $this->postJson('/api/invitations', $this->invite('b@alpha.test', $code))->assertCreated();
 
         $this->getJson('/api/license')->assertOk()
             ->assertJsonPath('data.seats.capacity', 2)
@@ -79,21 +74,17 @@ class LicensingTest extends TestCase
         $member = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->actingAs($this->superAdmin);
 
-        // No seats available
-        $this->assertErrorCode($this->postJson('/api/invitations', $this->invite('pengganti@alpha.test')), 409, 'SEAT_LIMIT_REACHED');
-
-        // Buy license
+        // 2 licenses (1 free + 1 purchased), both seats used by the Super Admin and the member
         $this->postJson('/api/licenses/purchase', ['quantity' => 1])->assertCreated();
+        $code = $this->licenseCodeId($this->org);
+        $this->assertErrorCode($this->postJson('/api/invitations', $this->invite('pengganti@alpha.test', $code)), 409, 'SEAT_LIMIT_REACHED');
 
-        // Now invitation should succeed
-        $this->postJson('/api/invitations', $this->invite('pengganti@alpha.test'))->assertCreated();
-
-        // Deactivate member (frees seat)
+        // Deactivating the member frees the seat for somebody else
         $this->postJson("/api/users/{$member->id}/deactivate")->assertOk();
+        $this->getJson('/api/license')->assertOk()->assertJsonPath('data.seats.available', 1);
 
-        // Should have 1 available seat now
-        $this->getJson('/api/license')->assertOk()
-            ->assertJsonPath('data.seats.available', 1);
+        $this->postJson('/api/invitations', $this->invite('pengganti@alpha.test', $code))->assertCreated();
+        $this->getJson('/api/license')->assertOk()->assertJsonPath('data.seats.available', 0);
     }
 
     public function test_without_a_base_license_the_organization_is_read_only(): void
@@ -121,15 +112,19 @@ class LicensingTest extends TestCase
 
     public function test_over_the_seat_limit_only_freeing_seats_is_allowed(): void
     {
+        // 2 members on the 1 free license
         $member = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $this->actingAs($this->superAdmin);
 
-        // Buy 1 license (total 2: 1 free + 1 purchased)
+        $this->getJson('/api/license')->assertOk()->assertJsonPath('data.over_limit', true);
+        $this->assertErrorCode($this->putJson('/api/organization', ['name' => 'Baru']), 403, 'SEAT_LIMIT_EXCEEDED');
+
+        // Buying seats stays possible: it is how the organization gets back within its limit
         $this->postJson('/api/licenses/purchase', ['quantity' => 1])->assertCreated();
+        $this->getJson('/api/license')->assertOk()->assertJsonPath('data.over_limit', false)->assertJsonPath('data.seats.available', 0);
 
-        // Deactivate member to free seat
+        // So does freeing seats
         $this->postJson("/api/users/{$member->id}/deactivate")->assertOk();
-
         $this->getJson('/api/license')->assertOk()->assertJsonPath('data.seats.available', 1);
     }
 
@@ -172,9 +167,10 @@ class LicensingTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function invite(string $email): array
+    private function invite(string $email, string $licenseCodeId = '00000000-0000-0000-0000-000000000000'): array
     {
-        return ['email' => $email, 'role_ids' => [$this->roleId($this->org, 'SUPERVISOR')], 'scopes' => [['scope_type' => 'organization']]];
+        return ['email' => $email, 'role_ids' => [$this->roleId($this->org, 'SUPERVISOR')], 'scopes' => [['scope_type' => 'organization']],
+            'license_code_id' => $licenseCodeId];
     }
 
     private function revokeAll(string $kind): void

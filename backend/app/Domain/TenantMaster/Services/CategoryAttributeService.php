@@ -123,11 +123,15 @@ final class CategoryAttributeService
     }
 
     /**
-     * Creates default attributes for a new category.
+     * Creates default attributes for a new top-level category; subcategories inherit them
+     * through effective(), so giving them their own copy would list every default twice.
      * Default attributes are read-only and cannot be modified by users.
      */
     public function createDefaultAttributes(TenantAssetCategory $category): void
     {
+        if ($category->parent_id !== null) {
+            return;
+        }
         $sortOrder = 0;
         foreach (self::DEFAULT_ATTRIBUTES as $section => $attributes) {
             foreach ($attributes as $attr) {
@@ -279,17 +283,16 @@ final class CategoryAttributeService
      * dropped; empty values are not stored.
      *
      * @param  array<string, mixed>  $current
-     * @param  array<string, mixed>|null  $submitted  null = keep current values
+     * @param  array<string, mixed>|null  $submitted  null = none sent (current values, checked against the category)
      * @return array<string, mixed>
      *
      * @throws ValidationException
      */
     public function resolveValues(string $categoryId, array $current, ?array $submitted): array
     {
-        // If submitted is null, keep current values unchanged
-        if ($submitted === null) {
-            return $current;
-        }
+        // Nothing submitted (only the category changed): current values are still checked against
+        // the new category's fields, so values of fields that no longer apply are dropped.
+        $submitted ??= [];
 
         $out = [];
         $errors = [];

@@ -21,7 +21,7 @@ const organization: Organization = {
 const invitation = (overrides: Partial<OrganizationInvitation> = {}): OrganizationInvitation => ({
   id: 'inv-1', organization_id: 'org-g', email: 'admin@gamma.test', status: 'pending', scopes: [{ scope_type: 'organization', ref_id: null }],
   employee_number: null, job_title: null, home_department_id: null, expires_at: '2026-10-27T00:00:00Z', last_sent_at: null, send_count: 1,
-  accepted_at: null, revoked_at: null, created_at: '2026-10-24T00:00:00Z', ...overrides,
+  accepted_at: null, revoked_at: null, created_at: '2026-10-24T00:00:00Z', license_code_id: null, ...overrides,
 })
 
 function renderAt(path: string) {

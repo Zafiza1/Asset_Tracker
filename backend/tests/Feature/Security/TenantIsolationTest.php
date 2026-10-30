@@ -123,13 +123,13 @@ class TenantIsolationTest extends TestCase
         $this->assertTrue(AuditLog::query()->where('action', 'test.beta_event')->exists());
     }
 
-    public function test_tenant_administrator_cannot_use_platform_endpoints(): void
+    public function test_platform_endpoints_no_longer_exist_for_tenants(): void
     {
         $this->actingAs($this->adminA, 'web');
 
-        $this->assertErrorCode($this->getJson('/api/platform/organizations'), 403, 'FORBIDDEN');
-        $this->assertErrorCode($this->postJson("/api/platform/organizations/{$this->orgB->id}/suspend", ['reason' => 'x']), 403, 'FORBIDDEN');
-        $this->assertErrorCode($this->getJson('/api/platform/audit-logs'), 403, 'FORBIDDEN');
+        $this->getJson('/api/platform/organizations')->assertNotFound();
+        $this->postJson("/api/platform/organizations/{$this->orgB->id}/suspend", ['reason' => 'x'])->assertNotFound();
+        $this->getJson('/api/platform/audit-logs')->assertNotFound();
 
         $this->assertSame(Organization::STATUS_ACTIVE, $this->orgB->fresh()->status);
     }
@@ -171,14 +171,14 @@ class TenantIsolationTest extends TestCase
         $this->getJson('/api/audit-logs')->assertOk();
 
         $user->roles()->detach();
-        $user->roles()->attach($this->roleId($this->orgA, 'SUPERVISOR'), ['organization_id' => $this->orgA->id]);
+        $user->roles()->attach($this->roleId($this->orgA, $this->viewerRole($this->orgA)), ['organization_id' => $this->orgA->id]);
 
         $this->assertErrorCode($this->getJson('/api/audit-logs'), 403, 'FORBIDDEN');
     }
 
     public function test_forbidden_is_returned_before_existence_is_revealed(): void
     {
-        $viewer = $this->createTenantUser($this->orgA, ['SUPERVISOR']);
+        $viewer = $this->createTenantUser($this->orgA, [$this->viewerRole($this->orgA)]);
         $this->actingAs($viewer, 'web');
 
         // Same response for an id of the own tenant, another tenant, or a non-existent one.
