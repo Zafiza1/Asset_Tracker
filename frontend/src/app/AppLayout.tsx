@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Boxes, ChevronRight, LogOut, Menu, X } from 'lucide-react'
+import { Boxes, ChevronDown, ChevronRight, LogOut, Menu, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { OrganizationSwitcher } from '../features/organizations/OrganizationSwitcher'
@@ -64,20 +64,6 @@ export function AppLayout() {
           </button>
         </div>
         <SideNav sections={sections} onNavigate={() => setMobileOpen(false)} />
-        <div className="shrink-0 border-t border-white/10 p-3">
-          <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-            <Avatar name={profile.user.name} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-white">{profile.user.name}</p>
-              <p className="truncate text-xs text-brand-300">{profile.user.email}</p>
-            </div>
-          </div>
-          {/* Logout is kept apart from the menu items so it is not hit by accident. */}
-          <button type="button" onClick={handleLogout} className="mt-1 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm text-brand-200 transition-colors hover:bg-white/10 hover:text-white">
-            <LogOut className="size-4" aria-hidden />
-            Keluar
-          </button>
-        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -88,9 +74,7 @@ export function AppLayout() {
           <div className="min-w-0 flex-1">
             {isPlatform ? <p className="truncate font-display text-sm font-semibold text-slate-900">Administrasi Platform</p> : <OrganizationSwitcher />}
           </div>
-          <div className="flex items-center gap-2.5 lg:hidden">
-            <Avatar name={profile.user.name} light />
-          </div>
+          <UserMenu name={profile.user.name} email={profile.user.email} onLogout={handleLogout} />
         </header>
 
         <main id="main" className="w-full flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -140,6 +124,53 @@ function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate:
         </div>
       ))}
     </nav>
+  )
+}
+
+function UserMenu({ name, email, onLogout }: { name: string; email: string; onLogout: () => void }) {
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2.5 rounded-lg py-1.5 pl-1.5 pr-2 text-left transition-colors hover:bg-slate-100"
+        aria-label="Menu pengguna"
+        aria-expanded={open}
+        aria-haspopup="true"
+      >
+        <Avatar name={name} light />
+        <span className="hidden min-w-0 max-w-48 sm:block">
+          <span className="block truncate text-sm font-semibold text-slate-900">{name}</span>
+          <span className="block truncate text-xs text-slate-500">{email}</span>
+        </span>
+        <ChevronDown className={clsx('size-4 text-slate-400 transition-transform', open && 'rotate-180')} aria-hidden />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden />
+          <div className="absolute right-0 z-20 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg">
+            <div className="border-b border-slate-100 px-2.5 py-2">
+              <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
+              <p className="truncate text-xs text-slate-500">{email}</p>
+            </div>
+            <button type="button" onClick={onLogout} className="mt-1 flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900">
+              <LogOut className="size-4" aria-hidden />
+              Keluar
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 

@@ -29,6 +29,7 @@ class CategoryAttributeController extends Controller
             'data_type' => ['required', Rule::in(CategoryAttributeService::TYPES)],
             'is_required' => ['sometimes', 'boolean'],
             'options' => ['nullable', 'array'],
+            'section' => ['nullable', 'string', 'in:basic_information,location_ownership,status_condition'],
         ]);
 
         return new CategoryAttributeResource($this->attributes->create($tenantCategory, $data)->load('category'));
@@ -44,6 +45,7 @@ class CategoryAttributeController extends Controller
             'attributes.*.data_type' => ['required', Rule::in(CategoryAttributeService::TYPES)],
             'attributes.*.is_required' => ['sometimes', 'boolean'],
             'attributes.*.options' => ['nullable', 'array'],
+            'attributes.*.section' => ['nullable', 'string', 'in:basic_information,location_ownership,status_condition'],
         ]);
 
         return CategoryAttributeResource::collection($this->attributes->sync($tenantCategory, $data['attributes']));
@@ -55,6 +57,7 @@ class CategoryAttributeController extends Controller
             'label' => ['sometimes', 'required', 'string', 'max:100'],
             'is_required' => ['sometimes', 'boolean'],
             'options' => ['sometimes', 'nullable', 'array'],
+            'sort_order' => ['sometimes', 'integer', 'min:1'],
         ]);
 
         return new CategoryAttributeResource($this->attributes->update($categoryAttribute, $data)->load('category'));

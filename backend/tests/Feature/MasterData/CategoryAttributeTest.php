@@ -195,6 +195,42 @@ class CategoryAttributeTest extends TestCase
         $this->assertCount(count($this->defaultLabels()), collect($remaining->json('data'))->where('is_default', true));
     }
 
+    public function test_default_fields_can_only_be_reordered(): void
+    {
+        $vehicles = $this->category('KEND', 'Kendaraan');
+        $sync = fn (array $rows) => $this->putJson("/api/tenant-masters/categories/{$vehicles->id}/attributes", ['attributes' => $rows]);
+        $defaults = collect($this->getJson("/api/tenant-masters/categories/{$vehicles->id}/attributes")->json('data'))->where('is_default', true)->values();
+        [$brand, $model] = [$defaults[0], $defaults[1]];
+        $row = fn (array $f, array $patch = []) => ['id' => $f['id'], 'label' => $f['label'], 'data_type' => $f['data_type'], 'is_required' => $f['is_required'], 'options' => $f['options'], ...$patch];
+
+        // Defaults and custom fields share one order; changes to a default row are ignored.
+        $saved = collect($sync([
+            ['label' => 'Nomor Polisi', 'data_type' => 'string'],
+            $row($model, ['label' => 'Tipe', 'is_required' => true, 'data_type' => 'text']),
+            $row($brand),
+            ...$defaults->slice(2)->map(fn ($f) => $row($f))->all(),
+        ])->assertOk()->json('data'));
+        $this->assertSame(['Nomor Polisi', 'Model', 'Merek'], $saved->take(3)->pluck('label')->all());
+        $this->assertSame(['string', false], [$saved[1]['data_type'], $saved[1]['is_required']]);
+
+        // A custom field can move to another section; a default row's section change is ignored.
+        $plate = $saved[0];
+        $saved = collect($sync([
+            $row($plate, ['section' => 'location_ownership']),
+            $row($model, ['section' => 'status_condition']),
+            $row($brand),
+            ...$defaults->slice(2)->map(fn ($f) => $row($f))->all(),
+        ])->assertOk()->json('data'));
+        $this->assertSame(['location_ownership', $model['section']], [$saved[0]['section'], $saved[1]['section']]);
+
+        // Left out, defaults stay; a custom field cannot take a default's name.
+        $this->assertCount($defaults->count(), collect($sync([])->assertOk()->json('data'))->where('is_default', true));
+        $this->assertErrorCode($sync([['label' => 'merek', 'data_type' => 'string']]), 422, 'VALIDATION_FAILED');
+
+        // Single-field update: position only.
+        $this->assertErrorCode($this->patchJson("/api/category-attributes/{$brand['id']}", ['label' => 'Brand']), 409, 'DEFAULT_ATTRIBUTE_IMMUTABLE');
+    }
+
     public function test_viewer_cannot_manage_fields_and_other_tenants_fields_are_invisible(): void
     {
         $viewer = $this->createTenantUser($this->org, [$this->viewerRole($this->org)]);

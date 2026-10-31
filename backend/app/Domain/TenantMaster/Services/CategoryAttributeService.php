@@ -100,7 +100,7 @@ final class CategoryAttributeService
             ->values();
     }
 
-    /** @param array<string, mixed> $data label, data_type, is_required, options */
+    /** @param array<string, mixed> $data label, data_type, is_required, options, section? */
     public function create(TenantAssetCategory $category, array $data): TenantCategoryAttribute
     {
         if ($category->status === MasterStatus::ARCHIVED) {
@@ -119,13 +119,14 @@ final class CategoryAttributeService
             'options' => $options,
             'sort_order' => (int) TenantCategoryAttribute::query()->where('category_id', $category->id)->max('sort_order') + 1,
             'is_default' => false,
+            'section' => $data['section'] ?? null,
         ], 'category_attribute.created', self::AUDIT);
     }
 
     /**
      * Creates default attributes for a new top-level category; subcategories inherit them
      * through effective(), so giving them their own copy would list every default twice.
-     * Default attributes are read-only and cannot be modified by users.
+     * Users cannot change or remove default attributes, only reorder them (sync()).
      */
     public function createDefaultAttributes(TenantAssetCategory $category): void
     {
@@ -155,14 +156,14 @@ final class CategoryAttributeService
         }
     }
 
-    /** @param array<string, mixed> $data label, is_required, options */
+    /** @param array<string, mixed> $data label, is_required, options, sort_order? */
     public function update(TenantCategoryAttribute $attribute, array $data): TenantCategoryAttribute
     {
         if ($attribute->status === MasterStatus::ARCHIVED) {
             throw ApiException::conflict('ALREADY_ARCHIVED', 'Atribut sudah dihapus.');
         }
-        if ($attribute->is_default) {
-            throw ApiException::conflict('DEFAULT_ATTRIBUTE_IMMUTABLE', 'Atribut default tidak dapat diubah.');
+        if ($attribute->is_default && array_diff(array_keys($data), ['sort_order']) !== []) {
+            throw ApiException::conflict('DEFAULT_ATTRIBUTE_IMMUTABLE', 'Atribut default hanya dapat diubah urutannya.');
         }
         $changes = [];
         if (array_key_exists('label', $data)) {
@@ -175,6 +176,9 @@ final class CategoryAttributeService
         if (array_key_exists('options', $data)) {
             $changes['options'] = $this->normalizeOptions($attribute->data_type, $data['options'], $attribute->options ?? []);
         }
+        if (array_key_exists('sort_order', $data)) {
+            $changes['sort_order'] = (int) $data['sort_order'];
+        }
 
         return $this->writer->update($attribute, $changes, 'category_attribute.updated', self::AUDIT);
     }
@@ -182,9 +186,10 @@ final class CategoryAttributeService
     /**
      * Saves the whole list of a category's own fields in one go, in the given order: rows with
      * an id update that field, rows without one create a field, own fields left out are removed
-     * (archived). All or nothing; errors are keyed `attributes.{index}.{field}`.
+     * (archived). Default fields of the category may be listed too, but only their position counts;
+     * left out, they stay. All or nothing; errors are keyed `attributes.{index}.{field}`.
      *
-     * @param  list<array<string, mixed>>  $rows  id?, label, data_type, is_required?, options?
+     * @param  list<array<string, mixed>>  $rows  id?, label, data_type, is_required?, options?, section?
      * @return Collection<int, TenantCategoryAttribute> the effective fields afterwards
      *
      * @throws ValidationException
@@ -200,7 +205,8 @@ final class CategoryAttributeService
         // Validate every row first, so one save reports all problems.
         $errors = [];
         $planned = [];
-        $labels = [];
+        // Default fields keep their names, so custom rows cannot take them either.
+        $labels = $own->where('is_default', true)->mapWithKeys(fn ($a) => [mb_strtolower($a->label) => true])->all();
         foreach ($rows as $i => $row) {
             $prefix = "attributes.{$i}";
             $existing = isset($row['id']) ? $own->get($row['id']) : null;
@@ -210,7 +216,8 @@ final class CategoryAttributeService
                 continue;
             }
             if ($existing !== null && $existing->is_default) {
-                $errors["{$prefix}.id"] = ['Atribut default tidak dapat diubah.'];
+                // A default field can only be moved: its position is taken, the rest of the row ignored.
+                $planned[] = [$existing, ['sort_order' => $i + 1]];
 
                 continue;
             }
@@ -238,6 +245,7 @@ final class CategoryAttributeService
                 'is_required' => (bool) ($row['is_required'] ?? false),
                 'options' => $options,
                 'sort_order' => $i + 1,
+                'section' => $row['section'] ?? null,
             ]];
         }
         if ($errors !== []) {

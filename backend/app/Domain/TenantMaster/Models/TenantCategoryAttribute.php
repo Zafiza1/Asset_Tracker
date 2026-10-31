@@ -29,7 +29,7 @@ class TenantCategoryAttribute extends Model
 {
     use BelongsToOrganization, HasUuids;
 
-    protected $fillable = ['label', 'is_required', 'options', 'is_default', 'section'];
+    protected $fillable = ['label', 'is_required', 'options', 'is_default', 'section', 'sort_order'];
 
     protected function casts(): array
     {

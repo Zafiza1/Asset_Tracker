@@ -18,15 +18,20 @@ const fields = [
   field('jumlah_kursi', 'Jumlah Kursi', 'mobil', { data_type: 'integer' }),
 ]
 
-function renderModal(canUpdate: boolean, putResponse: () => Response = () => new Response(JSON.stringify({ data: fields }), { status: 200 })) {
+function renderModal(
+  canUpdate: boolean,
+  putResponse: () => Response = () => new Response(JSON.stringify({ data: fields }), { status: 200 }),
+  of: TenantCategory = category,
+  listed: CategoryAttribute[] = fields,
+) {
   const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
-    init?.method === 'PUT' ? putResponse() : new Response(JSON.stringify({ data: fields }), { status: 200 }),
+    init?.method === 'PUT' ? putResponse() : new Response(JSON.stringify({ data: listed }), { status: 200 }),
   )
   vi.stubGlobal('fetch', fetchMock)
   const onClose = vi.fn()
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <CategoryAttributesModal category={category} canUpdate={canUpdate} onClose={onClose} />
+      <CategoryAttributesModal category={of} canUpdate={canUpdate} onClose={onClose} />
     </QueryClientProvider>,
   )
   const putBody = () => JSON.parse(String(fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT')?.[1]?.body))
@@ -37,9 +42,9 @@ describe('CategoryAttributesModal', () => {
   it('edits, adds, and removes several attributes, then saves them in one request', async () => {
     const { onClose, putBody } = renderModal(true)
     expect(await screen.findByDisplayValue('Warna')).toBeInTheDocument()
-    // Only the category's own custom fields are rows; the defaults of the top-level category are listed read-only.
+    // Only the category's own fields are rows; the parent's fields (defaults included) are listed read-only.
     expect(screen.queryByDisplayValue('Nomor Polisi')).not.toBeInTheDocument()
-    expect(screen.getByText('Atribut Default (hanya baca)')).toBeInTheDocument()
+    expect(screen.getByText(/Atribut dari kategori induk/)).toBeInTheDocument()
     expect(screen.getByText('Merek')).toBeInTheDocument()
 
     fireEvent.click(screen.getByLabelText('Hapus atribut 1'))
@@ -56,10 +61,27 @@ describe('CategoryAttributesModal', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled())
     expect(putBody()).toEqual({
       attributes: [
-        { id: 'jumlah_kursi', label: 'Jumlah Kursi', data_type: 'integer', is_required: false, options: null },
-        { label: 'Bahan Bakar', data_type: 'enum', is_required: false, options: [{ label: 'Bensin' }] },
+        { id: 'jumlah_kursi', label: 'Jumlah Kursi', data_type: 'integer', is_required: false, options: null, section: null },
+        { label: 'Bahan Bakar', data_type: 'enum', is_required: false, options: [{ label: 'Bensin' }], section: null },
       ],
     })
+  })
+
+  it('lets default fields of a top-level category be moved but not edited or removed', async () => {
+    const top = { ...category, id: 'kendaraan', name: 'Kendaraan', depth: 0 } as TenantCategory
+    const own = [
+      field('merek', 'Merek', 'kendaraan', { is_default: true, section: 'basic_information' }),
+      field('nomor_polisi', 'Nomor Polisi', 'kendaraan'),
+    ]
+    const { onClose, putBody } = renderModal(true, undefined, top, own)
+    expect(await screen.findByDisplayValue('Nomor Polisi')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('Merek')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Hapus atribut 1')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Pindah atribut 1 ke bawah'))
+    fireEvent.click(screen.getByText('Simpan'))
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(putBody().attributes.map((a: { id: string }) => a.id)).toEqual(['nomor_polisi', 'merek'])
   })
 
   it('shows server errors on the row they belong to', async () => {
