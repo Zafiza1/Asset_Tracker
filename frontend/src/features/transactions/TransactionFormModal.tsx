@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { X } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
@@ -15,10 +16,10 @@ import { errorMessage } from '../../lib/forms'
 import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, assetStatusTone, type Asset, type AssetStatus } from '../assets/api'
 import { CategoryFilter } from '../assets/CategoryFilter'
-import { allowedTypes, transactionTypeLabel, typePermission, type ManualTransactionType } from './api'
+import { allowedTypes, ineligibleReason, manualTypes, transactionTypeLabel, typePermission, type ManualTransactionType } from './api'
 
 const selectableStatuses: AssetStatus[] = ['available', 'in_use', 'under_maintenance', 'disposed']
-const DEFAULT_COLUMNS = ['code', 'name', 'serial_number', 'category', 'location', 'status']
+const DEFAULT_COLUMNS = ['pick', 'code', 'name', 'serial_number', 'category', 'location', 'status']
 
 function today(): string {
   const d = new Date()
@@ -26,21 +27,24 @@ function today(): string {
 }
 
 interface Props {
-  /** Pre-selected asset (from the asset detail page); otherwise the user searches for one. */
+  /** Pre-selected asset (from the asset detail page); otherwise the user picks one or more. */
   asset?: Asset
   initialType?: ManualTransactionType
   onClose: () => void
 }
 
-/** Record one manual transaction. Each type shows only the fields it needs. */
+/**
+ * Record one manual transaction: choose the type first, fill in what it needs, then pick the
+ * assets it covers. Every picked asset gets its own history row under one transaction number.
+ */
 export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }: Props) {
   const { can } = useAuth()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const [picked, setPicked] = useState<Asset | null>(fixedAsset ?? null)
-  const asset = fixedAsset ?? picked
-  const types = allowedTypes(asset?.status).filter((t) => !typePermission[t] || can(typePermission[t]!))
+  const [picked, setPicked] = useState<Asset[]>([])
+  const assets = fixedAsset ? [fixedAsset] : picked
+  const types = (fixedAsset ? allowedTypes(fixedAsset.status) : manualTypes).filter((t) => !typePermission[t] || can(typePermission[t]!))
   const [type, setType] = useState<ManualTransactionType | ''>(initialType && types.includes(initialType) ? initialType : '')
   const [values, setValues] = useState<Record<string, string>>({ transaction_date: today() })
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
@@ -51,13 +55,46 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   const categoryRows = useOptions('/tenant-masters/categories').data
   const categories = toOptions(categoryRows)
 
+  const reason = (a: Asset) => (type ? ineligibleReason(a, type, values) : null)
+  const isPicked = (a: Asset) => picked.some((p) => p.id === a.id)
+  const toggle = (a: Asset) => {
+    if (isPicked(a)) setPicked((prev) => prev.filter((p) => p.id !== a.id))
+    else if (!reason(a)) setPicked((prev) => [...prev, a])
+  }
+  const blocked = assets.filter((a) => reason(a))
+
   const columns = [
+    {
+      key: 'pick',
+      header: '',
+      className: 'w-10',
+      cell: (a: Asset) => (
+        <input
+          type="checkbox"
+          className="size-4 rounded border-slate-300 text-brand-600"
+          checked={isPicked(a)}
+          disabled={!isPicked(a) && !!reason(a)}
+          onClick={(e) => e.stopPropagation()}
+          onChange={() => toggle(a)}
+          aria-label={`Pilih ${a.name}`}
+        />
+      ),
+    },
     { key: 'code', header: 'Kode', cell: (a: Asset) => <span className="font-mono text-xs">{a.asset_number}</span> },
     { key: 'name', header: 'Aset', cell: (a: Asset) => <span className="font-medium text-slate-900">{a.name}</span> },
     { key: 'serial_number', header: 'No Seri', cell: (a: Asset) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>) },
     { key: 'category', header: 'Kategori', cell: (a: Asset) => a.category?.name ?? '—' },
     { key: 'location', header: 'Lokasi', cell: (a: Asset) => a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span> },
-    { key: 'status', header: 'Status', cell: (a: Asset) => <Badge tone={assetStatusTone[a.status]}>{assetStatusLabel[a.status]}</Badge> },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (a: Asset) => (
+        <div>
+          <Badge tone={assetStatusTone[a.status]}>{assetStatusLabel[a.status]}</Badge>
+          {reason(a) && <p className="mt-1 text-xs text-slate-500">Tidak dapat dipilih</p>}
+        </div>
+      ),
+    },
   ]
 
   const toggleColumn = (key: string) => {
@@ -71,8 +108,9 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   const candidates = useQuery({
     queryKey: ['/assets', 'picker', search, currentPage, filters],
     queryFn: () => api.get<Paginated<Asset>>(`/assets${qs({ search, per_page: 10, page: currentPage, ...filters })}`),
-    enabled: !fixedAsset && !picked,
+    enabled: !fixedAsset && !!type,
   })
+  const pickable = (candidates.data?.data ?? []).filter((a) => !reason(a) && !isPicked(a))
 
   const set = (name: string) => (e: { target: { value: string } }) => setValues((v) => ({ ...v, [name]: e.target.value }))
   const err = (name: string) => fieldErrors[name]?.[0]
@@ -94,7 +132,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
 
   const save = useMutation({
     mutationFn: () => {
-      const payload: Record<string, unknown> = { asset_id: asset!.id, type }
+      const payload: Record<string, unknown> = { asset_ids: assets.map((a) => a.id), type }
       for (const [k, v] of Object.entries(values)) payload[k] = v.trim() === '' ? null : v.trim()
       return api.post('/transactions', payload)
     },
@@ -116,8 +154,8 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
           <Button variant="secondary" onClick={onClose}>
             Batal
           </Button>
-          <Button type="submit" form="transaction-form" loading={save.isPending} disabled={!asset || !type}>
-            Simpan transaksi
+          <Button type="submit" form="transaction-form" loading={save.isPending} disabled={!type || assets.length === 0 || blocked.length > 0}>
+            Simpan transaksi{!fixedAsset && assets.length > 0 ? ` (${assets.length} aset)` : ''}
           </Button>
         </>
       }
@@ -134,112 +172,30 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
       >
         {save.isError && <Alert tone="error">{errorMessage(save.error)}</Alert>}
 
-        {asset ? (
-          <div className="rounded-md bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
-            <p className="font-medium text-slate-900">{asset.name}</p>
-            <p className="text-slate-600">
-              {asset.asset_number} · {assetStatusLabel[asset.status]}
-              {asset.location ? ` · ${asset.location.name}` : ''}
-            </p>
-            {!fixedAsset && (
-              <button type="button" className="mt-1 text-xs font-medium text-brand-700 hover:underline" onClick={() => (setPicked(null), setType(''))}>
-                Ganti aset
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-              Aset <span className="text-red-600">*</span>
-            </label>
-            {err('asset_id') && <p className="mt-1.5 text-sm text-red-700">{err('asset_id')}</p>}
-            <p className="mt-1.5 text-xs text-slate-500">Cari berdasarkan nama, nomor aset, atau nomor seri.</p>
-            <FilterPanel>
-              <SearchForm
-                value={search}
-                onChange={handleSearchChange}
-                onSubmit={() => setCurrentPage(1)}
-                placeholder="Ketik untuk mencari aset"
-                label="Cari aset"
-                aside={
-                  <ColumnToggle
-                    columns={columns}
-                    visibleColumns={visibleColumns}
-                    onToggle={toggleColumn}
-                    onReset={resetColumns}
-                  />
-                }
-              />
-              <AdvancedFilters
-                activeCount={Object.values(filters).filter(Boolean).length}
-                dirty={false}
-                onApply={() => setCurrentPage(1)}
-                onClear={resetFilters}
-              >
-                <CategoryFilter
-                  options={categories}
-                  selected={filters.category_ids.split(',').filter(Boolean)}
-                  onChange={(ids) => handleFilterChange({ category_ids: ids.join(',') })}
-                />
-                <Select value={filters.location_id} onChange={(e) => handleFilterChange({ location_id: e.target.value })} aria-label="Filter lokasi">
-                  <option value="">Lokasi: semua</option>
-                  {locations.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-                <Select value={filters.status} onChange={(e) => handleFilterChange({ status: e.target.value })} aria-label="Filter status">
-                  <option value="">Status: semua</option>
-                  {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
-                    <option key={s} value={s}>
-                      {assetStatusLabel[s]}
-                    </option>
-                  ))}
-                </Select>
-              </AdvancedFilters>
-            </FilterPanel>
-            {candidates.data?.data.length === 0 ? (
-              <p className="text-sm text-slate-500">Aset tidak ditemukan.</p>
-            ) : (
-              <>
-                <DataTable
-                  columns={columns}
-                  rows={candidates.data?.data ?? []}
-                  visibleColumns={visibleColumns}
-                  onRowClick={(a) => setPicked(a)}
-                />
-                {candidates.data?.meta && (
-                  <Pagination meta={candidates.data.meta} onPage={setCurrentPage} />
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {asset && (
-          <Field label="Jenis transaksi" required error={err('type')}>
-            {(p) => (
-              <Select
-                {...p}
-                value={type}
-                onChange={(e) => {
-                  setType(e.target.value as ManualTransactionType)
-                  // Fields of the previous type must not be sent with the new one.
-                  setValues((v) => ({ transaction_date: v.transaction_date ?? today(), notes: v.notes ?? '' }))
-                  setFieldErrors({})
-                }}
-              >
-                <option value="">— Pilih —</option>
-                {types.map((t) => (
-                  <option key={t} value={t}>
-                    {transactionTypeLabel[t]}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-        )}
+        <Field label="Jenis transaksi" required error={err('type')}>
+          {(p) => (
+            <Select
+              {...p}
+              value={type}
+              onChange={(e) => {
+                const next = e.target.value as ManualTransactionType | ''
+                setType(next)
+                // Fields of the previous type must not be sent with the new one.
+                setValues((v) => ({ transaction_date: v.transaction_date ?? today(), notes: v.notes ?? '' }))
+                setFieldErrors({})
+                // Assets picked for the previous type that this one does not accept are dropped.
+                setPicked((prev) => (next ? prev.filter((a) => !ineligibleReason(a, next)) : prev))
+              }}
+            >
+              <option value="">— Pilih —</option>
+              {types.map((t) => (
+                <option key={t} value={t}>
+                  {transactionTypeLabel[t]}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
 
         {type === 'transfer' && (
           <Field label="Lokasi tujuan" required error={err('to_location_id')}>
@@ -247,7 +203,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
               <Select {...p} value={values.to_location_id ?? ''} onChange={set('to_location_id')}>
                 <option value="">— Pilih —</option>
                 {locations.map((o) => (
-                  <option key={o.value} value={o.value} disabled={o.value === asset?.location_id}>
+                  <option key={o.value} value={o.value} disabled={o.value === fixedAsset?.location_id}>
                     {o.label}
                   </option>
                 ))}
@@ -262,7 +218,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
               <Select {...p} value={values.to_status ?? ''} onChange={set('to_status')}>
                 <option value="">— Pilih —</option>
                 {selectableStatuses
-                  .filter((s) => s !== asset?.status && (s !== 'disposed' || can('asset.dispose')))
+                  .filter((s) => s !== fixedAsset?.status && (s !== 'disposed' || can('asset.dispose')))
                   .map((s) => (
                     <option key={s} value={s}>
                       {assetStatusLabel[s]}
@@ -308,6 +264,107 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
               {(p) => <Textarea {...p} rows={3} value={values.notes ?? ''} onChange={set('notes')} />}
             </Field>
           </>
+        )}
+
+        {type && fixedAsset && (
+          <div className="rounded-md bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
+            <p className="font-medium text-slate-900">{fixedAsset.name}</p>
+            <p className="text-slate-600">
+              {fixedAsset.asset_number} · {assetStatusLabel[fixedAsset.status]}
+              {fixedAsset.location ? ` · ${fixedAsset.location.name}` : ''}
+            </p>
+          </div>
+        )}
+
+        {type && !fixedAsset && (
+          <div className="space-y-2">
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+              Aset <span className="text-red-600">*</span>
+              <span className="ml-2 font-normal text-slate-500">{picked.length} dipilih</span>
+            </label>
+            {err('asset_ids') && <p className="mt-1.5 text-sm text-red-700">{err('asset_ids')}</p>}
+
+            {picked.length > 0 && (
+              <ul className="flex flex-wrap gap-2" aria-label="Aset dipilih">
+                {picked.map((a) => (
+                  <li key={a.id} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ring-1 ${reason(a) ? 'bg-red-50 text-red-800 ring-red-200' : 'bg-brand-50 text-brand-800 ring-brand-200'}`}>
+                    <span className="font-mono">{a.asset_number}</span>
+                    <span>{a.name}</span>
+                    {reason(a) && <span>· {reason(a)}</span>}
+                    <button type="button" className="rounded-full p-0.5 hover:bg-black/10" onClick={() => toggle(a)} aria-label={`Hapus ${a.name}`}>
+                      <X className="size-3" aria-hidden />
+                    </button>
+                  </li>
+                ))}
+                <li>
+                  <button type="button" className="px-1 py-1 text-xs font-medium text-brand-700 hover:underline" onClick={() => setPicked([])}>
+                    Hapus semua
+                  </button>
+                </li>
+              </ul>
+            )}
+            {blocked.length > 0 && <Alert tone="error">Hapus aset yang ditandai merah, aset tersebut tidak dapat ikut transaksi ini.</Alert>}
+
+            <p className="mt-1.5 text-xs text-slate-500">Cari berdasarkan nama, nomor aset, atau nomor seri. Centang semua aset yang ikut dalam transaksi ini.</p>
+            <FilterPanel>
+              <SearchForm
+                value={search}
+                onChange={handleSearchChange}
+                onSubmit={() => setCurrentPage(1)}
+                placeholder="Ketik untuk mencari aset"
+                label="Cari aset"
+                aside={
+                  <ColumnToggle
+                    columns={columns.filter((c) => c.key !== 'pick')}
+                    visibleColumns={visibleColumns}
+                    onToggle={toggleColumn}
+                    onReset={resetColumns}
+                  />
+                }
+              />
+              <AdvancedFilters
+                activeCount={Object.values(filters).filter(Boolean).length}
+                dirty={false}
+                onApply={() => setCurrentPage(1)}
+                onClear={resetFilters}
+              >
+                <CategoryFilter
+                  options={categories}
+                  selected={filters.category_ids.split(',').filter(Boolean)}
+                  onChange={(ids) => handleFilterChange({ category_ids: ids.join(',') })}
+                />
+                <Select value={filters.location_id} onChange={(e) => handleFilterChange({ location_id: e.target.value })} aria-label="Filter lokasi">
+                  <option value="">Lokasi: semua</option>
+                  {locations.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+                <Select value={filters.status} onChange={(e) => handleFilterChange({ status: e.target.value })} aria-label="Filter status">
+                  <option value="">Status: semua</option>
+                  {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
+                    <option key={s} value={s}>
+                      {assetStatusLabel[s]}
+                    </option>
+                  ))}
+                </Select>
+              </AdvancedFilters>
+            </FilterPanel>
+            {candidates.data?.data.length === 0 ? (
+              <p className="text-sm text-slate-500">Aset tidak ditemukan.</p>
+            ) : (
+              <>
+                {pickable.length > 0 && (
+                  <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setPicked((prev) => [...prev, ...pickable])}>
+                    Pilih semua yang bisa dipilih di halaman ini ({pickable.length})
+                  </button>
+                )}
+                <DataTable columns={columns} rows={candidates.data?.data ?? []} visibleColumns={visibleColumns} onRowClick={toggle} />
+                {candidates.data?.meta && <Pagination meta={candidates.data.meta} onPage={setCurrentPage} />}
+              </>
+            )}
+          </div>
         )}
       </form>
     </Modal>

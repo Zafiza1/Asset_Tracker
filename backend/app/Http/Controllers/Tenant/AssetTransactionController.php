@@ -13,6 +13,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AssetTransactionResource;
 use App\Http\Support\ListQuery;
 use Illuminate\Contracts\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
@@ -21,6 +23,8 @@ use Illuminate\Validation\Rule;
 class AssetTransactionController extends Controller
 {
     private const RELATIONS = ['asset', 'fromLocation', 'toLocation', 'creator'];
+
+    private const MAX_ASSETS = 200;
 
     public function __construct(
         private readonly AssetTransactionService $transactions,
@@ -63,10 +67,16 @@ class AssetTransactionController extends Controller
         return new AssetTransactionResource($assetTransaction->load(self::RELATIONS));
     }
 
-    public function store(Request $request): AssetTransactionResource
+    /**
+     * `asset_ids` records one transaction covering many assets (answered as a list);
+     * `asset_id` records it for a single asset (answered as one object).
+     */
+    public function store(Request $request): AssetTransactionResource|JsonResponse
     {
         $data = $request->validate([
-            'asset_id' => ['required', 'uuid'],
+            'asset_id' => ['required_without:asset_ids', 'prohibits:asset_ids', 'uuid'],
+            'asset_ids' => ['required_without:asset_id', 'array', 'min:1', 'max:'.self::MAX_ASSETS],
+            'asset_ids.*' => ['required', 'uuid', 'distinct:ignore_case'],
             'type' => ['required', Rule::in(TransactionType::MANUAL)],
             'transaction_date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after:1999-12-31'],
             'to_location_id' => ['nullable', 'uuid'],
@@ -76,7 +86,13 @@ class AssetTransactionController extends Controller
             'notes' => [Rule::requiredIf($request->input('type') === TransactionType::NOTE), 'nullable', 'string', 'max:1000'],
         ]);
 
-        return new AssetTransactionResource($this->transactions->create($data)->load(self::RELATIONS));
+        $single = isset($data['asset_id']);
+        $data['asset_ids'] = array_map('strtolower', $single ? [$data['asset_id']] : $data['asset_ids']);
+        $transactions = (new Collection($this->transactions->create($data)))->load(self::RELATIONS);
+
+        return $single
+            ? new AssetTransactionResource($transactions->first())
+            : AssetTransactionResource::collection($transactions)->response()->setStatusCode(201);
     }
 
     /** Transactions of assets within the user's data scope. */

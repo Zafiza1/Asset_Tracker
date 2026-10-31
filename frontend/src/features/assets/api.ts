@@ -26,6 +26,8 @@ export interface Asset {
   description: string | null
   /** Category field values keyed by attribute key. */
   attributes: Record<string, AttributeValue>
+  /** Same-origin URL of the photo (with a cache-busting version), or null when there is none. */
+  image_url: string | null
   borrower_name: string | null
   loan_due_date: string | null
   is_archived: boolean

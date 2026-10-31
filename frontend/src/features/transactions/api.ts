@@ -1,4 +1,4 @@
-import type { AssetStatus, Ref } from '../assets/api'
+import { assetStatusLabel, type Asset, type AssetStatus, type Ref } from '../assets/api'
 
 /** Asset Transactions module: API shapes and labels. Types mirror App\Domain\AssetTransactions\TransactionType. */
 
@@ -46,6 +46,23 @@ export const typePermission: Record<ManualTransactionType, string | null> = {
   loan: 'asset.assign',
   return: 'asset.assign',
   note: null,
+}
+
+/** Target values chosen in the form that some assets cannot take part in. */
+export interface TransactionTarget {
+  to_location_id?: string
+  to_status?: string
+}
+
+/**
+ * Why the asset cannot be part of a transaction of this type, or null when it can.
+ * Mirrors the API rules so ineligible assets can be shown but not picked.
+ */
+export function ineligibleReason(asset: Pick<Asset, 'status' | 'location_id'>, type: ManualTransactionType, target: TransactionTarget = {}): string | null {
+  if (!allowedTypes(asset.status).includes(type)) return `Status ${assetStatusLabel[asset.status]}`
+  if (type === 'transfer' && target.to_location_id && target.to_location_id === asset.location_id) return 'Sudah di lokasi tujuan'
+  if (type === 'status_change' && target.to_status && target.to_status === asset.status) return 'Status sudah sama'
+  return null
 }
 
 /** Types that make sense for the asset's current status (the API enforces the same rules). */

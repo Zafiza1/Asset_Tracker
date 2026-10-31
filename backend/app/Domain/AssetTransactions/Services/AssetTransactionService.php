@@ -16,9 +16,10 @@ use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Manual asset transactions. A transaction is recorded and applied to the asset in one
- * database transaction while the asset row is locked, so concurrent transactions on the
- * same asset are serialized and the history always matches the asset's current state.
+ * Manual asset transactions. A transaction covers one or more assets; it is recorded and
+ * applied to them in one database transaction while the asset rows are locked, so concurrent
+ * transactions on the same asset are serialized and the history always matches the asset's
+ * current state.
  *
  * Rules (kept deliberately small):
  *  - archived assets accept no transactions;
@@ -42,39 +43,81 @@ final class AssetTransactionService
         private readonly Tenancy $tenancy,
     ) {}
 
-    /** @param array<string, mixed> $data validated input */
-    public function create(array $data): AssetTransaction
+    /**
+     * One transaction covering every asset in $data['asset_ids']: each asset gets its own history
+     * row and all rows share one transaction number. All or nothing: if one asset breaks a
+     * rule, nothing is recorded and the error names that asset.
+     *
+     * @param  array<string, mixed>  $data  validated input
+     * @return list<AssetTransaction>
+     */
+    public function create(array $data): array
     {
         $type = $data['type'];
         $this->authorize($type, $data);
 
         return DB::transaction(function () use ($type, $data) {
-            $asset = $this->lockAsset($data['asset_id']);
-            if ($asset->isArchived()) {
-                throw ApiException::conflict('ASSET_ARCHIVED', 'Aset nonaktif tidak dapat ditransaksikan. Aktifkan kembali terlebih dahulu.');
-            }
+            $assets = $this->lockAssets($data['asset_ids']);
+            $number = $this->log->nextNumber($type);
 
-            [$assetChanges, $logChanges] = match ($type) {
-                TransactionType::TRANSFER => $this->transfer($asset, $data),
-                TransactionType::STATUS_CHANGE => $this->statusChange($asset, $data),
-                TransactionType::LOAN => $this->loan($asset, $data),
-                TransactionType::RETURN => $this->return($asset, $data),
-                TransactionType::NOTE => [[], []],
-            };
-
-            if ($assetChanges !== []) {
-                $asset->forceFill([...$assetChanges, 'lock_version' => $asset->lock_version + 1, 'updated_by' => $this->tenancy->tenant()->userId()])->save();
-            }
-            $transaction = $this->log->record($asset, $type, $logChanges, $data['transaction_date'] ?? null, $data['notes'] ?? null);
-            $this->audit->record('asset_transaction.created', $transaction, after: [
-                'transaction_number' => $transaction->transaction_number,
-                'asset_number' => $asset->asset_number,
-                'type' => $type,
-                ...$logChanges,
-            ]);
-
-            return $transaction;
+            return array_map(fn (Asset $asset) => $this->withAssetContext($asset, count($assets) > 1,
+                fn () => $this->apply($asset, $type, $data, $number)), $assets);
         });
+    }
+
+    /** @param array<string, mixed> $data */
+    private function apply(Asset $asset, string $type, array $data, string $number): AssetTransaction
+    {
+        if ($asset->isArchived()) {
+            throw ApiException::conflict('ASSET_ARCHIVED', 'Aset nonaktif tidak dapat ditransaksikan. Aktifkan kembali terlebih dahulu.');
+        }
+
+        [$assetChanges, $logChanges] = match ($type) {
+            TransactionType::TRANSFER => $this->transfer($asset, $data),
+            TransactionType::STATUS_CHANGE => $this->statusChange($asset, $data),
+            TransactionType::LOAN => $this->loan($asset, $data),
+            TransactionType::RETURN => $this->return($asset, $data),
+            TransactionType::NOTE => [[], []],
+        };
+
+        if ($assetChanges !== []) {
+            $asset->forceFill([...$assetChanges, 'lock_version' => $asset->lock_version + 1, 'updated_by' => $this->tenancy->tenant()->userId()])->save();
+        }
+        $transaction = $this->log->record($asset, $type, $logChanges, $data['transaction_date'] ?? null, $data['notes'] ?? null, $number);
+        $this->audit->record('asset_transaction.created', $transaction, after: [
+            'transaction_number' => $transaction->transaction_number,
+            'asset_number' => $asset->asset_number,
+            'type' => $type,
+            ...$logChanges,
+        ]);
+
+        return $transaction;
+    }
+
+    /**
+     * In a multi-asset transaction, prefix rule failures with the asset they are about.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $fn
+     * @return T
+     */
+    private function withAssetContext(Asset $asset, bool $many, callable $fn): mixed
+    {
+        try {
+            return $fn();
+        } catch (ApiException $e) {
+            if (! $many) {
+                throw $e;
+            }
+            $prefix = "{$asset->asset_number} ({$asset->name}): ";
+            $details = $e->details;
+            foreach ($details['fields'] ?? [] as $field => $messages) {
+                $details['fields'][$field] = array_map(fn ($m) => $prefix.$m, $messages);
+            }
+
+            throw new ApiException($e->errorCode, $prefix.$e->getMessage(), $e->status, [...$details, 'asset_id' => $asset->id]);
+        }
     }
 
     /** @return array{0: array<string, mixed>, 1: array<string, mixed>} */
@@ -158,15 +201,21 @@ final class AssetTransactionService
         }
     }
 
-    /** Lock the asset row; assets outside the tenant or the user's data scope are 404. */
-    private function lockAsset(string $id): Asset
+    /**
+     * Lock the asset rows (in id order, so concurrent multi-asset transactions cannot deadlock);
+     * assets outside the tenant or the user's data scope are 404. Returned in the given order.
+     *
+     * @param  list<string>  $ids
+     * @return list<Asset>
+     */
+    private function lockAssets(array $ids): array
     {
-        $asset = $this->scope->apply(Asset::query())->whereKey($id)->lockForUpdate()->first();
-        if ($asset === null) {
-            throw new ApiException('NOT_FOUND', 'Aset tidak ditemukan.', 404, ['fields' => ['asset_id' => ['Aset tidak ditemukan.']]]);
+        $assets = $this->scope->apply(Asset::query())->whereKey($ids)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+        if ($assets->count() !== count($ids)) {
+            throw new ApiException('NOT_FOUND', 'Aset tidak ditemukan.', 404, ['fields' => ['asset_ids' => ['Aset tidak ditemukan.']]]);
         }
 
-        return $asset;
+        return array_map(fn (string $id) => $assets[$id], $ids);
     }
 
     /** @param list<string> $statuses */

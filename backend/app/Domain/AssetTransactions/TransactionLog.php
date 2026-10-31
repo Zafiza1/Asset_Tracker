@@ -24,15 +24,14 @@ final class TransactionLog
 
     /**
      * @param  array<string, mixed>  $changes  subset of CHANGE_COLUMNS
+     * @param  string|null  $number  shared by every asset of a multi-asset transaction (see nextNumber)
      */
-    public function record(Asset $asset, string $type, array $changes = [], ?string $date = null, ?string $notes = null): AssetTransaction
+    public function record(Asset $asset, string $type, array $changes = [], ?string $date = null, ?string $notes = null, ?string $number = null): AssetTransaction
     {
-        $format = OrganizationSetting::query()->value('transaction_number_format') ?: '{TYPE}-{YYYY}-{SEQ:6}';
-
         $transaction = new AssetTransaction;
         $transaction->forceFill([
             ...array_intersect_key($changes, array_flip(self::CHANGE_COLUMNS)),
-            'transaction_number' => $this->numbers->next('transaction', $format, TransactionType::PREFIXES[$type]),
+            'transaction_number' => $number ?? $this->nextNumber($type),
             'asset_id' => $asset->id,
             'type' => $type,
             'transaction_date' => $date ?? $this->today(),
@@ -41,6 +40,13 @@ final class TransactionLog
         ])->save();
 
         return $transaction;
+    }
+
+    public function nextNumber(string $type): string
+    {
+        $format = OrganizationSetting::query()->value('transaction_number_format') ?: '{TYPE}-{YYYY}-{SEQ:6}';
+
+        return $this->numbers->next('transaction', $format, TransactionType::PREFIXES[$type]);
     }
 
     /** Today in the organization's time zone. */

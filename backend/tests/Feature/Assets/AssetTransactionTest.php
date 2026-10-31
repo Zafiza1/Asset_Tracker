@@ -8,6 +8,7 @@ use App\Domain\Organization\Models\Organization;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /** Asset Transactions container: manual transactions, their effect on assets, and the history. */
@@ -68,6 +69,33 @@ class AssetTransactionTest extends TestCase
 
         $this->assertErrorCode($this->record($asset, 'loan', ['borrower_name' => '']), 422, 'VALIDATION_FAILED');
         $this->assertErrorCode($this->record($asset, 'loan', ['borrower_name' => 'Ani', 'due_date' => now()->subDays(3)->toDateString()]), 422, 'VALIDATION_FAILED');
+    }
+
+    public function test_one_transaction_covers_many_assets_all_or_nothing(): void
+    {
+        [$laptop, $printer, $truck] = [$this->asset('Laptop'), $this->asset('Printer'), $this->asset('Truk')];
+
+        $rows = $this->recordMany([$laptop, $printer], 'transfer', ['to_location_id' => $this->otherLocation->id])
+            ->assertCreated()->assertJsonCount(2, 'data')->json('data');
+        $this->assertSame($rows[0]['transaction_number'], $rows[1]['transaction_number']);
+        $this->assertSame([$laptop, $printer], array_column($rows, 'asset_id'));
+        foreach ([$laptop, $printer] as $asset) {
+            $this->getJson("/api/assets/{$asset}")->assertJsonPath('data.location.code', 'LOC2');
+        }
+        $this->assertSame(2, count($this->getJson("/api/transactions?search={$rows[0]['transaction_number']}")->json('data')));
+
+        // One asset breaks a rule: nothing is recorded and the error names that asset.
+        $this->record($printer, 'loan', ['borrower_name' => 'Budi'])->assertCreated();
+        $number = $this->getJson("/api/assets/{$printer}")->json('data.asset_number');
+        $response = $this->recordMany([$truck, $printer], 'loan', ['borrower_name' => 'Ani']);
+        $this->assertErrorCode($response, 409, 'INVALID_ASSET_STATUS');
+        $this->assertStringContainsString($number, $response->json('error.message'));
+        $this->getJson("/api/assets/{$truck}")->assertJsonPath('data.status', 'available');
+        $this->assertSame(1, count($this->getJson("/api/transactions?asset_id={$truck}")->json('data')));
+
+        $this->assertErrorCode($this->recordMany([$truck, $truck], 'note', ['notes' => 'x']), 422, 'VALIDATION_FAILED');
+        $this->assertErrorCode($this->recordMany([], 'note', ['notes' => 'x']), 422, 'VALIDATION_FAILED');
+        $this->assertErrorCode($this->recordMany([$truck, (string) Str::uuid()], 'note', ['notes' => 'x']), 404, 'NOT_FOUND');
     }
 
     public function test_status_change_rules_and_permissions(): void
@@ -205,6 +233,15 @@ class AssetTransactionTest extends TestCase
     private function record(string $assetId, string $type, array $data = [])
     {
         return $this->postJson('/api/transactions', ['asset_id' => $assetId, 'type' => $type, ...$data]);
+    }
+
+    /**
+     * @param  list<string>  $assetIds
+     * @param  array<string, mixed>  $data
+     */
+    private function recordMany(array $assetIds, string $type, array $data = [])
+    {
+        return $this->postJson('/api/transactions', ['asset_ids' => $assetIds, 'type' => $type, ...$data]);
     }
 
     private function location(string $code, string $name, ?Location $parent = null): Location

@@ -168,13 +168,13 @@ class DemoSeeder extends Seeder
                 ]);
             }
 
-            $transactions->create(['asset_id' => $created[4]->id, 'type' => 'transfer', 'to_location_id' => $office->id,
+            $transactions->create(['asset_ids' => [$created[4]->id], 'type' => 'transfer', 'to_location_id' => $office->id,
                 'transaction_date' => now()->subMonths(3)->toDateString(), 'notes' => 'Dipakai tim kantor cabang.']);
-            $transactions->create(['asset_id' => $created[1]->id, 'type' => 'loan', 'borrower_name' => 'Rina (Keuangan)',
+            $transactions->create(['asset_ids' => [$created[1]->id], 'type' => 'loan', 'borrower_name' => 'Rina (Keuangan)',
                 'transaction_date' => now()->subDays(20)->toDateString(), 'due_date' => now()->subDays(5)->toDateString()]);
-            $transactions->create(['asset_id' => $created[5]->id, 'type' => 'note',
+            $transactions->create(['asset_ids' => [$created[5]->id], 'type' => 'note',
                 'transaction_date' => now()->subMonth()->toDateString(), 'notes' => 'Mesin mati, menunggu suku cadang.']);
-            $transactions->create(['asset_id' => $created[2]->id, 'type' => 'note',
+            $transactions->create(['asset_ids' => [$created[2]->id], 'type' => 'note',
                 'transaction_date' => now()->subDays(3)->toDateString(), 'notes' => 'Penggantian tinta rutin.']);
         });
     }

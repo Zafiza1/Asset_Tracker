@@ -7,6 +7,7 @@ use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Assets\Services\AssetService;
 use App\Domain\Organization\Models\Location;
+use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use App\Http\Controllers\Controller;
@@ -21,9 +22,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /** Asset Management container: list/search, detail, register, edit, deactivate, reactivate. */
 class AssetController extends Controller
@@ -32,6 +35,13 @@ class AssetController extends Controller
 
     private const SORTS = ['asset_number' => 'asset_number', 'name' => 'name', 'created_at' => 'created_at',
         'acquisition_date' => 'acquisition_date', 'status' => 'status'];
+
+    /**
+     * Fields that may be set on many assets at once (name and serial number are per asset).
+     * Category fields ({key: value}) only touch the keys sent; a key is ignored on assets whose
+     * category does not have it.
+     */
+    private const BULK_EDITABLE = ['category_id', 'acquisition_date', 'acquisition_cost', 'description', 'attributes'];
 
     public function __construct(
         private readonly AssetService $assets,
@@ -99,6 +109,61 @@ class AssetController extends Controller
         ]);
 
         return new AssetResource($this->assets->update($asset, $data)->load(self::RELATIONS));
+    }
+
+    /** Same descriptive changes for several (active) assets; only the fields sent in `changes` are touched. */
+    public function bulkUpdate(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'asset_ids' => ['required', 'array', 'min:1', 'max:1000'],
+            'asset_ids.*' => ['required', 'uuid', 'distinct'],
+            'changes' => ['required', 'array', 'min:1'],
+            ...Arr::prependKeysWith(Arr::only($this->descriptiveRules(creating: false), self::BULK_EDITABLE), 'changes.'),
+        ]);
+        $changes = Arr::only($data['changes'] ?? [], self::BULK_EDITABLE);
+        if ($changes === []) {
+            throw ApiException::unprocessable('VALIDATION_FAILED', 'Pilih minimal satu data yang akan diubah.', ['fields' => ['changes' => ['Pilih minimal satu data yang akan diubah.']]]);
+        }
+
+        $assets = $this->scope->apply(Asset::query())->whereIn('id', $data['asset_ids'])->orderBy('asset_number')->get();
+        if ($assets->count() !== count($data['asset_ids'])) {
+            throw ApiException::unprocessable('INVALID_REFERENCE', 'Sebagian aset tidak ditemukan atau di luar cakupan data Anda.');
+        }
+
+        return response()->json(['data' => ['updated' => $this->assets->bulkUpdate($assets, $changes)]]);
+    }
+
+    /** The asset's photo; route binding applies the data scope, so out-of-scope assets are 404. */
+    public function image(Asset $asset): StreamedResponse
+    {
+        $disk = Storage::disk(AssetService::IMAGE_DISK);
+        if ($asset->image_path === null || ! $disk->exists($asset->image_path)) {
+            throw new ApiException('IMAGE_NOT_FOUND', 'Aset ini belum memiliki gambar.', 404);
+        }
+
+        return $disk->response($asset->image_path, null, [
+            'Cache-Control' => 'private, max-age=86400',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    /** Raster formats only: an SVG could carry script. */
+    public function uploadImage(Request $request, Asset $asset): AssetResource
+    {
+        $request->validate([
+            'image' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ], [
+            'image.required' => 'Pilih file gambar.',
+            'image.mimes' => 'Gambar harus berformat JPG, PNG, atau WEBP.',
+            'image.max' => 'Ukuran gambar maksimal 5 MB.',
+        ]);
+
+        return new AssetResource($this->assets->setImage($asset, $request->file('image'))->load(self::RELATIONS));
+    }
+
+    public function deleteImage(Asset $asset): AssetResource
+    {
+        return new AssetResource($this->assets->setImage($asset, null)->load(self::RELATIONS));
     }
 
     public function archive(Request $request, Asset $asset): AssetResource

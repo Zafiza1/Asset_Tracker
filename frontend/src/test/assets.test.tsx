@@ -3,11 +3,12 @@ import { MemoryRouter } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { ModuleBoundary } from '../app/ModuleBoundary'
 import { tenantNavigation } from '../app/navigation'
+import { AssetImagePicker } from '../features/assets/AssetImagePicker'
 import { CategoryFilter } from '../features/assets/CategoryFilter'
 import { BarList, TrendChart } from '../features/dashboard/charts'
 import { AttributeFields } from '../features/master/CategoryAttributes'
 import { attributeRows } from '../features/master/categoryAttributeData'
-import { allowedTypes } from '../features/transactions/api'
+import { allowedTypes, ineligibleReason } from '../features/transactions/api'
 import type { CategoryAttribute } from '../lib/api/types'
 
 describe('module isolation', () => {
@@ -51,6 +52,15 @@ describe('transaction types per asset status', () => {
     expect(allowedTypes('available')).toContain('loan')
     expect(allowedTypes('disposed')).not.toContain('transfer')
     expect(allowedTypes('under_maintenance')).not.toContain('loan')
+  })
+
+  it('tells why an asset cannot join a multi-asset transaction', () => {
+    const asset = { status: 'available' as const, location_id: 'loc-1' }
+    expect(ineligibleReason(asset, 'loan')).toBeNull()
+    expect(ineligibleReason({ ...asset, status: 'on_loan' }, 'transfer')).toMatch(/Dipinjam|status/i)
+    expect(ineligibleReason(asset, 'transfer', { to_location_id: 'loc-1' })).toBe('Sudah di lokasi tujuan')
+    expect(ineligibleReason(asset, 'transfer', { to_location_id: 'loc-2' })).toBeNull()
+    expect(ineligibleReason(asset, 'status_change', { to_status: 'available' })).toBe('Status sudah sama')
   })
 })
 
@@ -127,5 +137,31 @@ describe('category attributes', () => {
 
   it('shows values with their labels on the detail page', () => {
     expect(attributeRows(fields, { bahan_bakar: 'BENSIN', ber_ac: false }).map((r) => r.value)).toEqual(['—', 'Bensin', 'Tidak'])
+  })
+})
+
+describe('AssetImagePicker', () => {
+  it('accepts JPG/PNG/WEBP up to 5 MB and marks an existing photo for removal', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(<AssetImagePicker currentUrl="/api/assets/1/image?v=x" value={undefined} onChange={onChange} />)
+    const input = screen.getByLabelText('Pilih gambar aset')
+
+    fireEvent.change(input, { target: { files: [new File(['<svg/>'], 'x.svg', { type: 'image/svg+xml' })] } })
+    expect(screen.getByRole('alert')).toHaveTextContent('JPG, PNG, atau WEBP')
+    const big = new File(['x'], 'big.jpg', { type: 'image/jpeg' })
+    Object.defineProperty(big, 'size', { value: 6 * 1024 * 1024 })
+    fireEvent.change(input, { target: { files: [big] } })
+    expect(screen.getByRole('alert')).toHaveTextContent('maksimal 5 MB')
+    expect(onChange).not.toHaveBeenCalled()
+
+    const photo = new File(['x'], 'a.png', { type: 'image/png' })
+    fireEvent.change(input, { target: { files: [photo] } })
+    expect(onChange).toHaveBeenLastCalledWith(photo)
+
+    fireEvent.click(screen.getByRole('button', { name: /Hapus/ }))
+    expect(onChange).toHaveBeenLastCalledWith(null)
+    rerender(<AssetImagePicker currentUrl="/api/assets/1/image?v=x" value={null} onChange={onChange} />)
+    expect(screen.queryByAltText('Gambar aset')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Unggah gambar/ })).toBeInTheDocument()
   })
 })

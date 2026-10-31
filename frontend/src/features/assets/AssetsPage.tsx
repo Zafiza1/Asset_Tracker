@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Plus, Upload } from 'lucide-react'
+import { ImageOff, Pencil, Plus, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
@@ -19,6 +19,7 @@ import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePers
 import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, assetStatusTone, type Asset, type AssetStatus } from './api'
 import { AssetFormModal } from './AssetFormModal'
+import { BulkEditModal } from './BulkEditModal'
 import { CategoryFilter } from './CategoryFilter'
 
 const FILTERS = ['page', 'search', 'category_ids', 'location_id', 'status', 'archived', 'sort', 'columns'] as const
@@ -33,6 +34,7 @@ export function AssetsPage() {
   const [search, setSearch] = useState(params.get('search') ?? '')
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [bulkEditing, setBulkEditing] = useState(false)
 
   // Persisted filters from localStorage
   const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters('/assets')
@@ -99,7 +101,14 @@ export function AssetsPage() {
       key: 'name',
       header: 'Aset',
       cell: (a) => (
-        <Link to={`/aset/${a.id}`} className="font-medium text-slate-900 hover:text-brand-700" onClick={(e) => e.stopPropagation()}>
+        <Link to={`/aset/${a.id}`} className="flex items-center gap-2.5 font-medium text-slate-900 hover:text-brand-700" onClick={(e) => e.stopPropagation()}>
+          {a.image_url ? (
+            <img src={a.image_url} alt="" loading="lazy" className="size-8 shrink-0 rounded object-cover ring-1 ring-slate-200" />
+          ) : (
+            <span className="flex size-8 shrink-0 items-center justify-center rounded bg-slate-100 ring-1 ring-slate-200">
+              <ImageOff className="size-4 text-slate-400" aria-hidden />
+            </span>
+          )}
           {a.name}
         </Link>
       ),
@@ -129,14 +138,23 @@ export function AssetsPage() {
       <PageHeader
         title="Pendataan Aset"
         actions={
-          can('asset.create') && (
+          (can('asset.create') || can('asset.update')) && (
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setImporting(true)}>
-                <Upload className="size-4" aria-hidden /> Import
-              </Button>
-              <Button onClick={() => setCreating(true)}>
-                <Plus className="size-4" aria-hidden /> Tambah aset
-              </Button>
+              {can('asset.update') && (
+                <Button variant="secondary" onClick={() => setBulkEditing(true)}>
+                  <Pencil className="size-4" aria-hidden /> Edit massal
+                </Button>
+              )}
+              {can('asset.create') && (
+                <>
+                  <Button variant="secondary" onClick={() => setImporting(true)}>
+                    <Upload className="size-4" aria-hidden /> Import
+                  </Button>
+                  <Button onClick={() => setCreating(true)}>
+                    <Plus className="size-4" aria-hidden /> Tambah aset
+                  </Button>
+                </>
+              )}
             </div>
           )
         }
@@ -208,6 +226,7 @@ export function AssetsPage() {
           </>
         )}
       </Card>
+      {bulkEditing && <BulkEditModal onClose={() => setBulkEditing(false)} />}
       {creating && <AssetFormModal onClose={() => setCreating(false)} onSaved={(a) => navigate(`/aset/${a.id}`)} />}
       {importing && (
         <ImportModal

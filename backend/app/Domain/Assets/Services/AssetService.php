@@ -17,7 +17,10 @@ use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Asset Management: register, edit descriptive data, deactivate (archive) and reactivate.
@@ -28,6 +31,9 @@ final class AssetService
 {
     private const AUDIT = ['asset_number', 'serial_number', 'name', 'category_id', 'location_id', 'status',
         'acquisition_date', 'acquisition_cost', 'description'];
+
+    /** Private disk: asset photos are served only through the (scoped) asset route. */
+    public const IMAGE_DISK = 'local';
 
     public function __construct(
         private readonly AssetScope $scope,
@@ -114,6 +120,67 @@ final class AssetService
 
             return $asset;
         });
+    }
+
+    /**
+     * Applies the same changes to several assets in one transaction: all are saved or none.
+     * A failure names the asset it happened on.
+     *
+     * @param  iterable<Asset>  $assets
+     * @param  array<string, mixed>  $changes  validated input
+     */
+    public function bulkUpdate(iterable $assets, array $changes): int
+    {
+        return DB::transaction(function () use ($assets, $changes) {
+            $updated = 0;
+            foreach ($assets as $asset) {
+                try {
+                    $before = $asset->lock_version;
+                    $updated += $this->update($asset, $changes)->lock_version !== $before ? 1 : 0;
+                } catch (ApiException|ValidationException $e) {
+                    $message = $e instanceof ValidationException ? collect($e->errors())->flatten()->first() : $e->getMessage();
+                    throw ApiException::unprocessable('BULK_UPDATE_FAILED', "Aset {$asset->asset_number}: {$message}");
+                }
+            }
+
+            return $updated;
+        });
+    }
+
+    /**
+     * Replaces the asset's photo, or removes it when `$image` is null. The new file is written
+     * before the row changes and the old one deleted only after the commit, so a failure never
+     * leaves the asset pointing at a missing file.
+     */
+    public function setImage(Asset $asset, ?UploadedFile $image): Asset
+    {
+        $this->assertNotArchived($asset);
+        if ($image === null && $asset->image_path === null) {
+            return $asset;
+        }
+        $disk = Storage::disk(self::IMAGE_DISK);
+        $old = $asset->image_path;
+        $new = $image?->store("assets/{$asset->organization_id}/{$asset->id}", self::IMAGE_DISK);
+        if ($new === false) {
+            throw ApiException::unprocessable('UPLOAD_FAILED', 'Gambar gagal disimpan. Coba lagi.');
+        }
+
+        try {
+            DB::transaction(function () use ($asset, $new) {
+                $asset->forceFill(['image_path' => $new, 'lock_version' => $asset->lock_version + 1, 'updated_by' => $this->tenancy->tenant()->userId()])->save();
+                $this->audit->record($new === null ? 'asset.image_removed' : 'asset.image_updated', $asset);
+            });
+        } catch (\Throwable $e) {
+            if ($new !== null) {
+                $disk->delete($new);
+            }
+            throw $e;
+        }
+        if ($old !== null) {
+            $disk->delete($old);
+        }
+
+        return $asset;
     }
 
     /** Deactivate: the asset leaves the active inventory; number, data and history are kept. */

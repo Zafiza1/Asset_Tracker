@@ -6,12 +6,30 @@ import { Alert } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { api, ApiError } from '../../lib/api/client'
-import type { AttributeValue, Resource } from '../../lib/api/types'
-import { applyApiErrors } from '../../lib/forms'
+import type { AttributeValue, CategoryAttribute, Resource } from '../../lib/api/types'
+import { applyApiErrors, errorMessage } from '../../lib/forms'
 import { AttributeFields } from '../master/CategoryAttributes'
 import { useCategoryAttributes } from '../master/categoryAttributeData'
 import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, initialStatuses, type Asset } from './api'
+import { AssetImagePicker, type ImageChange } from './AssetImagePicker'
+
+/**
+ * The value as the form shows it. A stored choice that is no longer one of the field's options
+ * (option removed, old data) shows as "— Pilih —", so it is sent as empty rather than resent
+ * invisibly and rejected.
+ */
+function shownValue(field: CategoryAttribute, value: AttributeValue | undefined): AttributeValue {
+  if (field.data_type === 'enum' && !(field.options ?? []).some((o) => o.value === value)) return null
+  return value ?? null
+}
+
+/** The asset data was saved but the image upload/removal that followed failed. */
+class ImageSaveError extends Error {
+  constructor(cause: unknown) {
+    super('IMAGE_SAVE_FAILED', { cause })
+  }
+}
 
 type Values = {
   name: string
@@ -56,21 +74,46 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
   // The category decides which extra fields the asset has.
   const fields = useCategoryAttributes(useWatch({ control, name: 'category_id' })).data ?? []
 
+  const [image, setImage] = useState<ImageChange>(undefined)
+  const [imageError, setImageError] = useState<string | null>(null)
+  // Set once the data is stored: when only the image then fails, a retry edits instead of registering twice.
+  const [saved, setSaved] = useState<Asset | undefined>(asset)
+  const refresh = () => Promise.all(['/assets', '/dashboard', '/transactions'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
+
   const save = useMutation({
-    mutationFn: (values: Values) => {
-      const keys = asset ? EDITABLE : (Object.keys(values) as (keyof Values)[])
+    mutationFn: async (values: Values) => {
+      const keys = saved ? EDITABLE : (Object.keys(values) as (keyof Values)[])
       const payload: Record<string, unknown> = Object.fromEntries(keys.map((k) => [k, values[k].trim() === '' ? null : values[k].trim()]))
-      payload.attributes = Object.fromEntries(fields.map((f) => [f.key, attributes[f.key] ?? null]))
-      return asset
-        ? api.patch<Resource<Asset>>(`/assets/${asset.id}`, { ...payload, lock_version: asset.lock_version })
-        : api.post<Resource<Asset>>('/assets', payload)
+      payload.attributes = Object.fromEntries(fields.map((f) => [f.key, shownValue(f, attributes[f.key])]))
+      let result = (
+        saved
+          ? await api.patch<Resource<Asset>>(`/assets/${saved.id}`, { ...payload, lock_version: saved.lock_version })
+          : await api.post<Resource<Asset>>('/assets', payload)
+      ).data
+      setSaved(result)
+      if (image === undefined) return result
+      try {
+        const form = new FormData()
+        if (image) form.append('image', image)
+        result = (image ? await api.upload<Resource<Asset>>(`/assets/${result.id}/image`, form) : await api.delete<Resource<Asset>>(`/assets/${result.id}/image`)).data
+      } catch (e) {
+        await refresh()
+        throw new ImageSaveError(e)
+      }
+      return result
     },
-    onSuccess: async (res) => {
-      await Promise.all(['/assets', '/dashboard', '/transactions'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
-      onSaved?.(res.data)
+    onSuccess: async (result) => {
+      await refresh()
+      onSaved?.(result)
       onClose()
     },
     onError: (e) => {
+      if (e instanceof ImageSaveError) {
+        const cause = e.cause
+        setImageError(cause instanceof ApiError ? (cause.fields.image?.[0] ?? cause.message) : errorMessage(cause))
+        setFormError('Data aset sudah tersimpan, tetapi gambar gagal disimpan. Perbaiki gambar lalu simpan lagi, atau tutup untuk melewatinya.')
+        return
+      }
       const prefix = 'attributes.'
       if (e instanceof ApiError) {
         setAttributeErrors(Object.fromEntries(Object.entries(e.fields).filter(([k]) => k.startsWith(prefix)).map(([k, m]) => [k.slice(prefix.length), m[0]])))
@@ -98,7 +141,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
         </>
       }
     >
-      <form id="asset-form" noValidate className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), setAttributeErrors({}), save.mutate(v)))}>
+      <form id="asset-form" noValidate className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), setAttributeErrors({}), setImageError(null), save.mutate(v)))}>
         {formError && <Alert tone="error">{formError}</Alert>}
         {asset ? (
           <p className="text-sm text-slate-600">
@@ -107,6 +150,8 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
         ) : (
           <p className="text-sm text-slate-600">Kode aset dibuat otomatis oleh sistem setelah disimpan.</p>
         )}
+
+        <AssetImagePicker currentUrl={saved?.image_url ?? null} value={image} onChange={(v) => (setImageError(null), setImage(v))} error={imageError} />
 
         <Field label="Nama aset" required error={err('name')}>
           {(p) => <Input {...p} {...register('name', { required: 'Nama aset wajib diisi.' })} />}
@@ -129,7 +174,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
           </Field>
         </div>
 
-        {!asset && (
+        {!saved && (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Lokasi" error={err('location_id')}>
               {(p) => (
