@@ -12,6 +12,7 @@ return [
         'assets' => 'Pendataan Aset',
         'transactions' => 'Transaksi Aset',
         'analytics' => 'Analisis Aset',
+        'reports' => 'Laporan Aset',
     ],
 
     'disabled' => array_values(array_filter(array_map('trim', explode(',', (string) env('MODULES_DISABLED', ''))))),

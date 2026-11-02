@@ -177,4 +177,5 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     require __DIR__.'/modules/assets.php';
     require __DIR__.'/modules/transactions.php';
     require __DIR__.'/modules/analytics.php';
+    require __DIR__.'/modules/reports.php';
 });

@@ -169,6 +169,12 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
     },
   },
   {
+    label: 'Laporan',
+    actions: {
+      'report.exported': 'Mengekspor laporan',
+    },
+  },
+  {
     label: 'Kategori Aset',
     actions: {
       'tenant_category.created': 'Menambah kategori aset',
