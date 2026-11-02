@@ -6,6 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Button, colors } from '@/components/ui'
 import { useSession } from '@/lib/session'
 
+// A screen that throws keeps the header; only the content shows the error.
+export { ErrorBoundary } from '@/components/ErrorBoundary'
+
 /**
  * Printed labels hold the asset number as Code 128 (1D) and QR (2D); the other 1D and 2D
  * formats are accepted too, so labels from other printers or suppliers also scan.

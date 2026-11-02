@@ -8,6 +8,9 @@ import { attributeRowsBySection, formatDate, formatDateTime, formatMoney } from 
 import { useSession } from '@/lib/session'
 import { assetStatusColors, assetStatusLabel, SECTION_LABELS, type AssetDetail, type AssetTransaction, type Paginated } from '@/lib/types'
 
+// A screen that throws keeps the header and back button; only the content shows the error.
+export { ErrorBoundary } from '@/components/ErrorBoundary'
+
 /** The asset a scanned code encodes, laid out as the web app's asset detail (Pendataan Aset). */
 export default function AssetDetailScreen() {
   const { code } = useLocalSearchParams<{ code: string }>()

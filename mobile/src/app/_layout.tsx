@@ -5,6 +5,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { colors } from '@/components/ui'
 import { SessionProvider, useSession } from '@/lib/session'
 
+// Last-resort boundary: an error outside a screen (providers, navigator) shows a message instead of a crash.
+export { ErrorBoundary } from '@/components/ErrorBoundary'
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
