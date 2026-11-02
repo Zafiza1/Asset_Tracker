@@ -30,6 +30,7 @@ export async function request<T>(server: string, path: string, { method = 'GET',
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
   let response: Response
+  let json: any = null
   try {
     response = await fetch(`${server}/api${path}`, {
       method,
@@ -41,14 +42,16 @@ export async function request<T>(server: string, path: string, { method = 'GET',
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
     })
+    // Inside the timeout too: a server that sends headers and then stalls must not hang the screen.
+    if (response.status !== 204) json = await response.json().catch((e) => (controller.signal.aborted ? Promise.reject(e) : null))
   } catch {
+    if (controller.signal.aborted) throw new ApiError(0, 'TIMEOUT', 'Server terlalu lama merespons. Coba lagi.')
     throw new ApiError(0, 'NETWORK_ERROR', 'Tidak dapat terhubung ke server. Periksa alamat server dan jaringan.')
   } finally {
     clearTimeout(timer)
   }
 
   if (response.status === 204) return undefined as T
-  const json = await response.json().catch(() => null)
   if (!response.ok) {
     const error = json?.error
     throw new ApiError(

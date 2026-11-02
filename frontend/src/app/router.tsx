@@ -30,7 +30,7 @@ import { InvitationsPage } from '../features/users/InvitationsPage'
 import { UsersPage } from '../features/users/UsersPage'
 import { AppLayout } from './AppLayout'
 import { Landing } from './Landing'
-import { NotFound, RequireAuth, RequirePermission, RequireUserType } from './guards'
+import { NotFound, RequireAuth, RequirePermission, RequireUserType, RouteError } from './guards'
 
 const tenant = (permission: string | null, element: React.ReactNode) => (
   <RequireUserType type="tenant">{permission ? <RequirePermission permission={permission}>{element}</RequirePermission> : element}</RequireUserType>
@@ -42,51 +42,63 @@ const platform = (permission: string, element: React.ReactNode) => (
 )
 
 export const router = createBrowserRouter([
-  { path: '/login', element: <LoginPage /> },
-  { path: '/daftar', element: <RegisterPage /> },
-  // Links from emails; both handle login on the page so the one-time secret stays in memory.
-  { path: '/undangan', element: <InvitationPage /> },
-  { path: '/verifikasi-email', element: <EmailVerificationPage /> },
   {
-    element: <RequireAuth />,
+    // Last-resort boundary: an error outside the app layout shows a message instead of a blank page.
+    errorElement: <RouteError />,
     children: [
-      // Outside the app layout: no organization may be active yet.
-      { path: '/pilih-organisasi', element: <SelectOrganizationPage /> },
-      { path: '/organisasi/baru', element: <CreateOrganizationPage /> },
+      { path: '/login', element: <LoginPage /> },
+      { path: '/daftar', element: <RegisterPage /> },
+      // Links from emails; both handle login on the page so the one-time secret stays in memory.
+      { path: '/undangan', element: <InvitationPage /> },
+      { path: '/verifikasi-email', element: <EmailVerificationPage /> },
       {
-        element: <AppLayout />,
+        element: <RequireAuth />,
         children: [
-          { path: '/', element: tenant(null, <Landing />) },
-          { path: '/aset', element: tenant('asset.view', <AssetsPage />) },
-          { path: '/aset/:id', element: tenant('asset.view', <AssetDetailPage />) },
-          { path: '/transaksi', element: tenant('transaction.view', <TransactionsPage />) },
-          { path: '/laporan', element: tenant('report.view', <AssetReportPage />) },
-          { path: '/ubah-password', element: <ChangePasswordPage /> },
-          { path: '/organisasi', element: tenant('organization.view', <OrganizationPage />) },
-          { path: '/pengaturan', element: tenant('settings.manage', <SettingsPage />) },
-          { path: '/pengguna', element: tenant('user.view', <UsersPage />) },
-          { path: '/pengguna/baru', element: tenant('user.create', <UserCreatePage />) },
-          { path: '/pengguna/undangan', element: tenant('user.view', <InvitationsPage />) },
-          { path: '/pengguna/role', element: tenant('role.view', <RolesPage />) },
-          { path: '/pengguna/role/baru', element: tenant('role.manage', <RoleFormPage />) },
-          { path: '/pengguna/role/:id', element: tenant('role.view', <RoleFormPage />) },
-          { path: '/pengguna/:id', element: tenant('user.view', <UserDetailPage />) },
-          // Old Role & Permission menu, now a tab under Pengguna.
-          { path: '/role', element: <Navigate to="/pengguna/role" replace /> },
-          { path: '/role/:id', element: <LegacyRoleRedirect /> },
-          { path: '/audit', element: tenant('audit.view', <AuditLogPage endpoint="/audit-logs" title="Audit Trail" />) },
-          { path: '/master/kategori', element: tenant('master.tenant.view', <TenantCategoriesPage />) },
-          { path: '/master/lokasi', element: tenant('master.tenant.view', <LocationsPage />) },
-          { path: '/master/lokasi/jenis', element: tenant('master.tenant.view', <LocationTypesPage />) },
-          { path: '/platform/organisasi', element: platform('platform.organization.view', <PlatformOrganizationsPage />) },
-          { path: '/platform/organisasi/:id', element: platform('platform.organization.view', <PlatformOrganizationDetailPage />) },
-          { path: '/platform/master/kategori', element: platform('master.generic.view', <PlatformCategoriesPage />) },
-          { path: '/platform/master/definisi', element: platform('master.generic.view', <PlatformDefinitionsPage />) },
-          { path: '/platform/master/definisi/:id', element: platform('master.generic.view', <PlatformDefinitionDetailPage />) },
-          { path: '/platform/master/versi/:id', element: platform('master.generic.view', <PlatformVersionPage />) },
-          { path: '/platform/master/referensi', element: platform('master.generic.view', <PlatformReferencePage />) },
-          { path: '/platform/audit', element: platform('platform.audit.view', <AuditLogPage endpoint="/platform/audit-logs" title="Audit Platform" />) },
-          { path: '*', element: <NotFound /> },
+          // Outside the app layout: no organization may be active yet.
+          { path: '/pilih-organisasi', element: <SelectOrganizationPage /> },
+          { path: '/organisasi/baru', element: <CreateOrganizationPage /> },
+          {
+            element: <AppLayout />,
+            children: [
+              {
+                // A page that throws keeps the sidebar and header; only the content shows the error.
+                errorElement: <RouteError />,
+                children: [
+                  { path: '/', element: tenant(null, <Landing />) },
+                  { path: '/aset', element: tenant('asset.view', <AssetsPage />) },
+                  { path: '/aset/:id', element: tenant('asset.view', <AssetDetailPage />) },
+                  { path: '/transaksi', element: tenant('transaction.view', <TransactionsPage />) },
+                  { path: '/laporan', element: tenant('report.view', <AssetReportPage />) },
+                  { path: '/ubah-password', element: <ChangePasswordPage /> },
+                  { path: '/organisasi', element: tenant('organization.view', <OrganizationPage />) },
+                  { path: '/pengaturan', element: tenant('settings.manage', <SettingsPage />) },
+                  { path: '/pengguna', element: tenant('user.view', <UsersPage />) },
+                  { path: '/pengguna/baru', element: tenant('user.create', <UserCreatePage />) },
+                  { path: '/pengguna/undangan', element: tenant('user.view', <InvitationsPage />) },
+                  { path: '/pengguna/role', element: tenant('role.view', <RolesPage />) },
+                  { path: '/pengguna/role/baru', element: tenant('role.manage', <RoleFormPage />) },
+                  { path: '/pengguna/role/:id', element: tenant('role.view', <RoleFormPage />) },
+                  { path: '/pengguna/:id', element: tenant('user.view', <UserDetailPage />) },
+                  // Old Role & Permission menu, now a tab under Pengguna.
+                  { path: '/role', element: <Navigate to="/pengguna/role" replace /> },
+                  { path: '/role/:id', element: <LegacyRoleRedirect /> },
+                  { path: '/audit', element: tenant('audit.view', <AuditLogPage endpoint="/audit-logs" title="Audit Trail" />) },
+                  { path: '/master/kategori', element: tenant('master.tenant.view', <TenantCategoriesPage />) },
+                  { path: '/master/lokasi', element: tenant('master.tenant.view', <LocationsPage />) },
+                  { path: '/master/lokasi/jenis', element: tenant('master.tenant.view', <LocationTypesPage />) },
+                  { path: '/platform/organisasi', element: platform('platform.organization.view', <PlatformOrganizationsPage />) },
+                  { path: '/platform/organisasi/:id', element: platform('platform.organization.view', <PlatformOrganizationDetailPage />) },
+                  { path: '/platform/master/kategori', element: platform('master.generic.view', <PlatformCategoriesPage />) },
+                  { path: '/platform/master/definisi', element: platform('master.generic.view', <PlatformDefinitionsPage />) },
+                  { path: '/platform/master/definisi/:id', element: platform('master.generic.view', <PlatformDefinitionDetailPage />) },
+                  { path: '/platform/master/versi/:id', element: platform('master.generic.view', <PlatformVersionPage />) },
+                  { path: '/platform/master/referensi', element: platform('master.generic.view', <PlatformReferencePage />) },
+                  { path: '/platform/audit', element: platform('platform.audit.view', <AuditLogPage endpoint="/platform/audit-logs" title="Audit Platform" />) },
+                  { path: '*', element: <NotFound /> },
+                ],
+              },
+            ],
+          },
         ],
       },
     ],

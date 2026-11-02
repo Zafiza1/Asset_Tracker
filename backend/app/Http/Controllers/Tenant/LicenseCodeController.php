@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 /**
@@ -50,14 +51,6 @@ class LicenseCodeController extends Controller
     }
 
     /**
-     * Debug endpoint to check license codes in database
-     */
-    public function debug(Request $request): JsonResponse
-    {
-        return response()->json(['message' => 'Debug endpoint working']);
-    }
-
-    /**
      * Generate license codes for licenses that don't have them
      */
     public function generateMissing(Request $request): JsonResponse
@@ -67,21 +60,28 @@ class LicenseCodeController extends Controller
         $licenses = \App\Domain\Licensing\Models\OrganizationLicense::where('organization_id', $orgId)->get();
         $existingCodes = LicenseCode::where('organization_id', $orgId)->pluck('reference')->toArray();
 
+        $organization = \App\Domain\Organization\Models\Organization::findOrFail($orgId);
+
         $created = [];
+        $failed = [];
         foreach ($licenses as $license) {
             if ($license->reference && !in_array($license->reference, $existingCodes)) {
+                // createForOrganization runs in its own (nested) transaction, so one failure
+                // rolls back only that code; the rest are still generated and the failure is reported.
                 try {
-                    $code = LicenseCodeService::createForOrganization(
-                        \App\Domain\Organization\Models\Organization::find($orgId),
-                        $license->notes,
-                        $license->reference
-                    );
+                    $code = LicenseCodeService::createForOrganization($organization, $license->notes, $license->reference);
                     $created[] = [
                         'license_reference' => $license->reference,
                         'license_code' => $code->code,
                     ];
-                } catch (\Exception $e) {
-                    // Skip if fails
+                } catch (\Throwable $e) {
+                    Log::error('Failed to generate missing license code', [
+                        'exception' => $e,
+                        'reference' => $license->reference,
+                        'organization_id' => $orgId,
+                        'request_id' => $request->attributes->get('request_id'),
+                    ]);
+                    $failed[] = $license->reference;
                 }
             }
         }
@@ -91,6 +91,7 @@ class LicenseCodeController extends Controller
             'existing_codes' => count($existingCodes),
             'created_codes' => count($created),
             'created' => $created,
+            'failed' => $failed,
         ]);
     }
 

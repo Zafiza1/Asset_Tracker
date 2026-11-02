@@ -36,7 +36,14 @@ function readCookie(name: string): string | null {
 
 async function ensureCsrfCookie(): Promise<void> {
   if (readCookie('XSRF-TOKEN')) return
-  csrfReady ??= fetch('/sanctum/csrf-cookie', { credentials: 'same-origin' }).then(() => undefined)
+  csrfReady ??= fetch('/sanctum/csrf-cookie', { credentials: 'same-origin' }).then(
+    (response) => {
+      if (!response.ok) throw new ApiError(response.status, 'HTTP_ERROR', 'Permintaan tidak dapat diproses.', {}, response.headers.get('X-Request-Id'))
+    },
+    () => {
+      throw new ApiError(0, 'NETWORK_ERROR', 'Tidak dapat terhubung ke server. Periksa koneksi Anda.')
+    },
+  )
   try {
     await csrfReady
   } finally {

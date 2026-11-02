@@ -99,7 +99,6 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
 
     // License codes: reusable activation codes for user accounts (automatically created on license purchase)
     Route::get('/license-codes', [LicenseCodeController::class, 'index'])->middleware('permission:license.manage');
-    Route::get('/license-codes/debug', [LicenseCodeController::class, 'debug'])->middleware('permission:license.manage');
     Route::post('/license-codes/generate-missing', [LicenseCodeController::class, 'generateMissing'])->middleware('permission:license.manage');
     Route::get('/license-codes/{licenseCode}', [LicenseCodeController::class, 'show'])->middleware('permission:license.manage');
     Route::post('/license-codes/{licenseCode}/assign', [LicenseCodeController::class, 'assign'])->middleware('permission:license.manage');

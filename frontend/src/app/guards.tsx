@@ -1,7 +1,8 @@
-import { ShieldAlert } from 'lucide-react'
+import { AlertTriangle, ShieldAlert } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Navigate, Outlet, useLocation } from 'react-router'
+import { isRouteErrorResponse, Navigate, Outlet, useLocation, useRouteError } from 'react-router'
 import { Spinner } from '../components/ui/Feedback'
+import { ApiError } from '../lib/api/client'
 import { useAuth } from '../lib/auth/context'
 
 /** Pages a tenant user can open before an organization is active. */
@@ -47,6 +48,24 @@ export function Forbidden() {
       <ShieldAlert className="size-10 text-slate-400" aria-hidden />
       <h1 className="text-lg font-semibold text-slate-800">Akses ditolak</h1>
       <p className="text-sm text-slate-500">Anda tidak memiliki izin untuk membuka halaman ini.</p>
+    </div>
+  )
+}
+
+/** Route errorElement: an exception thrown while rendering a page, shown instead of a blank screen. */
+export function RouteError() {
+  const error = useRouteError()
+  if (isRouteErrorResponse(error) && error.status === 404) return <NotFound />
+  console.error(error)
+  return (
+    <div className="flex flex-col items-center gap-2 py-16 text-center">
+      <AlertTriangle className="size-10 text-slate-400" aria-hidden />
+      <h1 className="text-lg font-semibold text-slate-800">Terjadi kesalahan</h1>
+      <p className="text-sm text-slate-500">Halaman ini gagal ditampilkan. Muat ulang halaman, atau hubungi admin jika masalah berlanjut.</p>
+      {error instanceof ApiError && error.requestId && <p className="text-xs text-slate-400">ID permintaan: {error.requestId}</p>}
+      <button type="button" onClick={() => window.location.reload()} className="mt-2 text-sm font-medium text-brand-600 hover:underline">
+        Muat ulang
+      </button>
     </div>
   )
 }
