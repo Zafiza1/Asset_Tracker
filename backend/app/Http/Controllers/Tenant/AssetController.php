@@ -88,6 +88,16 @@ class AssetController extends Controller
             ->additional(['attribute_fields' => CategoryAttributeResource::collection($this->attributes->effective($asset->category_id))]);
     }
 
+    /** The asset a scanned barcode encodes (its asset number), as show(); archived ones too. */
+    public function lookup(Request $request): AssetResource
+    {
+        $code = trim($request->validate(['code' => ['required', 'string', 'max:200']])['code']);
+        $asset = $this->scope->apply(Asset::query())->where('asset_number', $code)->first()
+            ?? throw new ApiException('ASSET_NOT_FOUND', 'Aset dengan kode tersebut tidak ditemukan atau di luar cakupan data Anda.', 404);
+
+        return $this->show($asset);
+    }
+
     public function store(Request $request): AssetResource
     {
         $data = $request->validate([

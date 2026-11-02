@@ -46,7 +46,14 @@ Route::prefix('auth')->group(function () {
     Route::post('/invitation/inspect', [InvitationAcceptanceController::class, 'inspect'])->middleware('throttle:invitation');
     Route::post('/invitation/register', [InvitationAcceptanceController::class, 'register'])->middleware('throttle:invitation');
 
+    // Mobile scanner app: read-only bearer token bound to one organization.
+    Route::post('/mobile/login', [AuthController::class, 'mobileLogin'])->middleware('throttle:login');
     Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/mobile/me', [AuthController::class, 'mobileMe']);
+        Route::post('/mobile/logout', [AuthController::class, 'mobileLogout']);
+    });
+
+    Route::middleware(['auth:sanctum', 'web-session'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
         Route::put('/password', [AuthController::class, 'changePassword'])->middleware('throttle:sensitive');

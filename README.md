@@ -6,6 +6,7 @@ Aplikasi pengelolaan aset multi-tenant yang sederhana: pendataan aset, transaksi
 |---|---|
 | `backend/` | Laravel 13 (PHP 8.4+), API JSON, session cookie Sanctum |
 | `frontend/` | React 19 + TypeScript + Vite + Tailwind CSS |
+| `mobile/` | Expo (React Native) — pemindai barcode aset 1D/2D, hanya baca ([README](mobile/README.md)) |
 | Database | PostgreSQL 17 (Row-Level Security) |
 
 ## Status implementasi

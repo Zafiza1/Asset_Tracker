@@ -19,11 +19,12 @@ class RouteSecurityTest extends TestCase
 {
     /** Routes reachable without a session. */
     private const PUBLIC_ROUTES = ['api/health', 'api/health/ready', 'api/auth/login', 'api/auth/register',
-        'api/auth/invitation/inspect', 'api/auth/invitation/register'];
+        'api/auth/invitation/inspect', 'api/auth/invitation/register', 'api/auth/mobile/login'];
 
     /** Authenticated routes that intentionally run without tenant/platform context. */
     private const SESSION_ONLY_ROUTES = ['api/auth/logout', 'api/auth/me', 'api/auth/password', 'api/auth/organization', 'api/auth/organizations',
-        'api/auth/invitation/accept', 'api/auth/email/verification-notification', 'api/auth/email/verify'];
+        'api/auth/invitation/accept', 'api/auth/email/verification-notification', 'api/auth/email/verify',
+        'api/auth/mobile/me', 'api/auth/mobile/logout'];
 
     public function test_every_api_route_is_authenticated_scoped_and_permission_checked(): void
     {

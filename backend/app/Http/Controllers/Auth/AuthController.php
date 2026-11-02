@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Domain\Audit\AuditLogger;
+use App\Domain\Identity\Models\MobileAccessToken;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\OrganizationAccess;
 use App\Domain\Identity\Services\SessionTerminator;
@@ -18,6 +19,7 @@ use App\Http\Resources\OrganizationResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -43,7 +45,100 @@ class AuthController extends Controller
             'email' => ['required', 'string', 'email', 'max:150'],
             'password' => ['required', 'string', 'max:200'],
         ]);
+        [$user, $defaultOrgId] = $this->attempt($credentials);
 
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
+        $this->tenancy->runAsSystem(fn () => $user->forceFill(['last_login_at' => now()])->save());
+
+        $this->audit->record('auth.login', $user, organizationId: $defaultOrgId, actor: $user);
+
+        return response()->json(['data' => $this->profile($request, $user)]);
+    }
+
+    /**
+     * Login of the mobile scanner app: issues a read-only bearer token for one organization.
+     * An account in several organizations without a usable default gets 409 with the choices,
+     * and repeats the login with organization_id.
+     */
+    public function mobileLogin(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'string', 'email', 'max:150'],
+            'password' => ['required', 'string', 'max:200'],
+            'device_name' => ['required', 'string', 'max:100'],
+            'organization_id' => ['nullable', 'uuid'],
+        ]);
+        [$user] = $this->attempt(Arr::only($data, ['email', 'password']));
+
+        if (! $user->isTenantUser()) {
+            throw ApiException::forbidden('TENANT_USER_REQUIRED', 'Aplikasi mobile hanya untuk pengguna organisasi.');
+        }
+        if ($user->must_change_password) {
+            throw ApiException::forbidden('PASSWORD_CHANGE_REQUIRED', 'Ganti password Anda melalui aplikasi web terlebih dahulu.');
+        }
+
+        $organization = isset($data['organization_id'])
+            ? ($this->access->find($user, $data['organization_id'])
+                ?? throw ApiException::forbidden('ORGANIZATION_ACCESS_DENIED', 'Anda tidak memiliki akses ke organisasi tersebut.'))
+            : $this->access->current(null, $user);
+        if ($organization === null) {
+            throw ApiException::conflict('ORGANIZATION_SELECTION_REQUIRED', 'Pilih organisasi terlebih dahulu.', [
+                'organizations' => $this->access->accessible($user)
+                    ->map(fn (Organization $o) => ['id' => $o->id, 'code' => $o->code, 'name' => $o->name])->values()->all(),
+            ]);
+        }
+
+        $plain = $user->generateTokenString();
+        /** @var MobileAccessToken $token */
+        $token = $user->tokens()->create([
+            'name' => $data['device_name'],
+            'token' => hash('sha256', $plain),
+            'abilities' => ['read'],
+            'expires_at' => now()->addDays(MobileAccessToken::LIFETIME_DAYS),
+            'organization_id' => $organization->id,
+        ]);
+        $this->tenancy->runAsSystem(fn () => $user->forceFill(['last_login_at' => now()])->save());
+        $this->audit->record('auth.mobile_login', $user, metadata: ['device_name' => $data['device_name']], organizationId: $organization->id, actor: $user);
+
+        return response()->json(['data' => [
+            'token' => $token->getKey().'|'.$plain,
+            'expires_at' => $token->expires_at->toIso8601String(),
+            ...$this->mobileProfile($user, $organization),
+        ]]);
+    }
+
+    /** Profile of the mobile app's account in the token's organization. */
+    public function mobileMe(Request $request): JsonResponse
+    {
+        $token = $this->mobileToken($request);
+        $user = $this->account($request);
+        $organization = $user->isActive() ? $this->access->find($user, $token->organization_id) : null;
+        if ($organization === null) {
+            throw new ApiException('ACCOUNT_INACTIVE', 'Akun atau akses organisasi Anda tidak aktif.', 401);
+        }
+
+        return response()->json(['data' => $this->mobileProfile($user, $organization)]);
+    }
+
+    /** Revokes the token the mobile app is using. */
+    public function mobileLogout(Request $request): Response
+    {
+        $token = $this->mobileToken($request);
+        $this->audit->record('auth.mobile_logout', $request->user(), metadata: ['device_name' => $token->name], organizationId: $token->organization_id, actor: $request->user());
+        $token->delete();
+
+        return response()->noContent();
+    }
+
+    /**
+     * Checks the credentials of an active account that can work somewhere; failures are audited.
+     *
+     * @param  array{email: string, password: string}  $credentials
+     * @return array{0: User, 1: string|null} the account and its default organization id
+     */
+    private function attempt(#[\SensitiveParameter] array $credentials): array
+    {
         /** @var User|null $user */
         $user = $this->tenancy->runAsSystem(fn () => User::query()->where('email', $credentials['email'])->first());
         // Always run a hash check so response time does not reveal whether the email exists.
@@ -64,13 +159,27 @@ class AuthController extends Controller
             throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Organisasi Anda sedang tidak aktif.');
         }
 
-        Auth::guard('web')->login($user);
-        $request->session()->regenerate();
-        $this->tenancy->runAsSystem(fn () => $user->forceFill(['last_login_at' => now()])->save());
+        return [$user, $defaultOrgId];
+    }
 
-        $this->audit->record('auth.login', $user, organizationId: $defaultOrgId, actor: $user);
+    private function mobileToken(Request $request): MobileAccessToken
+    {
+        $token = $request->user()->currentAccessToken();
+        if (! $token instanceof MobileAccessToken) {
+            throw ApiException::forbidden('MOBILE_TOKEN_REQUIRED', 'Endpoint ini hanya untuk aplikasi mobile.');
+        }
 
-        return response()->json(['data' => $this->profile($request, $user)]);
+        return $token;
+    }
+
+    /** @return array<string, mixed> */
+    private function mobileProfile(User $user, Organization $organization): array
+    {
+        return $this->tenancy->runAsTenant(new TenantContext($organization, $user), fn () => [
+            'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'job_title' => $user->membership()->value('job_title')],
+            'organization' => ['id' => $organization->id, 'code' => $organization->code, 'name' => $organization->name],
+            'permissions' => $this->tenancy->tenant()->permissions(),
+        ]);
     }
 
     /**

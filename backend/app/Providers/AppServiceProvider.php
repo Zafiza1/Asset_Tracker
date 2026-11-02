@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Domain\Assets\AssetMasterUsage;
+use App\Domain\Identity\Models\MobileAccessToken;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccountUserProvider;
 use App\Domain\Identity\Services\EmailVerification;
@@ -21,6 +22,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -38,6 +40,8 @@ class AppServiceProvider extends ServiceProvider
         Model::shouldBeStrict(! $this->app->isProduction());
 
         Auth::provider('account', fn ($app, array $config) => new AccountUserProvider($app['hash'], $config['model'], $app->make(Tenancy::class)));
+        // Bearer tokens are only issued to the mobile scanner app (see MobileAccessToken).
+        Sanctum::usePersonalAccessTokenModel(MobileAccessToken::class);
 
         foreach (self::UUID_ROUTE_PARAMETERS as $parameter) {
             Route::pattern($parameter, '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}');

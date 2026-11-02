@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Domain\Identity\Models\MobileAccessToken;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\OrganizationAccess;
 use App\Domain\Shared\Exceptions\ApiException;
@@ -22,6 +23,9 @@ use Symfony\Component\HttpFoundation\Response;
  * Nothing in the request can select it. The client may send X-Organization-Id with the
  * organization it believes is active; a mismatch (e.g. another tab switched organization)
  * is rejected instead of silently acting on a different organization.
+ *
+ * Bearer tokens of the mobile scanner app have no session: the organization is the one the
+ * token was issued for (re-validated the same way), and only safe (read) methods pass.
  */
 final class ResolveTenant
 {
@@ -38,6 +42,7 @@ final class ResolveTenant
             throw new AuthenticationException;
         }
 
+        $token = $user->currentAccessToken();
         // Fresh read: the session copy may be stale after suspension or role changes.
         $user = $this->tenancy->runAsSystem(fn () => User::query()->find($user->getKey()));
 
@@ -51,6 +56,18 @@ final class ResolveTenant
 
         if ($user->must_change_password) {
             throw ApiException::forbidden('PASSWORD_CHANGE_REQUIRED', 'Anda harus mengganti password sebelum melanjutkan.');
+        }
+
+        // The mobile scanner app only reads; its token carries the organization chosen at login.
+        if ($token instanceof MobileAccessToken) {
+            if (! $request->isMethodSafe()) {
+                throw ApiException::forbidden('MOBILE_TOKEN_READ_ONLY', 'Aplikasi mobile hanya dapat melihat data.');
+            }
+            $organization = $this->access->find($user, $token->organization_id)
+                ?? throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Organisasi ini sedang tidak aktif atau akses Anda telah dicabut.');
+            Auth::setUser($user->withAccessToken($token));
+
+            return $this->tenancy->runAsTenant(new TenantContext($organization, $user), fn () => $next($request));
         }
 
         $session = $request->hasSession() ? $request->session() : null;

@@ -157,7 +157,7 @@ export function AssetsPage() {
             <div className="flex gap-2">
               {can('asset.update') && (
                 <Button variant="secondary" onClick={() => setBulkEditing(true)}>
-                  <Pencil className="size-4" aria-hidden /> Edit massal
+                  <Pencil className="size-4" aria-hidden /> Multiple Edit
                 </Button>
               )}
               {can('asset.create') && (

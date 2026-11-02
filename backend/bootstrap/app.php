@@ -5,6 +5,7 @@ use App\Domain\Shared\Exceptions\ApiExceptionRenderer;
 use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\EnsureLicensed;
 use App\Http\Middleware\EnsureModuleAvailable;
+use App\Http\Middleware\RejectMobileToken;
 use App\Http\Middleware\RequirePermission;
 // use App\Http\Middleware\ResolvePlatform; // Removed - platform admin system deprecated
 use App\Http\Middleware\ResolveTenant;
@@ -39,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // 'platform' => ResolvePlatform::class, // Removed - platform admin system deprecated
             'permission' => RequirePermission::class,
             'module' => EnsureModuleAvailable::class,
+            'web-session' => RejectMobileToken::class,
         ]);
 
         // Context and permission checks must run before route model binding, so bindings are
