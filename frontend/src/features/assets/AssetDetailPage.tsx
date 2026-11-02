@@ -8,14 +8,15 @@ import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
+import { DataTable, type Column } from '../../components/ui/Table'
 import { api } from '../../lib/api/client'
 import type { CategoryAttribute, Paginated, Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { formatDate, formatDateTime } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
 import { attributeRowsBySection, SECTION_LABELS } from '../master/categoryAttributeData'
-import { allowedTypes, type AssetTransaction, type ManualTransactionType } from '../transactions/api'
-import { TransactionChanges } from '../transactions/TransactionChanges'
+import { allowedTypes, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
+import { LocationChange, StatusChange } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
 import { assetStatusLabel, assetStatusTone, formatMoney, type Asset } from './api'
 import { AssetBarcodeModal } from './AssetBarcodeModal'
@@ -175,21 +176,7 @@ export function AssetDetailPage() {
           ) : history.data!.data.length === 0 ? (
             <EmptyState title="Belum ada riwayat" />
           ) : (
-            <ol className="divide-y divide-slate-100">
-              {history.data!.data.map((t) => (
-                <li key={t.id} className="flex flex-wrap gap-x-4 gap-y-1 px-4 py-3">
-                  <div className="w-36 shrink-0">
-                    <p className="text-sm font-medium text-slate-900">{formatDate(t.transaction_date)}</p>
-                    <p className="font-mono text-xs text-slate-500">{t.transaction_number}</p>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-slate-800">{t.type_label}</p>
-                    <TransactionChanges trx={t} />
-                  </div>
-                  <p className="text-xs text-slate-500">{t.created_by ?? ''}</p>
-                </li>
-              ))}
-            </ol>
+            <DataTable columns={historyColumns} rows={withStateAfter(history.data!.data, a)} />
           )}
         </Card>
       </div>
@@ -201,6 +188,16 @@ export function AssetDetailPage() {
     </>
   )
 }
+
+// The asset's own history: the Transaksi Aset table without the asset column.
+const historyColumns: Column<TransactionWithState>[] = [
+  { key: 'date', header: 'Tanggal', cell: (t) => formatDate(t.transaction_date), className: 'w-32' },
+  { key: 'number', header: 'No Transaksi', cell: (t) => <span className="font-mono text-xs text-slate-900">{t.transaction_number}</span>, className: 'w-44' },
+  { key: 'type', header: 'Jenis', cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge>, className: 'w-36' },
+  { key: 'location', header: 'Lokasi', cell: (t) => <LocationChange trx={t} />, className: 'w-48 whitespace-normal', hideOnMobile: true },
+  { key: 'status', header: 'Status', cell: (t) => <StatusChange trx={t} />, className: 'w-48 whitespace-normal', hideOnMobile: true },
+  { key: 'by', header: 'Dicatat oleh', cell: (t) => t.created_by ?? '—', className: 'w-40', hideOnMobile: true },
+]
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (

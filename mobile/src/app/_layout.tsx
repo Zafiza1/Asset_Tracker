@@ -19,7 +19,7 @@ export default function RootLayout() {
   )
 }
 
-/** The scanner and asset detail need a session; without one only the login is reachable. */
+/** The home, scanner and asset detail need a session; without one only the login is reachable. */
 function Screens() {
   const { ready, token } = useSession()
   if (!ready) {
@@ -36,7 +36,8 @@ function Screens() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
       </Stack.Protected>
       <Stack.Protected guard={!!token}>
-        <Stack.Screen name="index" options={{ title: 'Pindai Barcode' }} />
+        <Stack.Screen name="index" options={{ title: 'Asset Tracker' }} />
+        <Stack.Screen name="scan" options={{ title: 'Pindai Barcode' }} />
         <Stack.Screen name="asset/[code]" options={{ title: 'Detail Aset' }} />
       </Stack.Protected>
     </Stack>

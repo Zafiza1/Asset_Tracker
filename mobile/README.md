@@ -9,6 +9,8 @@ Aplikasi Android/iOS untuk memindai barcode aset dan menampilkan detailnya, sama
 | Barcode 2D | QR Code (label cetak), Data Matrix, PDF417, Aztec |
 | Akses | Hanya membaca. Token login terikat ke satu organisasi dan berlaku 30 hari |
 
+Setelah login, aplikasi membuka halaman **beranda** (nama akun dan organisasi, tombol **Scan Aset**, pencarian nomor aset manual, dan tombol **Keluar**). Kamera baru aktif setelah tombol Scan Aset ditekan.
+
 Isi barcode adalah **nomor aset** (seperti label dari tombol *Print barcode* di web). Aplikasi mencarinya lewat `GET /api/assets/lookup?code=…`, dengan cakupan data dan izin akun yang sama seperti di web. Nomor aset juga bisa diketik manual bila label rusak.
 
 ## Backend

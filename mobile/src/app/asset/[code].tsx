@@ -57,7 +57,7 @@ export default function AssetDetailScreen() {
         <Text style={styles.code}>{code}</Text>
         <Text style={styles.muted}>{notFound ? 'Kode yang dipindai tidak cocok dengan nomor aset mana pun di organisasi atau cakupan data Anda.' : errorMessage(error)}</Text>
         <View style={{ gap: 8, alignSelf: 'stretch' }}>
-          <Button title="Pindai lagi" onPress={() => router.back()} />
+          <Button title="Pindai lagi" onPress={() => router.replace('/scan')} />
           {!notFound && <Button title="Coba lagi" variant="secondary" onPress={load} />}
         </View>
       </SafeAreaView>
@@ -141,26 +141,46 @@ export default function AssetDetailScreen() {
         ) : !history || history.length === 0 ? (
           <Text style={styles.empty}>Belum ada riwayat</Text>
         ) : (
-          history.map((t) => (
-            <View key={t.id} style={styles.trx}>
-              <View style={styles.trxHead}>
-                <Text style={styles.trxType}>{t.type_label}</Text>
-                <Text style={styles.trxDate}>{formatDate(t.transaction_date)}</Text>
+          // Too wide for a phone: the table scrolls sideways inside the card.
+          <ScrollView horizontal showsHorizontalScrollIndicator>
+            <View>
+              <View style={[styles.tr, styles.thead]}>
+                {TRX_COLUMNS.map((c) => (
+                  <Text key={c.label} style={[styles.th, { width: c.width }]}>
+                    {c.label}
+                  </Text>
+                ))}
               </View>
-              <Text style={styles.trxNumber}>{t.transaction_number}</Text>
-              {t.notes ? <Text style={styles.trxNotes}>{t.notes}</Text> : null}
-              {t.created_by ? <Text style={styles.trxBy}>{t.created_by}</Text> : null}
+              {history.map((t, i) => (
+                <View key={t.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
+                  <Text style={[styles.td, styles.tdMuted, { width: TRX_COLUMNS[0].width }]}>{i + 1}</Text>
+                  <Text style={[styles.td, { width: TRX_COLUMNS[1].width }]}>{formatDate(t.transaction_date)}</Text>
+                  <Text style={[styles.td, styles.tdStrong, { width: TRX_COLUMNS[2].width }]}>{t.type_label}</Text>
+                  <Text style={[styles.td, styles.tdMono, { width: TRX_COLUMNS[3].width }]}>{t.transaction_number}</Text>
+                  <Text style={[styles.td, { width: TRX_COLUMNS[4].width }]}>{t.notes || '—'}</Text>
+                  <Text style={[styles.td, styles.tdMuted, { width: TRX_COLUMNS[5].width }]}>{t.created_by || '—'}</Text>
+                </View>
+              ))}
             </View>
-          ))
+          </ScrollView>
         )}
       </Card>
 
-      <Button title="Pindai aset lain" onPress={() => router.back()} />
+      <Button title="Pindai aset lain" onPress={() => router.replace('/scan')} />
     </ScrollView>
   )
 }
 
 const mono = Platform.select({ ios: 'Menlo', default: 'monospace' })
+
+const TRX_COLUMNS = [
+  { label: 'No', width: 40 },
+  { label: 'Tanggal', width: 104 },
+  { label: 'Jenis', width: 128 },
+  { label: 'No Transaksi', width: 168 },
+  { label: 'Catatan', width: 200 },
+  { label: 'Oleh', width: 128 },
+]
 
 const styles = StyleSheet.create({
   container: { padding: 16, gap: 16, paddingBottom: 40 },
@@ -172,11 +192,12 @@ const styles = StyleSheet.create({
   imageBox: { backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border },
   image: { width: '100%', height: 240 },
   empty: { padding: 16, color: colors.muted },
-  trx: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, gap: 2 },
-  trxHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  trxType: { flex: 1, fontWeight: '600', color: colors.text },
-  trxDate: { color: colors.text, fontSize: 13 },
-  trxNumber: { fontFamily: mono, color: colors.muted, fontSize: 12 },
-  trxNotes: { color: colors.text, fontSize: 13 },
-  trxBy: { color: colors.muted, fontSize: 12 },
+  tr: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  thead: { backgroundColor: colors.background, borderBottomWidth: 1 },
+  trAlt: { backgroundColor: colors.background },
+  th: { paddingHorizontal: 12, paddingVertical: 10, fontSize: 12, fontWeight: '700', color: colors.muted, textTransform: 'uppercase' },
+  td: { paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, color: colors.text },
+  tdStrong: { fontWeight: '600' },
+  tdMono: { fontFamily: mono, fontSize: 12, color: colors.muted },
+  tdMuted: { color: colors.muted },
 })

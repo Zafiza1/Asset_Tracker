@@ -73,3 +73,22 @@ export function allowedTypes(status: AssetStatus | undefined): ManualTransaction
   if (status === 'under_maintenance') return ['transfer', 'status_change', 'note']
   return ['transfer', 'status_change', 'loan', 'note']
 }
+
+/** A transaction with where the asset was and what its status was right after it. */
+export type TransactionWithState = AssetTransaction & { location_after: string | null; status_after: AssetStatus }
+
+/**
+ * Transactions only record what they changed, so a transfer has no status and a status change has no location.
+ * Walking a newest-first history back from the asset's current state fills them in: whatever a transaction
+ * changed "from" is the state every older transaction left the asset in.
+ */
+export function withStateAfter(history: AssetTransaction[], asset: Pick<Asset, 'location' | 'status'>): TransactionWithState[] {
+  let location = asset.location?.name ?? null
+  let status = asset.status
+  return history.map((t) => {
+    const row = { ...t, location_after: location, status_after: status }
+    if (t.to_location) location = t.from_location?.name ?? null
+    if (t.to_status && t.from_status) status = t.from_status
+    return row
+  })
+}
