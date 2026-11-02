@@ -82,6 +82,47 @@ class AssetAnalyticsTest extends TestCase
         $this->assertSame(2, array_sum(array_column($data['trend'], 'changes')));
     }
 
+    public function test_dashboard_insights_match_the_stored_data(): void
+    {
+        $it = $this->postJson('/api/tenant-masters/categories', ['code' => 'IT', 'name' => 'Perangkat IT'])->json('data.id');
+
+        // Registered, then untouched for 120 days: idle. (Travel forward: the signed database
+        // context must not be issued in the past.)
+        $idle = $this->asset(['name' => 'Proyektor lama', 'acquisition_date' => now()->subYears(6)->toDateString(), 'acquisition_cost' => 3000000, 'serial_number' => 'SN-1']);
+        $this->travel(120)->days();
+
+        $laptop = $this->asset(['name' => 'Laptop', 'category_id' => $it, 'acquisition_cost' => 10000000, 'acquisition_date' => now()->subMonths(6)->toDateString()]);
+        $this->asset(['name' => 'Server', 'category_id' => $it, 'acquisition_cost' => 50000000, 'status' => 'in_use', 'acquisition_date' => now()->subYears(2)->toDateString()]);
+        $this->asset(['name' => 'Genset', 'status' => 'under_maintenance', 'location_id' => null]);
+        $printer = $this->asset(['name' => 'Printer']);
+
+        $this->postJson('/api/transactions', ['asset_id' => $laptop, 'type' => 'loan', 'borrower_name' => 'Budi',
+            'transaction_date' => now()->subDays(10)->toDateString(), 'due_date' => now()->subDays(1)->toDateString()])->assertCreated();
+        $this->postJson('/api/transactions', ['asset_id' => $printer, 'type' => 'loan', 'borrower_name' => 'Sari',
+            'due_date' => now()->addDays(3)->toDateString()])->assertCreated();
+
+        $data = $this->getJson('/api/dashboard')->assertOk()->json('data');
+
+        // 5 operable assets, 3 in service (server in use, laptop + printer on loan).
+        $this->assertEquals(['in_service' => 3, 'available' => 1, 'operable' => 5, 'rate' => 60], $data['utilization']);
+        $this->assertSame(['active' => 2, 'overdue' => 1, 'due_soon' => 1, 'no_due_date' => 0, 'due_soon_days' => 7], $data['loans']);
+
+        $this->assertSame(['lt1' => 1, '1_3' => 1, '3_5' => 0, '5_10' => 1, 'gte10' => 0], array_column($data['age']['buckets'], 'count', 'key'));
+        $this->assertSame(2, $data['age']['unknown']);
+
+        $this->assertSame(['Perangkat IT', 'Kategori 1'], array_column($data['value_by_category'], 'name'));
+        $this->assertEquals(60000000, (float) $data['value_by_category'][0]['value']);
+
+        $quality = array_column($data['data_quality']['fields'], 'filled', 'key');
+        $this->assertSame(5, $data['data_quality']['total']);
+        $this->assertSame(['location_id' => 4, 'acquisition_date' => 3, 'acquisition_cost' => 3, 'serial_number' => 1, 'image_path' => 0], $quality);
+        $this->assertEquals(44, $data['data_quality']['score']);
+
+        $this->assertSame(1, $data['idle']['count']);
+        $this->assertSame($idle, $data['idle']['items'][0]['asset']['id']);
+        $this->assertGreaterThanOrEqual(119, $data['idle']['items'][0]['idle_days']);
+    }
+
     public function test_dashboard_requires_report_permission(): void
     {
         $this->actingAs($this->createTenantUser($this->org, []), 'web');

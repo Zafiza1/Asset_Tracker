@@ -241,3 +241,8 @@ export function formatAttributeValue(value: unknown, options?: { value: string; 
   if (Array.isArray(value)) return value.map((v) => label(String(v))).join(', ')
   return label(String(value))
 }
+
+const percent = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 })
+
+/** 60.5 -> "60,5%" */
+export const formatPercent = (value: number) => `${percent.format(value)}%`

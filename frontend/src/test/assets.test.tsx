@@ -5,7 +5,7 @@ import { ModuleBoundary } from '../app/ModuleBoundary'
 import { tenantNavigation } from '../app/navigation'
 import { AssetImagePicker } from '../features/assets/AssetImagePicker'
 import { CategoryFilter } from '../features/assets/CategoryFilter'
-import { BarList, TrendChart } from '../features/dashboard/charts'
+import { BarList, ColumnChart, DonutChart, Gauge, MeterList, StackedBar, TrendChart } from '../features/dashboard/charts'
 import { AttributeFields } from '../features/master/CategoryAttributes'
 import { attributeRows } from '../features/master/categoryAttributeData'
 import { allowedTypes, ineligibleReason } from '../features/transactions/api'
@@ -98,6 +98,57 @@ describe('dashboard charts', () => {
   it('shows an empty message instead of zero bars', () => {
     render(<BarList data={[{ key: '1', label: 'X', value: 0 }]} emptyText="Kosong" />)
     expect(screen.getByText('Kosong')).toBeInTheDocument()
+  })
+
+  it('formats bar values with the given formatter', () => {
+    render(<BarList unit="" format={(v) => `Rp${v}`} data={[{ key: '1', label: 'Perangkat IT', value: 500 }]} />)
+    expect(screen.getByText('Rp500')).toBeInTheDocument()
+  })
+
+  it('prints the share of each meter as a percentage', () => {
+    render(<MeterList data={[{ key: 'a', label: 'Lokasi', part: 3, total: 4 }, { key: 'b', label: 'Foto aset', part: 0, total: 0 }]} />)
+    expect(screen.getByText('75%')).toBeInTheDocument()
+    expect(screen.getByRole('meter', { name: 'Lokasi' })).toHaveAttribute('aria-valuenow', '75')
+    expect(screen.getByText('0%')).toBeInTheDocument()
+  })
+
+  it('folds rows past the limit into "Lainnya"', () => {
+    render(<BarList limit={2} data={[{ key: 'a', label: 'A', value: 5 }, { key: 'b', label: 'B', value: 3 }, { key: 'c', label: 'C', value: 2 }]} />)
+    expect(screen.getByText('Lainnya (2)')).toBeInTheDocument()
+    expect(screen.getAllByText('5')).toHaveLength(2) // A, and Lainnya = 3 + 2
+    expect(screen.queryByText('B')).not.toBeInTheDocument()
+  })
+
+  it('prints every donut slice with its share and shows the hovered one in the center', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <DonutChart totalLabel="aset aktif" data={[{ key: 'a', label: 'Tersedia', value: 3, color: '#000', to: '/aset?status=available' }, { key: 'b', label: 'Digunakan', value: 1, color: '#111' }]} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('link', { name: 'Tersedia' })).toHaveAttribute('href', '/aset?status=available')
+    expect(screen.getByText('75%')).toBeInTheDocument()
+    expect(screen.getByText('4')).toBeInTheDocument()
+    fireEvent.mouseEnter(container.querySelectorAll('circle')[2])
+    expect(screen.getByText('Digunakan', { selector: 'p' })).toBeInTheDocument()
+  })
+
+  it('shows an empty message for a donut without data', () => {
+    render(<DonutChart totalLabel="aset" emptyText="Kosong" data={[{ key: 'a', label: 'A', value: 0, color: '#000' }]} />)
+    expect(screen.getByText('Kosong')).toBeInTheDocument()
+  })
+
+  it('reports the gauge value as a meter', () => {
+    render(<Gauge value={67.9} label="Tingkat pemanfaatan" />)
+    expect(screen.getByRole('meter', { name: 'Tingkat pemanfaatan' })).toHaveAttribute('aria-valuenow', '68')
+    expect(screen.getByText('67,9%')).toBeInTheDocument()
+  })
+
+  it('labels every part of the stacked bar and every column', () => {
+    render(<StackedBar data={[{ key: 'o', label: 'Terlambat', value: 2, color: '#d03b3b' }, { key: 'k', label: 'Belum jatuh tempo', value: 0, color: '#0ca30c' }]} />)
+    expect(screen.getByText('Terlambat')).toBeInTheDocument()
+    expect(screen.getByText('Belum jatuh tempo')).toBeInTheDocument()
+    render(<ColumnChart label="Umur aset" data={[{ key: 'a', label: '< 1 tahun', value: 46 }, { key: 'b', label: '1–3 tahun', value: 88 }]} />)
+    expect(screen.getByRole('img', { name: /Umur aset: < 1 tahun 46, 1–3 tahun 88/ })).toBeInTheDocument()
   })
 
   it('offers a table view of the trend', () => {
