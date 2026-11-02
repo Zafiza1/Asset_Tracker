@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ModuleBoundary } from '../../app/ModuleBoundary'
 import { Card, PageHeader } from '../../components/ui/Card'
+import { ColumnToggle } from '../../components/ui/ColumnToggle'
 import { ErrorState, Skeleton } from '../../components/ui/Feedback'
 import { api } from '../../lib/api/client'
 import { useAuth } from '../../lib/auth/context'
@@ -45,6 +46,51 @@ const attentionLabel: Record<AttentionReason, string> = {
   no_location: 'Tanpa lokasi',
 }
 
+/** The analyses a user can show or hide, in page order. */
+export const DASHBOARD_WIDGETS = [
+  { key: 'summary', header: 'Ringkasan' },
+  { key: 'status', header: 'Status aset' },
+  { key: 'utilization', header: 'Pemanfaatan & peminjaman' },
+  { key: 'data_quality', header: 'Kelengkapan data' },
+  { key: 'trend', header: 'Penambahan & perubahan aset' },
+  { key: 'age', header: 'Umur aset' },
+  { key: 'category', header: 'Per kategori' },
+  { key: 'location', header: 'Per lokasi' },
+  { key: 'transaction_types', header: 'Transaksi per jenis' },
+  { key: 'activity', header: 'Tindak lanjut, aset menganggur & transaksi terbaru' },
+] as const
+
+type WidgetKey = (typeof DASHBOARD_WIDGETS)[number]['key']
+
+/**
+ * Hidden widgets are remembered per user in this browser. The hidden set is stored
+ * (not the visible one) so widgets added later show up by default.
+ */
+function useHiddenWidgets(userId: string | undefined) {
+  const storageKey = `dashboard:hidden:${userId ?? 'anon'}`
+  const [hidden, setHidden] = useState<string[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? '[]')
+      return Array.isArray(saved) ? saved : []
+    } catch {
+      return []
+    }
+  })
+  const save = (next: string[]) => {
+    setHidden(next)
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(next))
+    } catch {
+      // Storage unavailable (private mode, quota) — the choice just won't persist.
+    }
+  }
+  return {
+    hidden,
+    toggle: (key: string) => save(hidden.includes(key) ? hidden.filter((k) => k !== key) : [...hidden, key]),
+    reset: () => save([]),
+  }
+}
+
 /**
  * Asset Analytics module: everything here is computed by the API from the stored data,
  * within the user's data scope. Each widget has its own error boundary.
@@ -52,20 +98,33 @@ const attentionLabel: Record<AttentionReason, string> = {
 export function DashboardPage() {
   const { profile } = useAuth()
   const query = useQuery({ queryKey: ['/dashboard'], queryFn: () => api.get<{ data: Dashboard }>('/dashboard') })
+  const widgets = useHiddenWidgets(profile?.user.id)
 
   return (
     <>
       <PageHeader
         title="Dashboard Aset"
         description={profile?.organization?.name}
-        actions={query.data && <span className="self-end text-xs text-slate-500">Data per {formatDateTime(query.data.data.generated_at)}</span>}
+        actions={
+          <>
+            {query.data && <span className="text-xs text-slate-500">Data per {formatDateTime(query.data.data.generated_at)}</span>}
+            <ColumnToggle
+              label="Tampilan"
+              title="Tampilkan analisis"
+              columns={[...DASHBOARD_WIDGETS]}
+              visibleColumns={DASHBOARD_WIDGETS.map((w) => w.key).filter((k) => !widgets.hidden.includes(k))}
+              onToggle={widgets.toggle}
+              onReset={widgets.reset}
+            />
+          </>
+        }
       />
-      {query.isLoading ? <DashboardSkeleton /> : query.isError ? <ErrorState error={query.error} /> : <DashboardBody data={query.data!.data} />}
+      {query.isLoading ? <DashboardSkeleton /> : query.isError ? <ErrorState error={query.error} /> : <DashboardBody data={query.data!.data} hidden={widgets.hidden} onReset={widgets.reset} />}
     </>
   )
 }
 
-function DashboardBody({ data }: { data: Dashboard }) {
+function DashboardBody({ data, hidden, onReset }: { data: Dashboard; hidden: string[]; onReset: () => void }) {
   if (data.summary.total === 0 && data.summary.archived === 0) {
     return (
       <Card>
@@ -91,73 +150,106 @@ function DashboardBody({ data }: { data: Dashboard }) {
     { key: 'on_time', label: 'Belum jatuh tempo', value: onTime, color: STATUS_COLOR.good },
   ]
 
+  const show = (key: WidgetKey) => !hidden.includes(key)
+  const firstRow = (['status', 'utilization', 'data_quality'] as const).filter(show)
+  const thirdRow = (['category', 'location', 'transaction_types'] as const).filter(show)
+  if (DASHBOARD_WIDGETS.every((w) => !show(w.key))) {
+    return (
+      <Card>
+        <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
+          <p className="font-display text-lg font-semibold text-slate-900">Semua analisis disembunyikan</p>
+          <p className="max-w-md text-sm text-slate-500">Pilih analisis yang ingin ditampilkan lewat tombol Tampilan.</p>
+          <button type="button" onClick={onReset} className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-800">
+            Tampilkan semua
+          </button>
+        </div>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-4">
-      <section aria-label="Ringkasan" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile icon={Boxes} tone="brand" label="Aset aktif" value={data.summary.total.toLocaleString('id-ID')} note={data.summary.archived ? `${data.summary.archived} aset nonaktif tidak dihitung` : undefined} to="/aset" />
-        <StatTile icon={Wallet} tone="emerald" label="Total nilai perolehan" value={formatMoney(data.summary.total_value)} note="Aset aktif yang nilainya diisi" />
-        <StatTile icon={CalendarPlus} tone="violet" label="Ditambahkan bulan ini" value={data.summary.added_this_month.toLocaleString('id-ID')} />
-        <StatTile icon={History} tone="amber" label={`Transaksi ${data.transactions.days} hari terakhir`} value={data.transactions.total.toLocaleString('id-ID')} to="/transaksi" />
-      </section>
+      {show('summary') && (
+        <section aria-label="Ringkasan" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatTile icon={Boxes} tone="brand" label="Aset aktif" value={data.summary.total.toLocaleString('id-ID')} note={data.summary.archived ? `${data.summary.archived} aset nonaktif tidak dihitung` : undefined} to="/aset" />
+          <StatTile icon={Wallet} tone="emerald" label="Total nilai perolehan" value={formatMoney(data.summary.total_value)} note="Aset aktif yang nilainya diisi" />
+          <StatTile icon={CalendarPlus} tone="violet" label="Ditambahkan bulan ini" value={data.summary.added_this_month.toLocaleString('id-ID')} />
+          <StatTile icon={History} tone="amber" label={`Transaksi ${data.transactions.days} hari terakhir`} value={data.transactions.total.toLocaleString('id-ID')} to="/transaksi" />
+        </section>
+      )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Widget title="Status aset">
-          <DonutChart data={statusData} totalLabel="aset aktif" />
-        </Widget>
-        <Widget title="Pemanfaatan & peminjaman">
-          <div className="space-y-4 p-4">
-            <Gauge value={data.utilization.rate} label="Tingkat pemanfaatan" note={`${data.utilization.in_service} dari ${data.utilization.operable} aset digunakan/dipinjam`} />
-            <div>
-              <p className="mb-2 flex items-baseline justify-between text-sm">
-                <span className="font-medium text-slate-700">Peminjaman aktif</span>
-                <Link to="/aset?status=on_loan" className="font-semibold tabular-nums text-slate-900 hover:text-brand-700">
-                  {data.loans.active.toLocaleString('id-ID')}
-                </Link>
-              </p>
-              <StackedBar data={loanData} emptyText="Tidak ada aset yang sedang dipinjam." />
+      <div className={clsx('grid gap-4 empty:hidden', rowGrid(firstRow.length))}>
+        {show('status') && (
+          <Widget title="Status aset">
+            <DonutChart data={statusData} totalLabel="aset aktif" />
+          </Widget>
+        )}
+        {show('utilization') && (
+          <Widget title="Pemanfaatan & peminjaman">
+            <div className="space-y-4 p-4">
+              <Gauge value={data.utilization.rate} label="Tingkat pemanfaatan" note={`${data.utilization.in_service} dari ${data.utilization.operable} aset digunakan/dipinjam`} />
+              <div>
+                <p className="mb-2 flex items-baseline justify-between text-sm">
+                  <span className="font-medium text-slate-700">Peminjaman aktif</span>
+                  <Link to="/aset?status=on_loan" className="font-semibold tabular-nums text-slate-900 hover:text-brand-700">
+                    {data.loans.active.toLocaleString('id-ID')}
+                  </Link>
+                </p>
+                <StackedBar data={loanData} emptyText="Tidak ada aset yang sedang dipinjam." />
+              </div>
             </div>
-          </div>
-        </Widget>
-        <Widget title="Kelengkapan data" className="md:col-span-2 xl:col-span-1">
-          <div className="flex flex-wrap items-center gap-2 p-4 pb-0 xl:flex-col xl:items-stretch">
-            <Gauge value={data.data_quality.score} label="Skor kelengkapan" note="Rata-rata kolom opsional terisi" />
-            <div className="min-w-[200px] flex-1 [&>ul]:space-y-2 [&>ul]:px-0">
-              <MeterList data={data.data_quality.fields.map((f) => ({ key: f.key, label: f.label, part: f.filled, total: data.data_quality.total }))} />
+          </Widget>
+        )}
+        {show('data_quality') && (
+          <Widget title="Kelengkapan data" className={firstRow.length === 3 ? 'md:col-span-2 xl:col-span-1' : undefined}>
+            <div className="flex flex-wrap items-center gap-2 p-4 pb-0 xl:flex-col xl:items-stretch">
+              <Gauge value={data.data_quality.score} label="Skor kelengkapan" note="Rata-rata kolom opsional terisi" />
+              <div className="min-w-[200px] flex-1 [&>ul]:space-y-2 [&>ul]:px-0">
+                <MeterList data={data.data_quality.fields.map((f) => ({ key: f.key, label: f.label, part: f.filled, total: data.data_quality.total }))} />
+              </div>
             </div>
-          </div>
-        </Widget>
+          </Widget>
+        )}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Widget title="Penambahan & perubahan aset (12 bulan)" className="xl:col-span-2">
-          <TrendChart data={data.trend} />
-        </Widget>
-        <Widget
-          title="Umur aset"
-          action={data.age.average_years !== null && <span className="text-xs text-slate-500">Rata-rata <span className="font-semibold text-slate-900">{data.age.average_years.toLocaleString('id-ID')} tahun</span></span>}
-        >
-          {data.age.buckets.every((b) => b.count === 0) ? (
-            <p className="p-4 text-sm text-slate-500">Belum ada aset dengan tanggal perolehan.</p>
-          ) : (
-            <div className="p-4">
-              <ColumnChart label="Jumlah aset per kelompok umur" data={data.age.buckets.map((b) => ({ key: b.key, label: b.label, value: b.count }))} />
-            </div>
-          )}
-          {data.age.unknown > 0 && <p className="px-4 pb-4 text-xs text-slate-500">{data.age.unknown} aset tanpa tanggal perolehan tidak dihitung.</p>}
-        </Widget>
+      <div className={clsx('grid gap-4 empty:hidden', show('trend') && show('age') && 'xl:grid-cols-3')}>
+        {show('trend') && (
+          <Widget title="Penambahan & perubahan aset (12 bulan)" className={show('age') ? 'xl:col-span-2' : undefined}>
+            <TrendChart data={data.trend} />
+          </Widget>
+        )}
+        {show('age') && (
+          <Widget
+            title="Umur aset"
+            action={data.age.average_years !== null && <span className="text-xs text-slate-500">Rata-rata <span className="font-semibold text-slate-900">{data.age.average_years.toLocaleString('id-ID')} tahun</span></span>}
+          >
+            {data.age.buckets.every((b) => b.count === 0) ? (
+              <p className="p-4 text-sm text-slate-500">Belum ada aset dengan tanggal perolehan.</p>
+            ) : (
+              <div className="p-4">
+                <ColumnChart label="Jumlah aset per kelompok umur" data={data.age.buckets.map((b) => ({ key: b.key, label: b.label, value: b.count }))} />
+              </div>
+            )}
+            {data.age.unknown > 0 && <p className="px-4 pb-4 text-xs text-slate-500">{data.age.unknown} aset tanpa tanggal perolehan tidak dihitung.</p>}
+          </Widget>
+        )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <CategoryWidget data={data} />
-        <Widget title="Per lokasi">
-          <BarList limit={6} data={data.by_location.map((l) => ({ key: l.id ?? 'none', label: l.name, value: l.count, to: l.id ? `/aset?location_id=${l.id}` : undefined }))} />
-        </Widget>
-        <Widget title={`Transaksi per jenis (${data.transactions.days} hari)`} className="md:col-span-2 xl:col-span-1">
-          <BarList limit={6} unit="transaksi" emptyText="Belum ada transaksi dalam periode ini." data={data.transactions.by_type.filter((t) => t.count > 0).sort((a, b) => b.count - a.count).map((t) => ({ key: t.type, label: t.label, value: t.count, to: `/transaksi?type=${t.type}` }))} />
-        </Widget>
+      <div className={clsx('grid gap-4 empty:hidden', rowGrid(thirdRow.length))}>
+        {show('category') && <CategoryWidget data={data} />}
+        {show('location') && (
+          <Widget title="Per lokasi">
+            <BarList limit={6} data={data.by_location.map((l) => ({ key: l.id ?? 'none', label: l.name, value: l.count, to: l.id ? `/aset?location_id=${l.id}` : undefined }))} />
+          </Widget>
+        )}
+        {show('transaction_types') && (
+          <Widget title={`Transaksi per jenis (${data.transactions.days} hari)`} className={thirdRow.length === 3 ? 'md:col-span-2 xl:col-span-1' : undefined}>
+            <BarList limit={6} unit="transaksi" emptyText="Belum ada transaksi dalam periode ini." data={data.transactions.by_type.filter((t) => t.count > 0).sort((a, b) => b.count - a.count).map((t) => ({ key: t.type, label: t.label, value: t.count, to: `/transaksi?type=${t.type}` }))} />
+          </Widget>
+        )}
       </div>
 
-      <ActivityWidget data={data} />
+      {show('activity') && <ActivityWidget data={data} />}
     </div>
   )
 }
@@ -404,6 +496,11 @@ function DashboardSkeleton() {
       <span className="sr-only">Memuat…</span>
     </div>
   )
+}
+
+/** Columns for a row of up to three widgets, so hiding one doesn't leave a hole. */
+function rowGrid(count: number) {
+  return count >= 3 ? 'md:grid-cols-2 xl:grid-cols-3' : count === 2 ? 'md:grid-cols-2' : undefined
 }
 
 function Widget({ title, className, action, children }: { title: string; className?: string; action?: ReactNode; children: ReactNode }) {

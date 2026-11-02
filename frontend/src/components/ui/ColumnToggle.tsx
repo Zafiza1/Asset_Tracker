@@ -7,16 +7,19 @@ interface ColumnToggleProps {
   visibleColumns: string[]
   onToggle: (key: string) => void
   onReset: () => void
+  /** Button text and panel heading; defaults fit a table's column picker. */
+  label?: string
+  title?: string
 }
 
-export function ColumnToggle({ columns, visibleColumns, onToggle, onReset }: ColumnToggleProps) {
+export function ColumnToggle({ columns, visibleColumns, onToggle, onReset, label = 'Kolom', title = 'Tampilkan kolom' }: ColumnToggleProps) {
   const [open, setOpen] = useState(false)
 
   return (
     <div className="relative">
       <Button variant="secondary" size="sm" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="true">
         <Settings2 className="size-4" aria-hidden />
-        <span className="hidden sm:inline">Kolom</span>
+        <span className="hidden sm:inline">{label}</span>
         <ChevronDown className={`size-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
       </Button>
 
@@ -25,7 +28,7 @@ export function ColumnToggle({ columns, visibleColumns, onToggle, onReset }: Col
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute right-0 z-20 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-700">Tampilkan kolom</span>
+              <span className="text-sm font-medium text-slate-700">{title}</span>
               <button onClick={onReset} className="text-xs text-brand-700 hover:text-brand-800">
                 Reset
               </button>
