@@ -30,6 +30,9 @@ final class CategoryAttributeService
 
     private const AUDIT = ['category_id', 'key', 'label', 'data_type', 'is_required', 'options', 'status', 'is_default', 'section'];
 
+    /** Label of the default yes/no field that gives an asset a barcode (default labels never change). */
+    public const BARCODE_LABEL = 'Barcode';
+
     /** Default attribute sections and their definitions. */
     public const DEFAULT_ATTRIBUTES = [
         // No "Name" here: assets already have the built-in name (Nama aset) field.
@@ -55,6 +58,8 @@ final class CategoryAttributeService
                 ['value' => 'PCK', 'label' => 'PCK'],
                 ['value' => 'SCK', 'label' => 'SCK'],
             ]],
+            // Yes/no per asset: only assets switched on get a printable 1D/2D barcode.
+            ['label' => self::BARCODE_LABEL, 'data_type' => AttributeType::BOOLEAN, 'is_required' => false],
         ],
         // No "Location" here: assets already have the built-in location (Lokasi) field.
         'location_ownership' => [
@@ -98,6 +103,19 @@ final class CategoryAttributeService
             ->get()
             ->sortBy([fn ($a, $b) => $depth[$a->category_id] <=> $depth[$b->category_id], ['sort_order', 'asc'], ['created_at', 'asc']])
             ->values();
+    }
+
+    /**
+     * Keys of the organization's barcode fields (one per top-level category). An asset only
+     * holds values of fields that apply to its category, so any of these set to true means
+     * the asset has a barcode.
+     *
+     * @return list<string>
+     */
+    public static function barcodeKeys(): array
+    {
+        return TenantCategoryAttribute::query()->where('is_default', true)->where('label', self::BARCODE_LABEL)
+            ->where('status', MasterStatus::ACTIVE)->pluck('key')->all();
     }
 
     /** @param array<string, mixed> $data label, data_type, is_required, options, section? */

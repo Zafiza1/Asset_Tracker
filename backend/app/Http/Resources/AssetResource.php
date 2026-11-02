@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Domain\Assets\Models\Asset;
+use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,6 +19,8 @@ class AssetResource extends JsonResource
             'name' => $this->name,
             'category_id' => $this->category_id,
             'category' => $this->whenLoaded('category', fn () => Ref::of($this->category)),
+            // The asset's "Barcode" field is on; the barcodes encode the asset number.
+            'barcode_enabled' => in_array(true, array_intersect_key($this->attribute_values, array_flip(self::barcodeKeys($request))), true),
             'location_id' => $this->location_id,
             'location' => $this->whenLoaded('location', fn () => Ref::of($this->location)),
             'status' => $this->status,
@@ -38,5 +41,19 @@ class AssetResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Looked up once per request (a list renders many assets).
+     *
+     * @return list<string>
+     */
+    private static function barcodeKeys(Request $request): array
+    {
+        if (! $request->attributes->has('barcode_keys')) {
+            $request->attributes->set('barcode_keys', CategoryAttributeService::barcodeKeys());
+        }
+
+        return $request->attributes->get('barcode_keys');
     }
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftRight, Pencil, Plus, Power, RotateCcw, Undo2, UserRoundPlus } from 'lucide-react'
+import { ArrowLeftRight, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRoundPlus } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -18,6 +18,7 @@ import { allowedTypes, type AssetTransaction, type ManualTransactionType } from 
 import { TransactionChanges } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
 import { assetStatusLabel, assetStatusTone, formatMoney, type Asset } from './api'
+import { AssetBarcodeModal } from './AssetBarcodeModal'
 import { AssetFormModal } from './AssetFormModal'
 
 /** Detail of one asset: data, quick actions, and its full transaction history. */
@@ -27,6 +28,7 @@ export function AssetDetailPage() {
   const [editing, setEditing] = useState(false)
   const [recording, setRecording] = useState<ManualTransactionType | 'any' | null>(null)
   const [archiving, setArchiving] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
 
   const asset = useQuery({ queryKey: ['/assets', id], queryFn: () => api.get<Resource<Asset> & { attribute_fields: CategoryAttribute[] }>(`/assets/${id}`) })
@@ -50,6 +52,11 @@ export function AssetDetailPage() {
         description={`${a.asset_number}${a.serial_number ? ` · No Seri ${a.serial_number}` : ''}`}
         actions={
           <>
+            {a.barcode_enabled && (
+              <Button variant="secondary" onClick={() => setPrinting(true)}>
+                <Printer className="size-4" aria-hidden /> Print barcode
+              </Button>
+            )}
             {canRecord && types.includes('transfer') && can('asset.transfer') && (
               <Button variant="secondary" onClick={() => setRecording('transfer')}>
                 <ArrowLeftRight className="size-4" aria-hidden /> Pindahkan
@@ -188,6 +195,7 @@ export function AssetDetailPage() {
       </div>
 
       {editing && <AssetFormModal asset={a} onClose={() => setEditing(false)} />}
+      {printing && <AssetBarcodeModal asset={a} onClose={() => setPrinting(false)} />}
       {recording && <TransactionFormModal asset={a} initialType={recording === 'any' ? undefined : recording} onClose={() => setRecording(null)} />}
       {archiving && <ArchiveModal asset={a} onClose={() => setArchiving(false)} />}
     </>

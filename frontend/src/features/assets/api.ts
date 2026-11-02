@@ -18,6 +18,8 @@ export interface Asset {
   name: string
   category_id: string
   category?: Ref | null
+  /** The asset's default "Barcode" field is set to yes: it has printable 1D/2D barcodes. */
+  barcode_enabled: boolean
   location_id: string | null
   location?: Ref | null
   status: AssetStatus

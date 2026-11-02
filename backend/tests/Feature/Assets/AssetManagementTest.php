@@ -217,6 +217,26 @@ class AssetManagementTest extends TestCase
         $this->assertSame(GenericAssetCategory::query()->where('code', 'UMUM')->value('id'), $category['generic_category_id']);
     }
 
+    public function test_barcode_is_a_default_yes_no_field_switched_per_asset(): void
+    {
+        $it = $this->category('IT', 'Perangkat IT');
+        $laptops = $this->category('LAPTOP', 'Laptop', $it);
+        $field = collect($this->getJson("/api/tenant-masters/categories/{$laptops->id}/attributes")->assertOk()->json('data'))->firstWhere('label', 'Barcode');
+        $this->assertSame(['boolean', 'basic_information', true], [$field['data_type'], $field['section'], $field['is_default']]);
+
+        $with = $this->register(['name' => 'ThinkPad', 'category_id' => $laptops->id, 'attributes' => [$field['key'] => true]])
+            ->assertCreated()->assertJsonPath('data.barcode_enabled', true)->json('data');
+        $without = $this->register(['name' => 'MacBook', 'category_id' => $laptops->id])->assertCreated()->assertJsonPath('data.barcode_enabled', false)->json('data');
+
+        $listed = collect($this->getJson('/api/assets')->assertOk()->json('data'))->keyBy('id');
+        $this->assertTrue($listed[$with['id']]['barcode_enabled']);
+        $this->assertFalse($listed[$without['id']]['barcode_enabled']);
+
+        $this->patchJson("/api/assets/{$with['id']}", ['attributes' => [$field['key'] => false], 'lock_version' => $with['lock_version']])
+            ->assertOk()->assertJsonPath('data.barcode_enabled', false);
+        $this->assertErrorCode($this->patchJson("/api/assets/{$without['id']}", ['attributes' => [$field['key'] => 'ya']]), 422, 'VALIDATION_FAILED');
+    }
+
     /** @param array<string, mixed> $data */
     private function register(array $data)
     {

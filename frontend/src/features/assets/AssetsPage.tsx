@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ImageOff, Pencil, Plus, Upload } from 'lucide-react'
+import { ImageOff, Pencil, Plus, Printer, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
@@ -18,13 +18,14 @@ import { useAuth } from '../../lib/auth/context'
 import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, assetStatusTone, type Asset, type AssetStatus } from './api'
+import { AssetBarcodeModal } from './AssetBarcodeModal'
 import { AssetFormModal } from './AssetFormModal'
 import { BulkEditModal } from './BulkEditModal'
 import { CategoryFilter } from './CategoryFilter'
 
 const FILTERS = ['page', 'search', 'category_ids', 'location_id', 'status', 'archived', 'sort', 'columns'] as const
 const ADVANCED = ['category_ids', 'location_id', 'status', 'archived'] as const
-const DEFAULT_COLUMNS = ['code', 'name', 'serial_number', 'category', 'location', 'status']
+const DEFAULT_COLUMNS = ['code', 'name', 'serial_number', 'category', 'location', 'status', 'barcode']
 
 /** Asset Management module: search and filter the asset register, register new assets. */
 export function AssetsPage() {
@@ -35,6 +36,7 @@ export function AssetsPage() {
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
   const [bulkEditing, setBulkEditing] = useState(false)
+  const [printing, setPrinting] = useState<Asset | null>(null)
 
   // Persisted filters from localStorage
   const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters('/assets')
@@ -130,6 +132,19 @@ export function AssetsPage() {
           {a.is_archived && <Badge tone="slate">Nonaktif</Badge>}
         </div>
       ),
+    },
+    {
+      key: 'barcode',
+      header: 'Barcode',
+      className: 'whitespace-nowrap',
+      cell: (a) =>
+        a.barcode_enabled ? (
+          <Button size="sm" variant="ghost" onClick={(e) => (e.stopPropagation(), setPrinting(a))} aria-label={`Print barcode ${a.name}`} title="Print barcode">
+            <Printer className="size-4" aria-hidden /> Print
+          </Button>
+        ) : (
+          <span className="text-slate-400">—</span>
+        ),
     },
   ]
 
@@ -227,6 +242,7 @@ export function AssetsPage() {
         )}
       </Card>
       {bulkEditing && <BulkEditModal onClose={() => setBulkEditing(false)} />}
+      {printing && <AssetBarcodeModal asset={printing} onClose={() => setPrinting(null)} />}
       {creating && <AssetFormModal onClose={() => setCreating(false)} onSaved={(a) => navigate(`/aset/${a.id}`)} />}
       {importing && (
         <ImportModal
