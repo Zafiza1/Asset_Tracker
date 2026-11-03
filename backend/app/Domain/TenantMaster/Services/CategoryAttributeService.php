@@ -5,6 +5,7 @@ namespace App\Domain\TenantMaster\Services;
 use App\Domain\GenericMaster\Attributes\AttributeDefinitionRules;
 use App\Domain\GenericMaster\Attributes\AttributeType;
 use App\Domain\GenericMaster\Attributes\AttributeValueValidator;
+use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
 use App\Domain\Shared\Masters\MasterWriter;
@@ -108,12 +109,16 @@ final class CategoryAttributeService
     /**
      * Keys of the organization's barcode fields (one per top-level category). An asset only
      * holds values of fields that apply to its category, so any of these set to true means
-     * the asset has a barcode.
+     * the asset has a barcode. Empty while the organization's Barcode module is off.
      *
      * @return list<string>
      */
     public static function barcodeKeys(): array
     {
+        if (! OrganizationModule::isEnabled(OrganizationModule::BARCODE)) {
+            return [];
+        }
+
         return TenantCategoryAttribute::query()->where('is_default', true)->where('label', self::BARCODE_LABEL)
             ->where('status', MasterStatus::ACTIVE)->pluck('key')->all();
     }

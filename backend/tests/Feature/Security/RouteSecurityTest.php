@@ -69,6 +69,11 @@ class RouteSecurityTest extends TestCase
             if (str_starts_with($route->uri(), 'api/generic-masters/')) {
                 continue;
             }
+            // {module} is a key of the fixed module catalog, not a record; each organization's
+            // switches are covered by OrganizationModuleTest::test_modules_are_per_organization.
+            if (str_starts_with($route->uri(), 'api/modules/')) {
+                continue;
+            }
             $uri = '/'.$route->uri();
             foreach ($route->parameterNames() as $name) {
                 $this->assertArrayHasKey($name, $foreignIds, "Add a foreign-tenant fixture for route parameter {{$name}} ({$uri})");

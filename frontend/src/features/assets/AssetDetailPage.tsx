@@ -14,7 +14,7 @@ import type { CategoryAttribute, Paginated, Resource } from '../../lib/api/types
 import { useAuth } from '../../lib/auth/context'
 import { formatDate, formatDateTime } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
-import { attributeRowsBySection, SECTION_LABELS } from '../master/categoryAttributeData'
+import { attributeRowsBySection, SECTION_LABELS, useAssetFields } from '../master/categoryAttributeData'
 import { allowedTypes, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
 import { LocationChange, StatusChange } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
@@ -33,6 +33,7 @@ export function AssetDetailPage() {
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
 
   const asset = useQuery({ queryKey: ['/assets', id], queryFn: () => api.get<Resource<Asset> & { attribute_fields: CategoryAttribute[] }>(`/assets/${id}`) })
+  const attributeFields = useAssetFields(asset.data?.attribute_fields ?? [])
   const history = useQuery({
     queryKey: ['/assets', id, 'transactions'],
     queryFn: () => api.get<Paginated<AssetTransaction>>(`/assets/${id}/transactions?per_page=100`),
@@ -125,7 +126,7 @@ export function AssetDetailPage() {
           <dl className="divide-y divide-slate-100 text-sm">
             {/* Built-in fields lead their section; the category's attributes follow. */}
             {(() => {
-              const groupedAttrs = attributeRowsBySection(asset.data!.attribute_fields ?? [], a.attributes ?? {})
+              const groupedAttrs = attributeRowsBySection(attributeFields, a.attributes ?? {})
               const builtIn: Record<string, ReactNode> = {
                 basic_information: (
                   <>

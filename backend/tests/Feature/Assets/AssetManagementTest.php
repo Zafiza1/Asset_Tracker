@@ -224,8 +224,13 @@ class AssetManagementTest extends TestCase
         $field = collect($this->getJson("/api/tenant-masters/categories/{$laptops->id}/attributes")->assertOk()->json('data'))->firstWhere('label', 'Barcode');
         $this->assertSame(['boolean', 'basic_information', true], [$field['data_type'], $field['section'], $field['is_default']]);
 
+        // Barcode module off (the default): the field is kept, but no asset has a barcode.
         $with = $this->register(['name' => 'ThinkPad', 'category_id' => $laptops->id, 'attributes' => [$field['key'] => true]])
-            ->assertCreated()->assertJsonPath('data.barcode_enabled', true)->json('data');
+            ->assertCreated()->assertJsonPath('data.barcode_enabled', false)->json('data');
+        $this->getJson("/api/assets/{$with['id']}")->assertOk()->assertJsonPath("data.attributes.{$field['key']}", true);
+
+        $this->putJson('/api/modules/barcode', ['enabled' => true])->assertOk();
+        $this->getJson("/api/assets/{$with['id']}")->assertOk()->assertJsonPath('data.barcode_enabled', true);
         $without = $this->register(['name' => 'MacBook', 'category_id' => $laptops->id])->assertCreated()->assertJsonPath('data.barcode_enabled', false)->json('data');
 
         $listed = collect($this->getJson('/api/assets')->assertOk()->json('data'))->keyBy('id');

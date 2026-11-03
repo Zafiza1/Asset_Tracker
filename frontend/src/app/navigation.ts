@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BookOpen, Boxes, Building2, FileBarChart, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, BookOpen, Boxes, Building2, FileBarChart, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, QrCode, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -46,6 +46,13 @@ export const tenantNavigation: NavSection[] = [
     ],
   },
   {
+    // Optional modules, one entry each; switched on and off on their own page.
+    title: 'Modul',
+    items: [
+      { to: '/modul/barcode', label: 'Barcode', icon: QrCode, permission: 'settings.manage' },
+    ],
+  },
+  {
     title: 'Administrasi',
     items: [
       { to: '/organisasi', label: 'Organisasi', icon: Building2, permission: 'organization.view' },
@@ -83,6 +90,8 @@ export const breadcrumbLabels: Record<string, string> = {
   role: 'Role & Permission',
   undangan: 'Undangan',
   'kode-lisensi': 'Kode Lisensi',
+  modul: 'Modul',
+  barcode: 'Barcode',
   pengaturan: 'Pengaturan Lisensi',
   audit: 'Audit Trail',
   platform: 'Platform',
@@ -100,4 +109,4 @@ export const breadcrumbLabels: Record<string, string> = {
 }
 
 /** Intermediate path segments without a page of their own: shown as text, not links. */
-export const breadcrumbTextOnly = new Set(['/platform', '/master', '/platform/master', '/platform/master/versi'])
+export const breadcrumbTextOnly = new Set(['/platform', '/master', '/modul','/platform/master', '/platform/master/versi'])

@@ -7,6 +7,7 @@ import { Modal } from '../../components/ui/Modal'
 import { api, qs } from '../../lib/api/client'
 import type { AttributeValue, CategoryAttribute, Paginated } from '../../lib/api/types'
 import { AttributeValueInput } from '../master/attributes'
+import { useAssetFields } from '../master/categoryAttributeData'
 import { toOptions, useOptions } from '../master/options'
 import type { Asset } from './api'
 
@@ -62,7 +63,7 @@ export function BulkEditModal({ onClose }: { onClose: () => void }) {
       staleTime: 30_000,
     })),
   })
-  const fields = [...new Map(fieldQueries.flatMap((q) => q.data ?? []).map((f) => [f.key, f])).values()]
+  const fields = useAssetFields([...new Map(fieldQueries.flatMap((q) => q.data ?? []).map((f) => [f.key, f])).values()])
   const sentAttributes = fields.filter((f) => enabledAttributes.includes(f.key))
 
   const save = useMutation({

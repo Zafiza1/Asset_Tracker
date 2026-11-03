@@ -6,6 +6,7 @@ use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
+use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\Shared\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
@@ -30,6 +31,19 @@ class MobileAccessTest extends TestCase
         ['organization' => $this->alpha, 'admin' => $this->admin] = $this->createOrganization('ALPHA');
         $this->masters = $this->createMasterFixtures($this->alpha);
         $this->tenancy()->runAsTenant(new TenantContext($this->alpha, $this->admin), fn () => $this->createAssetFixture($this->alpha, $this->masters));
+        $this->enableModule($this->alpha, OrganizationModule::BARCODE);
+    }
+
+    public function test_lookup_needs_the_barcode_module(): void
+    {
+        ['organization' => $beta, 'admin' => $admin] = $this->createOrganization('BETA');
+        $token = $this->login(['email' => $admin->email])->assertOk()->assertJsonPath('data.modules', [])->json('data.token');
+
+        $this->assertErrorCode($this->bearer($token)->getJson('/api/assets/lookup?code=FIX-1'), 403, 'MODULE_DISABLED');
+
+        $this->enableModule($beta, OrganizationModule::BARCODE);
+        $this->bearer($token)->getJson('/api/auth/mobile/me')->assertOk()->assertJsonPath('data.modules', ['barcode']);
+        $this->assertErrorCode($this->bearer($token)->getJson('/api/assets/lookup?code=FIX-1'), 404, 'ASSET_NOT_FOUND');
     }
 
     public function test_login_issues_token_that_looks_up_scanned_assets(): void
@@ -73,6 +87,7 @@ class MobileAccessTest extends TestCase
         $this->assertErrorCode($choice, 409, 'ORGANIZATION_SELECTION_REQUIRED');
         $this->assertEqualsCanonicalizing(['ALPHA', 'BETA'], array_column($choice->json('error.details.organizations'), 'code'));
 
+        $this->enableModule($beta, OrganizationModule::BARCODE);
         $token = $this->login(['organization_id' => $beta->id])->assertOk()->assertJsonPath('data.organization.code', 'BETA')->json('data.token');
         // ALPHA's asset is not visible through a BETA token.
         $this->assertErrorCode($this->bearer($token)->getJson('/api/assets/lookup?code=FIX-1'), 404, 'ASSET_NOT_FOUND');

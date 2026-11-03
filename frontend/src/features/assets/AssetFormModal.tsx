@@ -9,7 +9,7 @@ import { api, ApiError } from '../../lib/api/client'
 import type { AttributeValue, CategoryAttribute, Resource } from '../../lib/api/types'
 import { applyApiErrors, errorMessage } from '../../lib/forms'
 import { AttributeFields } from '../master/CategoryAttributes'
-import { useCategoryAttributes } from '../master/categoryAttributeData'
+import { useAssetFields, useCategoryAttributes } from '../master/categoryAttributeData'
 import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, initialStatuses, type Asset } from './api'
 import { AssetImagePicker, type ImageChange } from './AssetImagePicker'
@@ -72,7 +72,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
   })
 
   // The category decides which extra fields the asset has.
-  const fields = useCategoryAttributes(useWatch({ control, name: 'category_id' })).data ?? []
+  const fields = useAssetFields(useCategoryAttributes(useWatch({ control, name: 'category_id' })).data ?? [])
 
   const [image, setImage] = useState<ImageChange>(undefined)
   const [imageError, setImageError] = useState<string | null>(null)

@@ -10,6 +10,7 @@ import { AssetsPage } from '../features/assets/AssetsPage'
 import { LocationsPage, TenantCategoriesPage } from '../features/master/StructurePages'
 import { OrganizationPage } from '../features/organization/OrganizationPage'
 import { CreateOrganizationPage, SelectOrganizationPage } from '../features/organizations/OrganizationPages'
+import { ModulesPage } from '../features/organization/ModulesPage'
 import { SettingsPage } from '../features/organization/SettingsPage'
 import {
   PlatformCategoriesPage,
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
                   { path: '/laporan', element: tenant('report.view', <AssetReportPage />) },
                   { path: '/ubah-password', element: <ChangePasswordPage /> },
                   { path: '/organisasi', element: tenant('organization.view', <OrganizationPage />) },
+                  { path: '/modul/barcode', element: tenant('settings.manage', <ModulesPage module="barcode" />) },
                   { path: '/pengaturan', element: tenant('settings.manage', <SettingsPage />) },
                   { path: '/pengguna', element: tenant('user.view', <UsersPage />) },
                   { path: '/pengguna/baru', element: tenant('user.create', <UserCreatePage />) },

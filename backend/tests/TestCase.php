@@ -24,6 +24,7 @@ use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
+use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\Platform\Services\OrganizationProvisioner;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\Shared\Tenancy\TenancyState;
@@ -288,6 +289,12 @@ abstract class TestCase extends BaseTestCase
         $transaction->save();
 
         return ['asset' => $asset, 'transaction' => $transaction];
+    }
+
+    /** Switches on an optional module (OrganizationModule::CATALOG) for the organization. */
+    protected function enableModule(Organization $organization, string $module): void
+    {
+        (new OrganizationModule)->forceFill(['organization_id' => $organization->id, 'module' => $module])->save();
     }
 
     protected function roleId(Organization $organization, string $code): string

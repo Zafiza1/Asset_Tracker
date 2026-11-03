@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api/client'
 import type { AttributeValue, CategoryAttribute } from '../../lib/api/types'
+import { useModule } from '../../lib/auth/context'
 import { formatAttributeValue } from '../../lib/format'
 
 /** Fields that apply to assets of a category: inherited ones first, then its own. */
@@ -11,6 +12,15 @@ export function useCategoryAttributes(categoryId: string | null | undefined) {
     enabled: !!categoryId,
     staleTime: 30_000,
   })
+}
+
+/**
+ * The fields an asset shows: the default "Barcode" field belongs to the Barcode module and is
+ * hidden while the module is off (its stored value is kept, since unsent fields are not changed).
+ */
+export function useAssetFields(fields: CategoryAttribute[]): CategoryAttribute[] {
+  const barcode = useModule('barcode')
+  return barcode ? fields : fields.filter((f) => !(f.is_default && f.label === 'Barcode'))
 }
 
 /** Category fields with their values, for detail views. */

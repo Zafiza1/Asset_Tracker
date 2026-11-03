@@ -21,6 +21,7 @@ use App\Http\Controllers\Tenant\LicenseCodeController;
 use App\Http\Controllers\Tenant\LicenseController;
 use App\Http\Controllers\Tenant\LicensePurchaseController;
 use App\Http\Controllers\Tenant\LocationController;
+use App\Http\Controllers\Tenant\OrganizationModuleController;
 use App\Http\Controllers\Tenant\OrganizationProfileController;
 use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\TenantCategoryController;
@@ -77,6 +78,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     Route::put('/organization', [OrganizationProfileController::class, 'update'])->middleware('permission:organization.manage');
     // Settings are system defaults: readable, not editable by organizations.
     Route::get('/settings', [OrganizationProfileController::class, 'settings'])->middleware('permission:settings.manage');
+    // Optional modules (e.g. Barcode); which ones are on is also in the profile for every member.
+    Route::get('/modules', [OrganizationModuleController::class, 'index'])->middleware('permission:settings.manage');
+    Route::put('/modules/{module}', [OrganizationModuleController::class, 'update'])->middleware('permission:settings.manage');
 
     Route::get('/users', [UserController::class, 'index'])->middleware('permission:user.view');
     Route::get('/users/organization-options', [UserController::class, 'organizationOptions'])->middleware('permission:user.create,role.manage');

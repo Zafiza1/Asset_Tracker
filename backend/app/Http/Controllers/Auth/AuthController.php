@@ -9,6 +9,7 @@ use App\Domain\Identity\Services\OrganizationAccess;
 use App\Domain\Identity\Services\SessionTerminator;
 use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Organization;
+use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\Platform\Services\OrganizationProvisioner;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\PlatformContext;
@@ -179,6 +180,7 @@ class AuthController extends Controller
             'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'job_title' => $user->membership()->value('job_title')],
             'organization' => ['id' => $organization->id, 'code' => $organization->code, 'name' => $organization->name],
             'permissions' => $this->tenancy->tenant()->permissions(),
+            'modules' => OrganizationModule::enabledKeys(),
         ]);
     }
 
@@ -430,6 +432,8 @@ class AuthController extends Controller
             'organizations' => [],
             'permissions' => [],
             'data_scope' => null,
+            // Optional modules switched on in the active organization (OrganizationModule::CATALOG).
+            'modules' => [],
         ];
 
         if ($user->isPlatformUser()) {
@@ -464,6 +468,7 @@ class AuthController extends Controller
             $base['user']['job_title'] = $user->membership()->value('job_title');
             $base['permissions'] = $context->permissions();
             $base['data_scope'] = $context->scope()->toArray();
+            $base['modules'] = OrganizationModule::enabledKeys();
 
             return $base;
         });

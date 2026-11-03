@@ -221,6 +221,18 @@ export interface Profile {
   organizations: OrganizationSummary[]
   permissions: string[]
   data_scope: { organization_wide: boolean; department_ids: string[]; location_ids: string[] } | null
+  /** Optional modules switched on in the active organization (Menu Modul), e.g. 'barcode'. */
+  modules: ModuleKey[]
+}
+
+export type ModuleKey = 'barcode'
+
+/** An optional module of the organization, switched on and off in Menu Modul. */
+export interface OrganizationModule {
+  key: ModuleKey
+  name: string
+  description: string
+  enabled: boolean
 }
 
 // ---------------------------------------------------------------- Master data

@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { Profile } from '../api/types'
+import type { ModuleKey, Profile } from '../api/types'
 
 export interface AuthState {
   profile: Profile | null
@@ -50,4 +50,9 @@ export function useAuth(): AuthState {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used inside AuthProvider')
   return ctx
+}
+
+/** Whether an optional module is switched on in the active organization (the API enforces it too). */
+export function useModule(module: ModuleKey): boolean {
+  return useAuth().profile?.modules?.includes(module) ?? false
 }

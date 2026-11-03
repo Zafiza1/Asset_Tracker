@@ -7,6 +7,7 @@ use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Assets\Services\AssetService;
 use App\Domain\Organization\Models\Location;
+use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Services\CategoryAttributeService;
@@ -91,6 +92,9 @@ class AssetController extends Controller
     /** The asset a scanned barcode encodes (its asset number), as show(); archived ones too. */
     public function lookup(Request $request): AssetResource
     {
+        if (! OrganizationModule::isEnabled(OrganizationModule::BARCODE)) {
+            throw ApiException::forbidden('MODULE_DISABLED', 'Modul Barcode belum diaktifkan oleh administrator organisasi.');
+        }
         $code = trim($request->validate(['code' => ['required', 'string', 'max:200']])['code']);
         $asset = $this->scope->apply(Asset::query())->where('asset_number', $code)->first()
             ?? throw new ApiException('ASSET_NOT_FOUND', 'Aset dengan kode tersebut tidak ditemukan atau di luar cakupan data Anda.', 404);
