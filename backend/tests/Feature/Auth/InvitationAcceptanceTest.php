@@ -4,7 +4,6 @@ namespace Tests\Feature\Auth;
 
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Authorization\Models\UserDataScope;
-use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
@@ -366,8 +365,7 @@ class InvitationAcceptanceTest extends TestCase
 
     private function location(): Location
     {
-        $location = (new Location)->forceFill(['organization_id' => $this->alpha->id, 'code' => 'GDG', 'name' => 'Gudang',
-            'location_type_id' => LocationType::query()->where('code', 'GUDANG')->value('id')]);
+        $location = (new Location)->forceFill(['organization_id' => $this->alpha->id, 'code' => 'GDG', 'name' => 'Gudang']);
         $location->save();
 
         return $location;

@@ -64,36 +64,10 @@ class MasterDataSecurityTest extends TestCase
                 'id' => (string) Str::uuid7(), 'code' => 'HACK', 'name' => 'Hack', 'created_at' => now(), 'updated_at' => now(),
             ]));
             $this->expectQueryError('42501', fn () => DB::table('generic_attribute_definitions')->where('id', $attributeId)->delete());
-            $this->expectQueryError('42501', fn () => DB::table('location_types')->update(['name' => 'X']));
             $this->expectQueryError('42501', fn () => DB::table('units')->delete());
         });
 
         $this->assertNotSame('Dibajak', GenericAssetDefinition::query()->value('name'));
-    }
-
-    public function test_organization_location_types_are_isolated_at_database_level(): void
-    {
-        $typeB = (string) Str::uuid7();
-        DB::table('location_types')->insert([
-            'id' => $typeB, 'organization_id' => $this->orgB->id, 'code' => 'KHUSUS-B', 'name' => 'Khusus B', 'created_at' => now(), 'updated_at' => now(),
-        ]);
-        $locationA = $this->createMasterFixtures($this->orgA)['location']->id;
-
-        $this->asTenantA(function () use ($typeB, $locationA) {
-            $this->assertFalse(DB::table('location_types')->where('id', $typeB)->exists());
-            $this->assertSame(0, DB::table('location_types')->where('id', $typeB)->update(['name' => 'Dibajak']));
-            // Neither another organization's type nor a built-in one can be created from a tenant.
-            $this->expectQueryError('42501', fn () => DB::table('location_types')->insert([
-                'id' => (string) Str::uuid7(), 'organization_id' => $this->orgB->id, 'code' => 'X', 'name' => 'X', 'created_at' => now(), 'updated_at' => now(),
-            ]));
-            $this->expectQueryError('42501', fn () => DB::table('location_types')->insert([
-                'id' => (string) Str::uuid7(), 'code' => 'X', 'name' => 'X', 'created_at' => now(), 'updated_at' => now(),
-            ]));
-            // A location cannot point to another organization's type, even with a raw insert.
-            $this->expectQueryError('23503', fn () => DB::table('locations')->where('id', $locationA)->update(['location_type_id' => $typeB]));
-        });
-
-        $this->assertSame('Khusus B', DB::table('location_types')->where('id', $typeB)->value('name'));
     }
 
     public function test_tenant_catalog_never_exposes_generic_drafts(): void
@@ -130,9 +104,7 @@ class MasterDataSecurityTest extends TestCase
     public function test_references_to_another_tenants_masters_are_rejected_by_the_service(): void
     {
         $this->actingAs($this->adminA, 'web');
-        $typeId = $this->mastersB['location']->location_type_id;
-
-        $this->assertErrorCode($this->postJson('/api/locations', ['code' => 'L', 'name' => 'L', 'parent_id' => $this->mastersB['location']->id, 'location_type_id' => $typeId]), 422, 'INVALID_REFERENCE');
+        $this->assertErrorCode($this->postJson('/api/locations', ['code' => 'L', 'name' => 'L', 'parent_id' => $this->mastersB['location']->id]), 422, 'INVALID_REFERENCE');
         $this->assertErrorCode($this->postJson('/api/tenant-masters/categories', ['code' => 'C', 'name' => 'C', 'parent_id' => $this->mastersB['category']->id]), 422, 'INVALID_REFERENCE');
         $this->assertErrorCode($this->postJson('/api/asset-definitions', [
             'generic_definition_id' => GenericAssetDefinition::query()->where('code', 'GEN-UMUM')->value('id'),

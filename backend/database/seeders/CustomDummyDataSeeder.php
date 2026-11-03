@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Domain\Assets\Models\Asset;
 use App\Domain\GenericMaster\Models\GenericAssetCategory;
-use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
@@ -138,14 +137,6 @@ class CustomDummyDataSeeder extends Seeder
 
     private function seedLocations(Organization $organization): void
     {
-        $locationTypes = LocationType::all();
-        $locationTypeCodes = $locationTypes->pluck('code')->toArray();
-
-        if (empty($locationTypeCodes)) {
-            $this->command?->warn('No location types found. Skipping location seeding.');
-            return;
-        }
-
         $existingCount = Location::where('organization_id', $organization->id)->count();
 
         if ($existingCount >= 30) {
@@ -161,19 +152,16 @@ class CustomDummyDataSeeder extends Seeder
 
         $locations = [];
         for ($i = 0; $i < 30; $i++) {
-            $typeIndex = array_rand($locationTypeCodes);
             $prefixIndex = array_rand($prefixes);
             $nameIndex = array_rand($names);
             $cityIndex = array_rand($cities);
 
             $code = $prefixes[$prefixIndex] . '-' . strtoupper(substr($cities[$cityIndex], 0, 3)) . sprintf('%03d', $i + 1);
             $name = $names[$nameIndex] . ' ' . $cities[$cityIndex] . ' ' . ($i + 1);
-            $locationTypeId = $locationTypes[$typeIndex]->id;
 
             $locations[] = [
                 'id' => (string) \Illuminate\Support\Str::uuid(),
                 'organization_id' => $organization->id,
-                'location_type_id' => $locationTypeId,
                 'code' => $code,
                 'name' => $name,
                 'status' => 'active',

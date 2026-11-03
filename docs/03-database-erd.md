@@ -19,7 +19,6 @@ erDiagram
   branches ||--o{ departments : "opsional"
   branches ||--o{ locations : ""
   locations ||--o{ locations : "parent"
-  location_types ||--o{ locations : "generic"
   users ||--o{ platform_user_roles : "hanya user platform"
   platform_roles ||--o{ platform_user_roles : ""
   platform_roles ||--o{ platform_role_permissions : ""
@@ -41,7 +40,7 @@ erDiagram
   permissions { uuid id PK; string code UK; string scope }
   branches { uuid id PK; uuid organization_id; string code; string name; string status }
   departments { uuid id PK; uuid organization_id; uuid branch_id; string code; string name; string status }
-  locations { uuid id PK; uuid organization_id; uuid branch_id; uuid parent_id; uuid location_type_id; string code; string name; string status }
+  locations { uuid id PK; uuid organization_id; uuid branch_id; uuid parent_id; string code; string name; string status }
 ```
 
 Catatan relasi penting:

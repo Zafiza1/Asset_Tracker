@@ -146,7 +146,7 @@ Status: 401 tidak login · 403 tidak berizin · 404 tidak ada/di luar tenant · 
 | Grup | Endpoint utama | Permission |
 |---|---|---|
 | Auth | `GET /sanctum/csrf-cookie`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `PUT /api/auth/password` | — (rate limited) |
-| Platform | `/api/platform/organizations[/{id}]`, `/api/platform/users`, `/api/platform/generic-masters/{categories,definitions,definitions/{id}/versions,units,location-types,conditions,transaction-types}`, `POST .../versions/{id}/release`, `POST .../versions/{id}/deprecate`, `/api/platform/audit-logs`, `/api/platform/support-sessions` | `platform.*`, `master.generic.*` |
+| Platform | `/api/platform/organizations[/{id}]`, `/api/platform/users`, `/api/platform/generic-masters/{categories,definitions,definitions/{id}/versions,units,conditions,transaction-types}`, `POST .../versions/{id}/release`, `POST .../versions/{id}/deprecate`, `/api/platform/audit-logs`, `/api/platform/support-sessions` | `platform.*`, `master.generic.*` |
 | Organisasi | `GET/PUT /api/organization`, `/api/branches`, `/api/departments`, `/api/locations` | `organization.*`, `master.tenant.*` |
 | User & role | `/api/users` (invite/create, update, suspend, deactivate, `PUT /{id}/roles`, `PUT /{id}/scopes`; `memberships` pada `POST` memberi akses ke beberapa organisasi sekaligus, `GET /organization-options`, `GET`/`POST /{id}/organizations`), `/api/roles`, `GET /api/permissions` | `user.*`, `role.*` |
 | Generic (baca) | `GET /api/generic-masters/...` | `catalog.generic.view` |

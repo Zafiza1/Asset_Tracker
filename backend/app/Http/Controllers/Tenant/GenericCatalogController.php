@@ -6,7 +6,6 @@ use App\Domain\GenericMaster\Models\GenericAssetCategory;
 use App\Domain\GenericMaster\Models\GenericAssetDefinition;
 use App\Domain\GenericMaster\Models\GenericDefinitionVersion;
 use App\Domain\GenericMaster\Models\GenericTransactionType;
-use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\GenericMaster\Models\Unit;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\GenericCategoryResource;
@@ -63,11 +62,6 @@ class GenericCatalogController extends Controller
     public function units(Request $request): AnonymousResourceCollection
     {
         return ReferenceResource::collection(MasterRequests::list(Unit::query(), $request, ['code' => 'code', 'name' => 'name'], 'name'));
-    }
-
-    public function locationTypes(Request $request): AnonymousResourceCollection
-    {
-        return ReferenceResource::collection(MasterRequests::list(LocationType::query(), $request, ['code' => 'code', 'name' => 'name'], 'name'));
     }
 
     public function transactionTypes(Request $request): AnonymousResourceCollection

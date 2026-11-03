@@ -6,7 +6,6 @@ use App\Domain\Assets\Services\AssetService;
 use App\Domain\AssetTransactions\Services\AssetTransactionService;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\Models\UserDataScope;
-use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Licensing\Models\OrganizationLicense;
@@ -85,7 +84,6 @@ class DemoSeeder extends Seeder
         $location = new Location([
             'code' => 'GDG-'.$spec['site'][0],
             'name' => 'Gudang '.$spec['site'][1],
-            'location_type_id' => LocationType::query()->where('code', 'GUDANG')->value('id'),
         ]);
         $location->forceFill(['organization_id' => $orgId])->save();
 
@@ -143,7 +141,6 @@ class DemoSeeder extends Seeder
             $furniture = $categories->create(['code' => 'FURNITUR', 'name' => 'Furnitur Kantor']);
             $office = app(OrganizationStructureService::class)->createLocation([
                 'code' => 'KTR-'.$site[0], 'name' => 'Kantor '.$site[1],
-                'location_type_id' => LocationType::query()->where('code', 'KANTOR')->value('id'),
             ]);
 
             $assets = app(AssetService::class);

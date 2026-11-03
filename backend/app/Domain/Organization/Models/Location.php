@@ -2,7 +2,6 @@
 
 namespace App\Domain\Organization\Models;
 
-use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
 use Database\Factories\LocationFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -14,7 +13,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $id
  * @property string $organization_id
  * @property string|null $parent_id
- * @property string $location_type_id
  * @property string $code
  * @property string $name
  * @property string $path
@@ -25,7 +23,7 @@ class Location extends Model
     /** @use HasFactory<LocationFactory> */
     use BelongsToOrganization, HasFactory, HasUuids;
 
-    protected $fillable = ['parent_id', 'location_type_id', 'code', 'name', 'address', 'status'];
+    protected $fillable = ['parent_id', 'code', 'name', 'address', 'status'];
 
     protected static function newFactory(): LocationFactory
     {
@@ -44,10 +42,5 @@ class Location extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(self::class, 'parent_id');
-    }
-
-    public function locationType(): BelongsTo
-    {
-        return $this->belongsTo(LocationType::class);
     }
 }

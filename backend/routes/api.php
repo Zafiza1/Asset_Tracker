@@ -21,7 +21,6 @@ use App\Http\Controllers\Tenant\LicenseCodeController;
 use App\Http\Controllers\Tenant\LicenseController;
 use App\Http\Controllers\Tenant\LicensePurchaseController;
 use App\Http\Controllers\Tenant\LocationController;
-use App\Http\Controllers\Tenant\LocationTypeController;
 use App\Http\Controllers\Tenant\OrganizationProfileController;
 use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\TenantCategoryController;
@@ -126,7 +125,6 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
         Route::get('/definitions/{genericDefinition}', [GenericCatalogController::class, 'definition']);
         Route::get('/versions/{genericVersion}', [GenericCatalogController::class, 'version']);
         Route::get('/units', [GenericCatalogController::class, 'units']);
-        Route::get('/location-types', [GenericCatalogController::class, 'locationTypes']);
         Route::get('/transaction-types', [GenericCatalogController::class, 'transactionTypes']);
     });
 
@@ -138,7 +136,6 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     $masters = [
         'departments' => [DepartmentController::class, 'department'],
         'locations' => [LocationController::class, 'location'],
-        'location-types' => [LocationTypeController::class, 'locationType'],
         'tenant-masters/categories' => [TenantCategoryController::class, 'tenantCategory'],
         'asset-definitions' => [TenantDefinitionController::class, 'tenantDefinition'],
     ];

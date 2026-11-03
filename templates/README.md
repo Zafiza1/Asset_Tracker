@@ -23,7 +23,7 @@ Aturan umum:
 **Kategori Aset** — Nama Kategori\*, Kode, Kategori Induk, Deskripsi.
 Kode dibuat otomatis dari nama jika kosong. Kategori Induk boleh berupa Kode kategori pada baris di atasnya dalam file yang sama.
 
-**Lokasi** — Nama Lokasi\*, Jenis Lokasi\*, Kode, Lokasi Induk, Alamat.
+**Lokasi** — Nama Lokasi\*, Kode, Lokasi Induk, Alamat.
 Lokasi Induk boleh berupa Kode lokasi pada baris di atasnya dalam file yang sama.
 
 **Pendataan Aset** — Nama Aset\*, Kategori\*, Lokasi, Status (Tersedia/Digunakan/Dalam perbaikan; default Tersedia),

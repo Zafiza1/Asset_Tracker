@@ -5,7 +5,6 @@ namespace Tests\Feature\Tenant;
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Authorization\Models\Permission;
 use App\Domain\Authorization\Models\Role;
-use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
@@ -258,8 +257,7 @@ class InvitationTest extends TestCase
     private function location(string $code, ?Location $parent = null): Location
     {
         return $this->tenancy()->runAsTenant(new TenantContext($this->org, $this->admin), fn () => app(OrganizationStructureService::class)
-            ->createLocation(['code' => $code, 'name' => "Lokasi {$code}", 'parent_id' => $parent?->id,
-                'location_type_id' => LocationType::query()->where('code', 'GUDANG')->value('id')]));
+            ->createLocation(['code' => $code, 'name' => "Lokasi {$code}", 'parent_id' => $parent?->id]));
     }
 
     /** @param list<string> $permissions */

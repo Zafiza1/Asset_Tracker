@@ -1,13 +1,10 @@
-import clsx from 'clsx'
 import { Plus, SlidersHorizontal, Upload } from 'lucide-react'
 import { useState } from 'react'
-import { NavLink } from 'react-router'
-import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { PageHeader } from '../../components/ui/Card'
 import { ImportModal } from '../../components/ui/ImportModal'
 import type { Column } from '../../components/ui/Table'
-import type { Department, Location, LocationType, TenantCategory } from '../../lib/api/types'
+import type { Department, Location, TenantCategory } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { CategoryAttributesModal } from './CategoryAttributes'
 import { MasterListPage } from './MasterListPage'
@@ -46,36 +43,8 @@ export function DepartmentsPage() {
   )
 }
 
-/** Locations and their types are one menu: locations on /master/lokasi, types on /master/lokasi/jenis. */
-function LocationTabs() {
-  const tabs = [
-    { to: '/master/lokasi', label: 'Lokasi' },
-    { to: '/master/lokasi/jenis', label: 'Jenis Lokasi' },
-  ]
-  return (
-    <nav aria-label="Lokasi" className="mb-4 flex gap-1 border-b border-slate-200">
-      {tabs.map((t) => (
-        <NavLink
-          key={t.to}
-          to={t.to}
-          end
-          className={({ isActive }) =>
-            clsx(
-              '-mb-px border-b-2 px-3 py-2 text-sm font-medium',
-              isActive ? 'border-brand-700 text-brand-700' : 'border-transparent text-slate-600 hover:text-slate-900',
-            )
-          }
-        >
-          {t.label}
-        </NavLink>
-      ))}
-    </nav>
-  )
-}
-
 export function LocationsPage() {
   const locations = useOptions<Location>('/locations').data
-  const types = toOptions(useOptions('/location-types').data)
   const permissions = useMasterPermissions()
   const [editing, setEditing] = useState<Location | 'new' | null>(null)
   const [importing, setImporting] = useState(false)
@@ -96,7 +65,6 @@ export function LocationsPage() {
           )
         }
       />
-      <LocationTabs />
       <MasterListPage<Location>
         title="Lokasi"
         embedded
@@ -107,12 +75,10 @@ export function LocationsPage() {
         editing={editing}
         onEditChange={setEditing}
         filters={[
-          { name: 'location_type_id', label: 'Jenis', options: types },
         ]}
         columns={[
           { key: 'name', header: 'Nama', cell: treeName },
           code<Location>(),
-          { key: 'type', header: 'Jenis', cell: (r) => r.location_type?.name ?? '—', hideOnMobile: true },
         ]}
         fields={[
           { name: 'name', label: 'Nama', required: true },
@@ -123,12 +89,11 @@ export function LocationsPage() {
             emptyOption: '— Lokasi utama —',
             options: (locations ?? []).map((l) => ({ value: l.id, label: `${'  '.repeat(l.depth)}${l.name} (${l.code})` })),
           },
-          { name: 'location_type_id', label: 'Jenis lokasi', type: 'select', required: true, options: types, hint: 'Jenis yang belum ada dapat ditambahkan di tab Jenis Lokasi.' },
           { name: 'address', label: 'Alamat', type: 'textarea' },
         ]}
         emptyHint="Tambahkan lokasi pertama, misalnya gudang atau kantor."
         showColumnToggle
-        defaultColumns={['name', 'code', 'type']}
+        defaultColumns={['name', 'code']}
       />
       {importing && (
         <ImportModal
@@ -140,50 +105,6 @@ export function LocationsPage() {
           templateFilename="template_lokasi.xlsx"
         />
       )}
-    </>
-  )
-}
-
-export function LocationTypesPage() {
-  const permissions = useMasterPermissions()
-  const [editing, setEditing] = useState<LocationType | 'new' | null>(null)
-  return (
-    <>
-      <PageHeader
-        title="Jenis Lokasi"
-        actions={
-          permissions.canCreate && (
-            <Button onClick={() => setEditing('new')}>
-              <Plus className="size-4" aria-hidden /> Tambah jenis lokasi
-            </Button>
-          )
-        }
-      />
-      <LocationTabs />
-      <MasterListPage<LocationType>
-        title="Jenis Lokasi"
-        embedded
-        endpoint="/location-types"
-        canCreate={false}
-        canUpdate={permissions.canUpdate}
-        canArchive={permissions.canArchive}
-        editing={editing}
-        onEditChange={setEditing}
-        isReadOnly={(r) => r.is_built_in}
-        columns={[
-          { key: 'name', header: 'Nama', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
-          code<LocationType>(),
-          { key: 'source', header: 'Sumber', cell: (r) => (r.is_built_in ? <Badge tone="slate">Bawaan</Badge> : <Badge tone="blue">Organisasi</Badge>) },
-          { key: 'description', header: 'Deskripsi', cell: (r) => r.description ?? '—', hideOnMobile: true },
-        ]}
-        fields={[
-          { name: 'name', label: 'Nama', required: true },
-          { name: 'description', label: 'Deskripsi', type: 'textarea' },
-        ]}
-        emptyHint="Tambahkan jenis lokasi, misalnya gudang dingin atau ruang arsip."
-        showColumnToggle
-        defaultColumns={['name', 'code', 'source']}
-      />
     </>
   )
 }

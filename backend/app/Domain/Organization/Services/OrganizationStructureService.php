@@ -3,7 +3,6 @@
 namespace App\Domain\Organization\Services;
 
 use App\Domain\Authorization\Services\DataScopeGuard;
-use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Exceptions\ApiException;
@@ -22,9 +21,7 @@ final class OrganizationStructureService
 {
     private const DEPARTMENT_AUDIT = ['code', 'name', 'status'];
 
-    private const LOCATION_AUDIT = ['parent_id', 'location_type_id', 'code', 'name', 'address', 'status'];
-
-    private const LOCATION_TYPE_AUDIT = ['code', 'name', 'description', 'status'];
+    private const LOCATION_AUDIT = ['parent_id', 'code', 'name', 'address', 'status'];
 
     public function __construct(
         private readonly MasterWriter $writer,
@@ -67,7 +64,6 @@ final class OrganizationStructureService
     /** @param array<string, mixed> $data */
     public function createLocation(array $data): Location
     {
-        $this->activeLocationType($data['location_type_id']);
         if (! empty($data['parent_id'])) {
             $this->active(Location::class, $data['parent_id'], 'Lokasi induk');
         }
@@ -80,9 +76,6 @@ final class OrganizationStructureService
     public function updateLocation(Location $location, array $data): Location
     {
         $this->assertInScope($location);
-        if (isset($data['location_type_id']) && $data['location_type_id'] !== $location->location_type_id) {
-            $this->activeLocationType($data['location_type_id']);
-        }
 
         $parent = null;
         $moving = array_key_exists('parent_id', $data) && $data['parent_id'] !== $location->parent_id;
@@ -126,42 +119,6 @@ final class OrganizationStructureService
         return $this->writer->restore($location, 'location.restored');
     }
 
-    // ------------------------------------------------------------------ location types (organization-owned)
-
-    /** @param array<string, mixed> $data */
-    public function createLocationType(array $data): LocationType
-    {
-        return $this->writer->create(new LocationType, $data, 'location_type.created', self::LOCATION_TYPE_AUDIT);
-    }
-
-    /** @param array<string, mixed> $data */
-    public function updateLocationType(LocationType $type, array $data): LocationType
-    {
-        $this->ownLocationType($type);
-        if (($data['status'] ?? null) === MasterStatus::INACTIVE && $this->locationTypeInUse($type)) {
-            throw ApiException::conflict('LOCATION_TYPE_IN_USE', 'Jenis lokasi masih dipakai oleh lokasi aktif.');
-        }
-
-        return $this->writer->update($type, $data, 'location_type.updated', self::LOCATION_TYPE_AUDIT);
-    }
-
-    public function archiveLocationType(LocationType $type, ?string $reason): LocationType
-    {
-        $this->ownLocationType($type);
-        if ($this->locationTypeInUse($type)) {
-            throw ApiException::conflict('LOCATION_TYPE_IN_USE', 'Jenis lokasi masih dipakai oleh lokasi aktif.');
-        }
-
-        return $this->writer->archive($type, 'location_type.archived', $reason);
-    }
-
-    public function restoreLocationType(LocationType $type): LocationType
-    {
-        $this->ownLocationType($type);
-
-        return $this->writer->restore($type, 'location_type.restored');
-    }
-
     // ------------------------------------------------------------------ helpers
 
     private function assertInScope(Location $location): void
@@ -180,19 +137,6 @@ final class OrganizationStructureService
         }
     }
 
-    /** Built-in types are visible to every organization but only the platform may change them. */
-    private function ownLocationType(LocationType $type): void
-    {
-        if ($type->isBuiltIn()) {
-            throw ApiException::forbidden('BUILT_IN_LOCATION_TYPE', 'Jenis lokasi bawaan tidak dapat diubah.');
-        }
-    }
-
-    private function locationTypeInUse(LocationType $type): bool
-    {
-        return Location::query()->where('location_type_id', $type->id)->where('status', '!=', MasterStatus::ARCHIVED)->exists();
-    }
-
     /**
      * @template T of \Illuminate\Database\Eloquent\Model
      *
@@ -207,13 +151,6 @@ final class OrganizationStructureService
         }
 
         return $record;
-    }
-
-    private function activeLocationType(string $id): void
-    {
-        if (! LocationType::query()->whereKey($id)->where('status', MasterStatus::ACTIVE)->exists()) {
-            throw ApiException::unprocessable('INVALID_REFERENCE', 'Jenis lokasi tidak ditemukan atau tidak aktif.');
-        }
     }
 
     private function activeChildren(Location $location): bool

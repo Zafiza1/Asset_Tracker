@@ -57,7 +57,6 @@ export function PlatformCategoriesPage() {
 
 const referenceTabs = {
   units: { label: 'Satuan', endpoint: `${BASE}/units` },
-  'location-types': { label: 'Jenis Lokasi', endpoint: `${BASE}/location-types` },
   'transaction-types': { label: 'Jenis Transaksi', endpoint: `${BASE}/transaction-types` },
 } as const
 
@@ -72,7 +71,6 @@ export function PlatformReferencePage() {
   const common = { title: referenceTabs[tab].label, endpoint: referenceTabs[tab].endpoint, canUpdate: manage, canArchive: false, embedded: true }
   const content = {
     units: <MasterListPage<ReferenceItem> key="units" {...common} canCreate={manage} columns={[codeColumn(), nameColumn(), { key: 'symbol', header: 'Simbol', cell: (r) => r.symbol }]} fields={[codeField, { name: 'name', label: 'Nama', required: true }, { name: 'symbol', label: 'Simbol', required: true }, { name: 'quantity', label: 'Besaran' }]} />,
-    'location-types': <MasterListPage<ReferenceItem> key="location-types" {...common} canCreate={manage} columns={[codeColumn(), nameColumn()]} fields={[codeField, { name: 'name', label: 'Nama', required: true }, { name: 'description', label: 'Deskripsi', type: 'textarea' }]} />,
     'transaction-types': (
       <MasterListPage<ReferenceItem>
         key="transaction-types"

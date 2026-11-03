@@ -18,8 +18,6 @@ class LocationResource extends JsonResource
             'address' => $this->address,
             'parent_id' => $this->parent_id,
             'parent' => $this->whenLoaded('parent', fn () => Ref::of($this->parent)),
-            'location_type_id' => $this->location_type_id,
-            'location_type' => $this->whenLoaded('locationType', fn () => Ref::of($this->locationType)),
             // Lets the UI indent a flat list sorted by path.
             'depth' => Ref::depth($this->path),
             'status' => $this->status,

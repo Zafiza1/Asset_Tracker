@@ -96,7 +96,6 @@ export const breadcrumbLabels: Record<string, string> = {
   definisi: 'Definisi',
   versi: 'Versi',
   lokasi: 'Lokasi',
-  jenis: 'Jenis Lokasi',
   referensi: 'Referensi',
 }
 

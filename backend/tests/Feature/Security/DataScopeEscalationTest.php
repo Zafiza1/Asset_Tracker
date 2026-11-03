@@ -594,7 +594,6 @@ class DataScopeEscalationTest extends TestCase
     {
         $location = (new Location)->forceFill([
             'organization_id' => $this->org->id, 'code' => $code, 'name' => $name, 'parent_id' => $parent?->id,
-            'location_type_id' => $this->masters['location']->location_type_id,
         ]);
         $location->save();
 
@@ -609,7 +608,7 @@ class DataScopeEscalationTest extends TestCase
     /** @return array<string, mixed> */
     private function locationPayload(string $code, ?Location $parent = null): array
     {
-        return ['code' => $code, 'name' => "Lokasi {$code}", 'parent_id' => $parent?->id, 'location_type_id' => $this->masters['location']->location_type_id];
+        return ['code' => $code, 'name' => "Lokasi {$code}", 'parent_id' => $parent?->id];
     }
 
     /**

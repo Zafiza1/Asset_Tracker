@@ -13,7 +13,6 @@ use App\Domain\Authorization\RoleTemplates;
 use App\Domain\GenericMaster\Models\GenericAssetCategory;
 use App\Domain\GenericMaster\Models\GenericAssetDefinition;
 use App\Domain\GenericMaster\Models\GenericDefinitionVersion;
-use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
@@ -241,8 +240,7 @@ abstract class TestCase extends BaseTestCase
         $org = ['organization_id' => $organization->id];
         $department = (new Department)->forceFill([...$org, 'code' => "DEP{$suffix}", 'name' => "Departemen {$suffix}"]);
         $department->save();
-        $location = (new Location)->forceFill([...$org, 'code' => "LOC{$suffix}", 'name' => "Gudang {$suffix}",
-            'location_type_id' => LocationType::query()->where('code', 'GUDANG')->value('id')]);
+        $location = (new Location)->forceFill([...$org, 'code' => "LOC{$suffix}", 'name' => "Gudang {$suffix}"]);
         $location->save();
         $category = (new TenantAssetCategory)->forceFill([...$org, 'code' => "CAT{$suffix}", 'name' => "Kategori {$suffix}",
             'generic_category_id' => GenericAssetCategory::query()->where('code', 'UMUM')->value('id')]);

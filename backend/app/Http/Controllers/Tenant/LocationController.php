@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Services\OrganizationStructureService;
 use App\Domain\Shared\Masters\CodeGenerator;
@@ -22,7 +21,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class LocationController extends Controller
 {
-    private const RELATIONS = ['parent', 'locationType'];
+    private const RELATIONS = ['parent'];
 
     public function __construct(private readonly OrganizationStructureService $structure) {}
 
@@ -31,11 +30,9 @@ class LocationController extends Controller
     {
         $request->validate([
             'parent_id' => ['nullable', 'uuid'],
-            'location_type_id' => ['nullable', 'uuid'],
         ]);
         $query = Location::query()->with(self::RELATIONS)
-            ->when($request->query('parent_id'), fn ($q, $id) => $q->where('parent_id', $id))
-            ->when($request->query('location_type_id'), fn ($q, $id) => $q->where('location_type_id', $id));
+            ->when($request->query('parent_id'), fn ($q, $id) => $q->where('parent_id', $id));
 
         return LocationResource::collection(MasterRequests::list($query, $request,
             ['tree' => 'path', 'code' => 'code', 'name' => 'name', 'status' => 'status', 'created_at' => 'created_at'], 'tree'));
@@ -49,7 +46,6 @@ class LocationController extends Controller
             'name' => ['required', 'string', 'max:150'],
             'address' => ['nullable', 'string', 'max:1000'],
             'parent_id' => ['nullable', 'uuid'],
-            'location_type_id' => ['required', 'uuid'],
         ]);
 
         $data['code'] = ($data['code'] ?? null) ?: CodeGenerator::fromName($data['name'], 'locations', $tenancy->organizationId());
@@ -68,7 +64,6 @@ class LocationController extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:150'],
             'address' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'parent_id' => ['sometimes', 'nullable', 'uuid'],
-            'location_type_id' => ['sometimes', 'required', 'uuid'],
             'status' => ['sometimes', Rule::in(MasterStatus::EDITABLE)],
         ]);
 
@@ -102,7 +97,6 @@ class LocationController extends Controller
                 'code' => [...MasterRequests::codeRules(optional: true), Rule::unique('locations', 'code')->where('organization_id', $tenancy->organizationId())],
                 'name' => ['required', 'string', 'max:150'],
                 'parent_code' => ['nullable', 'string'],
-                'location_type_code' => ['required', 'string'],
                 'address' => ['nullable', 'string', 'max:1000'],
             ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
 
@@ -111,7 +105,6 @@ class LocationController extends Controller
                 'name' => $data['name'],
                 'address' => $data['address'],
                 'parent_id' => SpreadsheetImport::idByCode(Location::query(), $data['parent_code'], 'Lokasi induk'),
-                'location_type_id' => SpreadsheetImport::idByCode(LocationType::query(), $data['location_type_code'], 'Jenis lokasi'),
             ]);
         });
 
@@ -121,7 +114,6 @@ class LocationController extends Controller
     public function downloadTemplate(): BinaryFileResponse
     {
         return SpreadsheetImport::template('template_lokasi.xlsx', 'Template Import Lokasi', $this->importColumns(), [
-            'Jenis Lokasi' => SpreadsheetImport::codeList(LocationType::query()),
             'Lokasi Induk' => SpreadsheetImport::codeList(Location::query()),
         ], [
             'Untuk sub-lokasi, isi Lokasi Induk dengan lokasi yang sudah ada (dropdown), atau dengan Kode lokasi pada baris di atasnya dalam file ini.',
@@ -133,7 +125,6 @@ class LocationController extends Controller
     {
         return [
             new ImportColumn('name', 'Nama Lokasi', required: true, hint: 'Nama lokasi, maksimal 150 karakter. Contoh: Gudang Utama', width: 30),
-            new ImportColumn('location_type_code', 'Jenis Lokasi', required: true, hint: 'Pilih jenis lokasi dari daftar.', list: 'Jenis Lokasi', width: 30),
             new ImportColumn('code', 'Kode', hint: 'Kode unik lokasi (huruf, angka, - _ .). Jika kosong, dibuat otomatis dari nama.', width: 18),
             new ImportColumn('parent_code', 'Lokasi Induk', hint: 'Pilih lokasi induk, atau ketik Kode lokasi dari baris di atasnya. Kosongkan untuk lokasi utama.', list: 'Lokasi Induk', strictList: false, width: 34),
             new ImportColumn('address', 'Alamat', hint: 'Alamat lengkap lokasi. Boleh dikosongkan.', width: 45),

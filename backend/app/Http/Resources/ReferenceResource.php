@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Small reference tables without sensitive columns: units, location types, transaction types. Output is restricted to the listed columns.
+ * Small reference tables without sensitive columns: units, transaction types. Output is restricted to the listed columns.
  */
 class ReferenceResource extends JsonResource
 {

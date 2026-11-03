@@ -251,8 +251,6 @@ export interface Location extends MasterRecord {
   address: string | null
   parent_id: string | null
   parent?: Ref | null
-  location_type_id: string
-  location_type?: Ref | null
   depth: number
 }
 
@@ -262,12 +260,6 @@ export interface ReferenceItem extends MasterRecord {
   quantity?: string | null
   description?: string | null
   sort_order?: number
-}
-
-/** Location type as seen by an organization: built-in (read-only) or its own. */
-export interface LocationType extends MasterRecord {
-  description: string | null
-  is_built_in: boolean
 }
 
 export interface GenericCategory extends MasterRecord {

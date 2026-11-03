@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Domain\GenericMaster\Models\LocationType;
 use App\Domain\Organization\Models\Location;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -18,8 +17,6 @@ class LocationFactory extends Factory
         return [
             'code' => 'LOC'.fake()->unique()->numerify('####'),
             'name' => 'Lokasi '.fake()->streetName(),
-            'location_type_id' => fn () => LocationType::query()->value('id')
-                ?? LocationType::query()->create(['code' => 'GUDANG', 'name' => 'Gudang'])->id,
         ];
     }
 }

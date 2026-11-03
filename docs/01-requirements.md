@@ -6,7 +6,7 @@ Status: **DRAFT untuk review** · Versi dokumen: 0.1 · Tanggal: 2026-10-10
 
 Asset Tracker Enterprise V1.0 adalah platform SaaS **multi-tenant** untuk pengelolaan aset generik. Satu instalasi melayani banyak organisasi (tenant). Setiap organisasi:
 
-- memakai **Generic Master** (katalog standar milik platform: kategori, definisi aset + atribut, jenis lokasi, satuan, kondisi standar, jenis transaksi) yang **terversi dan immutable setelah dirilis**;
+- memakai **Generic Master** (katalog standar milik platform: kategori, definisi aset + atribut, satuan, kondisi standar, jenis transaksi) yang **terversi dan immutable setelah dirilis**;
 - mengadopsi dan menyesuaikan definisi itu lewat **Tenant Custom Master** (subkategori, atribut tambahan, override terbatas) tanpa pernah menulis ke definisi global;
 - mendaftarkan aset; setiap aset hidup di dalam **Asset Container** — batas isolasi logis yang mengikat aset ke versi definisi yang tepat (generic + tenant) beserta snapshot skemanya, sehingga perubahan master tidak pernah mengubah struktur aset lama secara diam-diam;
 - mengubah data terkontrol aset (lokasi, penanggung jawab, status, kondisi, disposal, koreksi) **hanya melalui transaksi** yang melewati **workflow approval terkonfigurasi dan terversi**, lalu di-*posting* secara atomik;
@@ -21,7 +21,7 @@ V1.0 = core asset management berbasis input manual. Tidak ada GPS/RFID/BLE/IoT, 
 |---|---|
 | Tenancy | Organisasi, profil, cabang, departemen, lokasi, user per organisasi |
 | Identitas & akses | Login session (cookie), RBAC granular, data scope (organisasi/cabang/departemen/lokasi), role platform terpisah |
-| Generic Master | Kategori, definisi aset + versi + atribut, jenis lokasi, satuan, kondisi standar, jenis transaksi; release & deprecate versi |
+| Generic Master | Kategori, definisi aset + versi + atribut, satuan, kondisi standar, jenis transaksi; release & deprecate versi |
 | Tenant Custom Master | Subkategori, adopsi definisi generik, atribut tambahan, override terbatas, versi tenant, migrasi aset eksplisit |
 | Aset | Registrasi (via transaksi RECEIPT), inventory, container, atribut dinamis, dokumen, riwayat, archive/restore |
 | Transaksi | RECEIPT, TRANSFER, REASSIGN, STATUS_CHANGE, LOAN, RETURN, DISPOSAL, CORRECTION, REVERSAL |

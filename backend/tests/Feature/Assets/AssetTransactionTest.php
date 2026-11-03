@@ -249,7 +249,6 @@ class AssetTransactionTest extends TestCase
         $location = (new Location)->forceFill([
             'organization_id' => $this->org->id, 'code' => $code, 'name' => $name,
             'parent_id' => $parent?->id,
-            'location_type_id' => $this->masters['location']->location_type_id,
         ]);
         $location->save();
 

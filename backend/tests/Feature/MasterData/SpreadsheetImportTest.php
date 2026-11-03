@@ -50,12 +50,12 @@ class SpreadsheetImportTest extends TestCase
             TenantAssetCategory::query()->where('name', 'Mouse')->value('parent_id'));
     }
 
-    public function test_locations_import_uses_built_in_location_types(): void
+    public function test_locations_import_resolves_parent_codes(): void
     {
         $this->upload('/api/locations/import', [
-            ['name', 'code', 'location_type_code', 'parent_code', 'address'],
-            ['Gedung Pusat', 'GP', 'gudang', null, 'Jl. Sudirman'],
-            ['Rak 1', null, 'GUDANG', 'GP', null],
+            ['name', 'code', 'parent_code', 'address'],
+            ['Gedung Pusat', 'GP', null, 'Jl. Sudirman'],
+            ['Rak 1', null, 'GP', null],
         ])->assertOk()->assertJsonPath('data.imported', 2);
 
         $rack = Location::query()->where('name', 'Rak 1')->firstOrFail();
@@ -101,7 +101,7 @@ class SpreadsheetImportTest extends TestCase
     public function test_file_with_wrong_columns_or_no_data_is_rejected(): void
     {
         $this->assertErrorCode($this->upload('/api/locations/import', [['nama', 'alamat'], ['Gudang', 'Jl. A']]), 422, 'INVALID_TEMPLATE');
-        $this->assertErrorCode($this->upload('/api/locations/import', [['code', 'name', 'parent_code', 'location_type_code', 'address']]), 422, 'IMPORT_EMPTY');
+        $this->assertErrorCode($this->upload('/api/locations/import', [['code', 'name', 'parent_code', 'address']]), 422, 'IMPORT_EMPTY');
 
         $notExcel = UploadedFile::fake()->createWithContent('data.xlsx', 'bukan excel');
         $this->assertErrorCode($this->post('/api/locations/import', ['file' => $notExcel], ['Accept' => 'application/json']), 422, 'INVALID_FILE');

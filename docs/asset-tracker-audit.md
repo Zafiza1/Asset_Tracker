@@ -74,7 +74,7 @@ Modular monolith dengan folder per domain di `backend/app/Domain`:
 | `Authorization` | `PermissionCatalog`, `PermissionResolver`, `RoleTemplates`, `DataScope`, `RoleManagement`, `OrgAdminGuard` |
 | `Organization` | `Organization`, `OrganizationSetting`, `Department`, `Location`, `OrganizationStructureService` |
 | `TenantMaster` | Kategori tenant, atribut kategori (`CategoryAttributeService`), dan **sistem definisi/versi lama** (tidak dipakai UI) |
-| `GenericMaster` | Katalog platform (kategori/definisi/versi/atribut generik, unit, jenis lokasi, jenis transaksi) |
+| `GenericMaster` | Katalog platform (kategori/definisi/versi/atribut generik, unit, jenis transaksi) |
 | `Assets` | `Asset`, `AssetService`, `AssetScope`, `AssetStatus` |
 | `AssetTransactions` | `AssetTransaction`, `AssetTransactionService`, `TransactionLog`, `TransactionType` |
 | `Analytics` | `AssetAnalytics` (dashboard) |
@@ -124,7 +124,7 @@ Tidak ada integrasi eksternal (ERP, SSO, email transaksional, barcode/RFID, stor
 | Audit | Audit trail organisasi dan platform, append-only, diff before/after, redaksi kunci sensitif | `AuditLogger.php`, migrasi `000300` |
 | Kategori | Hierarki (materialized path), arsip/restore, larangan arsip saat masih dipakai aset aktif | `TenantCategoryService.php` |
 | Atribut dinamis | 7 tipe (string, text, integer, decimal, boolean, date, enum), wajib/opsional, opsi pilihan, pewarisan dari induk, key immutable (trigger) | `CategoryAttributeService.php`, migrasi `001000` |
-| Lokasi | Hierarki, jenis lokasi (bawaan platform + milik organisasi), arsip | `OrganizationStructureService.php`, migrasi `000900` |
+| Lokasi | Hierarki, arsip | `OrganizationStructureService.php` |
 | Data scope | Scope organisasi / departemen / lokasi (termasuk sub-lokasi), fail-closed | `AssetScope.php`, `PermissionResolver.php:52-64` |
 | Aset | CRUD deskriptif, nomor otomatis, nomor seri unik per organisasi (case-insensitive), status, nilai dan tanggal perolehan, atribut, arsip/restore, `lock_version`, riwayat transaksi per aset | `AssetService.php`, `AssetController.php` |
 | Transaksi | Pemindahan, perubahan status, peminjaman, pengembalian, catatan; validasi status, lokasi aktif, dan scope; append-only | `AssetTransactionService.php` |
@@ -186,8 +186,7 @@ Tidak ada integrasi eksternal (ERP, SSO, email transaksional, barcode/RFID, stor
 | Pengaturan | `organization_settings` | RLS | PK `organization_id`; format nomor |
 | | `number_sequences` | RLS | PK `(organization_id, sequence_key, period_key)` |
 | Struktur | `departments` | RLS | UNIQUE `(organization_id, code)` |
-| | `locations` | RLS | `parent_id` composite FK ke dirinya sendiri; `path` materialized; trigger validasi jenis lokasi |
-| | `location_types` | RLS (baris global terlihat) | `organization_id NULL` = bawaan; unique partial per global/per org |
+| | `locations` | RLS | `parent_id` composite FK ke dirinya sendiri; `path` materialized |
 | Master generik | `units`, `generic_transaction_types`, `generic_asset_categories`, `generic_asset_definitions`, `generic_asset_definition_versions`, `generic_attribute_definitions` | Global, hanya ditulis platform (trigger) | Versi released immutable |
 | Master tenant | `tenant_asset_categories` | RLS | Hierarki `parent_id`/`path`; `generic_category_id` dan `code` immutable |
 | | `tenant_category_attributes` | RLS | UNIQUE `(organization_id, key)`; `category_id`, `key`, `data_type` immutable |
@@ -211,7 +210,6 @@ erDiagram
     locations ||--o{ user_data_scopes : "scope lokasi"
     departments ||--o{ user_data_scopes : "scope dept"
     locations ||--o{ locations : "parent"
-    location_types ||--o{ locations : ""
     tenant_asset_categories ||--o{ tenant_asset_categories : "parent"
     tenant_asset_categories ||--o{ tenant_category_attributes : ""
     tenant_asset_categories ||--o{ assets : ""
