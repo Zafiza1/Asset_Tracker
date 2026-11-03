@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { ArrowUpRight, Boxes, CalendarPlus, History, Wallet } from 'lucide-react'
+import { ArrowUpRight, Boxes, CalendarPlus, Check, History, LayoutGrid, Plus, RotateCcw, Wallet } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ModuleBoundary } from '../../app/ModuleBoundary'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { ColumnToggle } from '../../components/ui/ColumnToggle'
+import { Button } from '../../components/ui/Button'
 import { ErrorState, Skeleton } from '../../components/ui/Feedback'
 import { api } from '../../lib/api/client'
 import { useAuth } from '../../lib/auth/context'
@@ -14,6 +15,8 @@ import { formatMoney, type AssetStatus } from '../assets/api'
 import { transactionTypeLabel, type TransactionType } from '../transactions/api'
 import { BarList, ColumnChart, DonutChart, Gauge, MeterList, StackedBar, TrendChart, type TrendPoint } from './charts'
 import { CATEGORICAL, STATUS_COLOR } from './palette'
+import { DASHBOARD_WIDGETS, SIZE_CLASS, useDashboardLayout, widgetDef, type LayoutItem, type WidgetKey } from './layout'
+import { GRID_CLASS, WidgetGrid } from './WidgetGrid'
 
 export interface Dashboard {
   generated_at: string
@@ -46,59 +49,17 @@ const attentionLabel: Record<AttentionReason, string> = {
   no_location: 'Tanpa lokasi',
 }
 
-/** The analyses a user can show or hide, in page order. */
-export const DASHBOARD_WIDGETS = [
-  { key: 'summary', header: 'Ringkasan' },
-  { key: 'status', header: 'Status aset' },
-  { key: 'utilization', header: 'Pemanfaatan & peminjaman' },
-  { key: 'data_quality', header: 'Kelengkapan data' },
-  { key: 'trend', header: 'Penambahan & perubahan aset' },
-  { key: 'age', header: 'Umur aset' },
-  { key: 'category', header: 'Per kategori' },
-  { key: 'location', header: 'Per lokasi' },
-  { key: 'transaction_types', header: 'Transaksi per jenis' },
-  { key: 'activity', header: 'Tindak lanjut, aset menganggur & transaksi terbaru' },
-] as const
-
-type WidgetKey = (typeof DASHBOARD_WIDGETS)[number]['key']
-
-/**
- * Hidden widgets are remembered per user in this browser. The hidden set is stored
- * (not the visible one) so widgets added later show up by default.
- */
-function useHiddenWidgets(userId: string | undefined) {
-  const storageKey = `dashboard:hidden:${userId ?? 'anon'}`
-  const [hidden, setHidden] = useState<string[]>(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) ?? '[]')
-      return Array.isArray(saved) ? saved : []
-    } catch {
-      return []
-    }
-  })
-  const save = (next: string[]) => {
-    setHidden(next)
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(next))
-    } catch {
-      // Storage unavailable (private mode, quota) — the choice just won't persist.
-    }
-  }
-  return {
-    hidden,
-    toggle: (key: string) => save(hidden.includes(key) ? hidden.filter((k) => k !== key) : [...hidden, key]),
-    reset: () => save([]),
-  }
-}
-
 /**
  * Asset Analytics module: everything here is computed by the API from the stored data,
- * within the user's data scope. Each widget has its own error boundary.
+ * within the user's data scope. Each widget has its own error boundary, and the user
+ * arranges them (order, width, visibility) with "Atur tata letak".
  */
 export function DashboardPage() {
   const { profile } = useAuth()
   const query = useQuery({ queryKey: ['/dashboard'], queryFn: () => api.get<{ data: Dashboard }>('/dashboard') })
-  const widgets = useHiddenWidgets(profile?.user.id)
+  const layout = useDashboardLayout(profile?.user.id)
+  const [editing, setEditing] = useState(false)
+  const hasAssets = query.data ? query.data.data.summary.total > 0 || query.data.data.summary.archived > 0 : false
 
   return (
     <>
@@ -112,146 +73,208 @@ export function DashboardPage() {
               label="Tampilan"
               title="Tampilkan analisis"
               columns={[...DASHBOARD_WIDGETS]}
-              visibleColumns={DASHBOARD_WIDGETS.map((w) => w.key).filter((k) => !widgets.hidden.includes(k))}
-              onToggle={widgets.toggle}
-              onReset={widgets.reset}
+              visibleColumns={layout.items.filter((i) => !i.hidden).map((i) => i.key)}
+              onToggle={(key) => layout.setHidden(key as WidgetKey, !layout.items.find((i) => i.key === key)!.hidden)}
+              onReset={layout.showAll}
             />
+            {hasAssets &&
+              (editing ? (
+                <Button size="sm" onClick={() => setEditing(false)}>
+                  <Check className="size-4" aria-hidden />
+                  Selesai
+                </Button>
+              ) : (
+                <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+                  <LayoutGrid className="size-4" aria-hidden />
+                  Atur tata letak
+                </Button>
+              ))}
           </>
         }
       />
-      {query.isLoading ? <DashboardSkeleton /> : query.isError ? <ErrorState error={query.error} /> : <DashboardBody data={query.data!.data} hidden={widgets.hidden} onReset={widgets.reset} />}
+      {query.isLoading ? (
+        <DashboardSkeleton items={layout.items} />
+      ) : query.isError ? (
+        <ErrorState error={query.error} />
+      ) : !hasAssets ? (
+        <NoAssets />
+      ) : (
+        <div className="space-y-4">
+          {editing && <LayoutToolbar layout={layout} />}
+          {layout.items.every((i) => i.hidden) ? (
+            <AllHidden onShowAll={layout.showAll} />
+          ) : (
+            <WidgetGrid
+              items={layout.items.filter((i) => !i.hidden)}
+              editing={editing}
+              render={(key) => renderWidget(key, query.data!.data)}
+              onMove={layout.move}
+              onResize={layout.resize}
+              onHide={(key) => layout.setHidden(key, true)}
+            />
+          )}
+        </div>
+      )}
     </>
   )
 }
 
-function DashboardBody({ data, hidden, onReset }: { data: Dashboard; hidden: string[]; onReset: () => void }) {
-  if (data.summary.total === 0 && data.summary.archived === 0) {
-    return (
-      <Card>
-        <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
-          <span className="mb-2 grid size-14 place-items-center rounded-2xl bg-brand-50 text-brand-700 ring-1 ring-brand-100">
-            <Boxes className="size-7" aria-hidden />
-          </span>
-          <p className="font-display text-lg font-semibold text-slate-900">Belum ada aset terdaftar</p>
-          <p className="max-w-md text-sm text-slate-500">Analisis muncul otomatis setelah aset ditambahkan. Mulai dari menu Pendataan Aset.</p>
-          <Link to="/aset" className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-800">
-            Buka Pendataan Aset
-          </Link>
-        </div>
-      </Card>
-    )
-  }
-
-  const statusData = data.by_status.map((s, i) => ({ key: s.status, label: s.label, value: s.count, color: CATEGORICAL[i % CATEGORICAL.length], to: `/aset?status=${s.status}` }))
-  const onTime = data.loans.active - data.loans.overdue - data.loans.due_soon
-  const loanData = [
-    { key: 'overdue', label: 'Terlambat', value: data.loans.overdue, color: STATUS_COLOR.critical },
-    { key: 'due_soon', label: `Jatuh tempo ≤ ${data.loans.due_soon_days} hari`, value: data.loans.due_soon, color: STATUS_COLOR.warning },
-    { key: 'on_time', label: 'Belum jatuh tempo', value: onTime, color: STATUS_COLOR.good },
-  ]
-
-  const show = (key: WidgetKey) => !hidden.includes(key)
-  const firstRow = (['status', 'utilization', 'data_quality'] as const).filter(show)
-  const thirdRow = (['category', 'location', 'transaction_types'] as const).filter(show)
-  if (DASHBOARD_WIDGETS.every((w) => !show(w.key))) {
-    return (
-      <Card>
-        <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
-          <p className="font-display text-lg font-semibold text-slate-900">Semua analisis disembunyikan</p>
-          <p className="max-w-md text-sm text-slate-500">Pilih analisis yang ingin ditampilkan lewat tombol Tampilan.</p>
-          <button type="button" onClick={onReset} className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-800">
-            Tampilkan semua
-          </button>
-        </div>
-      </Card>
-    )
-  }
-
+/** Shown while arranging: how it works, the hidden widgets to bring back, and a reset. */
+function LayoutToolbar({ layout }: { layout: ReturnType<typeof useDashboardLayout> }) {
+  const hidden = layout.items.filter((i) => i.hidden)
   return (
-    <div className="space-y-4">
-      {show('summary') && (
-        <section aria-label="Ringkasan" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatTile icon={Boxes} tone="brand" label="Aset aktif" value={data.summary.total.toLocaleString('id-ID')} note={data.summary.archived ? `${data.summary.archived} aset nonaktif tidak dihitung` : undefined} to="/aset" />
-          <StatTile icon={Wallet} tone="emerald" label="Total nilai perolehan" value={formatMoney(data.summary.total_value)} note="Aset aktif yang nilainya diisi" />
-          <StatTile icon={CalendarPlus} tone="violet" label="Ditambahkan bulan ini" value={data.summary.added_this_month.toLocaleString('id-ID')} />
-          <StatTile icon={History} tone="amber" label={`Transaksi ${data.transactions.days} hari terakhir`} value={data.transactions.total.toLocaleString('id-ID')} to="/transaksi" />
-        </section>
+    <section aria-label="Atur tata letak" className="rounded-xl bg-brand-50/60 p-4 ring-1 ring-brand-100">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="max-w-2xl text-sm text-slate-700">Seret widget untuk mengubah urutan, pilih lebarnya, atau sembunyikan yang tidak diperlukan. Perubahan tersimpan otomatis di browser ini.</p>
+        <Button variant="ghost" size="sm" onClick={layout.reset}>
+          <RotateCcw className="size-4" aria-hidden />
+          Kembalikan bawaan
+        </Button>
+      </div>
+      {hidden.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-2 text-xs font-medium text-slate-600">Widget tersembunyi</p>
+          <ul className="flex flex-wrap gap-2">
+            {hidden.map((i) => (
+              <li key={i.key}>
+                <button
+                  type="button"
+                  onClick={() => layout.setHidden(i.key, false)}
+                  className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-white px-2.5 text-sm text-slate-700 shadow-card ring-1 ring-slate-300 transition-colors hover:text-brand-800 hover:ring-brand-300"
+                >
+                  <Plus className="size-4" aria-hidden />
+                  {widgetDef(i.key).header}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-
-      <div className={clsx('grid gap-4 empty:hidden', rowGrid(firstRow.length))}>
-        {show('status') && (
-          <Widget title="Status aset">
-            <DonutChart data={statusData} totalLabel="aset aktif" />
-          </Widget>
-        )}
-        {show('utilization') && (
-          <Widget title="Pemanfaatan & peminjaman">
-            <div className="space-y-4 p-4">
-              <Gauge value={data.utilization.rate} label="Tingkat pemanfaatan" note={`${data.utilization.in_service} dari ${data.utilization.operable} aset digunakan/dipinjam`} />
-              <div>
-                <p className="mb-2 flex items-baseline justify-between text-sm">
-                  <span className="font-medium text-slate-700">Peminjaman aktif</span>
-                  <Link to="/aset?status=on_loan" className="font-semibold tabular-nums text-slate-900 hover:text-brand-700">
-                    {data.loans.active.toLocaleString('id-ID')}
-                  </Link>
-                </p>
-                <StackedBar data={loanData} emptyText="Tidak ada aset yang sedang dipinjam." />
-              </div>
-            </div>
-          </Widget>
-        )}
-        {show('data_quality') && (
-          <Widget title="Kelengkapan data" className={firstRow.length === 3 ? 'md:col-span-2 xl:col-span-1' : undefined}>
-            <div className="flex flex-wrap items-center gap-2 p-4 pb-0 xl:flex-col xl:items-stretch">
-              <Gauge value={data.data_quality.score} label="Skor kelengkapan" note="Rata-rata kolom opsional terisi" />
-              <div className="min-w-[200px] flex-1 [&>ul]:space-y-2 [&>ul]:px-0">
-                <MeterList data={data.data_quality.fields.map((f) => ({ key: f.key, label: f.label, part: f.filled, total: data.data_quality.total }))} />
-              </div>
-            </div>
-          </Widget>
-        )}
-      </div>
-
-      <div className={clsx('grid gap-4 empty:hidden', show('trend') && show('age') && 'xl:grid-cols-3')}>
-        {show('trend') && (
-          <Widget title="Penambahan & perubahan aset (12 bulan)" className={show('age') ? 'xl:col-span-2' : undefined}>
-            <TrendChart data={data.trend} />
-          </Widget>
-        )}
-        {show('age') && (
-          <Widget
-            title="Umur aset"
-            action={data.age.average_years !== null && <span className="text-xs text-slate-500">Rata-rata <span className="font-semibold text-slate-900">{data.age.average_years.toLocaleString('id-ID')} tahun</span></span>}
-          >
-            {data.age.buckets.every((b) => b.count === 0) ? (
-              <p className="p-4 text-sm text-slate-500">Belum ada aset dengan tanggal perolehan.</p>
-            ) : (
-              <div className="p-4">
-                <ColumnChart label="Jumlah aset per kelompok umur" data={data.age.buckets.map((b) => ({ key: b.key, label: b.label, value: b.count }))} />
-              </div>
-            )}
-            {data.age.unknown > 0 && <p className="px-4 pb-4 text-xs text-slate-500">{data.age.unknown} aset tanpa tanggal perolehan tidak dihitung.</p>}
-          </Widget>
-        )}
-      </div>
-
-      <div className={clsx('grid gap-4 empty:hidden', rowGrid(thirdRow.length))}>
-        {show('category') && <CategoryWidget data={data} />}
-        {show('location') && (
-          <Widget title="Per lokasi">
-            <BarList limit={6} data={data.by_location.map((l) => ({ key: l.id ?? 'none', label: l.name, value: l.count, to: l.id ? `/aset?location_id=${l.id}` : undefined }))} />
-          </Widget>
-        )}
-        {show('transaction_types') && (
-          <Widget title={`Transaksi per jenis (${data.transactions.days} hari)`} className={thirdRow.length === 3 ? 'md:col-span-2 xl:col-span-1' : undefined}>
-            <BarList limit={6} unit="transaksi" emptyText="Belum ada transaksi dalam periode ini." data={data.transactions.by_type.filter((t) => t.count > 0).sort((a, b) => b.count - a.count).map((t) => ({ key: t.type, label: t.label, value: t.count, to: `/transaksi?type=${t.type}` }))} />
-          </Widget>
-        )}
-      </div>
-
-      {show('activity') && <ActivityWidget data={data} />}
-    </div>
+    </section>
   )
+}
+
+function NoAssets() {
+  return (
+    <Card>
+      <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
+        <span className="mb-2 grid size-14 place-items-center rounded-2xl bg-brand-50 text-brand-700 ring-1 ring-brand-100">
+          <Boxes className="size-7" aria-hidden />
+        </span>
+        <p className="font-display text-lg font-semibold text-slate-900">Belum ada aset terdaftar</p>
+        <p className="max-w-md text-sm text-slate-500">Analisis muncul otomatis setelah aset ditambahkan. Mulai dari menu Pendataan Aset.</p>
+        <Link to="/aset" className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-800">
+          Buka Pendataan Aset
+        </Link>
+      </div>
+    </Card>
+  )
+}
+
+function AllHidden({ onShowAll }: { onShowAll: () => void }) {
+  return (
+    <Card>
+      <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
+        <p className="font-display text-lg font-semibold text-slate-900">Semua analisis disembunyikan</p>
+        <p className="max-w-md text-sm text-slate-500">Tampilkan kembali lewat Atur tata letak, atau tampilkan semuanya sekaligus.</p>
+        <button type="button" onClick={onShowAll} className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-800">
+          Tampilkan semua
+        </button>
+      </div>
+    </Card>
+  )
+}
+
+function renderWidget(key: WidgetKey, data: Dashboard): ReactNode {
+  switch (key) {
+    case 'stat_total':
+      return <StatTile icon={Boxes} tone="brand" label="Aset aktif" value={data.summary.total.toLocaleString('id-ID')} note={data.summary.archived ? `${data.summary.archived} aset nonaktif tidak dihitung` : undefined} to="/aset" />
+    case 'stat_value':
+      return <StatTile icon={Wallet} tone="emerald" label="Total nilai perolehan" value={formatMoney(data.summary.total_value)} note="Aset aktif yang nilainya diisi" />
+    case 'stat_added':
+      return <StatTile icon={CalendarPlus} tone="violet" label="Ditambahkan bulan ini" value={data.summary.added_this_month.toLocaleString('id-ID')} />
+    case 'stat_transactions':
+      return <StatTile icon={History} tone="amber" label={`Transaksi ${data.transactions.days} hari terakhir`} value={data.transactions.total.toLocaleString('id-ID')} to="/transaksi" />
+    case 'status':
+      return (
+        <Widget title="Status aset">
+          <DonutChart data={data.by_status.map((s, i) => ({ key: s.status, label: s.label, value: s.count, color: CATEGORICAL[i % CATEGORICAL.length], to: `/aset?status=${s.status}` }))} totalLabel="aset aktif" />
+        </Widget>
+      )
+    case 'utilization': {
+      const onTime = data.loans.active - data.loans.overdue - data.loans.due_soon
+      const loanData = [
+        { key: 'overdue', label: 'Terlambat', value: data.loans.overdue, color: STATUS_COLOR.critical },
+        { key: 'due_soon', label: `Jatuh tempo ≤ ${data.loans.due_soon_days} hari`, value: data.loans.due_soon, color: STATUS_COLOR.warning },
+        { key: 'on_time', label: 'Belum jatuh tempo', value: onTime, color: STATUS_COLOR.good },
+      ]
+      return (
+        <Widget title="Pemanfaatan & peminjaman">
+          <div className="space-y-4 p-4">
+            <Gauge value={data.utilization.rate} label="Tingkat pemanfaatan" note={`${data.utilization.in_service} dari ${data.utilization.operable} aset digunakan/dipinjam`} />
+            <div>
+              <p className="mb-2 flex items-baseline justify-between text-sm">
+                <span className="font-medium text-slate-700">Peminjaman aktif</span>
+                <Link to="/aset?status=on_loan" className="font-semibold tabular-nums text-slate-900 hover:text-brand-700">
+                  {data.loans.active.toLocaleString('id-ID')}
+                </Link>
+              </p>
+              <StackedBar data={loanData} emptyText="Tidak ada aset yang sedang dipinjam." />
+            </div>
+          </div>
+        </Widget>
+      )
+    }
+    case 'data_quality':
+      return (
+        <Widget title="Kelengkapan data">
+          <div className="flex flex-wrap items-center gap-2 p-4 pb-0">
+            <Gauge value={data.data_quality.score} label="Skor kelengkapan" note="Rata-rata kolom opsional terisi" />
+            <div className="min-w-[200px] flex-1 [&>ul]:space-y-2 [&>ul]:px-0">
+              <MeterList data={data.data_quality.fields.map((f) => ({ key: f.key, label: f.label, part: f.filled, total: data.data_quality.total }))} />
+            </div>
+          </div>
+        </Widget>
+      )
+    case 'trend':
+      return (
+        <Widget title="Penambahan & perubahan aset (12 bulan)">
+          <TrendChart data={data.trend} />
+        </Widget>
+      )
+    case 'age':
+      return (
+        <Widget
+          title="Umur aset"
+          action={data.age.average_years !== null && <span className="text-xs text-slate-500">Rata-rata <span className="font-semibold text-slate-900">{data.age.average_years.toLocaleString('id-ID')} tahun</span></span>}
+        >
+          {data.age.buckets.every((b) => b.count === 0) ? (
+            <p className="p-4 text-sm text-slate-500">Belum ada aset dengan tanggal perolehan.</p>
+          ) : (
+            <div className="p-4">
+              <ColumnChart label="Jumlah aset per kelompok umur" data={data.age.buckets.map((b) => ({ key: b.key, label: b.label, value: b.count }))} />
+            </div>
+          )}
+          {data.age.unknown > 0 && <p className="px-4 pb-4 text-xs text-slate-500">{data.age.unknown} aset tanpa tanggal perolehan tidak dihitung.</p>}
+        </Widget>
+      )
+    case 'category':
+      return <CategoryWidget data={data} />
+    case 'location':
+      return (
+        <Widget title="Per lokasi">
+          <BarList limit={6} data={data.by_location.map((l) => ({ key: l.id ?? 'none', label: l.name, value: l.count, to: l.id ? `/aset?location_id=${l.id}` : undefined }))} />
+        </Widget>
+      )
+    case 'transaction_types':
+      return (
+        <Widget title={`Transaksi per jenis (${data.transactions.days} hari)`}>
+          <BarList limit={6} unit="transaksi" emptyText="Belum ada transaksi dalam periode ini." data={data.transactions.by_type.filter((t) => t.count > 0).sort((a, b) => b.count - a.count).map((t) => ({ key: t.type, label: t.label, value: t.count, to: `/transaksi?type=${t.type}` }))} />
+        </Widget>
+      )
+    case 'activity':
+      return <ActivityWidget data={data} />
+  }
 }
 
 /** Count and acquisition value per category share one card; a toggle switches the measure. */
@@ -290,7 +313,7 @@ function ActivityWidget({ data }: { data: Dashboard }) {
   ]
 
   return (
-    <Card>
+    <Card className="h-full">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 pt-2">
         <div role="tablist" aria-label="Daftar aset" className="flex flex-wrap gap-1">
           {tabs.map((t) => (
@@ -437,7 +460,7 @@ function StatTile({ icon: Icon, tone, label, value, note, to }: { icon: typeof B
     </div>
   )
   return to ? (
-    <Link to={to} className="group block rounded-xl">
+    <Link to={to} className="group block h-full rounded-xl">
       {body}
     </Link>
   ) : (
@@ -445,67 +468,36 @@ function StatTile({ icon: Icon, tone, label, value, note, to }: { icon: typeof B
   )
 }
 
-/** Mirrors the real layout so nothing jumps when the data arrives. */
-function DashboardSkeleton() {
+/** Placeholders in the user's own layout so nothing jumps when the data arrives. */
+function DashboardSkeleton({ items }: { items: LayoutItem[] }) {
   return (
-    <div className="space-y-4" role="status" aria-label="Memuat dashboard">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex gap-4 rounded-xl bg-white p-5 shadow-card ring-1 ring-slate-200/80">
-            <Skeleton className="size-11 rounded-xl" />
-            <div className="flex-1 space-y-2.5 py-0.5">
-              <Skeleton className="h-3.5 w-2/3" />
-              <Skeleton className="h-7 w-1/2" />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex flex-col items-center gap-4 rounded-xl bg-white p-5 shadow-card ring-1 ring-slate-200/80">
-            <Skeleton className="h-4 w-36 self-start" />
-            <Skeleton className="size-36 rounded-full" />
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-full" />
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-4 xl:grid-cols-3">
-        <div className="rounded-xl bg-white p-5 shadow-card ring-1 ring-slate-200/80 xl:col-span-2">
-          <Skeleton className="mb-5 h-4 w-56" />
-          <Skeleton className="h-52 w-full" />
-        </div>
-        <div className="rounded-xl bg-white p-5 shadow-card ring-1 ring-slate-200/80">
-          <Skeleton className="mb-5 h-4 w-28" />
-          <Skeleton className="h-52 w-full" />
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="space-y-4 rounded-xl bg-white p-5 shadow-card ring-1 ring-slate-200/80">
-            <Skeleton className="h-4 w-28" />
-            {[0, 1, 2, 3].map((j) => (
-              <div key={j} className="space-y-1.5">
-                <Skeleton className="h-3 w-1/2" />
-                <Skeleton className="h-2.5" />
+    <div className={GRID_CLASS} role="status" aria-label="Memuat dashboard">
+      {items
+        .filter((i) => !i.hidden)
+        .map((i) =>
+          widgetDef(i.key).kind === 'stat' ? (
+            <div key={i.key} className={clsx('flex gap-4 rounded-xl bg-white p-5 shadow-card ring-1 ring-slate-200/80', SIZE_CLASS[i.size])}>
+              <Skeleton className="size-11 rounded-xl" />
+              <div className="flex-1 space-y-2.5 py-0.5">
+                <Skeleton className="h-3.5 w-2/3" />
+                <Skeleton className="h-7 w-1/2" />
               </div>
-            ))}
-          </div>
-        ))}
-      </div>
+            </div>
+          ) : (
+            <div key={i.key} className={clsx('rounded-xl bg-white p-5 shadow-card ring-1 ring-slate-200/80', SIZE_CLASS[i.size])}>
+              <Skeleton className="mb-5 h-4 w-40" />
+              <Skeleton className="h-52 w-full" />
+            </div>
+          ),
+        )}
       <span className="sr-only">Memuat…</span>
     </div>
   )
 }
 
-/** Columns for a row of up to three widgets, so hiding one doesn't leave a hole. */
-function rowGrid(count: number) {
-  return count >= 3 ? 'md:grid-cols-2 xl:grid-cols-3' : count === 2 ? 'md:grid-cols-2' : undefined
-}
-
-function Widget({ title, className, action, children }: { title: string; className?: string; action?: ReactNode; children: ReactNode }) {
+function Widget({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <Card title={title} className={className} actions={action}>
+    <Card title={title} className="h-full" actions={action}>
       <ModuleBoundary name={title} compact>
         {children}
       </ModuleBoundary>
