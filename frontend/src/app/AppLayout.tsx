@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Boxes, ChevronDown, ChevronRight, LogOut, Menu, X } from 'lucide-react'
+import { Boxes, ChevronDown, ChevronRight, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { OrganizationSwitcher } from '../features/organizations/OrganizationSwitcher'
@@ -11,7 +11,24 @@ export function AppLayout() {
   const { profile, can, logout } = useAuth()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  // Desktop only: the sidebar can be put away to give the page the full width; remembered per browser.
+  const [desktopCollapsed, setDesktopCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
   const { pathname } = useLocation()
+
+  const toggleDesktop = (collapsed: boolean) => {
+    setDesktopCollapsed(collapsed)
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
+    } catch {
+      // Storage unavailable: the choice lasts for this page only.
+    }
+  }
 
   // The mobile drawer behaves like a dialog: Esc closes it and the page behind does not scroll.
   useEffect(() => {
@@ -49,6 +66,7 @@ export function AppLayout() {
         className={clsx(
           'fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-gradient-to-b from-brand-900 to-brand-950 text-brand-100 transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0',
           mobileOpen ? 'translate-x-0 shadow-overlay' : '-translate-x-full',
+          desktopCollapsed && 'lg:hidden',
         )}
         aria-label="Navigasi utama"
       >
@@ -62,6 +80,9 @@ export function AppLayout() {
           <button type="button" className="grid size-9 place-items-center rounded-lg hover:bg-white/10 lg:hidden" onClick={() => setMobileOpen(false)} aria-label="Tutup menu">
             <X className="size-5" aria-hidden />
           </button>
+          <button type="button" className="hidden size-9 place-items-center rounded-lg text-brand-200 hover:bg-white/10 hover:text-white lg:grid" onClick={() => toggleDesktop(true)} aria-label="Tutup sidebar" title="Tutup sidebar">
+            <PanelLeftClose className="size-5" aria-hidden />
+          </button>
         </div>
         <SideNav sections={sections} onNavigate={() => setMobileOpen(false)} />
       </aside>
@@ -71,6 +92,11 @@ export function AppLayout() {
           <button type="button" className="-ml-1 grid size-10 place-items-center rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Buka menu" aria-expanded={mobileOpen}>
             <Menu className="size-5" aria-hidden />
           </button>
+          {desktopCollapsed && (
+            <button type="button" className="-ml-1 hidden size-10 place-items-center rounded-lg text-slate-600 hover:bg-slate-100 lg:grid" onClick={() => toggleDesktop(false)} aria-label="Buka sidebar" title="Buka sidebar">
+              <PanelLeftOpen className="size-5" aria-hidden />
+            </button>
+          )}
           <div className="min-w-0 flex-1">
             {isPlatform ? <p className="truncate font-display text-sm font-semibold text-slate-900">Administrasi Platform</p> : <OrganizationSwitcher />}
           </div>
@@ -89,13 +115,65 @@ export function AppLayout() {
   )
 }
 
+const SIDEBAR_COLLAPSED_KEY = 'sidebar.collapsed'
+const NAV_OPEN_KEY = 'sidenav.open'
+
+function readOpenSections(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(NAV_OPEN_KEY) ?? '{}') as Record<string, boolean>
+  } catch {
+    return {}
+  }
+}
+
+function isItemActive(to: string, pathname: string) {
+  return to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(to + '/')
+}
+
 function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate: () => void }) {
+  const { pathname } = useLocation()
+  // Explicit open/closed choices per section title; a section without one is open only while it holds the current page.
+  const [open, setOpen] = useState<Record<string, boolean>>(readOpenSections)
+
+  // Navigating into a collapsed section (link, breadcrumb, redirect) opens it so the current page stays visible.
+  useEffect(() => {
+    const current = sections.find((s) => s.title && s.items.some((i) => isItemActive(i.to, pathname)))
+    if (current?.title && open[current.title] === false) setOpen((o) => ({ ...o, [current.title!]: true }))
+  }, [pathname]) // only on navigation, not when the user collapses the current section
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(NAV_OPEN_KEY, JSON.stringify(open))
+    } catch {
+      // Storage unavailable (private mode): the choice simply is not remembered.
+    }
+  }, [open])
+
   return (
-    <nav className="flex-1 space-y-6 overflow-y-auto px-3 pb-6 pt-2">
-      {sections.map((section, i) => (
-        <div key={section.title ?? i}>
-          {section.title && <p className="mb-1.5 px-2.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-brand-300/90">{section.title}</p>}
-          <ul className="space-y-0.5">
+    <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-6 pt-2">
+      {sections.map((section, i) => {
+        const hasActive = section.items.some((item) => isItemActive(item.to, pathname))
+        const expanded = !section.title || (open[section.title] ?? hasActive)
+        const listId = `sidenav-${i}`
+        return (
+          <div key={section.title ?? i}>
+            {section.title && (
+              <button
+                type="button"
+                onClick={() => setOpen((o) => ({ ...o, [section.title!]: !expanded }))}
+                className={clsx(
+                  'flex min-h-9 w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm font-semibold uppercase tracking-wide transition-colors hover:bg-white/8 hover:text-white',
+                  hasActive && !expanded ? 'text-white' : 'text-brand-300/90',
+                )}
+                aria-expanded={expanded}
+                aria-controls={listId}
+              >
+                {section.title}
+                <ChevronDown className={clsx('size-4 shrink-0 transition-transform duration-200', !expanded && '-rotate-90')} aria-hidden />
+              </button>
+            )}
+            <div className={clsx('grid transition-[grid-template-rows] duration-200 ease-out', expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')} inert={!expanded}>
+              <ul id={listId} className={clsx('space-y-0.5 overflow-hidden', section.title && expanded && 'pb-2')}>
             {section.items.map((item) => (
               <li key={item.to}>
                 <NavLink
@@ -104,7 +182,7 @@ function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate:
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     clsx(
-                      'group relative flex min-h-10 items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors duration-150',
+                      'group relative flex min-h-10 items-center gap-3 rounded-lg px-2.5 py-2 text-[0.9375rem] transition-colors duration-150',
                       isActive ? 'bg-white/12 font-semibold text-white' : 'text-brand-100/90 hover:bg-white/8 hover:text-white',
                     )
                   }
@@ -113,16 +191,18 @@ function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate:
                     <>
                       {/* Active marker: shape as well as color, so the current page is not shown by color alone. */}
                       <span className={clsx('absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-300 transition-opacity', isActive ? 'opacity-100' : 'opacity-0')} aria-hidden />
-                      <item.icon className={clsx('size-4 shrink-0', isActive ? 'text-white' : 'text-brand-300 group-hover:text-white')} aria-hidden />
+                      <item.icon className={clsx('size-[1.125rem] shrink-0', isActive ? 'text-white' : 'text-brand-300 group-hover:text-white')} aria-hidden />
                       {item.label}
                     </>
                   )}
                 </NavLink>
               </li>
             ))}
-          </ul>
-        </div>
-      ))}
+              </ul>
+            </div>
+          </div>
+        )
+      })}
     </nav>
   )
 }
