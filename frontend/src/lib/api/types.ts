@@ -167,6 +167,8 @@ export interface Role {
   description: string | null
   template_code: string | null
   is_locked: boolean
+  /** Default (template) roles: the only permissions the role may hold. Null for custom roles. */
+  template_permissions: string[] | null
   users_count?: number
   permissions?: string[]
   created_at: string

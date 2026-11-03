@@ -11,9 +11,10 @@ import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select } from '../../components/ui/Field'
 import { api } from '../../lib/api/client'
-import type { LicenseCode, OrganizationInvitation, UserOrganizationOption, Permission } from '../../lib/api/types'
+import type { LicenseCode, OrganizationInvitation, UserOrganizationOption } from '../../lib/api/types'
 import { applyApiErrors } from '../../lib/forms'
-import { permissionGroupLabel } from '../../lib/format'
+import { usePermissionCatalog } from '../roles/api'
+import { PermissionPicker } from '../roles/PermissionPicker'
 import { RoleQuickCreateModal } from '../roles/RoleQuickCreateModal'
 import { useOrganizationOptions } from './api'
 
@@ -22,12 +23,11 @@ const schema = z.object({
   employee_number: z.string().max(50).optional(),
   job_title: z.string().max(100).optional(),
   license_code_id: z.string().uuid('Format ID kode lisensi tidak valid.'),
-  // One entry per organization the user is invited to, each with a single role and custom permissions.
+  // One entry per organization the user is invited to, each with a single role.
   memberships: z
     .array(z.object({
       organization_id: z.string(),
       role_id: z.string().min(1, 'Pilih minimal satu role.'),
-      permissions: z.array(z.string()).optional()
     }))
     .min(1, 'Pilih minimal satu organisasi.'),
 })
@@ -67,15 +67,11 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
     queryFn: () => api.get<{ data: LicenseCode[] }>('/license-codes?status=available'),
   })
 
-  // Fetch all permissions
-  const permissionsQuery = useQuery({
-    queryKey: ['permissions'],
-    queryFn: () => api.get<{ data: { code: string; group: string; description: string }[] }>('/permissions'),
-  })
+  const permissionsQuery = usePermissionCatalog()
 
   const { register, handleSubmit, setError, formState, control, setValue } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { memberships: current ? [{ organization_id: current.id, role_id: '', permissions: [] }] : [] },
+    defaultValues: { memberships: current ? [{ organization_id: current.id, role_id: '' }] : [] },
   })
   const memberships = useWatch({ control, name: 'memberships' })
   const setMemberships = (next: FormValues['memberships']) => setValue('memberships', next, { shouldValidate: formState.isSubmitted })
@@ -84,24 +80,11 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
     setMemberships(
       checked
         ? // Keep the order of the organization list so error paths stay predictable.
-          organizations.filter((o) => o.id === id || memberships.some((m) => m.organization_id === o.id)).map((o) => memberships.find((m) => m.organization_id === o.id) ?? { organization_id: o.id, role_id: '', permissions: [] })
+          organizations.filter((o) => o.id === id || memberships.some((m) => m.organization_id === o.id)).map((o) => memberships.find((m) => m.organization_id === o.id) ?? { organization_id: o.id, role_id: '' })
         : memberships.filter((m) => m.organization_id !== id),
     )
-  const setRole = (organizationId: string, roleId: string) => {
-    const org = organizations.find(o => o.id === organizationId)
-    const role = org?.roles.find(r => r.id === roleId)
-    setMemberships(
-      memberships.map((m) =>
-        m.organization_id !== organizationId ? m : { ...m, role_id: roleId, permissions: role?.permissions ?? [] },
-      ),
-    )
-  }
-  const togglePermission = (organizationId: string, permission: string, checked: boolean) =>
-    setMemberships(
-      memberships.map((m) =>
-        m.organization_id !== organizationId ? m : { ...m, permissions: checked ? [...(m.permissions ?? []), permission] : (m.permissions ?? []).filter((p) => p !== permission) },
-      ),
-    )
+  const setRole = (organizationId: string, roleId: string) =>
+    setMemberships(memberships.map((m) => (m.organization_id !== organizationId ? m : { ...m, role_id: roleId })))
 
   const mutation = useMutation({
     // Invited users start with organization-wide scope; it can be narrowed once they joined.
@@ -223,38 +206,17 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
                             className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-900"
                           >
                             {showPermissions ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                            Permission ({memberships[index].permissions?.length ?? 0})
+                            Permission ({selectedRole.permissions?.length ?? selectedRole.permissions_count})
                           </button>
+                          {/* Read-only: the invitation grants the role itself; its permissions are edited on the role page. */}
                           {showPermissions && permissionsQuery.data && (
-                            <div className="mt-2 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                              {(() => {
-                                const groups = new Map<string, Permission[]>()
-                                for (const p of permissionsQuery.data.data) {
-                                  groups.set(p.group, [...(groups.get(p.group) ?? []), p])
-                                }
-                                return [...groups.entries()].map(([group, items]) => (
-                                  <fieldset key={group} className="rounded-md p-3 ring-1 ring-slate-200">
-                                    <legend className="px-1 text-sm font-semibold text-slate-700">{permissionGroupLabel[group] ?? group}</legend>
-                                    <div className="space-y-1.5">
-                                      {items.map((p) => (
-                                        <label key={p.code} className="flex items-start gap-2 text-sm">
-                                          <input
-                                            type="checkbox"
-                                            className="mt-0.5 size-4 rounded border-slate-300 text-brand-700"
-                                            checked={memberships[index].permissions?.includes(p.code) ?? false}
-                                            onChange={(e) => togglePermission(org.id, p.code, e.target.checked)}
-                                          />
-                                          <span>
-                                            <span className="text-slate-800">{p.description}</span>
-                                            <span className="block font-mono text-xs text-slate-400">{p.code}</span>
-                                          </span>
-                                        </label>
-                                      ))}
-                                    </div>
-                                  </fieldset>
-                                ))
-                              })()}
-                            </div>
+                            <PermissionPicker
+                              catalog={permissionsQuery.data}
+                              selected={new Set(selectedRole.permissions ?? [])}
+                              onChange={() => {}}
+                              editable={false}
+                              className="mt-2 grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+                            />
                           )}
                         </div>
                       )}
@@ -281,8 +243,8 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
           onClose={() => setCreatingRole(false)}
           onCreated={async (role) => {
             await queryClient.invalidateQueries({ queryKey: ['users', 'organization-options'] })
-            const base = memberships.some((m) => m.organization_id === current.id) ? memberships : [{ organization_id: current.id, role_id: '', permissions: [] }, ...memberships]
-            setMemberships(base.map((m) => (m.organization_id === current.id ? { ...m, role_id: role.id, permissions: role.permissions ?? [] } : m)))
+            const base = memberships.some((m) => m.organization_id === current.id) ? memberships : [{ organization_id: current.id, role_id: '' }, ...memberships]
+            setMemberships(base.map((m) => (m.organization_id === current.id ? { ...m, role_id: role.id } : m)))
           }}
         />
       )}

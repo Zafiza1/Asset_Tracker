@@ -3,18 +3,23 @@ import type { Permission } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { permissionGroupLabel } from '../../lib/format'
 
-/** Permission checklist grouped by module. Only permissions the current user holds can be granted. */
+/**
+ * Permission checklist grouped by module. Only permissions the current user holds can be granted;
+ * `allowed` further caps a default role to its template's permissions (others stay locked).
+ */
 export function PermissionPicker({
   catalog,
   selected,
   onChange,
   editable,
+  allowed,
   className = 'grid gap-4 md:grid-cols-2 xl:grid-cols-3',
 }: {
   catalog: Permission[]
   selected: Set<string>
   onChange: (next: Set<string>) => void
   editable: boolean
+  allowed?: Set<string>
   className?: string
 }) {
   const { profile } = useAuth()
@@ -39,14 +44,16 @@ export function PermissionPicker({
           <legend className="px-1 text-sm font-semibold text-slate-700">{permissionGroupLabel[group] ?? group}</legend>
           <div className="space-y-1.5">
             {items.map((p) => {
-              // Mirrors the server's anti-escalation rule: only permissions you hold can be granted.
-              const grantable = editable && own.has(p.code)
+              // Mirrors the server: only permissions you hold can be granted, and a default role
+              // only within its template.
+              const checked = selected.has(p.code)
+              const grantable = editable && own.has(p.code) && (!allowed || allowed.has(p.code))
               return (
                 <label key={p.code} className="flex items-start gap-2 text-sm">
                   <input
                     type="checkbox"
                     className="mt-0.5 size-4 rounded border-slate-300 text-brand-700 disabled:opacity-50"
-                    checked={selected.has(p.code)}
+                    checked={checked}
                     disabled={!grantable}
                     onChange={(e) => toggle(p.code, e.target.checked)}
                   />

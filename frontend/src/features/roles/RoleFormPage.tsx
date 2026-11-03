@@ -40,6 +40,7 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
   const editable = can('role.manage')
   const permissionsEditable = editable && !role?.is_locked
   const [selected, setSelected] = useState<Set<string>>(new Set(role?.permissions ?? []))
+  const [allowed] = useState(() => (role?.template_permissions ? new Set(role.template_permissions) : undefined))
   const [formError, setFormError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const { register, handleSubmit, setError, formState } = useForm<FormValues>({
@@ -69,7 +70,13 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
     <>
       <PageHeader
         title={role ? role.name : 'Tambah Role'}
-        description={role?.is_locked ? 'Role terkunci: permission tidak dapat diubah agar organisasi selalu memiliki administrator.' : undefined}
+        description={
+          role?.is_locked
+            ? 'Role terkunci: permission tidak dapat diubah agar organisasi selalu memiliki administrator.'
+            : allowed
+              ? 'Role default: hanya permission bawaan role ini yang dapat diaktifkan atau dinonaktifkan.'
+              : undefined
+        }
         actions={
           role &&
           editable &&
@@ -94,7 +101,7 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
         </Card>
         <Card title={`Permission (${selected.size})`}>
           <div className="p-4">
-            <PermissionPicker catalog={catalog} selected={selected} onChange={setSelected} editable={permissionsEditable} />
+            <PermissionPicker catalog={catalog} selected={selected} onChange={setSelected} editable={permissionsEditable} allowed={allowed} />
           </div>
         </Card>
         {editable && (

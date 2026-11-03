@@ -26,7 +26,7 @@ const user: User = {
   data_scopes: [{ scope_type: 'location', ref_id: 'loc-a' }],
 }
 const role: Role = {
-  id: 'r-ed', code: 'EDITOR', name: 'Editor', description: null, template_code: null, is_locked: false, users_count: 2,
+  id: 'r-ed', code: 'EDITOR', name: 'Editor', description: null, template_code: null, is_locked: false, template_permissions: null, users_count: 2,
   permissions: ['asset.view'], created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z',
 }
 

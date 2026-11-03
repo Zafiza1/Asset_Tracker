@@ -80,6 +80,15 @@ final class PermissionCatalog
         ));
     }
 
+    /**
+     * @param  list<string>  $groups
+     * @return list<string>
+     */
+    public static function codesInGroups(array $groups): array
+    {
+        return array_keys(array_filter(self::PERMISSIONS, fn (array $p) => in_array($p[1], $groups, true)));
+    }
+
     public static function exists(string $code, ?string $scope = null): bool
     {
         return isset(self::PERMISSIONS[$code]) && ($scope === null || self::PERMISSIONS[$code][0] === $scope);

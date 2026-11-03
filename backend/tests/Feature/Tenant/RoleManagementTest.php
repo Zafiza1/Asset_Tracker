@@ -100,6 +100,24 @@ class RoleManagementTest extends TestCase
         $this->patchJson("/api/roles/{$orgAdmin}", ['name' => 'Super Admin Utama'])->assertOk();
     }
 
+    public function test_default_role_permissions_are_capped_by_its_template(): void
+    {
+        $adminRole = $this->roleId($this->org, RoleTemplates::ADMIN);
+        $template = RoleTemplates::tenant()[RoleTemplates::ADMIN]['permissions'];
+        $this->assertEqualsCanonicalizing(PermissionCatalog::codesInGroups(['asset', 'document', 'master', 'report', 'transaction']), $template);
+        $this->assertEqualsCanonicalizing(
+            array_diff(PermissionCatalog::codes(PermissionCatalog::SCOPE_TENANT), ['license.manage']),
+            RoleTemplates::tenant()[RoleTemplates::SUPERVISOR]['permissions'],
+        );
+        $this->getJson("/api/roles/{$adminRole}")->assertOk()->assertJsonPath('data.template_permissions', $template);
+
+        // Template permissions can be dropped and re-added...
+        $this->patchJson("/api/roles/{$adminRole}", ['permissions' => ['asset.view']])->assertOk()->assertJsonPath('data.permissions', ['asset.view']);
+        $this->patchJson("/api/roles/{$adminRole}", ['permissions' => $template])->assertOk();
+        // ...but nothing outside the template may be granted.
+        $this->assertErrorCode($this->patchJson("/api/roles/{$adminRole}", ['permissions' => [...$template, 'user.view']]), 422, 'ROLE_TEMPLATE_LIMIT');
+    }
+
     public function test_role_in_use_cannot_be_deleted(): void
     {
         $this->createTenantUser($this->org, ['SUPERVISOR']);

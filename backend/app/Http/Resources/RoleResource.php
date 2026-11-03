@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Domain\Authorization\Models\Role;
+use App\Domain\Authorization\RoleTemplates;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,6 +19,7 @@ class RoleResource extends JsonResource
             'description' => $this->description,
             'template_code' => $this->template_code,
             'is_locked' => $this->is_locked,
+            'template_permissions' => RoleTemplates::ceiling($this->template_code),
             'users_count' => $this->whenCounted('users'),
             'permissions' => $this->whenLoaded('permissions', fn () => $this->permissions->pluck('code')->sort()->values()),
             'created_at' => $this->created_at?->toIso8601String(),

@@ -6,6 +6,7 @@ use App\Domain\Audit\AuditLogger;
 use App\Domain\Authorization\Models\Permission;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\PermissionCatalog;
+use App\Domain\Authorization\RoleTemplates;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Support\Facades\DB;
@@ -50,8 +51,12 @@ final class RoleManagement
                 throw ApiException::unprocessable('ROLE_LOCKED', 'Permission role terkunci tidak dapat diubah.');
             }
             $this->assertGrantable($permissions);
-            // New permissions apply wherever the role's holders have access, so they must be within the actor's scope.
             $current = $role->permissions()->pluck('code')->all();
+            $ceiling = RoleTemplates::ceiling($role->template_code);
+            if ($ceiling !== null && ($beyond = array_values(array_diff($permissions, $ceiling))) !== []) {
+                throw new ApiException('ROLE_TEMPLATE_LIMIT', 'Role default hanya dapat memiliki permission bawaannya.', 422, ['permissions' => $beyond]);
+            }
+            // New permissions apply wherever the role's holders have access, so they must be within the actor's scope.
             if (array_diff($permissions, $current) !== [] || array_diff($current, $permissions) !== []) {
                 $this->scopeGuard->assertCoversRoleHolders($role);
             }

@@ -18,11 +18,9 @@ final class RoleTemplates
     public static function tenant(): array
     {
         $allTenantPermissions = PermissionCatalog::codes(PermissionCatalog::SCOPE_TENANT);
-        $supervisorPermissions = array_filter($allTenantPermissions, fn($perm) => $perm !== 'license.manage');
-        $adminPermissions = array_filter($supervisorPermissions, fn($perm) =>
-            !str_starts_with($perm, 'user.') &&
-            !str_starts_with($perm, 'organization.')
-        );
+        // Supervisor: every group except license. Admin: only the operational groups.
+        $supervisorPermissions = array_diff($allTenantPermissions, PermissionCatalog::codesInGroups(['license']));
+        $adminPermissions = PermissionCatalog::codesInGroups(['asset', 'document', 'master', 'report', 'transaction']);
 
         return [
             self::SUPER_ADMIN => [
@@ -39,11 +37,22 @@ final class RoleTemplates
             ],
             self::ADMIN => [
                 'name' => 'Admin',
-                'description' => 'Akses manajemen aset dan transaksi (kecuali user, organisasi, dan lisensi).',
+                'description' => 'Akses aset, dokumen, master data, laporan, dan transaksi.',
                 'locked' => false,
                 'permissions' => array_values($adminPermissions),
             ],
         ];
+    }
+
+    /**
+     * The permissions a default (template-based) role may hold: tenants can drop and re-add
+     * these, but never grant more than the template does. Null for custom roles.
+     *
+     * @return list<string>|null
+     */
+    public static function ceiling(?string $templateCode): ?array
+    {
+        return $templateCode === null ? null : (self::tenant()[$templateCode]['permissions'] ?? null);
     }
 
     /** @return array<string, array{name: string, description: string, permissions: list<string>}> */
