@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import clsx from 'clsx'
+import { GripVertical, Plus, Trash2 } from 'lucide-react'
+import { useState, type DragEvent, type ReactNode } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Alert, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select } from '../../components/ui/Field'
@@ -167,16 +168,30 @@ function AttributeListForm({ category, inherited, own, onClose }: { category: Te
   })
   const [errors, setErrors] = useState<Record<number, Record<string, string>>>({})
   const [message, setMessage] = useState<string | null>(null)
+  // Only a row whose grip is pressed is draggable, so text in the row's inputs can still be selected with the mouse.
+  const [armed, setArmed] = useState<number | null>(null)
+  const [dragging, setDragging] = useState<number | null>(null)
 
   const update = (uid: number, patch: Partial<Row>) => setRows((current) => current.map((r) => (r.uid === uid ? { ...r, ...patch } : r)))
 
-  const move = (index: number, to: number) =>
+  const move = (from: number, to: number) =>
     setRows((current) => {
-      if (to < 0 || to >= current.length) return current
+      if (from === to || to < 0 || to >= current.length) return current
       const next = [...current]
-      ;[next[index], next[to]] = [next[to], next[index]]
+      next.splice(to, 0, ...next.splice(from, 1))
       return next
     })
+
+  // Rows reorder live while dragging: the dragged row takes the place of the row under the pointer once it crosses that row's middle.
+  const dragOver = (e: DragEvent<HTMLDivElement>, index: number) => {
+    if (dragging === null) return
+    e.preventDefault()
+    const from = rows.findIndex((r) => r.uid === dragging)
+    if (from === index) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const below = e.clientY > rect.top + rect.height / 2
+    if ((from < index && below) || (from > index && !below)) move(from, index)
+  }
 
   // Empty new rows are ignored, so an unused blank row never blocks saving.
   const submitted = rows.filter((r) => r.id || r.label.trim() !== '')
@@ -246,17 +261,28 @@ function AttributeListForm({ category, inherited, own, onClose }: { category: Te
       <div className="space-y-3">
         <p className="text-sm font-medium text-slate-700">Atribut kategori ini</p>
         {rows.map((row, i) => (
-          <AttributeRow
+          <div
             key={row.uid}
-            row={row}
-            index={i}
-            total={rows.length}
-            errors={errors[row.uid] ?? {}}
-            onChange={(patch) => update(row.uid, patch)}
-            onRemove={() => setRows((current) => current.filter((r) => r.uid !== row.uid))}
-            onMoveUp={() => move(i, i - 1)}
-            onMoveDown={() => move(i, i + 1)}
-          />
+            draggable={armed === row.uid}
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = 'move'
+              e.dataTransfer.setData('text/plain', String(row.uid))
+              setDragging(row.uid)
+            }}
+            onDragOver={(e) => dragOver(e, i)}
+            onDrop={(e) => e.preventDefault()}
+            onDragEnd={() => (setDragging(null), setArmed(null))}
+            className={clsx('rounded-md transition-opacity', dragging === row.uid && 'opacity-40')}
+          >
+            <AttributeRow
+              row={row}
+              index={i}
+              errors={errors[row.uid] ?? {}}
+              onChange={(patch) => update(row.uid, patch)}
+              onRemove={() => setRows((current) => current.filter((r) => r.uid !== row.uid))}
+              handle={<DragHandle n={i + 1} onArm={() => setArmed(row.uid)} onDisarm={() => setArmed(null)} onMove={(by) => move(i, i + by)} />}
+            />
+          </div>
         ))}
         {rows.length === 0 && <p className="rounded-md bg-slate-50 p-4 text-sm text-slate-500">Tidak ada atribut.</p>}
         <Button variant="secondary" onClick={() => setRows((current) => [...current, newRow()])}>
@@ -267,40 +293,49 @@ function AttributeListForm({ category, inherited, own, onClose }: { category: Te
   )
 }
 
+/** Grip to drag a row by; with focus, the arrow keys move the row up or down. */
+function DragHandle({ n, onArm, onDisarm, onMove }: { n: number; onArm: () => void; onDisarm: () => void; onMove: (by: -1 | 1) => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="cursor-grab active:cursor-grabbing"
+      aria-label={`Ubah urutan atribut ${n}`}
+      title="Seret untuk mengubah urutan (atau tekan panah atas/bawah)"
+      onPointerDown={onArm}
+      onPointerUp={onDisarm}
+      onKeyDown={(e) => {
+        if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+        e.preventDefault()
+        onMove(e.key === 'ArrowUp' ? -1 : 1)
+      }}
+    >
+      <GripVertical className="size-4" aria-hidden />
+    </Button>
+  )
+}
+
 function AttributeRow({
   row,
   index,
-  total,
   errors,
   onChange,
   onRemove,
-  onMoveUp,
-  onMoveDown,
+  handle,
 }: {
   row: Row
   index: number
-  total: number
   errors: Record<string, string>
   onChange: (patch: Partial<Row>) => void
   onRemove: () => void
-  onMoveUp: () => void
-  onMoveDown: () => void
+  handle: ReactNode
 }) {
   const n = index + 1
-  const moveButtons = (
-    <div className="flex gap-1">
-      <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={index === 0} aria-label={`Pindah atribut ${n} ke atas`} title="Pindah ke atas">
-        <ArrowUp className="size-4" aria-hidden />
-      </Button>
-      <Button variant="ghost" size="sm" onClick={onMoveDown} disabled={index === total - 1} aria-label={`Pindah atribut ${n} ke bawah`} title="Pindah ke bawah">
-        <ArrowDown className="size-4" aria-hidden />
-      </Button>
-    </div>
-  )
 
   if (row.is_default) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
+      <div className="flex items-center gap-3 rounded-md bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
+        {handle}
         <div className="text-sm">
           <span className="font-medium text-slate-900">
             {row.label}
@@ -313,14 +348,14 @@ function AttributeRow({
             {row.section ? ` · ${SECTION_LABELS[row.section] ?? row.section}` : ''}
           </p>
         </div>
-        {moveButtons}
       </div>
     )
   }
 
   return (
     <div className="rounded-md p-3 ring-1 ring-slate-200">
-      <div className="grid items-start gap-3 sm:grid-cols-[1fr_12rem_12rem_auto_auto_auto]">
+      <div className="grid items-start gap-3 sm:grid-cols-[auto_1fr_12rem_12rem_auto_auto]">
+        <div className="sm:pt-6">{handle}</div>
         <Field label={`Nama atribut ${n}`} required error={errors.label}>
           {(p) => <Input {...p} value={row.label} maxLength={100} placeholder="mis. Nomor Polisi" onChange={(e) => onChange({ label: e.target.value })} />}
         </Field>
@@ -356,7 +391,6 @@ function AttributeRow({
         <div className="sm:pt-8">
           <Checkbox label="Wajib" checked={row.is_required} onChange={(v) => onChange({ is_required: v })} />
         </div>
-        <div className="sm:pt-6">{moveButtons}</div>
         <div className="sm:pt-6">
           <Button variant="ghost" size="sm" onClick={onRemove} aria-label={`Hapus atribut ${n}`} title="Hapus atribut">
             <Trash2 className="size-4" aria-hidden />

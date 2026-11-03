@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CategoryAttributesModal } from '../features/master/CategoryAttributes'
 import type { CategoryAttribute, TenantCategory } from '../lib/api/types'
@@ -78,10 +78,31 @@ describe('CategoryAttributesModal', () => {
     expect(screen.queryByDisplayValue('Merek')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Hapus atribut 1')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByLabelText('Pindah atribut 1 ke bawah'))
+    // Drag the default row by its grip below the custom row (jsdom rects are zero-sized, so any clientY > 0 is "below the middle").
+    const grip = screen.getByLabelText('Ubah urutan atribut 1')
+    fireEvent.pointerDown(grip)
+    const dragged = grip.closest('[draggable="true"]')!
+    const target = screen.getByLabelText('Ubah urutan atribut 2').closest('[draggable]')!
+    fireEvent.dragStart(dragged, { dataTransfer: { setData: vi.fn(), effectAllowed: '' } })
+    // jsdom has no DragEvent, so the pointer position is set on the event by hand.
+    const over = createEvent.dragOver(target)
+    Object.defineProperty(over, 'clientY', { value: 10 })
+    fireEvent(target, over)
+    fireEvent.drop(target)
+    fireEvent.dragEnd(dragged)
     fireEvent.click(screen.getByText('Simpan'))
     await waitFor(() => expect(onClose).toHaveBeenCalled())
     expect(putBody().attributes.map((a: { id: string }) => a.id)).toEqual(['nomor_polisi', 'merek'])
+  })
+
+  it('moves a row with the arrow keys on its grip', async () => {
+    const { onClose, putBody } = renderModal(true)
+    expect(await screen.findByDisplayValue('Warna')).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByLabelText('Ubah urutan atribut 2'), { key: 'ArrowUp' })
+    fireEvent.keyDown(screen.getByLabelText('Ubah urutan atribut 1'), { key: 'ArrowUp' }) // already first: no-op
+    fireEvent.click(screen.getByText('Simpan'))
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(putBody().attributes.map((a: { id: string }) => a.id)).toEqual(['jumlah_kursi', 'warna'])
   })
 
   it('shows server errors on the row they belong to', async () => {
