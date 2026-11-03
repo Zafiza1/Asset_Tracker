@@ -181,8 +181,8 @@ class AssetTransactionTest extends TestCase
         $this->assertErrorCode($this->record($outside, 'note', ['notes' => 'x']), 404, 'NOT_FOUND');
         $this->assertErrorCode($this->record($inside, 'transfer', ['to_location_id' => $this->otherLocation->id]), 422, 'VALIDATION_FAILED');
         $this->record($inside, 'transfer', ['to_location_id' => $subLocation->id])->assertCreated();
-        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'category_id' => $this->masters['category']->id, 'location_id' => $this->otherLocation->id]), 422, 'LOCATION_OUT_OF_SCOPE');
-        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'category_id' => $this->masters['category']->id]), 422, 'LOCATION_OUT_OF_SCOPE');
+        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id, 'location_id' => $this->otherLocation->id]), 422, 'LOCATION_OUT_OF_SCOPE');
+        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id]), 422, 'LOCATION_OUT_OF_SCOPE');
 
         $visible = collect($this->getJson('/api/transactions')->json('data'))->pluck('asset.id')->unique()->values()->all();
         $this->assertSame([$inside], $visible);
@@ -224,6 +224,7 @@ class AssetTransactionTest extends TestCase
     {
         return $this->postJson('/api/assets', [
             'name' => $name,
+            'serial_number' => 'SN-'.Str::uuid(),
             'category_id' => $this->masters['category']->id,
             'location_id' => $locationId ?? $this->masters['location']->id,
         ])->assertCreated()->json('data.id');

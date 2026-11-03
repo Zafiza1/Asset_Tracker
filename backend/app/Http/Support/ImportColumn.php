@@ -14,6 +14,8 @@ final readonly class ImportColumn
     /**
      * @param  string|null  $list  key of a dropdown list passed to SpreadsheetImport::template()
      * @param  bool  $strictList  false: values outside the list are allowed (with a warning), e.g. a parent on an earlier row
+     * @param  bool  $readOnly  shown for reference in an edit sheet (greyed out); not read back on upload
+     * @param  bool  $hidden  technical column of an edit sheet (e.g. a version); read back when present, never required
      */
     public function __construct(
         public string $key,
@@ -24,5 +26,7 @@ final readonly class ImportColumn
         public bool $strictList = true,
         public string $type = self::TEXT,
         public int $width = 24,
+        public bool $readOnly = false,
+        public bool $hidden = false,
     ) {}
 }

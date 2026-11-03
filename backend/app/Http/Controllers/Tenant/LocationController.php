@@ -120,6 +120,73 @@ class LocationController extends Controller
         ]);
     }
 
+    /** The locations (not archived) in tree order, as an .xlsx to edit and upload to importEdits(). */
+    public function downloadEditSheet(): BinaryFileResponse
+    {
+        $query = Location::query()->where('status', '!=', MasterStatus::ARCHIVED);
+        SpreadsheetImport::assertExportable($query->count());
+
+        $rows = $query->with('parent')->orderBy('path')->get()->map(fn (Location $l) => [
+            'id' => $l->id,
+            'name' => $l->name,
+            'parent_code' => SpreadsheetImport::codeItem($l->parent),
+            'address' => $l->address,
+            'status' => SpreadsheetImport::MASTER_STATUS_LABELS[$l->status] ?? $l->status,
+        ]);
+
+        return SpreadsheetImport::editSheet('edit_lokasi.xlsx', 'Edit Massal Lokasi', $this->editColumns(), $rows, [
+            'Lokasi Induk' => SpreadsheetImport::codeList(Location::query()),
+            'Status' => array_values(SpreadsheetImport::MASTER_STATUS_LABELS),
+        ], [
+            'Untuk memindah lokasi, ganti Lokasi Induk. Lokasi tidak dapat dipindah ke bawah dirinya sendiri atau sub-lokasinya.',
+            'Lokasi hanya dapat dinonaktifkan jika tidak lagi memiliki sub-lokasi aktif.',
+        ]);
+    }
+
+    /** Applies an edited sheet from downloadEditSheet(): rows are matched by the hidden id, unchanged ones skipped. */
+    public function importEdits(Request $request): JsonResponse
+    {
+        $columns = $this->editColumns();
+        $rows = SpreadsheetImport::read($request, $columns);
+        $seen = [];
+
+        $updated = SpreadsheetImport::run($rows, function (array $row) use ($columns, &$seen) {
+            $row['status'] = SpreadsheetImport::masterStatus($row['status']);
+            $data = Validator::make($row, [
+                'name' => ['required', 'string', 'max:150'],
+                'parent_code' => ['nullable', 'string'],
+                'address' => ['nullable', 'string', 'max:1000'],
+                'status' => ['required', Rule::in(MasterStatus::EDITABLE)],
+            ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
+
+            $location = SpreadsheetImport::existing(Location::query()->where('status', '!=', MasterStatus::ARCHIVED), $row['id'], $seen);
+            $changes = SpreadsheetImport::changes($location, [
+                'name' => $data['name'],
+                'address' => $data['address'],
+                'parent_id' => SpreadsheetImport::idByCode(Location::query(), $data['parent_code'], 'Lokasi induk'),
+                'status' => $data['status'],
+            ]);
+            if ($changes === []) {
+                return false;
+            }
+            $this->structure->updateLocation($location, $changes);
+        });
+
+        return response()->json(['data' => ['updated' => $updated]]);
+    }
+
+    /** @return list<ImportColumn> the code cannot be changed, so it is not shown */
+    private function editColumns(): array
+    {
+        return [
+            new ImportColumn('name', 'Nama Lokasi', required: true, hint: 'Nama lokasi, maksimal 150 karakter.', width: 30),
+            new ImportColumn('parent_code', 'Lokasi Induk', hint: 'Pilih lokasi induk. Kosongkan untuk lokasi utama.', list: 'Lokasi Induk', width: 34),
+            new ImportColumn('address', 'Alamat', hint: 'Alamat lengkap lokasi. Kosongkan untuk menghapus.', width: 45),
+            new ImportColumn('status', 'Status', required: true, hint: 'Aktif, atau Nonaktif agar tidak bisa dipilih untuk aset baru.', list: 'Status', width: 14),
+            SpreadsheetImport::idColumn(),
+        ];
+    }
+
     /** @return list<ImportColumn> */
     private function importColumns(): array
     {

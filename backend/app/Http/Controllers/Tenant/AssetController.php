@@ -52,6 +52,18 @@ class AssetController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
+        $query = $this->filtered($request);
+        ListQuery::sort($query, $request, self::SORTS, '-created_at');
+
+        return AssetResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());
+    }
+
+    /**
+     * Assets in the data scope matching the list filters (search, categories with their
+     * subcategories, location with its sub-locations, status, archived), with category and location.
+     */
+    private function filtered(Request $request): Builder
+    {
         $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             // Comma-separated; a category also matches its subcategories.
@@ -77,9 +89,8 @@ class AssetController extends Controller
             'all' => null,
             default => $query->whereNull('archived_at'),
         };
-        ListQuery::sort($query, $request, self::SORTS, '-created_at');
 
-        return AssetResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());
+        return $query;
     }
 
     /** Includes the category's fields, so the values can be shown with their labels. */
@@ -227,6 +238,87 @@ class AssetController extends Controller
         ]);
     }
 
+    /**
+     * The active assets matching the list filters, as an .xlsx to edit and upload to importEdits().
+     * Location and status are shown for reference only: they change through transactions.
+     */
+    public function downloadEditSheet(Request $request): BinaryFileResponse
+    {
+        $query = $this->filtered($request)->whereNull('archived_at');
+        SpreadsheetImport::assertExportable($query->count());
+
+        $rows = $query->orderBy('asset_number')->get()->map(fn (Asset $a) => [
+            'asset_number' => $a->asset_number,
+            'name' => $a->name,
+            'category_code' => SpreadsheetImport::codeItem($a->category),
+            'serial_number' => $a->serial_number,
+            'acquisition_date' => $a->acquisition_date,
+            'acquisition_cost' => $a->acquisition_cost,
+            'description' => $a->description,
+            'location' => SpreadsheetImport::codeItem($a->location),
+            'status' => AssetStatus::LABELS[$a->status] ?? $a->status,
+            'id' => $a->id,
+            'lock_version' => $a->lock_version,
+        ]);
+
+        return SpreadsheetImport::editSheet('edit_aset.xlsx', 'Edit Massal Pendataan Aset', $this->editColumns(), $rows, [
+            'Kategori' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
+        ], [
+            'Lokasi dan status tidak dapat diubah di sini; gunakan transaksi (mutasi, peminjaman, perbaikan). Atribut kategori diubah dari halaman detail aset.',
+            'Jika aset diubah orang lain setelah file ini diunduh, baris aset tersebut ditolak. Unduh ulang file untuk mendapatkan data terbaru.',
+        ]);
+    }
+
+    /** Applies an edited sheet from downloadEditSheet(): rows are matched by the hidden id, unchanged ones skipped. */
+    public function importEdits(Request $request): JsonResponse
+    {
+        $columns = $this->editColumns();
+        $rows = SpreadsheetImport::read($request, $columns);
+        $rules = $this->descriptiveRules(creating: true);
+        $seen = [];
+
+        $updated = SpreadsheetImport::run($rows, function (array $row) use ($rules, $columns, &$seen) {
+            $data = Validator::make($row, [
+                ...Arr::only($rules, ['name', 'serial_number', 'acquisition_date', 'acquisition_cost', 'description']),
+                'category_code' => ['required', 'string'],
+                'lock_version' => ['nullable', 'integer'],
+            ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
+
+            $asset = SpreadsheetImport::existing($this->scope->apply(Asset::query())->whereNull('archived_at'), $row['id'], $seen);
+            $changes = SpreadsheetImport::changes($asset, [
+                ...Arr::only($data, ['name', 'serial_number', 'acquisition_date', 'acquisition_cost', 'description']),
+                'category_id' => SpreadsheetImport::idByCode(TenantAssetCategory::query(), $data['category_code'], 'Kategori'),
+            ]);
+            if ($changes === []) {
+                return false;
+            }
+            if (isset($data['lock_version']) && (int) $data['lock_version'] !== $asset->lock_version) {
+                throw ApiException::conflict('STALE_ASSET', 'Aset ini telah diubah setelah file diunduh. Unduh ulang file lalu ulangi perubahannya.');
+            }
+            $this->assets->update($asset, $changes);
+        });
+
+        return response()->json(['data' => ['updated' => $updated]]);
+    }
+
+    /** @return list<ImportColumn> the asset number is shown to tell assets apart, but not read back */
+    private function editColumns(): array
+    {
+        return [
+            new ImportColumn('asset_number', 'Nomor Aset (info)', hint: 'Nomor aset dibuat oleh sistem dan tidak dapat diubah.', width: 20, readOnly: true),
+            new ImportColumn('name', 'Nama Aset', required: true, hint: 'Nama aset, maksimal 150 karakter.', width: 32),
+            new ImportColumn('category_code', 'Kategori', required: true, hint: 'Pilih kategori aset dari daftar.', list: 'Kategori', width: 34),
+            new ImportColumn('serial_number', 'Nomor Seri', required: true, hint: 'Nomor seri dari pabrik, harus unik.', width: 22),
+            new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
+            new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
+            new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Kosongkan untuk menghapus.', width: 40),
+            new ImportColumn('location', 'Lokasi (info)', hint: 'Lokasi saat ini; diubah lewat transaksi mutasi.', width: 30, readOnly: true),
+            new ImportColumn('status', 'Status (info)', hint: 'Status saat ini; diubah lewat transaksi.', width: 18, readOnly: true),
+            SpreadsheetImport::idColumn(),
+            new ImportColumn('lock_version', 'Versi', type: ImportColumn::NUMBER, width: 8, hidden: true),
+        ];
+    }
+
     /** @return list<ImportColumn> */
     private function importColumns(): array
     {
@@ -235,7 +327,7 @@ class AssetController extends Controller
             new ImportColumn('category_code', 'Kategori', required: true, hint: 'Pilih kategori aset dari daftar.', list: 'Kategori', width: 34),
             new ImportColumn('location_code', 'Lokasi', hint: 'Pilih lokasi aset dari daftar. Boleh dikosongkan.', list: 'Lokasi', width: 34),
             new ImportColumn('status', 'Status', hint: 'Pilih status awal. Jika kosong: Tersedia.', list: 'Status', width: 18),
-            new ImportColumn('serial_number', 'Nomor Seri', hint: 'Nomor seri dari pabrik, harus unik. Boleh dikosongkan.', width: 22),
+            new ImportColumn('serial_number', 'Nomor Seri', required: true, hint: 'Nomor seri dari pabrik, harus unik. Contoh: SN-2024-0001', width: 22),
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Tanggal pembelian/perolehan, format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
             new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
             new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Boleh dikosongkan.', width: 40),
@@ -272,7 +364,7 @@ class AssetController extends Controller
 
         return [
             'name' => [...$required, 'string', 'max:150'],
-            'serial_number' => [...$optional, 'string', 'max:100'],
+            'serial_number' => [...$required, 'string', 'max:100'],
             'category_id' => [...$required, 'uuid'],
             'acquisition_date' => [...$optional, 'date_format:Y-m-d', 'before_or_equal:today'],
             'acquisition_cost' => [...$optional, 'numeric', 'min:0', 'max:9999999999999999'],

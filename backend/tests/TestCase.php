@@ -277,7 +277,7 @@ abstract class TestCase extends BaseTestCase
     protected function createAssetFixture(Organization $organization, array $masters, string $suffix = '1'): array
     {
         $asset = (new Asset)->forceFill([
-            'organization_id' => $organization->id, 'asset_number' => "FIX-{$suffix}", 'name' => "Aset {$suffix}",
+            'organization_id' => $organization->id, 'asset_number' => "FIX-{$suffix}", 'serial_number' => "SN-FIX-{$suffix}", 'name' => "Aset {$suffix}",
             'category_id' => $masters['category']->id, 'location_id' => $masters['location']->id, 'status' => 'available',
         ]);
         $asset->save();

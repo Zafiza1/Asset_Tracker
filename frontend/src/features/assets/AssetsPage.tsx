@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ImageOff, Pencil, Plus, Printer, Upload } from "lucide-react";
+import { FileSpreadsheet, ImageOff, Plus, Printer, Upload } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -34,7 +34,6 @@ import {
 } from "./api";
 import { AssetBarcodeModal } from "./AssetBarcodeModal";
 import { AssetFormModal } from "./AssetFormModal";
-import { BulkEditModal } from "./BulkEditModal";
 import { CategoryFilter } from "./CategoryFilter";
 
 const FILTERS = [
@@ -283,7 +282,7 @@ export function AssetsPage() {
                   variant="secondary"
                   onClick={() => setBulkEditing(true)}
                 >
-                  <Pencil className="size-4" aria-hidden /> Multiple Edit
+                  <FileSpreadsheet className="size-4" aria-hidden /> Multiple Edit
                 </Button>
               )}
               {can("asset.create") && (
@@ -417,7 +416,28 @@ export function AssetsPage() {
           </>
         )}
       </Card>
-      {bulkEditing && <BulkEditModal onClose={() => setBulkEditing(false)} />}
+      {bulkEditing && (
+        <ImportModal
+          open
+          mode="edit"
+          onClose={() => setBulkEditing(false)}
+          title="Multiple Edit Aset (Excel)"
+          endpoint="/assets/edit-sheet"
+          // The download holds the (active) assets matching the current search and filters.
+          templateEndpoint={`/assets/edit-sheet${qs({
+            search: filters.search,
+            category_ids: filters.category_ids,
+            location_id: filters.location_id,
+            status: filters.status,
+          })}`}
+          templateFilename="edit_aset.xlsx"
+          scopeNote={
+            filters.search || filters.category_ids || filters.location_id || filters.status
+              ? "aset aktif sesuai pencarian & filter saat ini"
+              : "semua aset aktif; gunakan filter untuk mempersempit"
+          }
+        />
+      )}
       {printing && (
         <AssetBarcodeModal asset={printing} onClose={() => setPrinting(null)} />
       )}

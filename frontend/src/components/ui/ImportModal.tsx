@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Download, Upload, X } from 'lucide-react'
+import { CheckCircle2, Download, Upload, X } from 'lucide-react'
 import { Button } from './Button'
 import { Alert } from './Feedback'
 import { Modal } from './Modal'
@@ -12,20 +12,29 @@ interface ImportModalProps {
   title: string
   /** POST endpoint that receives the file as `file`. */
   endpoint: string
-  /** GET endpoint returning the .xlsx template. */
+  /** GET endpoint returning the .xlsx template (or, in edit mode, the current data). */
   templateEndpoint: string
   templateFilename: string
+  /**
+   * `import` creates records from a blank template; `edit` downloads the existing records,
+   * which are edited in Excel and uploaded back (rows matched by code, unchanged rows skipped).
+   */
+  mode?: 'import' | 'edit'
+  /** Edit mode: which records the download contains, e.g. "sesuai filter yang aktif". */
+  scopeNote?: string
   onSuccess?: () => void
 }
 
 const MAX_SIZE = 5 * 1024 * 1024
 
-export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, templateFilename, onSuccess }: ImportModalProps) {
+export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, templateFilename, mode = 'import', scopeNote, onSuccess }: ImportModalProps) {
+  const editing = mode === 'edit'
   const queryClient = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [importErrors, setImportErrors] = useState<string[]>([])
   const [downloading, setDownloading] = useState(false)
+  const [updated, setUpdated] = useState<number | null>(null)
 
   const resetMessages = () => {
     setError(null)
@@ -33,11 +42,13 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
   }
 
   const importMutation = useMutation({
-    mutationFn: (form: FormData) => api.upload<{ data: { imported: number } }>(endpoint, form),
-    onSuccess: async () => {
+    mutationFn: (form: FormData) => api.upload<{ data: { imported?: number; updated?: number } }>(endpoint, form),
+    onSuccess: async (result) => {
       await queryClient.invalidateQueries()
       onSuccess?.()
-      onClose()
+      // An edit may change nothing; say how many rows were saved instead of closing silently.
+      if (editing) setUpdated(result.data.updated ?? 0)
+      else onClose()
     },
     onError: (e) => {
       if (!(e instanceof ApiError)) {
@@ -78,7 +89,7 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
     try {
       await downloadFile(templateEndpoint, templateFilename)
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Gagal mengunduh template.')
+      setError(e instanceof ApiError ? e.message : editing ? 'Gagal mengunduh data.' : 'Gagal mengunduh template.')
     } finally {
       setDownloading(false)
     }
@@ -95,6 +106,20 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
     importMutation.mutate(form)
   }
 
+  if (updated !== null) {
+    return (
+      <Modal open={open} title={title} onClose={onClose} footer={<Button onClick={onClose}>Tutup</Button>}>
+        <div className="flex flex-col items-center gap-2 py-4 text-center">
+          <CheckCircle2 className="size-10 text-emerald-600" aria-hidden />
+          <p className="font-medium text-slate-900">
+            {updated > 0 ? `${updated} data berhasil diubah.` : 'Tidak ada perubahan yang perlu disimpan.'}
+          </p>
+          {updated === 0 && <p className="text-sm text-slate-500">Semua baris di file sama dengan data saat ini.</p>}
+        </div>
+      </Modal>
+    )
+  }
+
   return (
     <Modal
       open={open}
@@ -106,10 +131,10 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
             Batal
           </Button>
           <Button onClick={handleDownloadTemplate} variant="secondary" loading={downloading}>
-            <Download className="size-4" aria-hidden /> Download Template
+            <Download className="size-4" aria-hidden /> {editing ? 'Download Data' : 'Download Template'}
           </Button>
           <Button onClick={handleImport} loading={importMutation.isPending} disabled={!file}>
-            <Upload className="size-4" aria-hidden /> Import
+            <Upload className="size-4" aria-hidden /> {editing ? 'Simpan Perubahan' : 'Import'}
           </Button>
         </>
       }
@@ -169,12 +194,21 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
 
         <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">
           <p className="mb-1 font-medium text-slate-900">Instruksi:</p>
-          <ol className="list-inside list-decimal space-y-1">
-            <li>Download template Excel terlebih dahulu</li>
-            <li>Isi data di sheet "Data". Kolom bertanda * wajib diisi; kolom berlatar biru muda punya dropdown</li>
-            <li>Upload file Excel yang sudah diisi</li>
-            <li>Jika ada baris yang salah, tidak ada data yang disimpan — perbaiki lalu upload ulang</li>
-          </ol>
+          {editing ? (
+            <ol className="list-inside list-decimal space-y-1">
+              <li>Download data Excel{scopeNote ? ` (${scopeNote})` : ''}</li>
+              <li>Ubah nilai di sheet "Data". Kolom berjudul abu-abu muda hanya informasi; jangan menyalin baris ke baris lain</li>
+              <li>Upload file yang sudah diubah. Hanya baris yang berubah yang disimpan</li>
+              <li>Jika ada baris yang salah, tidak ada perubahan yang disimpan — perbaiki lalu upload ulang</li>
+            </ol>
+          ) : (
+            <ol className="list-inside list-decimal space-y-1">
+              <li>Download template Excel terlebih dahulu</li>
+              <li>Isi data di sheet "Data". Kolom bertanda * wajib diisi; kolom berlatar biru muda punya dropdown</li>
+              <li>Upload file Excel yang sudah diisi</li>
+              <li>Jika ada baris yang salah, tidak ada data yang disimpan — perbaiki lalu upload ulang</li>
+            </ol>
+          )}
         </div>
       </div>
     </Modal>

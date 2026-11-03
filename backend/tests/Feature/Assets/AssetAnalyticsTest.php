@@ -3,6 +3,7 @@
 namespace Tests\Feature\Assets;
 
 use App\Domain\Organization\Models\Organization;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /** Asset Analytics container: dashboard numbers equal what is stored, per tenant. */
@@ -115,8 +116,8 @@ class AssetAnalyticsTest extends TestCase
 
         $quality = array_column($data['data_quality']['fields'], 'filled', 'key');
         $this->assertSame(5, $data['data_quality']['total']);
-        $this->assertSame(['location_id' => 4, 'acquisition_date' => 3, 'acquisition_cost' => 3, 'serial_number' => 1, 'image_path' => 0], $quality);
-        $this->assertEquals(44, $data['data_quality']['score']);
+        $this->assertSame(['location_id' => 4, 'acquisition_date' => 3, 'acquisition_cost' => 3, 'serial_number' => 5, 'image_path' => 0], $quality);
+        $this->assertEquals(60, $data['data_quality']['score']);
 
         $this->assertSame(1, $data['idle']['count']);
         $this->assertSame($idle, $data['idle']['items'][0]['asset']['id']);
@@ -133,6 +134,7 @@ class AssetAnalyticsTest extends TestCase
     private function asset(array $data): string
     {
         return $this->postJson('/api/assets', [
+            'serial_number' => 'SN-'.Str::uuid(),
             'category_id' => $this->masters['category']->id,
             'location_id' => $this->masters['location']->id,
             ...$data,

@@ -196,7 +196,7 @@ class DataScopeEscalationTest extends TestCase
         $coordinator = $this->createTenantUser($this->org, ['KOORDINATOR'], [['scope_type' => 'department', 'ref_id' => $department->id]]);
         $this->loginAs($coordinator);
 
-        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'category_id' => $this->masters['category']->id, 'location_id' => $this->gedungB->id]), 422, 'LOCATION_OUT_OF_SCOPE');
+        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id, 'location_id' => $this->gedungB->id]), 422, 'LOCATION_OUT_OF_SCOPE');
         $this->assertErrorCode($this->postJson('/api/invitations', $this->invitation('calon@alpha.test', $this->scopeAt($this->gedungB))), 403, 'SCOPE_ESCALATION');
         $this->postJson('/api/invitations', $this->invitation('calon@alpha.test', [['scope_type' => 'department', 'ref_id' => $department->id]]))->assertCreated();
         $this->assertFalse(Asset::query()->where('name', 'X')->exists());
@@ -461,8 +461,8 @@ class DataScopeEscalationTest extends TestCase
 
         $this->patchJson("/api/assets/{$id}", ['name' => 'Diubah'])->assertNotFound();
         $this->postJson("/api/assets/{$id}/archive")->assertNotFound();
-        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'category_id' => $this->masters['category']->id, 'location_id' => $this->gedungB->id]), 422, 'LOCATION_OUT_OF_SCOPE');
-        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'category_id' => $this->masters['category']->id]), 422, 'LOCATION_OUT_OF_SCOPE');
+        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id, 'location_id' => $this->gedungB->id]), 422, 'LOCATION_OUT_OF_SCOPE');
+        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id]), 422, 'LOCATION_OUT_OF_SCOPE');
 
         // location_id is not an editable field: the asset stays where it is.
         $this->patchJson("/api/assets/{$this->assetA->id}", ['location_id' => $this->gedungB->id, 'name' => 'Aset A'])->assertOk();

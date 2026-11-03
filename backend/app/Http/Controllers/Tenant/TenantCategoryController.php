@@ -81,9 +81,10 @@ class TenantCategoryController extends Controller
         return new TenantCategoryResource($this->categories->restore($tenantCategory)->load(self::RELATIONS));
     }
 
-    public function destroy(TenantAssetCategory $tenantCategory): \Illuminate\Http\JsonResponse
+    public function destroy(TenantAssetCategory $tenantCategory): JsonResponse
     {
         $this->categories->destroy($tenantCategory);
+
         return response()->json(null, 204);
     }
 
@@ -125,6 +126,60 @@ class TenantCategoryController extends Controller
         ]);
     }
 
+    /** The categories (not archived) in tree order, as an .xlsx to edit and upload to importEdits(). */
+    public function downloadEditSheet(): BinaryFileResponse
+    {
+        $query = TenantAssetCategory::query()->where('status', '!=', MasterStatus::ARCHIVED);
+        SpreadsheetImport::assertExportable($query->count());
+
+        $rows = $query->with('parent')->orderBy('path')->get()->map(fn (TenantAssetCategory $c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'parent_code' => SpreadsheetImport::codeItem($c->parent),
+            'description' => $c->description,
+            'status' => SpreadsheetImport::MASTER_STATUS_LABELS[$c->status] ?? $c->status,
+        ]);
+
+        return SpreadsheetImport::editSheet('edit_kategori_aset.xlsx', 'Edit Massal Kategori Aset', $this->editColumns(), $rows, [
+            'Kategori Induk' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
+            'Status' => array_values(SpreadsheetImport::MASTER_STATUS_LABELS),
+        ], [
+            'Untuk memindah kategori, ganti Kategori Induk. Kategori tidak dapat dipindah ke bawah dirinya sendiri atau subkategorinya.',
+        ]);
+    }
+
+    /** Applies an edited sheet from downloadEditSheet(): rows are matched by the hidden id, unchanged ones skipped. */
+    public function importEdits(Request $request): JsonResponse
+    {
+        $columns = $this->editColumns();
+        $rows = SpreadsheetImport::read($request, $columns);
+        $seen = [];
+
+        $updated = SpreadsheetImport::run($rows, function (array $row) use ($columns, &$seen) {
+            $row['status'] = SpreadsheetImport::masterStatus($row['status']);
+            $data = Validator::make($row, [
+                'name' => ['required', 'string', 'max:150'],
+                'parent_code' => ['nullable', 'string'],
+                'description' => ['nullable', 'string', 'max:1000'],
+                'status' => ['required', Rule::in(MasterStatus::EDITABLE)],
+            ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
+
+            $category = SpreadsheetImport::existing(TenantAssetCategory::query()->where('status', '!=', MasterStatus::ARCHIVED), $row['id'], $seen);
+            $changes = SpreadsheetImport::changes($category, [
+                'name' => $data['name'],
+                'description' => $data['description'],
+                'parent_id' => SpreadsheetImport::idByCode(TenantAssetCategory::query(), $data['parent_code'], 'Kategori induk'),
+                'status' => $data['status'],
+            ]);
+            if ($changes === []) {
+                return false;
+            }
+            $this->categories->update($category, $changes);
+        });
+
+        return response()->json(['data' => ['updated' => $updated]]);
+    }
+
     /** @return list<ImportColumn> */
     private function importColumns(): array
     {
@@ -133,6 +188,18 @@ class TenantCategoryController extends Controller
             new ImportColumn('code', 'Kode', hint: 'Kode unik kategori (huruf, angka, - _ .). Jika kosong, dibuat otomatis dari nama.', width: 18),
             new ImportColumn('parent_code', 'Kategori Induk', hint: 'Pilih kategori induk, atau ketik Kode kategori dari baris di atasnya. Kosongkan untuk kategori utama.', list: 'Kategori Induk', strictList: false, width: 34),
             new ImportColumn('description', 'Deskripsi', hint: 'Penjelasan singkat kategori. Boleh dikosongkan.', width: 45),
+        ];
+    }
+
+    /** @return list<ImportColumn> the code cannot be changed, so it is not shown */
+    private function editColumns(): array
+    {
+        return [
+            new ImportColumn('name', 'Nama Kategori', required: true, hint: 'Nama kategori, maksimal 150 karakter.', width: 30),
+            new ImportColumn('parent_code', 'Kategori Induk', hint: 'Pilih kategori induk. Kosongkan untuk kategori utama.', list: 'Kategori Induk', width: 34),
+            new ImportColumn('description', 'Deskripsi', hint: 'Penjelasan singkat kategori. Kosongkan untuk menghapus.', width: 45),
+            new ImportColumn('status', 'Status', required: true, hint: 'Aktif, atau Nonaktif agar tidak bisa dipilih untuk aset baru.', list: 'Status', width: 14),
+            SpreadsheetImport::idColumn(),
         ];
     }
 }

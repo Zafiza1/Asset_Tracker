@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -32,6 +33,9 @@ use Throwable;
  * sheet whose header row holds the column labels (or keys), plus instruction and dropdown-list
  * sheets. The import is all-or-nothing: every row is attempted so all errors are reported at
  * once, and nothing is saved if any row fails.
+ *
+ * Bulk editing uses the same format: editSheet() exports the existing records, the user edits
+ * them in Excel and uploads the file back; each row is matched to its record by a hidden id.
  */
 final class SpreadsheetImport
 {
@@ -39,6 +43,9 @@ final class SpreadsheetImport
 
     /** Dropdown items read "CODE — Name"; only the code before the separator is used. */
     public const SEPARATOR = ' — ';
+
+    /** Status column of master edit sheets. */
+    public const MASTER_STATUS_LABELS = [MasterStatus::ACTIVE => 'Aktif', MasterStatus::INACTIVE => 'Nonaktif'];
 
     private const DATA_SHEET = 'Data';
 
@@ -48,7 +55,11 @@ final class SpreadsheetImport
 
     private const COLOR_OPTIONAL = '475569';
 
+    private const COLOR_READONLY = '94A3B8';
+
     private const COLOR_LIST_CELL = 'EFF6FF';
+
+    private const COLOR_READONLY_CELL = 'F1F5F9';
 
     private const COLOR_BORDER = 'CBD5E1';
 
@@ -112,26 +123,27 @@ final class SpreadsheetImport
      * (details.errors = ["Baris n: …"]) and rolls everything back if any row failed.
      *
      * @param  list<array{row: int, data: array<string, string|null>}>  $rows
-     * @param  callable(array<string, string|null>): mixed  $import
-     * @return int number of imported rows
+     * @param  callable(array<string, string|null>): mixed  $import  returns false for a row that needed no change
+     * @return int number of imported (or changed) rows
      */
     public static function run(array $rows, callable $import): int
     {
         return DB::transaction(function () use ($rows, $import) {
             $errors = [];
+            $count = 0;
             foreach ($rows as ['row' => $number, 'data' => $data]) {
                 try {
-                    DB::transaction(fn () => $import($data));
+                    $count += DB::transaction(fn () => $import($data)) === false ? 0 : 1;
                 } catch (ApiException|ValidationException $e) {
                     $errors[] = "Baris {$number}: ".self::describe($e);
                 }
             }
             if ($errors !== []) {
                 throw ApiException::unprocessable('IMPORT_FAILED',
-                    'Tidak ada data yang diimpor karena '.count($errors).' baris bermasalah. Perbaiki lalu upload ulang.', ['errors' => $errors]);
+                    'Tidak ada data yang disimpan karena '.count($errors).' baris bermasalah. Perbaiki lalu upload ulang.', ['errors' => $errors]);
             }
 
-            return count($rows);
+            return $count;
         });
     }
 
@@ -145,6 +157,60 @@ final class SpreadsheetImport
      */
     public static function template(string $filename, string $title, array $columns, array $lists = [], array $notes = []): BinaryFileResponse
     {
+        return self::workbook($filename, $title, $columns, $lists, [
+            'Isi data pada sheet "Data", mulai baris ke-2. Satu baris = satu data.',
+            'Jangan mengubah, menghapus, atau memindah baris judul (baris 1).',
+            'Kolom berwarna biru dan bertanda * wajib diisi; kolom abu-abu boleh dikosongkan.',
+            'Sel berlatar biru muda memiliki dropdown: klik sel lalu pilih dari daftar (sumbernya ada di sheet "'.self::LIST_SHEET.'").',
+            'Klik sebuah sel untuk melihat petunjuk singkat kolom tersebut.',
+            ...$notes,
+            'Jika ada baris yang salah, tidak ada data yang disimpan. Perbaiki baris yang disebutkan lalu upload ulang file yang sama.',
+            'Maksimal '.self::MAX_ROWS.' baris dan ukuran file 5MB per import.',
+        ]);
+    }
+
+    /**
+     * Existing records in the template format, for editing in Excel and uploading back. Each
+     * row carries its record's id in a hidden column (see idColumn()), so codes need not be shown.
+     *
+     * @param  list<ImportColumn>  $columns  including idColumn()
+     * @param  iterable<array<string, mixed>>  $rows  column key => value (string, number, date or null)
+     * @param  array<string, list<string>>  $lists
+     * @param  list<string>  $notes
+     */
+    public static function editSheet(string $filename, string $title, array $columns, iterable $rows, array $lists = [], array $notes = []): BinaryFileResponse
+    {
+        return self::workbook($filename, $title, $columns, $lists, [
+            'Sheet "Data" berisi data yang sudah ada. Ubah nilainya langsung di sel; satu baris = satu data.',
+            'Setiap baris terhubung ke datanya lewat kolom tersembunyi. Jangan menyalin baris ke baris lain atau menghapus kolom; mengurutkan baris tidak masalah.',
+            'Jangan mengubah, menghapus, atau memindah baris judul (baris 1).',
+            'Kolom bertanda * wajib diisi. Mengosongkan kolom lain akan menghapus nilainya.',
+            'Kolom dengan judul abu-abu muda hanya informasi dan tidak ikut disimpan.',
+            'Sel berlatar biru muda memiliki dropdown: klik sel lalu pilih dari daftar (sumbernya ada di sheet "'.self::LIST_SHEET.'").',
+            'Baris yang tidak diubah dilewati, dan boleh juga dihapus. Data baru tidak dapat ditambahkan di sini; gunakan menu Import.',
+            ...$notes,
+            'Jika ada baris yang salah, tidak ada perubahan yang disimpan. Perbaiki baris yang disebutkan lalu upload ulang file yang sama.',
+            'Maksimal '.self::MAX_ROWS.' baris dan ukuran file 5MB per upload.',
+        ], $rows);
+    }
+
+    /** Refuses an edit sheet with more rows than one upload accepts. */
+    public static function assertExportable(int $count): void
+    {
+        if ($count > self::MAX_ROWS) {
+            throw ApiException::unprocessable('EXPORT_TOO_LARGE',
+                "Terdapat {$count} data, sedangkan satu file maksimal ".self::MAX_ROWS.' baris. Persempit dengan filter terlebih dahulu.');
+        }
+    }
+
+    /**
+     * @param  list<ImportColumn>  $columns
+     * @param  array<string, list<string>>  $lists
+     * @param  list<string>  $steps
+     * @param  iterable<array<string, mixed>>  $rows
+     */
+    private static function workbook(string $filename, string $title, array $columns, array $lists, array $steps, iterable $rows = []): BinaryFileResponse
+    {
         $book = new Spreadsheet;
         $book->getProperties()->setCreator('Asset Tracker')->setTitle($title);
         $book->getDefaultStyle()->getFont()->setName('Calibri')->setSize(11);
@@ -152,7 +218,8 @@ final class SpreadsheetImport
         $data = $book->getActiveSheet()->setTitle(self::DATA_SHEET);
         $ranges = $lists === [] ? [] : self::listSheet($book->createSheet(), $lists);
         self::dataSheet($data, $columns, $ranges);
-        self::instructionSheet($book->createSheet(1), $title, $columns, $notes);
+        self::fill($data, $columns, $rows);
+        self::instructionSheet($book->createSheet(1), $title, $columns, $steps);
         $book->setActiveSheetIndex(0);
 
         $path = tempnam(sys_get_temp_dir(), 'tpl');
@@ -232,6 +299,82 @@ final class SpreadsheetImport
             ->map(fn (Model $m) => $m->getAttribute('code').self::SEPARATOR.$m->getAttribute('name'))->all();
     }
 
+    /** "CODE — Name" of a related record, as the dropdown items read; null when there is none. */
+    public static function codeItem(?Model $model): ?string
+    {
+        return $model === null ? null : $model->getAttribute('code').self::SEPARATOR.$model->getAttribute('name');
+    }
+
+    /** The hidden column of an edit sheet that links each row to its record. */
+    public static function idColumn(): ImportColumn
+    {
+        return new ImportColumn('id', 'ID', required: true, width: 10, hidden: true);
+    }
+
+    /**
+     * The record an edit row refers to by its hidden id. `$seen` collects the ids of earlier
+     * rows, so a copied row is reported instead of silently editing the record twice.
+     *
+     * @template T of Model
+     *
+     * @param  Builder<T>  $query  records that may be edited (in scope, not archived)
+     * @param  array<string, true>  $seen
+     * @return T
+     */
+    public static function existing(Builder $query, ?string $id, array &$seen)
+    {
+        if ($id === null || ! Str::isUuid($id)) {
+            throw ApiException::unprocessable('INVALID_REFERENCE',
+                'Baris ini bukan berasal dari file unduhan. Data baru tidak dapat ditambahkan di sini; gunakan menu Import.');
+        }
+        if (isset($seen[$id])) {
+            throw ApiException::unprocessable('DUPLICATE_ROW', 'Baris ini salinan dari baris lain (data yang sama muncul lebih dari sekali). Hapus salah satunya.');
+        }
+        $seen[$id] = true;
+
+        return $query->whereKey($id)->first()
+            ?? throw ApiException::unprocessable('INVALID_REFERENCE', 'Data pada baris ini tidak ditemukan, sudah diarsipkan, atau di luar cakupan Anda. Unduh ulang file.');
+    }
+
+    /**
+     * The values that differ from the record, so only real changes reach the service (and its
+     * checks and audit log). Dates compare by day; numeric attributes by value ("15000000" equals
+     * 15000000.00), text as is (serial "00123" differs from "123").
+     *
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    public static function changes(Model $model, array $values): array
+    {
+        $normalize = function (mixed $v, bool $numeric): ?string {
+            if ($v instanceof DateTimeInterface) {
+                return $v->format('Y-m-d');
+            }
+            if ($numeric && is_numeric($v)) {
+                return (string) (float) $v;
+            }
+
+            return $v === null || $v === '' ? null : (string) $v;
+        };
+
+        return array_filter($values, function (mixed $v, string $k) use ($model, $normalize) {
+            $numeric = $model->hasCast($k, ['int', 'integer', 'float', 'double', 'decimal']);
+
+            return $normalize($v, $numeric) !== $normalize($model->getAttribute($k), $numeric);
+        }, ARRAY_FILTER_USE_BOTH);
+    }
+
+    /** The status column of master edit sheets accepts the key (inactive) or its label (Nonaktif). */
+    public static function masterStatus(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $byLabel = array_search(strtolower($value), array_map('strtolower', self::MASTER_STATUS_LABELS), true);
+
+        return $byLabel !== false ? $byLabel : strtolower($value);
+    }
+
     /**
      * @param  list<ImportColumn>  $columns
      * @param  array<string, string>  $ranges  list key => absolute range on the list sheet
@@ -245,9 +388,17 @@ final class SpreadsheetImport
 
             $sheet->setCellValue("{$letter}1", $column->label.($column->required ? ' *' : ''));
             $sheet->getStyle("{$letter}1")->getFill()->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()->setRGB($column->required ? self::COLOR_REQUIRED : self::COLOR_OPTIONAL);
-            $sheet->getColumnDimension($letter)->setWidth($column->width);
+                ->getStartColor()->setRGB(match (true) {
+                    $column->readOnly => self::COLOR_READONLY,
+                    $column->required => self::COLOR_REQUIRED,
+                    default => self::COLOR_OPTIONAL,
+                });
+            $sheet->getColumnDimension($letter)->setWidth($column->width)->setVisible(! $column->hidden);
 
+            if ($column->readOnly) {
+                $sheet->getStyle($body)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(self::COLOR_READONLY_CELL);
+                $sheet->getStyle($body)->getFont()->getColor()->setRGB(self::COLOR_OPTIONAL);
+            }
             $validation = self::validation($column, $ranges[$column->list] ?? null);
             if ($validation !== null) {
                 $sheet->setDataValidation($body, $validation);
@@ -274,8 +425,38 @@ final class SpreadsheetImport
         $sheet->setSelectedCell('A2');
     }
 
+    /**
+     * Writes existing records from row 2: text explicitly as text (codes like "007" keep their
+     * zeros), numbers as numbers and dates as Excel dates.
+     *
+     * @param  list<ImportColumn>  $columns
+     * @param  iterable<array<string, mixed>>  $rows
+     */
+    private static function fill(Worksheet $sheet, array $columns, iterable $rows): void
+    {
+        $r = 1;
+        foreach ($rows as $row) {
+            $r++;
+            foreach ($columns as $i => $column) {
+                $value = $row[$column->key] ?? null;
+                if ($value === null || $value === '') {
+                    continue;
+                }
+                $cell = $sheet->getCell([$i + 1, $r]);
+                match (true) {
+                    $value instanceof DateTimeInterface => $cell->setValue(Date::PHPToExcel($value)),
+                    $column->type === ImportColumn::NUMBER && is_numeric($value) => $cell->setValueExplicit((float) $value, DataType::TYPE_NUMERIC),
+                    default => $cell->setValueExplicit((string) $value, DataType::TYPE_STRING),
+                };
+            }
+        }
+    }
+
     private static function validation(ImportColumn $column, ?string $range): ?DataValidation
     {
+        if ($column->readOnly || $column->hidden) {
+            return null;
+        }
         $validation = (new DataValidation)
             ->setAllowBlank(! $column->required)
             ->setShowInputMessage(true)
@@ -336,9 +517,9 @@ final class SpreadsheetImport
 
     /**
      * @param  list<ImportColumn>  $columns
-     * @param  list<string>  $notes
+     * @param  list<string>  $steps
      */
-    private static function instructionSheet(Worksheet $sheet, string $title, array $columns, array $notes): void
+    private static function instructionSheet(Worksheet $sheet, string $title, array $columns, array $steps): void
     {
         $sheet->setTitle('Petunjuk');
         $sheet->setShowGridlines(false);
@@ -349,16 +530,6 @@ final class SpreadsheetImport
         $sheet->setCellValue('A1', $title);
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16)->getColor()->setRGB(self::COLOR_REQUIRED);
 
-        $steps = [
-            'Isi data pada sheet "Data", mulai baris ke-2. Satu baris = satu data.',
-            'Jangan mengubah, menghapus, atau memindah baris judul (baris 1).',
-            'Kolom berwarna biru dan bertanda * wajib diisi; kolom abu-abu boleh dikosongkan.',
-            'Sel berlatar biru muda memiliki dropdown: klik sel lalu pilih dari daftar (sumbernya ada di sheet "'.self::LIST_SHEET.'").',
-            'Klik sebuah sel untuk melihat petunjuk singkat kolom tersebut.',
-            ...$notes,
-            'Jika ada baris yang salah, tidak ada data yang disimpan. Perbaiki baris yang disebutkan lalu upload ulang file yang sama.',
-            'Maksimal '.self::MAX_ROWS.' baris dan ukuran file 5MB per import.',
-        ];
         $row = 3;
         $sheet->setCellValue("A{$row}", 'Cara pengisian');
         $sheet->getStyle("A{$row}")->getFont()->setBold(true)->setSize(12);
@@ -374,9 +545,14 @@ final class SpreadsheetImport
         $row++;
         $headerRow = $row;
         $sheet->fromArray(['Kolom', 'Wajib', 'Keterangan'], null, "A{$row}");
-        foreach ($columns as $column) {
+        foreach (array_filter($columns, fn (ImportColumn $c) => ! $c->hidden) as $column) {
             $row++;
-            $sheet->fromArray([$column->label, $column->required ? 'Ya' : 'Tidak', $column->hint], null, "A{$row}");
+            $required = match (true) {
+                $column->readOnly => 'Info',
+                $column->required => 'Ya',
+                default => 'Tidak',
+            };
+            $sheet->fromArray([$column->label, $required, $column->hint], null, "A{$row}");
             if ($column->required) {
                 $sheet->getStyle("A{$row}:B{$row}")->getFont()->setBold(true);
             }
@@ -419,7 +595,8 @@ final class SpreadsheetImport
 
     /**
      * Index of each expected column in the header row, matched by label (with or without the
-     * required mark) or key, in any order; extra columns are ignored.
+     * required mark) or key, in any order; extra columns are ignored. Read-only columns are not
+     * read, and hidden ones only when present.
      *
      * @param  array<int, string|null>  $header
      * @param  list<ImportColumn>  $columns
@@ -427,9 +604,10 @@ final class SpreadsheetImport
      */
     private static function positions(array $header, array $columns): array
     {
-        $normalize = fn (?string $h) => str_replace(' ', '_', strtolower(trim(rtrim((string) $h, " *"))));
+        $normalize = fn (?string $h) => str_replace(' ', '_', strtolower(trim(rtrim((string) $h, ' *'))));
         $keys = array_map($normalize, $header);
         $positions = [];
+        $columns = array_values(array_filter($columns, fn (ImportColumn $c) => ! $c->readOnly));
         foreach ($columns as $column) {
             $index = array_search($normalize($column->label), $keys, true);
             if ($index === false) {
@@ -439,7 +617,7 @@ final class SpreadsheetImport
                 $positions[$column->key] = $index;
             }
         }
-        $missing = array_filter($columns, fn (ImportColumn $c) => ! isset($positions[$c->key]));
+        $missing = array_filter($columns, fn (ImportColumn $c) => ($c->required || ! $c->hidden) && ! isset($positions[$c->key]));
         if ($missing !== []) {
             throw ApiException::unprocessable('INVALID_TEMPLATE', 'Format file tidak sesuai template. Kolom tidak ditemukan: '
                 .implode(', ', array_map(fn (ImportColumn $c) => $c->label, $missing)).'. Gunakan template terbaru.');

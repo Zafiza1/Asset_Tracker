@@ -88,11 +88,11 @@ class CategoryAttributeTest extends TestCase
         $this->field($cars, ['label' => 'Tanggal Pajak', 'data_type' => 'date']);
 
         // Required and typed values are enforced, also for inherited fields.
-        $response = $this->postJson('/api/assets', ['name' => 'Avanza', 'category_id' => $cars->id, 'attributes' => ['jumlah_kursi' => 'tujuh']]);
+        $response = $this->postJson('/api/assets', ['name' => 'Avanza', 'serial_number' => 'SN-AV1', 'category_id' => $cars->id, 'attributes' => ['jumlah_kursi' => 'tujuh']]);
         $this->assertErrorCode($response, 422, 'VALIDATION_FAILED');
         $response->assertJsonPath('error.details.fields', fn ($fields) => isset($fields['attributes.nomor_polisi'], $fields['attributes.jumlah_kursi']));
 
-        $asset = $this->postJson('/api/assets', ['name' => 'Avanza', 'category_id' => $cars->id, 'attributes' => [
+        $asset = $this->postJson('/api/assets', ['name' => 'Avanza', 'serial_number' => 'SN-AV1', 'category_id' => $cars->id, 'attributes' => [
             'nomor_polisi' => ' B 1234 XY ', 'jumlah_kursi' => 7, 'tanggal_pajak' => null, 'tidak_dikenal' => 'x',
         ]])->assertCreated()->assertJsonPath('data.attributes', self::same(['nomor_polisi' => 'B 1234 XY', 'jumlah_kursi' => 7]))->json('data');
 
@@ -133,7 +133,7 @@ class CategoryAttributeTest extends TestCase
             ->assertJsonPath('data.is_required', true)
             ->assertJsonPath('data.options.*.value', ['BAIK', 'RUSAK', 'RUSAK_RINGAN']);
 
-        $asset = $this->postJson('/api/assets', ['name' => 'Meja', 'category_id' => $category->id, 'attributes' => ['kondisi_fisik' => 'BAIK']])
+        $asset = $this->postJson('/api/assets', ['name' => 'Meja', 'serial_number' => 'SN-MJ1', 'category_id' => $category->id, 'attributes' => ['kondisi_fisik' => 'BAIK']])
             ->assertCreated()->json('data');
 
         // Removing archives the field: it disappears from the category, values are dropped on the next save.

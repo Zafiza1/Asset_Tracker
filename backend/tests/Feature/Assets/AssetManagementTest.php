@@ -13,6 +13,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /** Asset Management container: registration, listing/filtering, editing, deactivation. */
@@ -246,6 +247,7 @@ class AssetManagementTest extends TestCase
     private function register(array $data)
     {
         return $this->postJson('/api/assets', [
+            'serial_number' => 'SN-'.Str::uuid(),
             'category_id' => $this->masters['category']->id,
             'location_id' => $this->masters['location']->id,
             ...$data,

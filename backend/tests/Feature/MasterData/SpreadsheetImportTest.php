@@ -68,7 +68,7 @@ class SpreadsheetImportTest extends TestCase
             ['name', 'serial_number', 'category_code', 'location_code', 'status', 'acquisition_date', 'acquisition_cost', 'description'],
             // A DateTime becomes a real date cell (serial number + date format), as Excel saves it.
             ['Laptop Dell', 'SN-1', 'CAT1', 'LOC1', 'Digunakan', new DateTimeImmutable('2024-01-15'), 15000000, 'Staf IT'],
-            ['Meja', null, 'cat1', null, null, '2024-02-01', null, null],
+            ['Meja', 'SN-2', 'cat1', null, null, '2024-02-01', null, null],
         ])->assertOk()->assertJsonPath('data.imported', 2);
 
         $laptop = Asset::query()->where('name', 'Laptop Dell')->firstOrFail();
@@ -81,11 +81,11 @@ class SpreadsheetImportTest extends TestCase
     {
         $response = $this->upload('/api/assets/import', [
             ['name', 'serial_number', 'category_code', 'location_code', 'status', 'acquisition_date', 'acquisition_cost', 'description'],
-            ['Valid', null, 'CAT1', null, null, null, null, null],
-            ['Salah kategori', null, 'TIDAK-ADA', null, null, null, null, null],
-            ['Salah status', null, 'CAT1', null, 'on_loan', null, null, null],
-            ['Salah tanggal', null, 'CAT1', null, null, '15/01/2024', null, null],
-            [null, null, 'CAT1', null, null, null, null, 'Tanpa nama'],
+            ['Valid', 'SN-A', 'CAT1', null, null, null, null, null],
+            ['Salah kategori', 'SN-B', 'TIDAK-ADA', null, null, null, null, null],
+            ['Salah status', 'SN-C', 'CAT1', null, 'on_loan', null, null, null],
+            ['Salah tanggal', 'SN-D', 'CAT1', null, null, '15/01/2024', null, null],
+            [null, 'SN-E', 'CAT1', null, null, null, null, 'Tanpa nama'],
         ]);
 
         $this->assertErrorCode($response, 422, 'IMPORT_FAILED');
@@ -133,7 +133,7 @@ class SpreadsheetImportTest extends TestCase
     public function test_template_filled_with_dropdown_choices_imports(): void
     {
         $book = $this->template('/api/assets/template');
-        $book->getSheetByName('Data')->fromArray(['Proyektor Epson', 'CAT1 — Kategori 1', 'LOC1 — Gudang 1', 'Dalam perbaikan'], null, 'A2');
+        $book->getSheetByName('Data')->fromArray(['Proyektor Epson', 'CAT1 — Kategori 1', 'LOC1 — Gudang 1', 'Dalam perbaikan', 'SN-EP1'], null, 'A2');
 
         $this->send('/api/assets/import', $book)->assertOk()->assertJsonPath('data.imported', 1);
 

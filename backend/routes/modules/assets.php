@@ -10,6 +10,9 @@ Route::middleware('module:assets')->group(function () {
     Route::post('/assets/import', [AssetController::class, 'import'])->middleware('permission:asset.create');
     Route::post('/assets/bulk-update', [AssetController::class, 'bulkUpdate'])->middleware('permission:asset.update');
     Route::get('/assets/template', [AssetController::class, 'downloadTemplate'])->middleware('permission:asset.create');
+    // Bulk edit in Excel: the filtered assets as .xlsx, then the edited file back.
+    Route::get('/assets/edit-sheet', [AssetController::class, 'downloadEditSheet'])->middleware('permission:asset.update');
+    Route::post('/assets/edit-sheet', [AssetController::class, 'importEdits'])->middleware('permission:asset.update');
     // Scanned 1D/2D barcode content (the asset number) -> asset detail.
     Route::get('/assets/lookup', [AssetController::class, 'lookup'])->middleware('permission:asset.view');
     Route::get('/assets/{asset}', [AssetController::class, 'show'])->middleware('permission:asset.view');

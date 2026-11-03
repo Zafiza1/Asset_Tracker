@@ -5,6 +5,7 @@ namespace Tests\Feature\Assets;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Organization\Models\Organization;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\TestCase;
 
@@ -90,7 +91,7 @@ class AssetReportTest extends TestCase
     {
         $base = Asset::query()->findOrFail($this->asset(['name' => 'Laptop', 'acquisition_cost' => 1000]));
         for ($i = 2; $i <= 300; $i++) {
-            $base->replicate()->forceFill(['asset_number' => sprintf('AST-T-%06d', $i), 'name' => "Laptop Dell Latitude 5440 Unit Kantor Pusat {$i}"])->save();
+            $base->replicate()->forceFill(['asset_number' => sprintf('AST-T-%06d', $i), 'serial_number' => "SN-{$i}", 'name' => "Laptop Dell Latitude 5440 Unit Kantor Pusat {$i}"])->save();
         }
 
         $before = memory_get_usage(true);
@@ -121,6 +122,7 @@ class AssetReportTest extends TestCase
     private function asset(array $data): string
     {
         return $this->postJson('/api/assets', [
+            'serial_number' => 'SN-'.Str::uuid(),
             'category_id' => $this->masters['category']->id,
             'location_id' => $this->masters['location']->id,
             ...$data,

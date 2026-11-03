@@ -157,8 +157,8 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
           {(p) => <Input {...p} {...register('name', { required: 'Nama aset wajib diisi.' })} />}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="No Seri" error={err('serial_number')} hint="Nomor seri dari pabrik atau milik organisasi (opsional, harus unik).">
-            {(p) => <Input {...p} {...register('serial_number')} />}
+          <Field label="No Seri" required error={err('serial_number')} hint="Nomor seri dari pabrik atau milik organisasi (harus unik).">
+            {(p) => <Input {...p} {...register('serial_number', { validate: (v) => v.trim() !== '' || 'No seri wajib diisi.' })} />}
           </Field>
           <Field label="Kategori" required error={err('category_id')}>
             {(p) => (

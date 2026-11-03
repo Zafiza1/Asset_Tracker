@@ -1,4 +1,4 @@
-import { Plus, SlidersHorizontal, Upload } from 'lucide-react'
+import { FileSpreadsheet, Plus, SlidersHorizontal, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { PageHeader } from '../../components/ui/Card'
@@ -48,19 +48,29 @@ export function LocationsPage() {
   const permissions = useMasterPermissions()
   const [editing, setEditing] = useState<Location | 'new' | null>(null)
   const [importing, setImporting] = useState(false)
+  const [bulkEditing, setBulkEditing] = useState(false)
   return (
     <>
       <PageHeader
         title="Lokasi"
         actions={
-          permissions.canCreate && (
+          (permissions.canCreate || permissions.canUpdate) && (
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setImporting(true)}>
-                <Upload className="size-4" aria-hidden /> Import
-              </Button>
-              <Button onClick={() => setEditing('new')}>
-                <Plus className="size-4" aria-hidden /> Tambah lokasi
-              </Button>
+              {permissions.canUpdate && (
+                <Button variant="secondary" onClick={() => setBulkEditing(true)}>
+                  <FileSpreadsheet className="size-4" aria-hidden /> Multiple Edit
+                </Button>
+              )}
+              {permissions.canCreate && (
+                <>
+                  <Button variant="secondary" onClick={() => setImporting(true)}>
+                    <Upload className="size-4" aria-hidden /> Import
+                  </Button>
+                  <Button onClick={() => setEditing('new')}>
+                    <Plus className="size-4" aria-hidden /> Tambah lokasi
+                  </Button>
+                </>
+              )}
             </div>
           )
         }
@@ -105,6 +115,18 @@ export function LocationsPage() {
           templateFilename="template_lokasi.xlsx"
         />
       )}
+      {bulkEditing && (
+        <ImportModal
+          open
+          mode="edit"
+          onClose={() => setBulkEditing(false)}
+          title="Multiple Edit Lokasi (Excel)"
+          endpoint="/locations/edit-sheet"
+          templateEndpoint="/locations/edit-sheet"
+          templateFilename="edit_lokasi.xlsx"
+          scopeNote="semua lokasi yang belum diarsipkan"
+        />
+      )}
     </>
   )
 }
@@ -114,6 +136,7 @@ export function TenantCategoriesPage() {
   const permissions = useMasterPermissions()
   const [attributesOf, setAttributesOf] = useState<TenantCategory | null>(null)
   const [importing, setImporting] = useState(false)
+  const [bulkEditing, setBulkEditing] = useState(false)
   return (
     <>
       <MasterListPage<TenantCategory>
@@ -122,11 +145,18 @@ export function TenantCategoriesPage() {
         {...permissions}
         canDelete={permissions.canArchive}
         headerActions={
-          permissions.canCreate && (
-            <Button variant="secondary" onClick={() => setImporting(true)}>
-              <Upload className="size-4" aria-hidden /> Import
-            </Button>
-          )
+          <>
+            {permissions.canUpdate && (
+              <Button variant="secondary" onClick={() => setBulkEditing(true)}>
+                <FileSpreadsheet className="size-4" aria-hidden /> Multiple Edit
+              </Button>
+            )}
+            {permissions.canCreate && (
+              <Button variant="secondary" onClick={() => setImporting(true)}>
+                <Upload className="size-4" aria-hidden /> Import
+              </Button>
+            )}
+          </>
         }
         columns={[
           { key: 'name', header: 'Nama', cell: treeName },
@@ -160,6 +190,18 @@ export function TenantCategoriesPage() {
           endpoint="/tenant-masters/categories/import"
           templateEndpoint="/tenant-masters/categories/template"
           templateFilename="template_kategori_aset.xlsx"
+        />
+      )}
+      {bulkEditing && (
+        <ImportModal
+          open
+          mode="edit"
+          onClose={() => setBulkEditing(false)}
+          title="Multiple Edit Kategori Aset (Excel)"
+          endpoint="/tenant-masters/categories/edit-sheet"
+          templateEndpoint="/tenant-masters/categories/edit-sheet"
+          templateFilename="edit_kategori_aset.xlsx"
+          scopeNote="semua kategori yang belum diarsipkan"
         />
       )}
     </>

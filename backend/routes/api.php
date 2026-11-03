@@ -150,6 +150,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
         if (in_array($uri, ['locations', 'tenant-masters/categories'], true)) {
             Route::post("/{$uri}/import", [$controller, 'import'])->middleware($create);
             Route::get("/{$uri}/template", [$controller, 'downloadTemplate'])->middleware($create);
+            // Bulk edit: download the existing records as .xlsx, upload the edited file.
+            Route::get("/{$uri}/edit-sheet", [$controller, 'downloadEditSheet'])->middleware($update);
+            Route::post("/{$uri}/edit-sheet", [$controller, 'importEdits'])->middleware($update);
         }
         Route::get("/{$uri}/{{$param}}", [$controller, 'show'])->middleware($view);
         Route::patch("/{$uri}/{{$param}}", [$controller, 'update'])->middleware($update);
