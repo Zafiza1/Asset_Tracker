@@ -123,6 +123,36 @@ describe('InvitationPage', () => {
     expect(bodiesOf('/api/auth/invitation/accept')).toEqual([{ token: TOKEN }])
   })
 
+  it('joins with the password when the account has no active organization to log in to', async () => {
+    serve({ session: null })
+    const fetchStub = vi.mocked(fetch)
+    const backend = fetchStub.getMockImplementation()!
+    let joined = false
+    fetchStub.mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url === '/api/auth/login') {
+        calls.push({ url, body: JSON.parse(String(init?.body)) })
+        return apiError(403, 'ORGANIZATION_INACTIVE')
+      }
+      if (url === '/api/auth/invitation/login') {
+        calls.push({ url, body: JSON.parse(String(init?.body)) })
+        joined = true
+        return json({ data: { organization: preview.organization } })
+      }
+      if (url === '/api/auth/me' && joined) return json(profileOf(userOf('budi@perusahaan.test')))
+      return backend(input, init)
+    })
+    const user = userEvent.setup()
+    renderAt(`/undangan#token=${TOKEN}`)
+
+    await screen.findByRole('tab', { name: 'Saya sudah punya akun' })
+    await user.type(screen.getByLabelText(/^Password/), 'Rahasia-Kuat-2026')
+    await user.click(screen.getByRole('button', { name: 'Masuk' }))
+
+    expect(await screen.findByText('Undangan diterima')).toBeInTheDocument()
+    expect(bodiesOf('/api/auth/invitation/login')).toEqual([{ token: TOKEN, password: 'Rahasia-Kuat-2026' }])
+  })
+
   it('signs up an address without an account through the invitation', async () => {
     serve({ session: null })
     const user = userEvent.setup()

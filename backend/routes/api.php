@@ -43,9 +43,11 @@ Route::get('/health/ready', [HealthController::class, 'ready']);
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
-    // Invitation token in the body: describe the invitation, or sign up an address without an account.
+    // Invitation token in the body: describe the invitation, sign up an address without an account,
+    // or join with an account that has no active organization to log in to.
     Route::post('/invitation/inspect', [InvitationAcceptanceController::class, 'inspect'])->middleware('throttle:invitation');
     Route::post('/invitation/register', [InvitationAcceptanceController::class, 'register'])->middleware('throttle:invitation');
+    Route::post('/invitation/login', [InvitationAcceptanceController::class, 'login'])->middleware('throttle:invitation');
 
     // Mobile scanner app: read-only bearer token bound to one organization.
     Route::post('/mobile/login', [AuthController::class, 'mobileLogin'])->middleware('throttle:login');

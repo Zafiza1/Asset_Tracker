@@ -305,6 +305,50 @@ class InvitationAcceptanceTest extends TestCase
         $this->assertNotMember($this->invitee);
     }
 
+    public function test_deactivated_member_is_registered_again_with_only_the_invited_access(): void
+    {
+        $location = $this->location();
+        $former = $this->createTenantUser($this->alpha, ['ADMIN'], attributes: ['email_verified_at' => now()]);
+        OrganizationMember::query()->where('organization_id', $this->alpha->id)->where('user_id', $former->id)->update(['employee_number' => 'K-7']);
+        $this->loginAs($this->admin);
+        $this->postJson("/api/users/{$former->id}/deactivate")->assertOk();
+
+        // The same employee number is theirs to keep.
+        $token = $this->invite($former->email, 'SUPERVISOR', [['scope_type' => 'location', 'ref_id' => $location->id]], ['employee_number' => 'K-7']);
+        $this->assertSame('deactivated', OrganizationMember::query()->where('organization_id', $this->alpha->id)->where('user_id', $former->id)->value('status'));
+        $this->beGuest();
+
+        // Without an active organization the normal login stays closed, so the token and password do the job.
+        $this->assertErrorCode($this->postJson('/api/auth/login', ['email' => $former->email, 'password' => self::PASSWORD]), 403, 'ORGANIZATION_INACTIVE');
+        $this->assertErrorCode($this->postJson('/api/auth/invitation/login', ['token' => $token, 'password' => 'Salah-Password-1']), 422, 'INVALID_CREDENTIALS');
+        $this->assertGuest('web');
+        $this->postJson('/api/auth/invitation/login', ['token' => $token, 'password' => self::PASSWORD])
+            ->assertOk()
+            ->assertJsonPath('data.organization.id', $this->alpha->id);
+
+        $this->assertAuthenticatedAs($former, 'web');
+        $member = OrganizationMember::query()->where('organization_id', $this->alpha->id)->where('user_id', $former->id)->sole();
+        $this->assertSame('active', $member->status);
+        $this->assertSame('K-7', $member->employee_number);
+        $this->assertSame(['SUPERVISOR'], $former->roles()->wherePivot('organization_id', $this->alpha->id)->pluck('code')->all());
+        $this->assertSame([['location', $location->id]], UserDataScope::query()->where('organization_id', $this->alpha->id)->where('user_id', $former->id)
+            ->get()->map(fn ($s) => [$s->scope_type, $s->refId()])->all());
+        $this->assertSame($former->id, LicenseCode::query()->where('organization_id', $this->alpha->id)->where('assigned_to_user_id', $former->id)->sole()->assigned_to_user_id);
+        $this->assertTrue(AuditLog::query()->where('action', 'user.member_added')->sole()->metadata['rejoined']);
+        $this->assertTrue(Hash::check(self::PASSWORD, $former->fresh()->password));
+        $this->getJson('/api/auth/me')->assertOk()->assertJsonPath('data.organization.id', $this->alpha->id);
+    }
+
+    public function test_account_that_can_log_in_does_not_accept_with_its_password(): void
+    {
+        $token = $this->invite($this->invitee->email);
+        $this->beGuest();
+
+        $this->assertErrorCode($this->postJson('/api/auth/invitation/login', ['token' => $token, 'password' => self::PASSWORD]), 409, 'LOGIN_REQUIRED');
+        $this->assertGuest('web');
+        $this->assertNotMember($this->invitee);
+    }
+
     /**
      * Sends an invitation as $inviter (default: the ALPHA administrator) and returns the emailed token.
      * The inviter stays logged in afterwards.

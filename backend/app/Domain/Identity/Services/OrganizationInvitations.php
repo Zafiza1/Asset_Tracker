@@ -23,6 +23,7 @@ use App\Domain\Shared\Tenancy\TenantContext;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
@@ -81,8 +82,7 @@ final class OrganizationInvitations
     public function create(string $email, array $profile, array $roleIds, array $scopes, ?string $licenseCodeId = null): OrganizationInvitation
     {
         $email = mb_strtolower(trim($email));
-        $this->assertGrantable($profile, $roleIds, $scopes);
-        $this->assertNotMember($email);
+        $this->assertGrantable($profile, $roleIds, $scopes, $this->assertInvitable($email));
 
         // Validate and reserve license code if provided
         if ($licenseCodeId !== null) {
@@ -141,8 +141,7 @@ final class OrganizationInvitations
     public function resend(OrganizationInvitation $invitation): OrganizationInvitation
     {
         $this->assertReopenable($invitation);
-        $this->assertGrantable($this->profileOf($invitation), $invitation->role_ids, $invitation->scopes);
-        $this->assertNotMember($invitation->email);
+        $this->assertGrantable($this->profileOf($invitation), $invitation->role_ids, $invitation->scopes, $this->assertInvitable($invitation->email));
 
         return DB::transaction(function () use ($invitation) {
             $locked = $this->lock($invitation);
@@ -338,6 +337,34 @@ final class OrganizationInvitations
         }
 
         return $this->complete($user, $invitation);
+    }
+
+    /**
+     * For an account that cannot log in because it has no active organization (typically a
+     * deactivated member being invited back): the password and the emailed token together
+     * accept the invitation, so no session without an organization ever exists. Accounts that
+     * can log in use the normal login and accept().
+     *
+     * @return array{user: User, organization: Organization, invitation: OrganizationInvitation}
+     */
+    public function loginAndAccept(string $token, #[\SensitiveParameter] string $password): array
+    {
+        $invitation = $this->findByToken($token);
+        $this->assertOpen($invitation);
+
+        /** @var User|null $user */
+        $user = $this->tenancy->runAsSystem(fn () => User::query()->where('email', $invitation->email)->first());
+        // Always run a hash check so response time does not reveal whether the account exists.
+        $passwordOk = Hash::check($password, $user?->password ?? '$2y$12$'.str_repeat('a', 53));
+        if ($user === null || ! $passwordOk || ! $user->isActive()) {
+            $this->audit->record('auth.login_failed', $user, metadata: ['email' => $invitation->email, 'via' => 'invitation', 'invitation_id' => $invitation->id], organizationId: $invitation->organization_id);
+            throw ApiException::unprocessable('INVALID_CREDENTIALS', 'Email atau password salah.');
+        }
+        if ($this->access->accessible($user)->isNotEmpty()) {
+            throw ApiException::conflict('LOGIN_REQUIRED', 'Akun ini dapat masuk seperti biasa. Masuk terlebih dahulu, lalu terima undangan.');
+        }
+
+        return ['user' => $user, ...$this->accept($user, $token)];
     }
 
     /**
@@ -594,9 +621,9 @@ final class OrganizationInvitations
      * @param  list<string>  $roleIds
      * @param  list<array{scope_type: string, ref_id?: string|null}>  $scopes
      */
-    private function assertGrantable(array $profile, array $roleIds, array $scopes): void
+    private function assertGrantable(array $profile, array $roleIds, array $scopes, ?string $rejoiningUserId = null): void
     {
-        $this->users->assertAssignable($profile, $roleIds, $scopes);
+        $this->users->assertAssignable($profile, $roleIds, $scopes, $rejoiningUserId);
         $this->assertWithinActorScope($scopes);
     }
 
@@ -610,13 +637,24 @@ final class OrganizationInvitations
         $this->scopeGuard->assertGrantable($scopes);
     }
 
-    /** Members of this organization (any status) are managed on their user page, not invited. */
-    private function assertNotMember(string $email): void
+    /**
+     * Members of this organization are managed on their user page, not invited; only a deactivated
+     * member can be registered again with the same address.
+     *
+     * @return string|null the account id of the deactivated member being invited back
+     */
+    private function assertInvitable(string $email): ?string
     {
         $user = User::query()->where('email', $email)->first();
-        if ($user !== null && OrganizationMember::query()->where('user_id', $user->id)->exists()) {
+        $member = $user === null ? null : OrganizationMember::query()->where('user_id', $user->id)->first();
+        if ($member === null) {
+            return null;
+        }
+        if ($member->status !== User::STATUS_DEACTIVATED) {
             throw ApiException::conflict('ALREADY_MEMBER', 'Akun dengan email ini sudah menjadi anggota organisasi.');
         }
+
+        return $user->id;
     }
 
     /** The token is never stored; a lookup by hash is the only way to find an invitation from it. */

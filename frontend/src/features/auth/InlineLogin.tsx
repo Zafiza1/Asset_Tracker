@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
-import { api } from '../../lib/api/client'
+import { api, ApiError } from '../../lib/api/client'
 import { useAuth } from '../../lib/auth/context'
 import { applyApiErrors, errorMessage } from '../../lib/forms'
 
@@ -20,7 +20,16 @@ type FormValues = z.infer<typeof schema>
  * Login without leaving the page, for pages that hold a one-time secret (an invitation token,
  * a verification link) only in memory: navigating to /login would lose it.
  */
-export function InlineLoginForm({ defaultEmail, submitLabel = 'Masuk' }: { defaultEmail?: string; submitLabel?: string }) {
+export function InlineLoginForm({
+  defaultEmail,
+  submitLabel = 'Masuk',
+  onNoActiveOrganization,
+}: {
+  defaultEmail?: string
+  submitLabel?: string
+  /** Called when the password was right but the account defaultEmail has no active organization to log in to. */
+  onNoActiveOrganization?: (password: string) => Promise<void>
+}) {
   const { login } = useAuth()
   const [formError, setFormError] = useState<string | null>(null)
   const { register, handleSubmit, setError, formState } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { email: defaultEmail ?? '' } })
@@ -28,7 +37,13 @@ export function InlineLoginForm({ defaultEmail, submitLabel = 'Masuk' }: { defau
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null)
     try {
-      await login(values.email, values.password)
+      try {
+        await login(values.email, values.password)
+      } catch (e) {
+        const noOrganization = e instanceof ApiError && e.code === 'ORGANIZATION_INACTIVE' && values.email.toLowerCase() === defaultEmail?.toLowerCase()
+        if (!noOrganization || !onNoActiveOrganization) throw e
+        await onNoActiveOrganization(values.password)
+      }
     } catch (e) {
       setFormError(applyApiErrors(e, setError))
     }

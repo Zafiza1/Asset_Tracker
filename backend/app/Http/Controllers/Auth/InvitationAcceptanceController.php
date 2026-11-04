@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Domain\Audit\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\OrganizationAccess;
 use App\Domain\Identity\Services\OrganizationInvitations;
@@ -56,6 +57,27 @@ class InvitationAcceptanceController extends Controller
         }
 
         ['organization' => $organization] = $this->invitations->accept($user, $data['token']);
+
+        return response()->json(['data' => ['organization' => $this->summary($organization)]]);
+    }
+
+    /** An account without any active organization cannot log in first: it joins with its password, then is logged in. */
+    public function login(Request $request, OrganizationAccess $access, AuditLogger $audit): JsonResponse
+    {
+        $data = $request->validate([
+            'token' => ['required', 'string', 'max:128'],
+            'password' => ['required', 'string', 'max:200'],
+        ]);
+
+        ['user' => $user, 'organization' => $organization] = $this->invitations->loginAndAccept($data['token'], $data['password']);
+
+        Auth::guard('web')->login($user);
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+            $access->switch($request->session(), $user, $organization);
+        }
+        $this->tenancy->runAsSystem(fn () => $user->forceFill(['last_login_at' => now()])->save());
+        $audit->record('auth.login', $user, metadata: ['via' => 'invitation'], organizationId: $organization->id, actor: $user);
 
         return response()->json(['data' => ['organization' => $this->summary($organization)]]);
     }

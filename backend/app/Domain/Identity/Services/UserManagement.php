@@ -58,10 +58,11 @@ final class UserManagement
      * @param  array<string, mixed>  $profile  membership fields (OrganizationMember::PROFILE_FIELDS)
      * @param  list<string>  $roleIds
      * @param  list<array{scope_type: string, ref_id?: string|null}>  $scopes
+     * @param  string|null  $rejoiningUserId  deactivated member being invited again: may keep their employee number
      */
-    public function assertAssignable(array $profile, array $roleIds, array $scopes): void
+    public function assertAssignable(array $profile, array $roleIds, array $scopes, ?string $rejoiningUserId = null): void
     {
-        $this->assertReferences($profile);
+        $this->assertReferences($profile, $rejoiningUserId);
         $this->resolveAssignableRoles($roleIds);
         $this->normalizeScopes($scopes);
     }
@@ -70,7 +71,8 @@ final class UserManagement
      * Makes an existing account a member of this organization. Only for an invitation that
      * the account owner accepted (OrganizationInvitations::accept); the access is validated
      * against the administrator of the current tenant context, who issued the invitation.
-     * The account itself (password, profile) is never touched.
+     * The account itself (password, profile) is never touched. A deactivated member rejoins on
+     * their existing membership row, with only the invited access: earlier roles and scopes are gone.
      *
      * @param  array<string, mixed>  $profile  membership fields (OrganizationMember::PROFILE_FIELDS)
      * @param  list<string>  $roleIds
@@ -83,17 +85,23 @@ final class UserManagement
         if (! $user->isTenantUser()) {
             throw ApiException::unprocessable('INVALID_ACCOUNT', 'Akun platform tidak dapat menjadi anggota organisasi.');
         }
-        $this->assertReferences($profile);
+        $this->assertReferences($profile, $user->id);
         $roles = $this->resolveAssignableRoles($roleIds);
-        if (OrganizationMember::query()->where('user_id', $user->id)->exists()) {
+        $former = OrganizationMember::query()->where('user_id', $user->id)->first();
+        if ($former !== null && $former->status !== User::STATUS_DEACTIVATED) {
             throw ApiException::conflict('ALREADY_MEMBER', 'Akun dengan email ini sudah menjadi anggota organisasi.');
         }
 
-        return DB::transaction(function () use ($user, $profile, $roles, $scopes, $metadata, $actor) {
-            $member = new OrganizationMember(array_intersect_key($profile, array_flip(OrganizationMember::PROFILE_FIELDS)));
+        return DB::transaction(function () use ($user, $former, $profile, $roles, $scopes, $metadata, $actor) {
+            $member = $former ?? new OrganizationMember;
+            $member->fill(array_intersect_key($profile, array_flip(OrganizationMember::PROFILE_FIELDS)));
             $member->forceFill(['user_id' => $user->id, 'status' => User::STATUS_ACTIVE, 'created_by' => $this->tenancy->tenant()->userId()])->save();
             $user->setRelation('membership', $member);
 
+            if ($former !== null) {
+                $user->roles()->detach();
+                $metadata['rejoined'] = true;
+            }
             $this->attachRoles($user, $roles->pluck('id')->all());
             $this->replaceScopes($user, $scopes);
 

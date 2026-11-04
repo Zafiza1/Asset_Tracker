@@ -136,7 +136,14 @@ function InvitationDetails({ token, preview }: { token: string; preview: Invitat
 
 /** Not logged in: the address may or may not have an account; the page does not know, nor tell. */
 function SignInOrSignUp({ token, preview, onJoined }: { token: string; preview: InvitationPreview; onJoined: (o: OrganizationSummary) => void }) {
+  const { setProfile } = useAuth()
   const [mode, setMode] = useState<'login' | 'signup'>('login')
+  // A deactivated member being invited back has no organization to log in to: joining logs them in.
+  const joinWithPassword = async (password: string) => {
+    const res = await api.post<{ data: { organization: OrganizationSummary } }>('/auth/invitation/login', { token, password })
+    setProfile((await api.get<Resource<Profile>>('/auth/me')).data)
+    onJoined(res.data.organization)
+  }
   const tab = (value: typeof mode, label: string) => (
     <button
       type="button"
@@ -158,7 +165,7 @@ function SignInOrSignUp({ token, preview, onJoined }: { token: string; preview: 
       {mode === 'login' ? (
         <>
           <p className="text-sm text-slate-600">Masuk dengan akun {preview.email}, lalu terima undangan.</p>
-          <InlineLoginForm defaultEmail={preview.email} />
+          <InlineLoginForm defaultEmail={preview.email} onNoActiveOrganization={joinWithPassword} />
         </>
       ) : (
         <SignUpForm token={token} preview={preview} onJoined={onJoined} />
