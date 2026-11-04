@@ -9,3 +9,6 @@ export function usePermissionCatalog(enabled = true) {
     enabled,
   })
 }
+
+/** Role templates that may hold the approval permissions (mirrors RoleTemplates::mayHoldApproval). */
+export const APPROVAL_TEMPLATES = ['SUPER_ADMIN', 'SUPERVISOR']

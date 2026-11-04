@@ -14,7 +14,8 @@ use Tests\TestCase;
 /** Asset Transactions container: manual transactions, their effect on assets, and the history. */
 class AssetTransactionTest extends TestCase
 {
-    private const OPERATOR = ['organization.view', 'master.tenant.view', 'asset.view', 'asset.status_change', 'transaction.view', 'transaction.create'];
+    /** approval.manage: transactions apply directly (approval is covered by ApprovalTest). */
+    private const OPERATOR = ['organization.view', 'master.tenant.view', 'asset.view', 'asset.status_change', 'transaction.view', 'transaction.create', 'approval.manage'];
 
     private const MANAGER = [...self::OPERATOR, 'asset.create', 'asset.transfer', 'asset.dispose', 'report.view'];
 

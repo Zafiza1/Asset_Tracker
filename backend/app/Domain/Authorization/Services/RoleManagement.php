@@ -26,6 +26,7 @@ final class RoleManagement
     public function create(array $data, array $permissions): Role
     {
         $this->assertGrantable($permissions);
+        $this->assertApprovalHolder(null, $permissions);
 
         return DB::transaction(function () use ($data, $permissions) {
             $role = new Role(['name' => $data['name'], 'description' => $data['description'] ?? null]);
@@ -51,6 +52,7 @@ final class RoleManagement
                 throw ApiException::unprocessable('ROLE_LOCKED', 'Permission role terkunci tidak dapat diubah.');
             }
             $this->assertGrantable($permissions);
+            $this->assertApprovalHolder($role->template_code, $permissions);
             $current = $role->permissions()->pluck('code')->all();
             $ceiling = RoleTemplates::ceiling($role->template_code);
             if ($ceiling !== null && ($beyond = array_values(array_diff($permissions, $ceiling))) !== []) {
@@ -112,6 +114,19 @@ final class RoleManagement
         $missing = array_values(array_diff($permissions, $this->tenancy->tenant()->permissions()));
         if ($missing !== []) {
             throw new ApiException('PRIVILEGE_ESCALATION', 'Anda tidak dapat memberikan permission yang tidak Anda miliki.', 403, ['permissions' => $missing]);
+        }
+    }
+
+    /**
+     * Only the Super Admin and Supervisor roles approve changes (RoleTemplates::mayHoldApproval).
+     *
+     * @param  list<string>  $permissions
+     */
+    private function assertApprovalHolder(?string $templateCode, array $permissions): void
+    {
+        $approval = array_values(array_intersect($permissions, PermissionCatalog::codesInGroups(['approval'])));
+        if ($approval !== [] && ! RoleTemplates::mayHoldApproval($templateCode)) {
+            throw new ApiException('APPROVAL_ROLE_ONLY', 'Permission approval hanya dapat dimiliki role Super Admin dan Supervisor.', 422, ['permissions' => $approval]);
         }
     }
 

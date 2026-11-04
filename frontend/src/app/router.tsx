@@ -24,6 +24,7 @@ import { PlatformOrganizationsPage } from '../features/platform/PlatformOrganiza
 import { AssetReportPage } from '../features/reports/AssetReportPage'
 import { RoleFormPage } from '../features/roles/RoleFormPage'
 import { TransactionsPage } from '../features/transactions/TransactionsPage'
+import { NotificationsPage } from '../features/approvals/NotificationsPage'
 import { LegacyRoleRedirect, RolesPage } from '../features/roles/RolesPage'
 import { UserCreatePage } from '../features/users/UserCreatePage'
 import { UserDetailPage } from '../features/users/UserDetailPage'
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
                   { path: '/aset', element: tenant('asset.view', <AssetsPage />) },
                   { path: '/aset/:id', element: tenant('asset.view', <AssetDetailPage />) },
                   { path: '/transaksi', element: tenant('transaction.view', <TransactionsPage />) },
+                  { path: '/notifikasi', element: tenant(null, <NotificationsPage />) },
                   { path: '/laporan', element: tenant('report.view', <AssetReportPage />) },
                   { path: '/ubah-password', element: <ChangePasswordPage /> },
                   { path: '/organisasi', element: tenant('organization.view', <OrganizationPage />) },

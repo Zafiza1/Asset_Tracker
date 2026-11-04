@@ -55,6 +55,15 @@ final class RoleTemplates
         return $templateCode === null ? null : (self::tenant()[$templateCode]['permissions'] ?? null);
     }
 
+    /**
+     * Approval (approving or rejecting submitted changes) belongs to Super Admin and Supervisor
+     * only: no other role, default or custom, may hold the approval permissions.
+     */
+    public static function mayHoldApproval(?string $templateCode): bool
+    {
+        return in_array($templateCode, [self::SUPER_ADMIN, self::SUPERVISOR], true);
+    }
+
     /** @return array<string, array{name: string, description: string, permissions: list<string>}> */
     public static function platform(): array
     {

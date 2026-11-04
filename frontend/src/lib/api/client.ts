@@ -76,6 +76,24 @@ export function onOrganizationChanged(listener: () => void): () => void {
   return () => organizationListeners.delete(listener)
 }
 
+/**
+ * A change by a user without approval.manage is not applied but submitted for approval: the API
+ * answers 202 with the approval request. Callers get that answer as a success; check it with
+ * isApprovalPending() before using the result as the changed record.
+ */
+export interface ApprovalPendingResponse {
+  data: { id: string; summary: string; action_label: string }
+  meta: { approval_pending: true; message: string }
+}
+export function isApprovalPending(response: unknown): response is ApprovalPendingResponse {
+  return (response as ApprovalPendingResponse | null)?.meta?.approval_pending === true
+}
+const approvalListeners = new Set<(response: ApprovalPendingResponse) => void>()
+export function onApprovalPending(listener: (response: ApprovalPendingResponse) => void): () => void {
+  approvalListeners.add(listener)
+  return () => approvalListeners.delete(listener)
+}
+
 export async function apiRequest<T>(method: Method, path: string, body?: unknown, retried = false, asBlob = false): Promise<T> {
   if (method !== 'GET') await ensureCsrfCookie()
 
@@ -103,6 +121,7 @@ export async function apiRequest<T>(method: Method, path: string, body?: unknown
 
   if (response.ok && asBlob) return (await response.blob()) as T
   const payload = await response.json().catch(() => null)
+  if (response.status === 202 && isApprovalPending(payload)) approvalListeners.forEach((l) => l(payload))
   if (response.ok) return payload as T
 
   const error = payload?.error

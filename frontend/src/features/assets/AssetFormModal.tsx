@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
-import { api, ApiError } from '../../lib/api/client'
+import { api, ApiError, isApprovalPending } from '../../lib/api/client'
 import type { AttributeValue, CategoryAttribute, Resource } from '../../lib/api/types'
 import { applyApiErrors, errorMessage } from '../../lib/forms'
 import { AttributeFields } from '../master/CategoryAttributes'
@@ -80,22 +80,32 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
   const [saved, setSaved] = useState<Asset | undefined>(asset)
   const refresh = () => Promise.all(['/assets', '/dashboard', '/transactions'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
 
+  const saveImage = (id: string) => {
+    const form = new FormData()
+    if (image) form.append('image', image)
+    return image ? api.upload<Resource<Asset>>(`/assets/${id}/image`, form) : api.delete<Resource<Asset>>(`/assets/${id}/image`)
+  }
+
+  // Resolves to null when the change was submitted for approval instead of applied.
   const save = useMutation({
-    mutationFn: async (values: Values) => {
+    mutationFn: async (values: Values): Promise<Asset | null> => {
       const keys = saved ? EDITABLE : (Object.keys(values) as (keyof Values)[])
       const payload: Record<string, unknown> = Object.fromEntries(keys.map((k) => [k, values[k].trim() === '' ? null : values[k].trim()]))
       payload.attributes = Object.fromEntries(fields.map((f) => [f.key, shownValue(f, attributes[f.key])]))
-      let result = (
-        saved
-          ? await api.patch<Resource<Asset>>(`/assets/${saved.id}`, { ...payload, lock_version: saved.lock_version })
-          : await api.post<Resource<Asset>>('/assets', payload)
-      ).data
+      const response = saved
+        ? await api.patch<Resource<Asset>>(`/assets/${saved.id}`, { ...payload, lock_version: saved.lock_version })
+        : await api.post<Resource<Asset>>('/assets', payload)
+      // Submitted for approval, nothing changed yet: an existing asset's new image is submitted as
+      // a request of its own; a new asset has nothing to attach an image to until it is approved.
+      if (isApprovalPending(response)) {
+        if (saved && image !== undefined) await saveImage(saved.id)
+        return null
+      }
+      let result = response.data
       setSaved(result)
       if (image === undefined) return result
       try {
-        const form = new FormData()
-        if (image) form.append('image', image)
-        result = (image ? await api.upload<Resource<Asset>>(`/assets/${result.id}/image`, form) : await api.delete<Resource<Asset>>(`/assets/${result.id}/image`)).data
+        result = (await saveImage(result.id)).data
       } catch (e) {
         await refresh()
         throw new ImageSaveError(e)
@@ -104,7 +114,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
     },
     onSuccess: async (result) => {
       await refresh()
-      onSaved?.(result)
+      if (result) onSaved?.(result)
       onClose()
     },
     onError: (e) => {

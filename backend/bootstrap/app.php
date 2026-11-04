@@ -5,6 +5,7 @@ use App\Domain\Shared\Exceptions\ApiExceptionRenderer;
 use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\EnsureLicensed;
 use App\Http\Middleware\EnsureModuleAvailable;
+use App\Http\Middleware\RequireApproval;
 use App\Http\Middleware\RejectMobileToken;
 use App\Http\Middleware\RequirePermission;
 // use App\Http\Middleware\ResolvePlatform; // Removed - platform admin system deprecated
@@ -41,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => RequirePermission::class,
             'module' => EnsureModuleAvailable::class,
             'web-session' => RejectMobileToken::class,
+            'approval' => RequireApproval::class,
         ]);
 
         // Context and permission checks must run before route model binding, so bindings are
@@ -48,6 +50,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(SubstituteBindings::class, ResolveTenant::class);
         // $middleware->prependToPriorityList(SubstituteBindings::class, ResolvePlatform::class); // Removed - platform admin system deprecated
         $middleware->prependToPriorityList(SubstituteBindings::class, RequirePermission::class);
+        // The approval gate describes the bound records and tries the change out, so it runs after binding.
+        $middleware->appendToPriorityList(SubstituteBindings::class, RequireApproval::class);
 
         $middleware->redirectGuestsTo(fn () => null);
     })

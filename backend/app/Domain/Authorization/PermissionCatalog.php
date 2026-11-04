@@ -65,6 +65,7 @@ final class PermissionCatalog
         'report.view' => ['tenant', 'report', 'Melihat dashboard dan laporan'],
         'report.export' => ['tenant', 'report', 'Mengekspor laporan'],
         'audit.view' => ['tenant', 'audit', 'Melihat audit trail organisasi'],
+        'approval.manage' => ['tenant', 'approval', 'Menyetujui/menolak pengajuan transaksi, aset, dan master data'],
         'workflow.view' => ['tenant', 'workflow', 'Melihat konfigurasi workflow'],
         'workflow.manage' => ['tenant', 'workflow', 'Mengelola workflow approval'],
         'settings.manage' => ['tenant', 'settings', 'Mengelola pengaturan organisasi'],

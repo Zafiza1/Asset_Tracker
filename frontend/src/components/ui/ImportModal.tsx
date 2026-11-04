@@ -4,7 +4,7 @@ import { CheckCircle2, Download, Upload, X } from 'lucide-react'
 import { Button } from './Button'
 import { Alert } from './Feedback'
 import { Modal } from './Modal'
-import { api, ApiError, downloadFile } from '../../lib/api/client'
+import { api, ApiError, downloadFile, isApprovalPending } from '../../lib/api/client'
 
 interface ImportModalProps {
   open: boolean
@@ -47,7 +47,8 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
       await queryClient.invalidateQueries()
       onSuccess?.()
       // An edit may change nothing; say how many rows were saved instead of closing silently.
-      if (editing) setUpdated(result.data.updated ?? 0)
+      // A file submitted for approval changed nothing yet (the app shows a notice for it).
+      if (editing && !isApprovalPending(result)) setUpdated(result.data.updated ?? 0)
       else onClose()
     },
     onError: (e) => {

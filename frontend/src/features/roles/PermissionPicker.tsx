@@ -6,6 +6,7 @@ import { permissionGroupLabel } from '../../lib/format'
 /**
  * Permission checklist grouped by module. Only permissions the current user holds can be granted;
  * `allowed` further caps a default role to its template's permissions (others stay locked).
+ * The approval group is reserved for the Super Admin and Supervisor roles (`approvalRole`).
  */
 export function PermissionPicker({
   catalog,
@@ -13,6 +14,7 @@ export function PermissionPicker({
   onChange,
   editable,
   allowed,
+  approvalRole = false,
   className = 'grid gap-4 md:grid-cols-2 xl:grid-cols-3',
 }: {
   catalog: Permission[]
@@ -20,6 +22,7 @@ export function PermissionPicker({
   onChange: (next: Set<string>) => void
   editable: boolean
   allowed?: Set<string>
+  approvalRole?: boolean
   className?: string
 }) {
   const { profile } = useAuth()
@@ -42,12 +45,13 @@ export function PermissionPicker({
       {groups.map(([group, items]) => (
         <fieldset key={group} className="rounded-md p-3 ring-1 ring-slate-200">
           <legend className="px-1 text-sm font-semibold text-slate-700">{permissionGroupLabel[group] ?? group}</legend>
+          {group === 'approval' && <p className="mb-2 text-xs text-slate-500">Hanya untuk role Super Admin dan Supervisor.</p>}
           <div className="space-y-1.5">
             {items.map((p) => {
               // Mirrors the server: only permissions you hold can be granted, and a default role
               // only within its template.
               const checked = selected.has(p.code)
-              const grantable = editable && own.has(p.code) && (!allowed || allowed.has(p.code))
+              const grantable = editable && own.has(p.code) && (!allowed || allowed.has(p.code)) && (p.group !== 'approval' || approvalRole)
               return (
                 <label key={p.code} className="flex items-start gap-2 text-sm">
                   <input

@@ -30,7 +30,8 @@ use Tests\TestCase;
  *   Gedung A (root) ── A-1 (child)        Gedung B (root)
  *   asset "Aset A" at A-1, asset "Aset B" at Gedung B.
  *   "head": custom role KEPALA (VIEWER's permissions plus user, master, asset and transaction
- *   management, no role.manage),
+ *   management, no role.manage; approval.manage so its changes apply directly instead of
+ *   waiting for approval, which keeps these tests about the scope rules of the change itself),
  *   data scope = location Gedung A.
  */
 class DataScopeEscalationTest extends TestCase
@@ -70,7 +71,7 @@ class DataScopeEscalationTest extends TestCase
             'organization.view', 'catalog.generic.view', 'user.view', 'user.update',
             'master.tenant.view', 'master.tenant.create', 'master.tenant.update', 'master.tenant.archive',
             'asset.view', 'asset.create', 'asset.update', 'asset.transfer', 'asset.archive', 'asset.restore',
-            'transaction.view', 'transaction.create', 'report.view',
+            'transaction.view', 'transaction.create', 'report.view', 'approval.manage',
         ]);
         $this->head = $this->createTenantUser($this->org, ['KEPALA'], $this->scopeAt($this->gedungA));
     }

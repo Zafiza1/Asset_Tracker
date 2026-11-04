@@ -44,6 +44,7 @@ export const permissionGroupLabel: Record<string, string> = {
   transaction: 'Transaksi',
   report: 'Laporan',
   audit: 'Audit',
+  approval: 'Approval',
   workflow: 'Workflow',
   settings: 'Pengaturan',
   license: 'Lisensi',

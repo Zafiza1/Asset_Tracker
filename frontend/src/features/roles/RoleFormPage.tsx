@@ -11,7 +11,7 @@ import { api } from '../../lib/api/client'
 import type { Permission, Resource, Role } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { applyApiErrors, errorMessage } from '../../lib/forms'
-import { usePermissionCatalog } from './api'
+import { APPROVAL_TEMPLATES, usePermissionCatalog } from './api'
 import { PermissionPicker } from './PermissionPicker'
 
 interface FormValues {
@@ -101,7 +101,7 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
         </Card>
         <Card title={`Permission (${selected.size})`}>
           <div className="p-4">
-            <PermissionPicker catalog={catalog} selected={selected} onChange={setSelected} editable={permissionsEditable} allowed={allowed} />
+            <PermissionPicker catalog={catalog} selected={selected} onChange={setSelected} editable={permissionsEditable} allowed={allowed} approvalRole={APPROVAL_TEMPLATES.includes(role?.template_code ?? '')} />
           </div>
         </Card>
         {editable && (

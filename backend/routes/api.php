@@ -12,6 +12,7 @@ use App\Http\Controllers\HealthController;
 // use App\Http\Controllers\Platform\LicenseController as PlatformLicenseController;
 // use App\Http\Controllers\Platform\OrganizationController as PlatformOrganizationController;
 // use App\Http\Controllers\Platform\PlatformAuditLogController;
+use App\Http\Controllers\Tenant\ApprovalController;
 use App\Http\Controllers\Tenant\AuditLogController;
 use App\Http\Controllers\Tenant\CategoryAttributeController;
 use App\Http\Controllers\Tenant\DepartmentController;
@@ -137,39 +138,43 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     $create = 'permission:master.tenant.create';
     $update = 'permission:master.tenant.update';
     $archive = 'permission:master.tenant.archive';
+    // Changes by users without approval.manage wait for approval (`approval:<entity>.<verb>`, see ApprovalActions).
     $masters = [
-        'departments' => [DepartmentController::class, 'department'],
-        'locations' => [LocationController::class, 'location'],
-        'tenant-masters/categories' => [TenantCategoryController::class, 'tenantCategory'],
-        'asset-definitions' => [TenantDefinitionController::class, 'tenantDefinition'],
+        'departments' => [DepartmentController::class, 'department', 'department'],
+        'locations' => [LocationController::class, 'location', 'location'],
+        'tenant-masters/categories' => [TenantCategoryController::class, 'tenantCategory', 'category'],
+        'asset-definitions' => [TenantDefinitionController::class, 'tenantDefinition', null],
     ];
-    foreach ($masters as $uri => [$controller, $param]) {
+    foreach ($masters as $uri => [$controller, $param, $entity]) {
+        // Asset definitions are not used by the UI and have no approval flow.
+        $approval = fn (string $verb) => $entity === null ? [] : ["approval:{$entity}.{$verb}"];
         Route::get("/{$uri}", [$controller, 'index'])->middleware($view);
-        Route::post("/{$uri}", [$controller, 'store'])->middleware($create);
+        Route::post("/{$uri}", [$controller, 'store'])->middleware([$create, ...$approval('create')]);
         // Bulk import from .xlsx (registered before /{param} so "template" is not taken as an id).
         if (in_array($uri, ['locations', 'tenant-masters/categories'], true)) {
-            Route::post("/{$uri}/import", [$controller, 'import'])->middleware($create);
+            Route::post("/{$uri}/import", [$controller, 'import'])->middleware([$create, ...$approval('import')]);
             Route::get("/{$uri}/template", [$controller, 'downloadTemplate'])->middleware($create);
             // Bulk edit: download the existing records as .xlsx, upload the edited file.
             Route::get("/{$uri}/edit-sheet", [$controller, 'downloadEditSheet'])->middleware($update);
-            Route::post("/{$uri}/edit-sheet", [$controller, 'importEdits'])->middleware($update);
+            Route::post("/{$uri}/edit-sheet", [$controller, 'importEdits'])->middleware([$update, ...$approval('import_edits')]);
         }
         Route::get("/{$uri}/{{$param}}", [$controller, 'show'])->middleware($view);
-        Route::patch("/{$uri}/{{$param}}", [$controller, 'update'])->middleware($update);
-        Route::post("/{$uri}/{{$param}}/archive", [$controller, 'archive'])->middleware($archive);
-        Route::post("/{$uri}/{{$param}}/restore", [$controller, 'restore'])->middleware($archive);
+        Route::patch("/{$uri}/{{$param}}", [$controller, 'update'])->middleware([$update, ...$approval('update')]);
+        Route::post("/{$uri}/{{$param}}/archive", [$controller, 'archive'])->middleware([$archive, ...$approval('archive')]);
+        Route::post("/{$uri}/{{$param}}/restore", [$controller, 'restore'])->middleware([$archive, ...$approval('restore')]);
         // Permanent deletion only where the master supports it (categories); the others are archived.
         if (method_exists($controller, 'destroy')) {
-            Route::delete("/{$uri}/{{$param}}", [$controller, 'destroy'])->middleware($archive);
+            Route::delete("/{$uri}/{{$param}}", [$controller, 'destroy'])->middleware([$archive, ...$approval('delete')]);
         }
     }
 
     // Custom fields of asset categories; subcategories inherit their ancestors' fields.
     Route::get('/tenant-masters/categories/{tenantCategory}/attributes', [CategoryAttributeController::class, 'index'])->middleware($view);
-    Route::post('/tenant-masters/categories/{tenantCategory}/attributes', [CategoryAttributeController::class, 'store'])->middleware($update);
-    Route::put('/tenant-masters/categories/{tenantCategory}/attributes', [CategoryAttributeController::class, 'sync'])->middleware($update);
-    Route::patch('/category-attributes/{categoryAttribute}', [CategoryAttributeController::class, 'update'])->middleware($update);
-    Route::delete('/category-attributes/{categoryAttribute}', [CategoryAttributeController::class, 'destroy'])->middleware($update);
+    $attributes = [$update, 'approval:category.attributes'];
+    Route::post('/tenant-masters/categories/{tenantCategory}/attributes', [CategoryAttributeController::class, 'store'])->middleware($attributes);
+    Route::put('/tenant-masters/categories/{tenantCategory}/attributes', [CategoryAttributeController::class, 'sync'])->middleware($attributes);
+    Route::patch('/category-attributes/{categoryAttribute}', [CategoryAttributeController::class, 'update'])->middleware($attributes);
+    Route::delete('/category-attributes/{categoryAttribute}', [CategoryAttributeController::class, 'destroy'])->middleware($attributes);
 
     Route::post('/asset-definitions/{tenantDefinition}/versions', [TenantDefinitionController::class, 'createVersion'])->middleware($update);
     Route::get('/asset-definition-versions/{tenantVersion}', [TenantVersionController::class, 'show'])->middleware($view);
@@ -182,6 +187,14 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     Route::put('/asset-definition-versions/{tenantVersion}/overrides', [TenantVersionController::class, 'syncOverrides'])->middleware($update);
     Route::patch('/asset-definition-attributes/{tenantAttribute}', [TenantVersionController::class, 'updateAttribute'])->middleware($update);
     Route::delete('/asset-definition-attributes/{tenantAttribute}', [TenantVersionController::class, 'destroyAttribute'])->middleware($update);
+
+    // Notifications menu: approval requests of transactions, assets and master data.
+    Route::get('/approvals', [ApprovalController::class, 'index']);
+    Route::get('/approvals/summary', [ApprovalController::class, 'summary']);
+    Route::get('/approvals/{approvalRequest}', [ApprovalController::class, 'show']);
+    Route::post('/approvals/{approvalRequest}/approve', [ApprovalController::class, 'approve'])->middleware('permission:approval.manage');
+    Route::post('/approvals/{approvalRequest}/reject', [ApprovalController::class, 'reject'])->middleware('permission:approval.manage');
+    Route::post('/approvals/{approvalRequest}/cancel', [ApprovalController::class, 'cancel']);
 
     // Operational modules, one route file each; see config/modules.php for maintenance switches.
     require __DIR__.'/modules/assets.php';

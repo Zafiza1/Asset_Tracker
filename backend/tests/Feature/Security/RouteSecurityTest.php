@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use App\Domain\Approvals\Models\ApprovalRequest;
 use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
@@ -25,6 +26,13 @@ class RouteSecurityTest extends TestCase
         'api/auth/invitation/accept', 'api/auth/email/verification-notification', 'api/auth/email/verify',
         'api/auth/mobile/me', 'api/auth/mobile/logout'];
 
+    /**
+     * Tenant routes open to every member without a permission: the Notifications menu, where
+     * each user follows their own approval requests (ApprovalController narrows the rows; only
+     * approve/reject need approval.manage).
+     */
+    private const MEMBER_ROUTES = ['api/approvals', 'api/approvals/summary', 'api/approvals/{approvalRequest}', 'api/approvals/{approvalRequest}/cancel'];
+
     public function test_every_api_route_is_authenticated_scoped_and_permission_checked(): void
     {
         $checked = 0;
@@ -42,6 +50,9 @@ class RouteSecurityTest extends TestCase
 
             $context = str_starts_with($uri, 'api/platform/') ? 'platform' : 'tenant';
             $this->assertContains($context, $middleware, "{$uri} must establish the {$context} context");
+            if (in_array($uri, self::MEMBER_ROUTES, true)) {
+                continue;
+            }
             $this->assertNotEmpty(
                 array_filter($middleware, fn ($m) => is_string($m) && str_starts_with($m, 'permission:')),
                 "{$uri} must declare a permission",
@@ -102,8 +113,12 @@ class RouteSecurityTest extends TestCase
             'token_hash' => OrganizationInvitation::hashToken('fixture'), 'invited_by' => $adminB->id,
             'role_ids' => [$this->roleId($orgB, 'SUPERVISOR')], 'scopes' => [['scope_type' => 'organization']], 'expires_at' => now()->addDay()]);
         $invitation->save();
+        $approval = (new ApprovalRequest)->forceFill(['organization_id' => $orgB->id, 'category' => 'master', 'action' => 'location.create',
+            'summary' => 'Gudang', 'method' => 'POST', 'path' => 'api/locations', 'payload' => ['name' => 'Gudang'], 'requested_by' => $adminB->id]);
+        $approval->save();
 
         return [
+            'approvalRequest' => $approval->id,
             'invitation' => $invitation->id,
             'asset' => $asset->id,
             'assetTransaction' => $transaction->id,

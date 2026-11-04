@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BookOpen, Boxes, Building2, FileBarChart, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, QrCode, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Bell, BookOpen, Boxes, Building2, FileBarChart, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, QrCode, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -6,6 +6,8 @@ export interface NavItem {
   icon: LucideIcon
   /** Shown only when the user has this permission (the API enforces it independently). */
   permission?: string
+  /** Shows the number of pending approval requests next to the label. */
+  approvalBadge?: boolean
 }
 
 export interface NavSection {
@@ -19,7 +21,13 @@ export interface NavSection {
  * a user menu; developers inspect it with `php artisan asset:inspect`.
  */
 export const tenantNavigation: NavSection[] = [
-  { items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard }] },
+  {
+    items: [
+      { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+      // Approval requests: approvers decide here, everyone else follows their own submissions.
+      { to: '/notifikasi', label: 'Notifikasi', icon: Bell, approvalBadge: true },
+    ],
+  },
   {
     title: 'Aset',
     items: [
@@ -94,6 +102,7 @@ export const breadcrumbLabels: Record<string, string> = {
   barcode: 'Barcode',
   pengaturan: 'Pengaturan Lisensi',
   audit: 'Audit Trail',
+  notifikasi: 'Notifikasi',
   platform: 'Platform',
   baru: 'Baru',
   'ubah-password': 'Ubah Password',

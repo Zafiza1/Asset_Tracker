@@ -1,7 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { Boxes, ChevronDown, ChevronRight, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
+import { Bell, Boxes, CheckCircle2, ChevronDown, ChevronRight, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { APPROVALS_KEY, useApprovalSummary } from '../features/approvals/api'
+import { onApprovalPending, type ApprovalPendingResponse } from '../lib/api/client'
 import { OrganizationSwitcher } from '../features/organizations/OrganizationSwitcher'
 import { useAuth } from '../lib/auth/context'
 import { ModuleBoundary } from './ModuleBoundary'
@@ -100,6 +103,7 @@ export function AppLayout() {
           <div className="min-w-0 flex-1">
             {isPlatform ? <p className="truncate font-display text-sm font-semibold text-slate-900">Administrasi Platform</p> : <OrganizationSwitcher />}
           </div>
+          {!isPlatform && <NotificationBell />}
           <UserMenu name={profile.user.name} email={profile.user.email} onLogout={handleLogout} />
         </header>
 
@@ -110,6 +114,72 @@ export function AppLayout() {
             <Outlet />
           </ModuleBoundary>
         </main>
+      </div>
+      {!isPlatform && <ApprovalToast />}
+    </div>
+  )
+}
+
+/** Header shortcut to the Notifications menu with the number of pending approval requests. */
+function NotificationBell() {
+  const pending = useApprovalSummary().data?.data.pending ?? 0
+  return (
+    <Link
+      to="/notifikasi"
+      className="relative grid size-10 shrink-0 place-items-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+      aria-label={pending > 0 ? `Notifikasi, ${pending} pengajuan menunggu` : 'Notifikasi'}
+      title="Notifikasi"
+    >
+      <Bell className="size-5" aria-hidden />
+      {pending > 0 && (
+        <span className="absolute right-1 top-1 grid min-w-4.5 place-items-center rounded-full bg-red-600 px-1 text-[0.6875rem] font-semibold leading-4.5 text-white" aria-hidden>
+          {pending > 99 ? '99+' : pending}
+        </span>
+      )}
+    </Link>
+  )
+}
+
+/**
+ * Shown when a change was submitted for approval instead of being applied (API 202), wherever
+ * it was made; also refreshes the notification badge.
+ */
+function ApprovalToast() {
+  const queryClient = useQueryClient()
+  const [submitted, setSubmitted] = useState<ApprovalPendingResponse | null>(null)
+
+  useEffect(
+    () =>
+      onApprovalPending((response) => {
+        setSubmitted(response)
+        void queryClient.invalidateQueries({ queryKey: APPROVALS_KEY })
+      }),
+    [queryClient],
+  )
+  useEffect(() => {
+    if (!submitted) return
+    const timer = setTimeout(() => setSubmitted(null), 8000)
+    return () => clearTimeout(timer)
+  }, [submitted])
+
+  if (!submitted) return null
+  return (
+    <div role="status" className="fixed inset-x-4 bottom-4 z-50 animate-fade-in sm:left-auto sm:right-6 sm:w-96">
+      <div className="flex gap-3 rounded-xl bg-white p-4 text-sm shadow-overlay ring-1 ring-slate-900/10">
+        <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-amber-500" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-slate-900">Menunggu persetujuan</p>
+          <p className="mt-0.5 text-slate-600">{submitted.meta.message}</p>
+          <p className="mt-1 truncate text-xs text-slate-500">
+            {submitted.data.action_label}: {submitted.data.summary}
+          </p>
+          <Link to="/notifikasi" onClick={() => setSubmitted(null)} className="mt-2 inline-block font-semibold text-brand-700 hover:text-brand-800">
+            Lihat notifikasi
+          </Link>
+        </div>
+        <button type="button" onClick={() => setSubmitted(null)} className="-mr-1 -mt-1 grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Tutup">
+          <X className="size-4" aria-hidden />
+        </button>
       </div>
     </div>
   )
@@ -132,6 +202,7 @@ function isItemActive(to: string, pathname: string) {
 
 function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate: () => void }) {
   const { pathname } = useLocation()
+  const pendingApprovals = useApprovalSummary(sections.some((s) => s.items.some((i) => i.approvalBadge))).data?.data.pending ?? 0
   // Explicit open/closed choices per section title; a section without one is open only while it holds the current page.
   const [open, setOpen] = useState<Record<string, boolean>>(readOpenSections)
 
@@ -192,7 +263,12 @@ function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate:
                       {/* Active marker: shape as well as color, so the current page is not shown by color alone. */}
                       <span className={clsx('absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-300 transition-opacity', isActive ? 'opacity-100' : 'opacity-0')} aria-hidden />
                       <item.icon className={clsx('size-[1.125rem] shrink-0', isActive ? 'text-white' : 'text-brand-300 group-hover:text-white')} aria-hidden />
-                      {item.label}
+                      <span className="flex-1">{item.label}</span>
+                      {item.approvalBadge && pendingApprovals > 0 && (
+                        <span className="rounded-full bg-red-500 px-1.5 text-xs font-semibold leading-5 text-white" aria-label={`${pendingApprovals} menunggu`}>
+                          {pendingApprovals > 99 ? '99+' : pendingApprovals}
+                        </span>
+                      )}
                     </>
                   )}
                 </NavLink>

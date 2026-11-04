@@ -14,7 +14,7 @@ Dokumen ini **menggantikan** bagian dokumen 01–07 yang bertentangan dengannya.
 | Struktur cabang → departemen/lokasi, data scope per cabang | **Cabang dihapus** (migrasi `000600_remove_branches`): lokasi bertingkat dan departemen berdiri sendiri; data scope hanya organisasi, departemen, atau lokasi |
 | Kondisi aset (master *Kondisi Aset*, kondisi standar generik) | **Kondisi dihapus** (migrasi `000800_remove_asset_conditions`): status aset sudah cukup; transaksi *Perubahan status* hanya mengubah status |
 
-Tidak ada workflow approval, dokumen/lampiran, import/export, depresiasi, RFID/GPS, atau integrasi apa pun pada tahap ini.
+Approval satu tingkat untuk transaksi, aset, dan master data ditambahkan pada 2026-11-03 (lihat §8). Tidak ada workflow approval bertingkat, dokumen/lampiran, import/export, depresiasi, RFID/GPS, atau integrasi apa pun pada tahap ini.
 
 ## 2. Modul ("container")
 
@@ -116,9 +116,29 @@ Semua transaksi manual memerlukan `transaction.create`; aset nonaktif tidak dapa
 | `GET /api/transactions` — `search`, `type`, `asset_id`, `date_from`, `date_to` | `transaction.view` |
 | `POST /api/transactions` · `GET /api/transactions/{id}` | `transaction.create` · `transaction.view` |
 | `GET /api/dashboard` | `report.view` |
+| `GET /api/approvals` — `status`, `category`, `mine`, `search` · `GET /api/approvals/summary` · `GET /api/approvals/{id}` · `POST /api/approvals/{id}/cancel` | semua anggota (non-approver hanya melihat pengajuannya sendiri) |
+| `POST /api/approvals/{id}/approve` · `/reject` (`note` opsional) | `approval.manage` |
 
 ## 7. Keputusan terbuka
 
 1. Hapus API & tabel *Tenant Definition* (definisi, versi, atribut, override) bila atribut dinamis memang tidak direncanakan.
 2. Rapikan permission yang belum dipakai (`transaction.submit/approve/reject/post/reverse/correct`, `workflow.*`, `document.*`, `report.export`, `master.tenant.migrate`) agar halaman Role lebih sederhana.
-3. Pengaturan `allow_self_approval_default` dan `max_upload_mb` belum berfungsi (tidak ada approval/upload).
+3. Pengaturan `allow_self_approval_default` dan `max_upload_mb` belum berfungsi (approval §8 tidak memakai self-approval: perubahan approver langsung berlaku).
+4. API *Tenant Definition* (`asset-definitions`, tidak dipakai UI) belum melalui approval.
+
+## 8. Approval (menu Notifikasi)
+
+Perubahan oleh user **tanpa** permission `approval.manage` tidak langsung berlaku, tetapi menjadi pengajuan yang harus disetujui. `approval.manage` hanya dapat dimiliki role **Super Admin** dan **Supervisor** (`RoleTemplates::mayHoldApproval`; role kustom dan Admin ditolak dengan `APPROVAL_ROLE_ONLY`). Perubahan Super Admin/Supervisor langsung berlaku.
+
+| Jenis | Yang memerlukan approval |
+|---|---|
+| Transaksi | pencatatan transaksi aset (`POST /api/transactions`) |
+| Aset | tambah, ubah, ubah massal, gambar, nonaktifkan, aktifkan kembali, impor & edit massal Excel |
+| Master Data | departemen, lokasi, kategori aset (tambah, ubah, arsip, pulihkan, hapus, impor & edit massal Excel) dan atribut kategori |
+
+Alur:
+
+1. Route menandai aksinya dengan middleware `approval:<aksi>` (daftar di `App\Domain\Approvals\ApprovalActions`).
+2. Untuk non-approver, perubahan **dicoba** di dalam transaksi database yang selalu di-rollback: input tidak valid atau aturan bisnis yang dilanggar langsung dijawab seperti biasa (4xx) dan tidak disimpan. Bila berhasil, panggilan API (method, path, input, file unggahan) disimpan di `approval_requests` berstatus `pending` dan dijawab `202 { data, meta: { approval_pending: true } }`. Gambar aset tidak dicoba (penyimpanan file tidak bisa di-rollback) dan baru divalidasi saat disetujui.
+3. Approver membuka menu **Notifikasi**, melihat rincian (nama, bukan id) lalu **Setujui** atau **Tolak** (catatan opsional). Menyetujui menjalankan ulang panggilan tersebut melalui controller-nya **sebagai pengaju** (data scope, permission, dan riwayat atas nama pengaju; keputusan tercatat di audit atas nama approver). Aturan dicek ulang: bila data sudah berubah sehingga perubahan tidak lagi sah, persetujuan gagal dengan pesan "Pengajuan tidak dapat diterapkan: …" dan pengajuan tetap `pending` (bisa ditolak).
+4. Pengaju melihat status pengajuannya di menu yang sama dan dapat membatalkannya selama masih `pending`. Status: `pending`, `approved`, `rejected`, `cancelled`.
