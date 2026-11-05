@@ -27,6 +27,7 @@ final class RoleManagement
     {
         $this->assertGrantable($permissions);
         $this->assertApprovalHolder(null, $permissions);
+        $this->assertInviteHolder(null, $permissions);
 
         return DB::transaction(function () use ($data, $permissions) {
             $role = new Role(['name' => $data['name'], 'description' => $data['description'] ?? null]);
@@ -53,6 +54,7 @@ final class RoleManagement
             }
             $this->assertGrantable($permissions);
             $this->assertApprovalHolder($role->template_code, $permissions);
+            $this->assertInviteHolder($role->template_code, $permissions);
             $current = $role->permissions()->pluck('code')->all();
             $ceiling = RoleTemplates::ceiling($role->template_code);
             if ($ceiling !== null && ($beyond = array_values(array_diff($permissions, $ceiling))) !== []) {
@@ -127,6 +129,18 @@ final class RoleManagement
         $approval = array_values(array_intersect($permissions, PermissionCatalog::codesInGroups(['approval'])));
         if ($approval !== [] && ! RoleTemplates::mayHoldApproval($templateCode)) {
             throw new ApiException('APPROVAL_ROLE_ONLY', 'Permission approval hanya dapat dimiliki role Super Admin dan Supervisor.', 422, ['permissions' => $approval]);
+        }
+    }
+
+    /**
+     * Only the Super Admin role invites users (RoleTemplates::mayInvite).
+     *
+     * @param  list<string>  $permissions
+     */
+    private function assertInviteHolder(?string $templateCode, array $permissions): void
+    {
+        if (in_array(RoleTemplates::INVITE_PERMISSION, $permissions, true) && ! RoleTemplates::mayInvite($templateCode)) {
+            throw new ApiException('INVITE_ROLE_ONLY', 'Permission mengundang pengguna hanya dapat dimiliki role Super Admin.', 422, ['permissions' => [RoleTemplates::INVITE_PERMISSION]]);
         }
     }
 

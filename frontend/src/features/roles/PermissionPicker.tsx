@@ -51,7 +51,8 @@ export function PermissionPicker({
               // Mirrors the server: only permissions you hold can be granted, and a default role
               // only within its template.
               const checked = selected.has(p.code)
-              const grantable = editable && own.has(p.code) && (!allowed || allowed.has(p.code)) && (p.group !== 'approval' || approvalRole)
+              // Inviting stays with Super Admin, whose role is locked, so it is never grantable here.
+              const grantable = editable && own.has(p.code) && (!allowed || allowed.has(p.code)) && (p.group !== 'approval' || approvalRole) && p.code !== 'user.create'
               return (
                 <label key={p.code} className="flex items-start gap-2 text-sm">
                   <input
@@ -64,6 +65,7 @@ export function PermissionPicker({
                   <span>
                     <span className="text-slate-800">{p.description}</span>
                     <span className="block font-mono text-xs text-slate-400">{p.code}</span>
+                    {p.code === 'user.create' && <span className="block text-xs text-slate-500">Hanya untuk role Super Admin.</span>}
                   </span>
                 </label>
               )

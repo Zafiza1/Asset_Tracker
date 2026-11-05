@@ -313,6 +313,8 @@ final class OrganizationInvitations
             'organization' => Organization::query()->findOrFail($invitation->organization_id),
             'inviter' => $invitation->isPlatformIssued() ? null : User::query()->findOrFail($invitation->invited_by),
             'roles' => Role::query()->where('organization_id', $invitation->organization_id)->whereIn('id', $invitation->role_ids)->orderBy('name')->get(),
+            // Already in the invitation email; the sign-up form shows it instead of asking for it.
+            'licenseCode' => $invitation->license_code_id === null ? null : LicenseCode::query()->whereKey($invitation->license_code_id)->value('code'),
         ]);
     }
 

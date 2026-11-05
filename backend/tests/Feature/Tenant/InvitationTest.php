@@ -77,6 +77,26 @@ class InvitationTest extends TestCase
         Notification::assertNothingSent();
     }
 
+    public function test_only_super_admin_can_invite_or_hold_the_invite_permission(): void
+    {
+        $this->actingAs($this->createTenantUser($this->org, ['SUPERVISOR']));
+        $this->assertErrorCode($this->postJson('/api/invitations', $this->payload('x@alpha.test')), 403, 'FORBIDDEN');
+        $this->assertSame(0, OrganizationInvitation::query()->count());
+
+        $this->flushSession();
+        $this->actingAs($this->admin);
+        $roles = collect($this->getJson('/api/roles')->json('data'))->keyBy('code');
+        $this->assertContains('user.create', $roles['SUPER_ADMIN']['permissions']);
+        $this->assertNotContains('user.create', $roles['SUPERVISOR']['permissions']);
+        $this->assertNotContains('user.create', $roles['ADMIN']['permissions']);
+
+        $this->assertErrorCode($this->postJson('/api/roles', ['name' => 'Pengundang', 'permissions' => ['user.view', 'user.create']]), 422, 'INVITE_ROLE_ONLY');
+        $custom = $this->postJson('/api/roles', ['name' => 'Pengundang', 'permissions' => ['user.view']])->assertCreated()->json('data.id');
+        $this->assertErrorCode($this->patchJson("/api/roles/{$custom}", ['permissions' => ['user.view', 'user.create']]), 422, 'INVITE_ROLE_ONLY');
+        $supervisor = $roles['SUPERVISOR'];
+        $this->assertErrorCode($this->patchJson("/api/roles/{$supervisor['id']}", ['permissions' => [...$supervisor['permissions'], 'user.create']]), 422, 'INVITE_ROLE_ONLY');
+    }
+
     public function test_invitation_creates_neither_an_account_nor_a_membership(): void
     {
         ['organization' => $beta, 'admin' => $existing] = $this->createOrganization('BETA');

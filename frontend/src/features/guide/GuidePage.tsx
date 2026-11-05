@@ -154,7 +154,7 @@ function RolesSection() {
     { task: 'Menyetujui atau menolak pengajuan', superAdmin: true, supervisor: true, admin: false },
     { task: 'Perubahan sendiri langsung berlaku', superAdmin: true, supervisor: true, admin: false },
     { task: 'Mengatur role dan cakupan data pengguna', superAdmin: true, supervisor: true, admin: false },
-    { task: 'Mengundang pengguna (perlu kode lisensi)', superAdmin: true, supervisor: false, admin: false },
+    { task: 'Mengundang pengguna', superAdmin: true, supervisor: false, admin: false },
     { task: 'Mengaktifkan Modul Barcode, melihat Audit Trail', superAdmin: true, supervisor: true, admin: false },
     { task: 'Mengelola lisensi', superAdmin: true, supervisor: false, admin: false },
   ]
@@ -211,7 +211,7 @@ function Step1() {
         <PathCard title="Diundang lewat email">
           <NumberedList items={[
             'Buka tautan undangan di email.',
-            'Belum punya akun: isi nama, password, dan kode lisensi yang tertera di email undangan.',
+            'Belum punya akun: isi nama dan password. Kode lisensi terisi otomatis sesuai email undangan.',
             <>Sudah punya akun: masuk, lalu pilih <Label>Terima undangan</Label>.</>,
           ]} />
         </PathCard>
@@ -232,11 +232,11 @@ function Step2() {
   return (
     <StepSection n={2} goal="Setiap anggota tim mendapat akun dengan hak akses yang sesuai tugasnya." next={[{ n: 3 }]}>
       <NumberedList items={[
-        <>Buka <MenuLink to="/pengguna/baru" permission="user.create">Pengguna → Undang pengguna</MenuLink>.</>,
-        'Isi email, pilih kode lisensi, lalu pilih role. Satu pengguna memakai satu kode lisensi, dan daftar kodenya hanya terbuka bagi Super Admin.',
-        <>Klik <Label>Kirim undangan</Label>. Pengguna baru mendapat akses setelah menerima undangan itu.</>,
-        <>Pantau statusnya di tab <MenuLink to="/pengguna/undangan" permission="user.view">Undangan</MenuLink>. Bila kedaluwarsa, pilih <Label>Kirim ulang</Label>; bila keliru, pilih <Label>Cabut</Label>.</>,
-        <>Setelah pengguna bergabung, buka <MenuLink to="/pengguna" permission="user.view">detail penggunanya</MenuLink> untuk mengubah role atau mempersempit <Label>Cakupan data</Label>.</>,
+        <>Super Admin membuka <MenuLink to="/pengguna/baru" permission="user.create">Pengguna → Undang pengguna</MenuLink>. Hanya Super Admin yang dapat mengundang.</>,
+        'Isi email, pilih kode lisensi, lalu pilih role. Satu pengguna memakai satu kode lisensi.',
+        <>Klik <Label>Kirim undangan</Label>. Kode lisensi ikut terkirim di email, dan pengguna baru mendapat akses setelah menerima undangan itu.</>,
+        <>Pantau statusnya di tab <MenuLink to="/pengguna/undangan" permission="user.view">Undangan</MenuLink>. Bila kedaluwarsa, Super Admin memilih <Label>Kirim ulang</Label>; bila keliru, memilih <Label>Cabut</Label>.</>,
+        <>Setelah pengguna bergabung, Super Admin atau Supervisor membuka <MenuLink to="/pengguna" permission="user.view">detail penggunanya</MenuLink> untuk mengubah role atau mempersempit <Label>Cakupan data</Label>.</>,
       ]} />
       <Tip>
         <strong className="font-semibold">Cakupan data</strong> menentukan aset mana yang terlihat. Pengguna yang diundang awalnya mencakup seluruh organisasi. Bila dibatasi ke satu lokasi, pengguna melihat aset di lokasi itu dan sub-lokasinya.
@@ -495,8 +495,8 @@ const PROBLEMS: { q: string; a: ReactNode }[] = [
   { q: 'Kategori atau lokasi tidak dapat diarsipkan.', a: 'Kategori atau lokasi itu masih dipakai aset aktif. Pindahkan atau ubah asetnya terlebih dahulu.' },
   { q: 'Import Excel gagal.', a: 'Baca daftar baris yang salah pada pesan error, perbaiki file, lalu unggah ulang. Selama masih ada baris yang salah, tidak ada data yang disimpan.' },
   { q: 'Saya lupa password.', a: 'Minta Super Admin atau Supervisor mengatur password sementara dari halaman detail pengguna. Anda akan diminta menggantinya saat masuk.' },
-  { q: 'Tautan undangan tidak berlaku.', a: 'Undangan punya batas waktu dan hanya dapat dipakai sekali. Minta yang mengundang memilih Kirim ulang. Bila diminta verifikasi email, selesaikan dahulu lalu buka kembali tautannya.' },
-  { q: 'Pilihan kode lisensi kosong saat mengundang.', a: 'Daftar kode lisensi hanya terbuka bagi Super Admin, jadi minta Super Admin yang mengirim undangan. Bila Super Admin pun melihatnya kosong, periksa sisa lisensi di Pengaturan Lisensi, lalu cabut undangan yang tidak diperlukan atau hubungi pengelola aplikasi untuk menambah lisensi.' },
+  { q: 'Tautan undangan tidak berlaku.', a: 'Undangan punya batas waktu dan hanya dapat dipakai sekali. Minta Super Admin memilih Kirim ulang. Bila diminta verifikasi email, selesaikan dahulu lalu buka kembali tautannya.' },
+  { q: 'Saya tidak dapat mengundang pengguna.', a: 'Hanya Super Admin yang dapat mengundang, jadi mintalah Super Admin mengirim undangannya. Bila pilihan kode lisensi kosong, Super Admin dapat memeriksa sisa lisensi di Pengaturan Lisensi, lalu mencabut undangan yang tidak diperlukan atau menghubungi pengelola aplikasi untuk menambah lisensi.' },
 ]
 
 function Troubleshooting() {

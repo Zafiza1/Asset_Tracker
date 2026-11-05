@@ -142,3 +142,9 @@ Alur:
 2. Untuk non-approver, perubahan **dicoba** di dalam transaksi database yang selalu di-rollback: input tidak valid atau aturan bisnis yang dilanggar langsung dijawab seperti biasa (4xx) dan tidak disimpan. Bila berhasil, panggilan API (method, path, input, file unggahan) disimpan di `approval_requests` berstatus `pending` dan dijawab `202 { data, meta: { approval_pending: true } }`. Gambar aset tidak dicoba (penyimpanan file tidak bisa di-rollback) dan baru divalidasi saat disetujui.
 3. Approver membuka menu **Notifikasi**, melihat rincian (nama, bukan id) lalu **Setujui** atau **Tolak** (catatan opsional). Menyetujui menjalankan ulang panggilan tersebut melalui controller-nya **sebagai pengaju** (data scope, permission, dan riwayat atas nama pengaju; keputusan tercatat di audit atas nama approver). Aturan dicek ulang: bila data sudah berubah sehingga perubahan tidak lagi sah, persetujuan gagal dengan pesan "Pengajuan tidak dapat diterapkan: …" dan pengajuan tetap `pending` (bisa ditolak).
 4. Pengaju melihat status pengajuannya di menu yang sama dan dapat membatalkannya selama masih `pending`. Status: `pending`, `approved`, `rejected`, `cancelled`.
+
+## 9. Undangan pengguna (berlaku mulai 2026-11-05)
+
+Hanya role **Super Admin** yang dapat mengundang pengguna, mengirim ulang, dan mencabut undangan. `user.create` tidak dapat dimiliki role lain (`RoleTemplates::mayInvite`; ditolak dengan `INVITE_ROLE_ONLY`), dan migrasi `000000_reserve_inviting_to_super_admin` mencabutnya dari role yang sudah ada. Supervisor tetap dapat mengubah role dan cakupan data anggota.
+
+Kode lisensi dipilih Super Admin saat mengundang dan tercantum di email undangan. Form pendaftaran dari tautan undangan menampilkannya terisi otomatis dan hanya baca (`license_code` pada `POST /api/auth/invitation/inspect`); pengguna hanya mengetiknya bila undangan tidak memiliki kode.

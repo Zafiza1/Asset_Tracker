@@ -14,12 +14,15 @@ final class RoleTemplates
 
     public const SUPER_ADMIN = 'SUPER_ADMIN';
 
+    /** Inviting users; reserved for Super Admin, who also holds the license codes an invitation needs. */
+    public const INVITE_PERMISSION = 'user.create';
+
     /** @return array<string, array{name: string, description: string, locked: bool, permissions: list<string>}> */
     public static function tenant(): array
     {
         $allTenantPermissions = PermissionCatalog::codes(PermissionCatalog::SCOPE_TENANT);
-        // Supervisor: every group except license. Admin: only the operational groups.
-        $supervisorPermissions = array_diff($allTenantPermissions, PermissionCatalog::codesInGroups(['license']));
+        // Supervisor: every group except license, and no inviting. Admin: only the operational groups.
+        $supervisorPermissions = array_diff($allTenantPermissions, PermissionCatalog::codesInGroups(['license']), [self::INVITE_PERMISSION]);
         $adminPermissions = PermissionCatalog::codesInGroups(['asset', 'document', 'master', 'report', 'transaction']);
 
         return [
@@ -31,7 +34,7 @@ final class RoleTemplates
             ],
             self::SUPERVISOR => [
                 'name' => 'Supervisor',
-                'description' => 'Akses penuh atas organisasi (kecuali manajemen lisensi).',
+                'description' => 'Akses penuh atas organisasi (kecuali mengundang pengguna dan manajemen lisensi).',
                 'locked' => false,
                 'permissions' => array_values($supervisorPermissions),
             ],
@@ -62,6 +65,12 @@ final class RoleTemplates
     public static function mayHoldApproval(?string $templateCode): bool
     {
         return in_array($templateCode, [self::SUPER_ADMIN, self::SUPERVISOR], true);
+    }
+
+    /** Only Super Admin invites users: no other role, default or custom, may hold the permission. */
+    public static function mayInvite(?string $templateCode): bool
+    {
+        return $templateCode === self::SUPER_ADMIN;
     }
 
     /** @return array<string, array{name: string, description: string, permissions: list<string>}> */

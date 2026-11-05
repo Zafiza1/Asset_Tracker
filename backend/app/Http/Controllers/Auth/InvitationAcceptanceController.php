@@ -31,7 +31,7 @@ class InvitationAcceptanceController extends Controller
     public function inspect(Request $request): JsonResponse
     {
         $data = $request->validate(['token' => ['required', 'string', 'max:128']]);
-        ['invitation' => $invitation, 'organization' => $organization, 'inviter' => $inviter, 'roles' => $roles] = $this->invitations->inspect($data['token']);
+        ['invitation' => $invitation, 'organization' => $organization, 'inviter' => $inviter, 'roles' => $roles, 'licenseCode' => $licenseCode] = $this->invitations->inspect($data['token']);
 
         return response()->json(['data' => [
             'email' => $invitation->email,
@@ -39,6 +39,7 @@ class InvitationAcceptanceController extends Controller
             'invited_by' => $inviter?->name ?? OrganizationInvitations::PLATFORM_INVITER_NAME,
             'roles' => $roles->map(fn ($r) => ['code' => $r->code, 'name' => $r->name])->values(),
             'expires_at' => $invitation->expires_at->toIso8601String(),
+            'license_code' => $licenseCode,
         ]]);
     }
 

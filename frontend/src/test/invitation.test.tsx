@@ -171,6 +171,25 @@ describe('InvitationPage', () => {
     ])
   })
 
+  it('fills in the license code the invitation already holds', async () => {
+    serve({ session: null, inspect: () => json({ data: { ...preview, license_code: 'LIC-DDDD-EEEE-FFFF' } }) })
+    const user = userEvent.setup()
+    renderAt(`/undangan#token=${TOKEN}`)
+
+    await user.click(await screen.findByRole('tab', { name: 'Saya belum punya akun' }))
+    const code = screen.getByLabelText(/^Kode Lisensi/)
+    expect(code).toHaveValue('LIC-DDDD-EEEE-FFFF')
+    expect(code).toHaveAttribute('readonly')
+
+    await user.type(screen.getByLabelText(/Nama lengkap/), 'Budi')
+    await user.type(screen.getByLabelText(/^Password/), 'Rahasia-Kuat-2026')
+    await user.type(screen.getByLabelText(/Ulangi password/), 'Rahasia-Kuat-2026')
+    await user.click(screen.getByRole('button', { name: 'Daftar dan terima undangan' }))
+
+    expect(await screen.findByText('Undangan diterima')).toBeInTheDocument()
+    expect(bodiesOf('/api/auth/invitation/register')[0]).toMatchObject({ license_code: 'LIC-DDDD-EEEE-FFFF' })
+  })
+
   it('does not offer accepting to another account, and lets it log out', async () => {
     serve({ session: userOf('orang-lain@perusahaan.test') })
     const user = userEvent.setup()

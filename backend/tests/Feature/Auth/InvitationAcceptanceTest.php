@@ -222,6 +222,7 @@ class InvitationAcceptanceTest extends TestCase
             ->assertJsonPath('data.organization.code', 'ALPHA')
             ->assertJsonPath('data.invited_by', $this->admin->name)
             ->assertJsonPath('data.roles.0.code', 'SUPERVISOR')
+            ->assertJsonPath('data.license_code', LicenseCode::query()->withoutGlobalScopes()->whereKey(OrganizationInvitation::query()->withoutGlobalScopes()->where('email', $this->invitee->email)->value('license_code_id'))->value('code'))
             ->assertJsonMissingPath('data.token')
             ->assertJsonMissingPath('data.account_exists');
 

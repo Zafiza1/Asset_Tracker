@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import clsx from 'clsx'
 import { MailX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -188,7 +189,8 @@ type SignUpValues = z.infer<typeof signUpSchema>
 function SignUpForm({ token, preview, onJoined }: { token: string; preview: InvitationPreview; onJoined: (o: OrganizationSummary) => void }) {
   const { setProfile } = useAuth()
   const [formError, setFormError] = useState<string | null>(null)
-  const { register, handleSubmit, setError, formState } = useForm<SignUpValues>({ resolver: zodResolver(signUpSchema) })
+  const fixedCode = preview.license_code
+  const { register, handleSubmit, setError, formState } = useForm<SignUpValues>({ resolver: zodResolver(signUpSchema), defaultValues: { license_code: fixedCode ?? '' } })
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null)
@@ -208,8 +210,13 @@ function SignUpForm({ token, preview, onJoined }: { token: string; preview: Invi
       <Field label="Nama lengkap" error={formState.errors.name?.message} required>
         {(p) => <Input {...p} autoComplete="name" {...register('name')} />}
       </Field>
-      <Field label="Kode Lisensi" error={formState.errors.license_code?.message} hint="Masukkan kode lisensi yang Anda terima dari administrator. Format: LIC-XXXX-XXXX-XXXX" required>
-        {(p) => <Input {...p} placeholder="LIC-XXXX-XXXX-XXXX" className={p.className} {...register('license_code')} />}
+      <Field
+        label="Kode Lisensi"
+        error={formState.errors.license_code?.message}
+        hint={fixedCode ? 'Terisi otomatis sesuai kode lisensi pada email undangan Anda.' : 'Masukkan kode lisensi yang Anda terima dari administrator. Format: LIC-XXXX-XXXX-XXXX'}
+        required
+      >
+        {(p) => <Input {...p} placeholder="LIC-XXXX-XXXX-XXXX" readOnly={!!fixedCode} className={clsx(p.className, fixedCode && 'bg-slate-50 text-slate-700')} {...register('license_code')} />}
       </Field>
       <Field label="Password" error={formState.errors.password?.message} hint={passwordRule.message} required>
         {(p) => <Input {...p} type="password" autoComplete="new-password" {...register('password')} />}
