@@ -1,6 +1,6 @@
 /** API shapes, mirroring frontend/src/features/assets/api.ts and lib/api/types.ts of the web app. */
 
-export type AssetStatus = 'available' | 'in_use' | 'on_loan' | 'under_maintenance' | 'disposed'
+export type AssetStatus = 'in_use' | 'available' | 'under_maintenance' | 'on_loan' | 'lost' | 'disposed'
 
 export type AttributeValue = string | number | boolean | string[] | null
 
@@ -78,19 +78,21 @@ export interface Profile {
 }
 
 export const assetStatusLabel: Record<AssetStatus, string> = {
-  available: 'Tersedia',
-  in_use: 'Digunakan',
-  on_loan: 'Dipinjam',
-  under_maintenance: 'Dalam perbaikan',
+  in_use: 'Aktif',
+  available: 'Tidak Aktif',
+  under_maintenance: 'Dalam Perbaikan',
+  on_loan: 'Dipinjamkan',
+  lost: 'Hilang',
   disposed: 'Dihapuskan',
 }
 
 /** Badge colors per status: [background, text], as the web app's badge tones. */
 export const assetStatusColors: Record<AssetStatus, [string, string]> = {
-  available: ['#dcfce7', '#166534'],
-  in_use: ['#dbeafe', '#1e40af'],
-  on_loan: ['#fef3c7', '#92400e'],
+  in_use: ['#dcfce7', '#166534'],
+  available: ['#dbeafe', '#1e40af'],
   under_maintenance: ['#fef3c7', '#92400e'],
+  on_loan: ['#fef3c7', '#92400e'],
+  lost: ['#fee2e2', '#991b1b'],
   disposed: ['#f1f5f9', '#334155'],
 }
 
@@ -98,5 +100,6 @@ export const SECTION_LABELS: Record<string, string> = {
   basic_information: 'Informasi Dasar',
   location_ownership: 'Lokasi & Kepemilikan',
   status_condition: 'Status & Kondisi',
+  specific_attributes: 'Atribut Khusus',
   other: 'Lainnya',
 }

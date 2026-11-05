@@ -177,7 +177,7 @@ class AssetManagementTest extends TestCase
         ['organization' => $orgB, 'admin' => $adminB] = $this->createOrganization('BETA');
         $mastersB = $this->createMasterFixtures($orgB, 'B');
         $this->actingAs($adminB, 'web');
-        $this->postJson('/api/assets', ['name' => 'C', 'serial_number' => 'ABC-1', 'category_id' => $mastersB['category']->id])->assertCreated();
+        $this->postJson('/api/assets', ['name' => 'C', 'serial_number' => 'ABC-1', 'category_id' => $mastersB['category']->id, 'location_id' => $mastersB['location']->id])->assertCreated();
     }
 
     public function test_deactivate_and_reactivate_keep_number_and_history(): void
@@ -246,7 +246,10 @@ class AssetManagementTest extends TestCase
     /** @param array<string, mixed> $data */
     private function register(array $data)
     {
+        $this->relaxDefaultCondition();
+
         return $this->postJson('/api/assets', [
+            'status' => 'available',
             'serial_number' => 'SN-'.Str::uuid(),
             'category_id' => $this->masters['category']->id,
             'location_id' => $this->masters['location']->id,
@@ -257,6 +260,7 @@ class AssetManagementTest extends TestCase
     private function category(string $code, string $name, ?TenantAssetCategory $parent = null): TenantAssetCategory
     {
         $id = $this->postJson('/api/tenant-masters/categories', ['code' => $code, 'name' => $name, 'parent_id' => $parent?->id])->assertCreated()->json('data.id');
+        $this->relaxDefaultCondition();
 
         return TenantAssetCategory::query()->findOrFail($id);
     }

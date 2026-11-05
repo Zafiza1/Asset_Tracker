@@ -463,7 +463,7 @@ class DataScopeEscalationTest extends TestCase
         $this->patchJson("/api/assets/{$id}", ['name' => 'Diubah'])->assertNotFound();
         $this->postJson("/api/assets/{$id}/archive")->assertNotFound();
         $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id, 'location_id' => $this->gedungB->id]), 422, 'LOCATION_OUT_OF_SCOPE');
-        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id]), 422, 'LOCATION_OUT_OF_SCOPE');
+        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id]), 422, 'VALIDATION_FAILED');
 
         // location_id is not an editable field: the asset stays where it is.
         $this->patchJson("/api/assets/{$this->assetA->id}", ['location_id' => $this->gedungB->id, 'name' => 'Aset A'])->assertOk();

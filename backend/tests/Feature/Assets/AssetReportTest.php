@@ -71,7 +71,7 @@ class AssetReportTest extends TestCase
         @unlink($response->getFile()->getPathname());
         $this->assertContains('Genset', $values);
         $this->assertNotContains('Laptop', $values);
-        $this->assertContains('Status: Dalam perbaikan', $values);
+        $this->assertContains('Status: Dalam Perbaikan', $values);
         $this->assertContains('Total: 1 aset', $values);
 
         $this->assertSame(1, AuditLog::query()->where('action', 'report.exported')->count());
@@ -121,7 +121,10 @@ class AssetReportTest extends TestCase
     /** @param array<string, mixed> $data */
     private function asset(array $data): string
     {
+        $this->relaxDefaultCondition();
+
         return $this->postJson('/api/assets', [
+            'status' => 'available',
             'serial_number' => 'SN-'.Str::uuid(),
             'category_id' => $this->masters['category']->id,
             'location_id' => $this->masters['location']->id,

@@ -69,7 +69,7 @@ export function ineligibleReason(asset: Pick<Asset, 'status' | 'location_id'>, t
 export function allowedTypes(status: AssetStatus | undefined): ManualTransactionType[] {
   if (!status) return manualTypes
   if (status === 'on_loan') return ['return', 'note']
-  if (status === 'disposed') return ['status_change', 'note']
+  if (status === 'disposed' || status === 'lost') return ['status_change', 'note']
   if (status === 'under_maintenance') return ['transfer', 'status_change', 'note']
   return ['transfer', 'status_change', 'loan', 'note']
 }

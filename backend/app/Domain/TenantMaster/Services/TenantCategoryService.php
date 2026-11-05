@@ -10,7 +10,7 @@ use App\Domain\Shared\Masters\MasterWriter;
 use App\Domain\Shared\Masters\MaterializedPath;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantAssetDefinition;
-use App\Domain\TenantMaster\Services\CategoryAttributeService;
+use App\Domain\TenantMaster\StandardCategories;
 
 /**
  * Organization categories. Every category is anchored to one generic category (internal
@@ -54,6 +54,31 @@ final class TenantCategoryService
         $this->attributes->createDefaultAttributes($category);
 
         return $category;
+    }
+
+    /**
+     * Creates the standard categories of an organization with their default fields.
+     * Works in system context (provisioning), so the organization is explicit.
+     *
+     * @return array<string, TenantAssetCategory> by code
+     */
+    public function installStandard(string $organizationId): array
+    {
+        $generic = GenericAssetCategory::query()->pluck('id', 'code');
+        $installed = [];
+        foreach (StandardCategories::all() as $code => $spec) {
+            $category = $this->create([
+                'organization_id' => $organizationId,
+                'generic_category_id' => $generic[$spec['generic']] ?? null,
+                'code' => $code,
+                'name' => $spec['name'],
+                'description' => $spec['description'],
+            ]);
+            $this->attributes->createSpecificAttributes($category, $spec['attributes']);
+            $installed[$code] = $category;
+        }
+
+        return $installed;
     }
 
     /** @param array<string, mixed> $data */

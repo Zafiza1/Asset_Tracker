@@ -60,7 +60,7 @@ class AssetAnalyticsTest extends TestCase
         $this->assertSame(5, $data['summary']['added_this_month']);
 
         $byStatus = array_column($data['by_status'], 'count', 'status');
-        $this->assertSame(['available' => 1, 'in_use' => 1, 'on_loan' => 1, 'under_maintenance' => 1, 'disposed' => 0], $byStatus);
+        $this->assertSame(['in_use' => 1, 'available' => 1, 'under_maintenance' => 1, 'on_loan' => 1, 'lost' => 0, 'disposed' => 0], $byStatus);
 
         $this->assertSame(['Kategori 1' => 2, 'Perangkat IT' => 2], collect($data['by_category'])->pluck('count', 'name')->sortKeys()->all());
         $this->assertSame(['Gudang 1' => 3, 'Tanpa lokasi' => 1], collect($data['by_location'])->pluck('count', 'name')->sortKeys()->all());
@@ -133,7 +133,18 @@ class AssetAnalyticsTest extends TestCase
     /** @param array<string, mixed> $data */
     private function asset(array $data): string
     {
+        // Assets are registered with a location now; older ones without one still count as such.
+        if (array_key_exists('location_id', $data) && $data['location_id'] === null) {
+            $id = $this->asset(['name' => $data['name']]);
+            DB::table('assets')->where('id', $id)->update(['location_id' => null]);
+
+            return $id;
+        }
+
+        $this->relaxDefaultCondition();
+
         return $this->postJson('/api/assets', [
+            'status' => 'available',
             'serial_number' => 'SN-'.Str::uuid(),
             'category_id' => $this->masters['category']->id,
             'location_id' => $this->masters['location']->id,

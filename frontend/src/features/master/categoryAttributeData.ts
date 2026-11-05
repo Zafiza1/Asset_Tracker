@@ -33,6 +33,7 @@ export const SECTION_LABELS: Record<string, string> = {
   basic_information: 'Informasi Dasar',
   location_ownership: 'Lokasi & Kepemilikan',
   status_condition: 'Status & Kondisi',
+  specific_attributes: 'Atribut Khusus',
   other: 'Lainnya',
 }
 

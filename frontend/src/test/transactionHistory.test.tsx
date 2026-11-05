@@ -35,6 +35,6 @@ describe('withStateAfter', () => {
         <LocationChange trx={transfer} /> | <StatusChange trx={transfer} />
       </p>,
     )
-    expect(screen.getByText(/Gudang/).closest('p')).toHaveTextContent('GudangKantor | Tersedia')
+    expect(screen.getByText(/Gudang/).closest('p')).toHaveTextContent('GudangKantor | Tidak Aktif')
   })
 })

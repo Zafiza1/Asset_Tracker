@@ -132,7 +132,16 @@ export function AssetDetailPage() {
                   <>
                     <Row label="Kategori">{a.category?.name}</Row>
                     <Row label="Tanggal perolehan">{formatDate(a.acquisition_date)}</Row>
-                    <Row label="Nilai perolehan">{formatMoney(a.acquisition_cost)}</Row>
+                    <Row label="Harga perolehan">{formatMoney(a.acquisition_cost)}</Row>
+                    <Row label="Dokumen aset">
+                      {a.document_url ? (
+                        <a href={a.document_url} className="text-brand-700 underline" download={a.document_name ?? undefined}>
+                          {a.document_name ?? 'Unduh dokumen'}
+                        </a>
+                      ) : (
+                        '—'
+                      )}
+                    </Row>
                   </>
                 ),
                 location_ownership: <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>,

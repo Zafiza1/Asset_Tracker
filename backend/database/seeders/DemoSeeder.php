@@ -17,7 +17,8 @@ use App\Domain\Organization\Services\OrganizationStructureService;
 use App\Domain\Platform\Services\OrganizationProvisioner;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\Shared\Tenancy\TenantContext;
-use App\Domain\TenantMaster\Services\TenantCategoryService;
+use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -135,10 +136,12 @@ class DemoSeeder extends Seeder
     private function seedAssets(Organization $organization, User $admin, array $site, Location $warehouse): void
     {
         app(Tenancy::class)->runAsTenant(new TenantContext($organization, $admin), function () use ($site, $warehouse) {
-            $categories = app(TenantCategoryService::class);
-            $it = $categories->create(['code' => 'IT', 'name' => 'Perangkat IT']);
-            $vehicles = $categories->create(['code' => 'KENDARAAN', 'name' => 'Kendaraan']);
-            $furniture = $categories->create(['code' => 'FURNITUR', 'name' => 'Furnitur Kantor']);
+            // The standard categories come with the organization.
+            $standard = fn (string $code) => TenantAssetCategory::query()->where('code', $code)->firstOrFail();
+            $it = $standard('AST_IT');
+            $vehicles = $standard('AST_KENDARAAN');
+            $furniture = $standard('AST_FURNITURE');
+            $attributes = app(CategoryAttributeService::class);
             $office = app(OrganizationStructureService::class)->createLocation([
                 'code' => 'KTR-'.$site[0], 'name' => 'Kantor '.$site[1],
             ]);
@@ -162,6 +165,7 @@ class DemoSeeder extends Seeder
                     'name' => $name, 'serial_number' => sprintf('SN-%04d', $i + 1), 'category_id' => $category->id,
                     'location_id' => $location->id, 'status' => $status,
                     'acquisition_date' => $date, 'acquisition_cost' => $cost, 'registered_on' => $date,
+                    'attributes' => [$attributes->conditionAttribute($category->id)->key => 'BAIK'],
                 ]);
             }
 

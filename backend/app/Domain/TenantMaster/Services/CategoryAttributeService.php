@@ -34,12 +34,21 @@ final class CategoryAttributeService
     /** Label of the default yes/no field that gives an asset a barcode (default labels never change). */
     public const BARCODE_LABEL = 'Barcode';
 
-    /** Default attribute sections and their definitions. */
+    /** Label of the default (required) condition field of every top-level category. */
+    public const CONDITION_LABEL = 'Kondisi Aset';
+
+    /** Section of the fields specific to one standard category (see StandardCategories). */
+    public const SECTION_SPECIFIC = 'specific_attributes';
+
+    /** Sections a field may belong to. */
+    public const SECTIONS = ['basic_information', 'location_ownership', 'status_condition', self::SECTION_SPECIFIC];
+
+    /** General default fields, by section; every top-level category has them. */
     public const DEFAULT_ATTRIBUTES = [
         // No "Name" here: assets already have the built-in name (Nama aset) field.
         'basic_information' => [
             ['label' => 'Merek', 'data_type' => AttributeType::STRING, 'is_required' => false],
-            ['label' => 'Model', 'data_type' => AttributeType::STRING, 'is_required' => false],
+            ['label' => 'Model / Tipe', 'data_type' => AttributeType::STRING, 'is_required' => false],
             ['label' => 'Satuan', 'data_type' => AttributeType::ENUM, 'is_required' => false, 'options' => [
                 ['value' => 'PCS', 'label' => 'PCS'],
                 ['value' => 'SET', 'label' => 'SET'],
@@ -61,6 +70,7 @@ final class CategoryAttributeService
             ]],
             // Yes/no per asset: only assets switched on get a printable 1D/2D barcode.
             ['label' => self::BARCODE_LABEL, 'data_type' => AttributeType::BOOLEAN, 'is_required' => false],
+            ['label' => 'Catatan', 'data_type' => AttributeType::TEXT, 'is_required' => false],
         ],
         // No "Location" here: assets already have the built-in location (Lokasi) field.
         'location_ownership' => [
@@ -68,13 +78,14 @@ final class CategoryAttributeService
             ['label' => 'Penanggung Jawab', 'data_type' => AttributeType::STRING, 'is_required' => false],
         ],
         'status_condition' => [
-            ['label' => 'Jam Operasi', 'data_type' => AttributeType::INTEGER, 'is_required' => false],
-            ['label' => 'Kondisi', 'data_type' => AttributeType::ENUM, 'is_required' => false, 'options' => [
-                ['value' => 'GOOD', 'label' => 'Baik'],
-                ['value' => 'FAIR', 'label' => 'Cukup'],
-                ['value' => 'POOR', 'label' => 'Buruk'],
-                ['value' => 'DAMAGED', 'label' => 'Rusak'],
+            ['label' => self::CONDITION_LABEL, 'data_type' => AttributeType::ENUM, 'is_required' => true, 'options' => [
+                ['value' => 'BARU', 'label' => 'Baru'],
+                ['value' => 'BAIK', 'label' => 'Baik'],
+                ['value' => 'CUKUP', 'label' => 'Cukup'],
+                ['value' => 'RUSAK_RINGAN', 'label' => 'Rusak Ringan'],
+                ['value' => 'RUSAK_BERAT', 'label' => 'Rusak Berat'],
             ]],
+            ['label' => 'Jam Operasi', 'data_type' => AttributeType::INTEGER, 'is_required' => false],
         ],
     ];
 
@@ -159,24 +170,48 @@ final class CategoryAttributeService
         $sortOrder = 0;
         foreach (self::DEFAULT_ATTRIBUTES as $section => $attributes) {
             foreach ($attributes as $attr) {
-                $label = trim($attr['label']);
-                $options = $attr['options'] ?? null;
-
-                $this->writer->create(new TenantCategoryAttribute, [
-                    // Explicit so this also works in system context (backfill seeder).
-                    'organization_id' => $category->organization_id,
-                    'category_id' => $category->id,
-                    'key' => $this->generateKey($label),
-                    'label' => $label,
-                    'data_type' => $attr['data_type'],
-                    'is_required' => (bool) ($attr['is_required'] ?? false),
-                    'options' => $options,
-                    'sort_order' => ++$sortOrder,
-                    'is_default' => true,
-                    'section' => $section,
-                ], 'category_attribute.created', self::AUDIT);
+                $this->createDefault($category, [...$attr, 'section' => $section], ++$sortOrder);
             }
         }
+    }
+
+    /**
+     * Adds the default fields specific to a standard category, after its general ones.
+     *
+     * @param  list<array<string, mixed>>  $attributes  label, data_type, section, is_required, options?
+     */
+    public function createSpecificAttributes(TenantAssetCategory $category, array $attributes): void
+    {
+        $sortOrder = (int) TenantCategoryAttribute::query()->where('category_id', $category->id)->max('sort_order');
+        foreach ($attributes as $attr) {
+            $this->createDefault($category, $attr, ++$sortOrder);
+        }
+    }
+
+    /** @param array<string, mixed> $attr */
+    private function createDefault(TenantAssetCategory $category, array $attr, int $sortOrder): void
+    {
+        $label = trim($attr['label']);
+
+        $this->writer->create(new TenantCategoryAttribute, [
+            // Explicit so this also works in system context (provisioning, backfills).
+            'organization_id' => $category->organization_id,
+            'category_id' => $category->id,
+            'key' => $this->generateKey($label),
+            'label' => $label,
+            'data_type' => $attr['data_type'],
+            'is_required' => (bool) ($attr['is_required'] ?? false),
+            'options' => $attr['options'] ?? null,
+            'sort_order' => $sortOrder,
+            'is_default' => true,
+            'section' => $attr['section'],
+        ], 'category_attribute.created', self::AUDIT);
+    }
+
+    /** The default condition field that applies to a category, if it has one. */
+    public function conditionAttribute(string $categoryId): ?TenantCategoryAttribute
+    {
+        return $this->effective($categoryId)->first(fn (TenantCategoryAttribute $a) => $a->is_default && $a->label === self::CONDITION_LABEL);
     }
 
     /** @param array<string, mixed> $data label, is_required, options, sort_order? */
@@ -306,6 +341,30 @@ final class CategoryAttributeService
             throw ApiException::conflict('DEFAULT_ATTRIBUTE_IMMUTABLE', 'Atribut default tidak dapat dihapus.');
         }
         return $this->writer->archive($attribute, 'category_attribute.archived', null);
+    }
+
+    /**
+     * For an asset moving to another category: default fields of both categories with the same
+     * label (e.g. Kondisi Aset) have different keys, so their values move to the new key.
+     *
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    public function carryOver(string $fromCategoryId, string $toCategoryId, array $values): array
+    {
+        $target = $this->effective($toCategoryId)->where('is_default', true)->keyBy('label');
+        foreach ($this->effective($fromCategoryId)->where('is_default', true) as $source) {
+            $field = $target[$source->label] ?? null;
+            if ($field === null || $field->key === $source->key || $field->data_type !== $source->data_type
+                || ! array_key_exists($source->key, $values) || array_key_exists($field->key, $values)) {
+                continue;
+            }
+            if ($field->options === null || in_array($values[$source->key], array_column($field->options, 'value'), true)) {
+                $values[$field->key] = $values[$source->key];
+            }
+        }
+
+        return $values;
     }
 
     /**

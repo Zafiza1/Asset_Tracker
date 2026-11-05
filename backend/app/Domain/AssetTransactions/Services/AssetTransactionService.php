@@ -123,7 +123,7 @@ final class AssetTransactionService
     /** @return array{0: array<string, mixed>, 1: array<string, mixed>} */
     private function transfer(Asset $asset, array $data): array
     {
-        $this->assertStatusNotIn($asset, [AssetStatus::ON_LOAN, AssetStatus::DISPOSED], 'dipindahkan');
+        $this->assertStatusNotIn($asset, [AssetStatus::ON_LOAN, AssetStatus::LOST, AssetStatus::DISPOSED], 'dipindahkan');
         $to = $data['to_location_id'] ?? null;
         if ($to === null) {
             throw $this->fieldError('to_location_id', 'Lokasi tujuan wajib dipilih.');
@@ -152,7 +152,7 @@ final class AssetTransactionService
     private function loan(Asset $asset, array $data): array
     {
         if (! in_array($asset->status, [AssetStatus::AVAILABLE, AssetStatus::IN_USE], true)) {
-            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Tersedia atau Digunakan yang dapat dipinjamkan (status saat ini: '.AssetStatus::LABELS[$asset->status].').');
+            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Aktif atau Tidak Aktif yang dapat dipinjamkan (status saat ini: '.AssetStatus::LABELS[$asset->status].').');
         }
         $borrower = trim((string) ($data['borrower_name'] ?? ''));
         if ($borrower === '') {

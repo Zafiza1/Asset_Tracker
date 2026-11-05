@@ -88,6 +88,7 @@ class SpreadsheetEditTest extends TestCase
         $asset = $this->createAssetFixture($this->org, $this->masters)['asset'];
         $other = $this->createAssetFixture($this->org, $this->masters, '2')['asset'];
         $this->postJson('/api/tenant-masters/categories', ['code' => 'MEJA', 'name' => 'Meja'])->assertCreated();
+        $this->relaxDefaultCondition();
         $versions = [$asset->refresh()->lock_version, $other->refresh()->lock_version];
 
         $filtered = $this->download('/api/assets/edit-sheet?search=FIX-2')->getSheetByName('Data');

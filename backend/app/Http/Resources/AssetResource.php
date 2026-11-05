@@ -32,6 +32,8 @@ class AssetResource extends JsonResource
             // The file name is random per upload, so it doubles as a cache buster.
             'image_url' => $this->image_path === null ? null
                 : '/api/assets/'.$this->id.'/image?v='.pathinfo($this->image_path, PATHINFO_FILENAME),
+            'document_url' => $this->document_path === null ? null : '/api/assets/'.$this->id.'/document',
+            'document_name' => $this->document_name,
             'borrower_name' => $this->borrower_name,
             'loan_due_date' => $this->loan_due_date?->toDateString(),
             'is_archived' => $this->archived_at !== null,

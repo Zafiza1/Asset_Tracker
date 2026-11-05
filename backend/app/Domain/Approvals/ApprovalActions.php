@@ -30,6 +30,7 @@ final class ApprovalActions
         'asset.update' => [self::CATEGORY_ASSET, 'Perubahan data aset'],
         'asset.bulk_update' => [self::CATEGORY_ASSET, 'Perubahan data aset (massal)'],
         'asset.image' => [self::CATEGORY_ASSET, 'Perubahan gambar aset'],
+        'asset.document' => [self::CATEGORY_ASSET, 'Perubahan dokumen aset'],
         'asset.archive' => [self::CATEGORY_ASSET, 'Penonaktifan aset'],
         'asset.restore' => [self::CATEGORY_ASSET, 'Pengaktifan kembali aset'],
         'asset.import' => [self::CATEGORY_ASSET, 'Impor aset dari Excel'],
@@ -55,10 +56,10 @@ final class ApprovalActions
     ];
 
     /**
-     * Actions that are not tried out at submission: storing an image writes and deletes files,
+     * Actions that are not tried out at submission: storing a file writes and deletes files,
      * which a database rollback cannot undo. They are only validated when approved.
      */
-    private const NOT_TRIED = ['asset.image'];
+    private const NOT_TRIED = ['asset.image', 'asset.document'];
 
     public static function exists(string $action): bool
     {

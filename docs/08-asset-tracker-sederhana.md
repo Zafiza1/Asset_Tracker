@@ -66,15 +66,15 @@ Pemeriksaan konsistensi memutar ulang transaksi (urut `seq`) dan membandingkan h
 
 ## 4. Aturan bisnis
 
-**Status aset** (kode tetap): Tersedia, Digunakan, Dipinjam, Dalam perbaikan, Dihapuskan. *Nonaktif* terpisah dari status.
+**Status aset** (kode tetap): Aktif (`in_use`), Tidak Aktif (`available`), Dalam Perbaikan, Dipinjamkan, Hilang, Dihapuskan. *Nonaktif* terpisah dari status.
 
 | Transaksi | Permission tambahan | Syarat | Efek |
 |---|---|---|---|
-| Penambahan aset | `asset.create` | otomatis saat aset dibuat | status awal Tersedia/Digunakan/Dalam perbaikan |
-| Pemindahan lokasi | `asset.transfer` | bukan Dipinjam/Dihapuskan; lokasi aktif & dalam scope; beda dari lokasi saat ini | ubah lokasi |
-| Perubahan status | `asset.status_change` (+ `asset.dispose` untuk Dihapuskan) | bukan Dipinjam; status baru wajib dan berbeda dari saat ini | ubah status |
-| Peminjaman | `asset.assign` | status Tersedia/Digunakan; nama peminjam wajib | status Dipinjam + peminjam + rencana kembali |
-| Pengembalian | `asset.assign` | status Dipinjam | status Tersedia; opsional lokasi baru |
+| Penambahan aset | `asset.create` | otomatis saat aset dibuat | status awal Aktif/Tidak Aktif/Dalam Perbaikan |
+| Pemindahan lokasi | `asset.transfer` | bukan Dipinjamkan/Hilang/Dihapuskan; lokasi aktif & dalam scope; beda dari lokasi saat ini | ubah lokasi |
+| Perubahan status | `asset.status_change` (+ `asset.dispose` untuk Dihapuskan) | bukan Dipinjamkan; status baru wajib dan berbeda dari saat ini | ubah status |
+| Peminjaman | `asset.assign` | status Aktif/Tidak Aktif; nama peminjam wajib | status Dipinjamkan + peminjam + rencana kembali |
+| Pengembalian | `asset.assign` | status Dipinjamkan | status Tidak Aktif; opsional lokasi baru |
 | Aktivitas lain | — | keterangan wajib | tidak mengubah aset |
 | Penonaktifan / pengaktifan kembali | `asset.archive` / `asset.restore` | aset dipinjam tidak bisa dinonaktifkan | otomatis tercatat |
 

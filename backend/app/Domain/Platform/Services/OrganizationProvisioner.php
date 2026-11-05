@@ -14,6 +14,7 @@ use App\Domain\Organization\Models\Organization;
 use App\Domain\Organization\Models\OrganizationSetting;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\Tenancy;
+use App\Domain\TenantMaster\Services\TenantCategoryService;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -31,6 +32,7 @@ final class OrganizationProvisioner
     public function __construct(
         private readonly Tenancy $tenancy,
         private readonly AuditLogger $audit,
+        private readonly TenantCategoryService $categories,
     ) {}
 
     /**
@@ -38,7 +40,7 @@ final class OrganizationProvisioner
      * @param  array{name: string, email: string, password: string}|User|null  $admin  new account data, an existing tenant account acting for itself, or none
      * @return array{organization: Organization, admin: User|null}
      */
-    public function provision(array $organization, array|User|null $admin, bool $adminMustChangePassword = true): array
+    public function provision(array $organization, array|User|null $admin, bool $adminMustChangePassword = true, bool $standardCategories = true): array
     {
         if (! $this->tenancy->isUnrestricted()) {
             throw ApiException::forbidden();
@@ -47,7 +49,7 @@ final class OrganizationProvisioner
             throw ApiException::unprocessable('INVALID_ADMIN', 'Akun platform tidak dapat menjadi anggota organisasi.');
         }
 
-        return DB::transaction(function () use ($organization, $admin, $adminMustChangePassword) {
+        return DB::transaction(function () use ($organization, $admin, $adminMustChangePassword, $standardCategories) {
             $org = new Organization(array_intersect_key($organization, array_flip(Organization::PROFILE_FIELDS)));
             $org->forceFill(['code' => strtoupper($organization['code']), 'status' => Organization::STATUS_ACTIVE])->save();
 
@@ -55,6 +57,9 @@ final class OrganizationProvisioner
             $settings->forceFill(['organization_id' => $org->id])->save();
 
             $roles = $this->createRoles($org);
+            if ($standardCategories) {
+                $this->categories->installStandard($org->id);
+            }
 
             if ($admin === null) {
                 $this->audit->record('organization.created', $org, after: ['code' => $org->code, 'name' => $org->name], organizationId: $org->id);

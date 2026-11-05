@@ -385,6 +385,7 @@ function AttributeRow({
               <option value="basic_information">{SECTION_LABELS.basic_information}</option>
               <option value="location_ownership">{SECTION_LABELS.location_ownership}</option>
               <option value="status_condition">{SECTION_LABELS.status_condition}</option>
+              <option value="specific_attributes">{SECTION_LABELS.specific_attributes}</option>
             </Select>
           )}
         </Field>

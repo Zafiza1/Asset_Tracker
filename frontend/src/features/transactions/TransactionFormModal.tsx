@@ -18,7 +18,7 @@ import { assetStatusLabel, assetStatusTone, type Asset, type AssetStatus } from 
 import { CategoryFilter } from '../assets/CategoryFilter'
 import { allowedTypes, ineligibleReason, manualTypes, transactionTypeLabel, typePermission, type ManualTransactionType } from './api'
 
-const selectableStatuses: AssetStatus[] = ['available', 'in_use', 'under_maintenance', 'disposed']
+const selectableStatuses: AssetStatus[] = ['in_use', 'available', 'under_maintenance', 'lost', 'disposed']
 const DEFAULT_COLUMNS = ['pick', 'code', 'name', 'serial_number', 'category', 'location', 'status']
 
 function today(): string {

@@ -12,6 +12,7 @@ import { AttributeFields } from '../master/CategoryAttributes'
 import { useAssetFields, useCategoryAttributes } from '../master/categoryAttributeData'
 import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, initialStatuses, type Asset } from './api'
+import { AssetDocumentPicker, type DocumentChange } from './AssetDocumentPicker'
 import { AssetImagePicker, type ImageChange } from './AssetImagePicker'
 
 /**
@@ -28,6 +29,13 @@ function shownValue(field: CategoryAttribute, value: AttributeValue | undefined)
 class ImageSaveError extends Error {
   constructor(cause: unknown) {
     super('IMAGE_SAVE_FAILED', { cause })
+  }
+}
+
+/** The asset data was saved but the document upload/removal that followed failed. */
+class DocumentSaveError extends Error {
+  constructor(cause: unknown) {
+    super('DOCUMENT_SAVE_FAILED', { cause })
   }
 }
 
@@ -64,7 +72,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
       serial_number: asset?.serial_number ?? '',
       category_id: asset?.category_id ?? '',
       location_id: '',
-      status: 'available',
+      status: 'in_use',
       acquisition_date: asset?.acquisition_date ?? '',
       acquisition_cost: asset?.acquisition_cost ?? '',
       description: asset?.description ?? '',
@@ -76,6 +84,8 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
 
   const [image, setImage] = useState<ImageChange>(undefined)
   const [imageError, setImageError] = useState<string | null>(null)
+  const [document, setDocument] = useState<DocumentChange>(undefined)
+  const [documentError, setDocumentError] = useState<string | null>(null)
   // Set once the data is stored: when only the image then fails, a retry edits instead of registering twice.
   const [saved, setSaved] = useState<Asset | undefined>(asset)
   const refresh = () => Promise.all(['/assets', '/dashboard', '/transactions'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
@@ -84,6 +94,12 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
     const form = new FormData()
     if (image) form.append('image', image)
     return image ? api.upload<Resource<Asset>>(`/assets/${id}/image`, form) : api.delete<Resource<Asset>>(`/assets/${id}/image`)
+  }
+
+  const saveDocument = (id: string) => {
+    const form = new FormData()
+    if (document) form.append('document', document)
+    return document ? api.upload<Resource<Asset>>(`/assets/${id}/document`, form) : api.delete<Resource<Asset>>(`/assets/${id}/document`)
   }
 
   // Resolves to null when the change was submitted for approval instead of applied.
@@ -99,16 +115,29 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
       // a request of its own; a new asset has nothing to attach an image to until it is approved.
       if (isApprovalPending(response)) {
         if (saved && image !== undefined) await saveImage(saved.id)
+        if (saved && document !== undefined) await saveDocument(saved.id)
         return null
       }
       let result = response.data
       setSaved(result)
-      if (image === undefined) return result
-      try {
-        result = (await saveImage(result.id)).data
-      } catch (e) {
-        await refresh()
-        throw new ImageSaveError(e)
+      if (image !== undefined) {
+        try {
+          // With approvals on, the data can go straight through while the file waits; keep the saved asset then.
+          const uploaded = await saveImage(result.id)
+          if (!isApprovalPending(uploaded)) result = uploaded.data
+        } catch (e) {
+          await refresh()
+          throw new ImageSaveError(e)
+        }
+      }
+      if (document !== undefined) {
+        try {
+          const uploaded = await saveDocument(result.id)
+          if (!isApprovalPending(uploaded)) result = uploaded.data
+        } catch (e) {
+          await refresh()
+          throw new DocumentSaveError(e)
+        }
       }
       return result
     },
@@ -122,6 +151,12 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
         const cause = e.cause
         setImageError(cause instanceof ApiError ? (cause.fields.image?.[0] ?? cause.message) : errorMessage(cause))
         setFormError('Data aset sudah tersimpan, tetapi gambar gagal disimpan. Perbaiki gambar lalu simpan lagi, atau tutup untuk melewatinya.')
+        return
+      }
+      if (e instanceof DocumentSaveError) {
+        const cause = e.cause
+        setDocumentError(cause instanceof ApiError ? (cause.fields.document?.[0] ?? cause.message) : errorMessage(cause))
+        setFormError('Data aset sudah tersimpan, tetapi dokumen gagal disimpan. Perbaiki dokumen lalu simpan lagi, atau tutup untuk melewatinya.')
         return
       }
       const prefix = 'attributes.'
@@ -151,7 +186,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
         </>
       }
     >
-      <form id="asset-form" noValidate className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), setAttributeErrors({}), setImageError(null), save.mutate(v)))}>
+      <form id="asset-form" noValidate className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), setAttributeErrors({}), setImageError(null), setDocumentError(null), save.mutate(v)))}>
         {formError && <Alert tone="error">{formError}</Alert>}
         {asset ? (
           <p className="text-sm text-slate-600">
@@ -167,8 +202,8 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
           {(p) => <Input {...p} {...register('name', { required: 'Nama aset wajib diisi.' })} />}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="No Seri" required error={err('serial_number')} hint="Nomor seri dari pabrik atau milik organisasi (harus unik).">
-            {(p) => <Input {...p} {...register('serial_number', { validate: (v) => v.trim() !== '' || 'No seri wajib diisi.' })} />}
+          <Field label="Nomor Seri" error={err('serial_number')} hint="Nomor seri dari pabrik atau milik organisasi (harus unik bila diisi).">
+            {(p) => <Input {...p} {...register('serial_number')} />}
           </Field>
           <Field label="Kategori" required error={err('category_id')}>
             {(p) => (
@@ -186,10 +221,10 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
 
         {!saved && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Lokasi" error={err('location_id')}>
+            <Field label="Lokasi" required error={err('location_id')}>
               {(p) => (
-                <Select {...p} {...register('location_id')}>
-                  <option value="">— Tanpa lokasi —</option>
+                <Select {...p} {...register('location_id', { required: 'Lokasi wajib dipilih.' })}>
+                  <option value="">— Pilih —</option>
                   {locations.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
@@ -223,13 +258,14 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
           <Field label="Tanggal perolehan" error={err('acquisition_date')}>
             {(p) => <Input {...p} type="date" {...register('acquisition_date')} />}
           </Field>
-          <Field label="Nilai perolehan (Rp)" error={err('acquisition_cost')}>
+          <Field label="Harga perolehan (Rp)" error={err('acquisition_cost')}>
             {(p) => <Input {...p} type="number" min={0} step="1" inputMode="numeric" {...register('acquisition_cost')} />}
           </Field>
         </div>
-        <Field label="Deskripsi & informasi tambahan" error={err('description')}>
+        <Field label="Deskripsi" error={err('description')}>
           {(p) => <Textarea {...p} rows={3} {...register('description')} />}
         </Field>
+        <AssetDocumentPicker currentName={saved?.document_name ?? null} value={document} onChange={(v) => (setDocumentError(null), setDocument(v))} error={documentError} />
       </form>
     </Modal>
   )

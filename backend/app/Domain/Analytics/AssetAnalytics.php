@@ -83,7 +83,7 @@ final class AssetAnalytics
     }
 
     /**
-     * Share of operable assets (not disposed) that are in service: in use or on loan.
+     * Share of operable assets (not lost or disposed) that are in service: in use or on loan.
      *
      * @return array{in_service: int, available: int, operable: int, rate: float|null}
      */
@@ -92,8 +92,8 @@ final class AssetAnalytics
         $row = $this->assets()->toBase()->selectRaw(<<<'SQL'
             count(*) FILTER (WHERE status IN (?, ?)) AS in_service,
             count(*) FILTER (WHERE status = ?) AS available,
-            count(*) FILTER (WHERE status <> ?) AS operable
-        SQL, [AssetStatus::IN_USE, AssetStatus::ON_LOAN, AssetStatus::AVAILABLE, AssetStatus::DISPOSED])->first();
+            count(*) FILTER (WHERE status NOT IN (?, ?)) AS operable
+        SQL, [AssetStatus::IN_USE, AssetStatus::ON_LOAN, AssetStatus::AVAILABLE, AssetStatus::LOST, AssetStatus::DISPOSED])->first();
 
         $operable = (int) $row->operable;
 

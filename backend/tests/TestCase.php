@@ -112,6 +112,14 @@ abstract class TestCase extends BaseTestCase
         return $this->app->make(Tenancy::class);
     }
 
+    /** For tests about other things: assets may then be registered without the required default Kondisi Aset. */
+    protected function relaxDefaultCondition(): void
+    {
+        \App\Domain\TenantMaster\Models\TenantCategoryAttribute::query()
+            ->where('label', \App\Domain\TenantMaster\Services\CategoryAttributeService::CONDITION_LABEL)
+            ->update(['is_required' => false]);
+    }
+
     /** @return array{organization: Organization, admin: User} */
     protected function createOrganization(string $code, string $status = Organization::STATUS_ACTIVE, int $seats = 10): array
     {
@@ -119,6 +127,7 @@ abstract class TestCase extends BaseTestCase
             ['code' => $code, 'name' => "Organisasi {$code}"],
             ['name' => "Admin {$code}", 'email' => strtolower($code).'-admin@example.test', 'password' => self::PASSWORD],
             adminMustChangePassword: false,
+            standardCategories: false,
         );
         $this->grantLicense($result['organization'], $seats);
         if ($status !== Organization::STATUS_ACTIVE) {

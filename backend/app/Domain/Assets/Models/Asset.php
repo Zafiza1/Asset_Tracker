@@ -34,6 +34,8 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed> $attribute_values custom field values (category attributes), keyed by attribute key
  * @property string $status
  * @property string|null $image_path photo on AssetService::IMAGE_DISK
+ * @property string|null $document_path document on AssetService::IMAGE_DISK
+ * @property string|null $document_name its original file name
  * @property string|null $borrower_name
  * @property Carbon|null $loan_due_date
  * @property int $lock_version

@@ -21,6 +21,9 @@ Route::middleware('module:assets')->group(function () {
     Route::get('/assets/{asset}/image', [AssetController::class, 'image'])->middleware('permission:asset.view');
     Route::post('/assets/{asset}/image', [AssetController::class, 'uploadImage'])->middleware(['permission:asset.update', 'approval:asset.image']);
     Route::delete('/assets/{asset}/image', [AssetController::class, 'deleteImage'])->middleware(['permission:asset.update', 'approval:asset.image']);
+    Route::get('/assets/{asset}/document', [AssetController::class, 'document'])->middleware('permission:asset.view');
+    Route::post('/assets/{asset}/document', [AssetController::class, 'uploadDocument'])->middleware(['permission:asset.update', 'approval:asset.document']);
+    Route::delete('/assets/{asset}/document', [AssetController::class, 'deleteDocument'])->middleware(['permission:asset.update', 'approval:asset.document']);
     Route::post('/assets/{asset}/archive', [AssetController::class, 'archive'])->middleware(['permission:asset.archive', 'approval:asset.archive']);
     Route::post('/assets/{asset}/restore', [AssetController::class, 'restore'])->middleware(['permission:asset.restore', 'approval:asset.restore']);
     Route::get('/assets/{asset}/transactions', [AssetController::class, 'transactions'])->middleware('permission:asset.view,transaction.view');

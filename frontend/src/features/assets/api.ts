@@ -3,7 +3,7 @@ import type { AttributeValue } from '../../lib/api/types'
 
 /** Asset Management module: API shapes and labels. Statuses mirror App\Domain\Assets\AssetStatus. */
 
-export type AssetStatus = 'available' | 'in_use' | 'on_loan' | 'under_maintenance' | 'disposed'
+export type AssetStatus = 'in_use' | 'available' | 'under_maintenance' | 'on_loan' | 'lost' | 'disposed'
 
 export interface Ref {
   id: string
@@ -30,6 +30,9 @@ export interface Asset {
   attributes: Record<string, AttributeValue>
   /** Same-origin URL of the photo (with a cache-busting version), or null when there is none. */
   image_url: string | null
+  /** Same-origin URL to download the document, or null when there is none. */
+  document_url: string | null
+  document_name: string | null
   borrower_name: string | null
   loan_due_date: string | null
   is_archived: boolean
@@ -41,23 +44,25 @@ export interface Asset {
 }
 
 export const assetStatusLabel: Record<AssetStatus, string> = {
-  available: 'Tersedia',
-  in_use: 'Digunakan',
-  on_loan: 'Dipinjam',
-  under_maintenance: 'Dalam perbaikan',
+  in_use: 'Aktif',
+  available: 'Tidak Aktif',
+  under_maintenance: 'Dalam Perbaikan',
+  on_loan: 'Dipinjamkan',
+  lost: 'Hilang',
   disposed: 'Dihapuskan',
 }
 
 export const assetStatusTone: Record<AssetStatus, BadgeTone> = {
-  available: 'green',
-  in_use: 'blue',
-  on_loan: 'amber',
+  in_use: 'green',
+  available: 'blue',
   under_maintenance: 'amber',
+  on_loan: 'amber',
+  lost: 'red',
   disposed: 'slate',
 }
 
 /** Statuses selectable when registering an asset. */
-export const initialStatuses: AssetStatus[] = ['available', 'in_use', 'under_maintenance']
+export const initialStatuses: AssetStatus[] = ['in_use', 'available', 'under_maintenance']
 
 const money = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
 

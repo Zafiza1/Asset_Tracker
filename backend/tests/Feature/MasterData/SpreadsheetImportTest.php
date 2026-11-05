@@ -65,27 +65,39 @@ class SpreadsheetImportTest extends TestCase
     public function test_assets_import_resolves_codes_dates_and_status_labels(): void
     {
         $this->upload('/api/assets/import', [
-            ['name', 'serial_number', 'category_code', 'location_code', 'status', 'acquisition_date', 'acquisition_cost', 'description'],
+            ['name', 'serial_number', 'category_code', 'location_code', 'status', 'condition', 'acquisition_date', 'acquisition_cost', 'description'],
             // A DateTime becomes a real date cell (serial number + date format), as Excel saves it.
-            ['Laptop Dell', 'SN-1', 'CAT1', 'LOC1', 'Digunakan', new DateTimeImmutable('2024-01-15'), 15000000, 'Staf IT'],
-            ['Meja', 'SN-2', 'cat1', null, null, '2024-02-01', null, null],
+            ['Laptop Dell', 'SN-1', 'CAT1', 'LOC1', 'Aktif', null, new DateTimeImmutable('2024-01-15'), 15000000, 'Staf IT'],
+            ['Meja', null, 'cat1', 'LOC1', null, null, '2024-02-01', null, null],
         ])->assertOk()->assertJsonPath('data.imported', 2);
 
         $laptop = Asset::query()->where('name', 'Laptop Dell')->firstOrFail();
         $this->assertSame('in_use', $laptop->status);
         $this->assertSame('2024-01-15', $laptop->acquisition_date->format('Y-m-d'));
-        $this->assertSame('available', Asset::query()->where('name', 'Meja')->value('status'));
+        $this->assertSame('in_use', Asset::query()->where('name', 'Meja')->value('status'));
+    }
+
+    public function test_assets_import_fills_the_required_condition_from_its_column(): void
+    {
+        $this->postJson('/api/tenant-masters/categories', ['code' => 'ELEK', 'name' => 'Elektronik'])->assertCreated();
+        $header = ['name', 'serial_number', 'category_code', 'location_code', 'status', 'condition', 'acquisition_date', 'acquisition_cost', 'description'];
+
+        $this->upload('/api/assets/import', [$header, ['TV', null, 'ELEK', 'LOC1', null, 'Rusak Ringan', null, null, null]])->assertOk();
+        $this->assertContains('RUSAK_RINGAN', Asset::query()->where('name', 'TV')->firstOrFail()->attribute_values);
+
+        $this->assertErrorCode($this->upload('/api/assets/import', [$header, ['Radio', null, 'ELEK', 'LOC1', null, null, null, null, null]]), 422, 'IMPORT_FAILED');
+        $this->assertErrorCode($this->upload('/api/assets/import', [$header, ['Radio', null, 'ELEK', 'LOC1', null, 'Bagus', null, null, null]]), 422, 'IMPORT_FAILED');
     }
 
     public function test_any_invalid_row_rolls_back_the_whole_file_and_reports_every_row(): void
     {
         $response = $this->upload('/api/assets/import', [
-            ['name', 'serial_number', 'category_code', 'location_code', 'status', 'acquisition_date', 'acquisition_cost', 'description'],
-            ['Valid', 'SN-A', 'CAT1', null, null, null, null, null],
-            ['Salah kategori', 'SN-B', 'TIDAK-ADA', null, null, null, null, null],
-            ['Salah status', 'SN-C', 'CAT1', null, 'on_loan', null, null, null],
-            ['Salah tanggal', 'SN-D', 'CAT1', null, null, '15/01/2024', null, null],
-            [null, 'SN-E', 'CAT1', null, null, null, null, 'Tanpa nama'],
+            ['name', 'serial_number', 'category_code', 'location_code', 'status', 'condition', 'acquisition_date', 'acquisition_cost', 'description'],
+            ['Valid', 'SN-A', 'CAT1', 'LOC1', null, null, null, null, null],
+            ['Salah kategori', 'SN-B', 'TIDAK-ADA', 'LOC1', null, null, null, null, null],
+            ['Salah status', 'SN-C', 'CAT1', 'LOC1', 'on_loan', null, null, null, null],
+            ['Salah tanggal', 'SN-D', 'CAT1', 'LOC1', null, null, '15/01/2024', null, null],
+            [null, 'SN-E', 'CAT1', 'LOC1', null, null, null, null, 'Tanpa nama'],
         ]);
 
         $this->assertErrorCode($response, 422, 'IMPORT_FAILED');
@@ -113,17 +125,17 @@ class SpreadsheetImportTest extends TestCase
 
         $this->assertSame(['Data', 'Petunjuk', 'Daftar Pilihan'], $book->getSheetNames());
         $data = $book->getSheetByName('Data');
-        $this->assertSame(['Nama Aset *', 'Kategori *', 'Lokasi', 'Status'], array_slice($data->rangeToArray('A1:H1')[0], 0, 4));
+        $this->assertSame(['Nama Aset *', 'Kategori *', 'Lokasi *', 'Status'], array_slice($data->rangeToArray('A1:H1')[0], 0, 4));
         $this->assertSame('A2', $data->getFreezePane());
 
         $category = $data->getCell('B2')->getDataValidation();
         $this->assertSame(DataValidation::TYPE_LIST, $category->getType());
         $this->assertStringContainsString('Daftar Pilihan', $category->getFormula1());
-        $this->assertSame(DataValidation::TYPE_DATE, $data->getCell('F500')->getDataValidation()->getType());
+        $this->assertSame(DataValidation::TYPE_DATE, $data->getCell('G500')->getDataValidation()->getType());
 
         $lists = $book->getSheetByName('Daftar Pilihan')->toArray();
-        $this->assertSame(['Kategori', 'Lokasi', 'Status'], $lists[0]);
-        $this->assertSame(['CAT1 — Kategori 1', 'LOC1 — Gudang 1', 'Tersedia'], $lists[1]);
+        $this->assertSame(['Kategori', 'Lokasi', 'Status', 'Kondisi'], $lists[0]);
+        $this->assertSame(['CAT1 — Kategori 1', 'LOC1 — Gudang 1', 'Aktif', 'Baru'], $lists[1]);
         $this->assertStringContainsString('Template Import Pendataan Aset', (string) $book->getSheetByName('Petunjuk')->getCell('A1')->getValue());
 
         $this->template('/api/locations/template');
@@ -133,7 +145,7 @@ class SpreadsheetImportTest extends TestCase
     public function test_template_filled_with_dropdown_choices_imports(): void
     {
         $book = $this->template('/api/assets/template');
-        $book->getSheetByName('Data')->fromArray(['Proyektor Epson', 'CAT1 — Kategori 1', 'LOC1 — Gudang 1', 'Dalam perbaikan', 'SN-EP1'], null, 'A2');
+        $book->getSheetByName('Data')->fromArray(['Proyektor Epson', 'CAT1 — Kategori 1', 'LOC1 — Gudang 1', 'Dalam Perbaikan', 'Baik', 'SN-EP1'], null, 'A2');
 
         $this->send('/api/assets/import', $book)->assertOk()->assertJsonPath('data.imported', 1);
 

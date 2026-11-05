@@ -56,7 +56,7 @@ final class AssetService
             throw ApiException::unprocessable('LOCATION_OUT_OF_SCOPE', 'Lokasi berada di luar cakupan data Anda.', ['fields' => ['location_id' => ['Pilih lokasi dalam cakupan data Anda.']]]);
         }
         $this->assertSerialAvailable($data['serial_number'] ?? null);
-        $status = $data['status'] ?? AssetStatus::AVAILABLE;
+        $status = $data['status'] ?? AssetStatus::IN_USE;
         $values = $this->attributes->resolveValues($data['category_id'], [], $data['attributes'] ?? []);
 
         return DB::transaction(function () use ($data, $locationId, $status, $values) {
@@ -102,7 +102,9 @@ final class AssetService
         // Values are revalidated when they are sent or when the category (hence the set of fields) changes.
         $categoryId = $changes['category_id'] ?? $asset->category_id;
         if (array_key_exists('attributes', $data) || $categoryId !== $asset->category_id) {
-            $values = $this->attributes->resolveValues($categoryId, $asset->attribute_values, $data['attributes'] ?? null);
+            $current = $categoryId === $asset->category_id ? $asset->attribute_values
+                : $this->attributes->carryOver($asset->category_id, $categoryId, $asset->attribute_values);
+            $values = $this->attributes->resolveValues($categoryId, $current, $data['attributes'] ?? null);
             if (! self::sameValues($values, $asset->attribute_values)) {
                 $changes['attribute_values'] = $values;
             }
@@ -154,21 +156,35 @@ final class AssetService
      */
     public function setImage(Asset $asset, ?UploadedFile $image): Asset
     {
+        return $this->replaceFile($asset, $image, 'image_path', [], 'asset.image', "assets/{$asset->organization_id}/{$asset->id}");
+    }
+
+    /** Replaces the asset's document, or removes it when `$document` is null; as setImage(). */
+    public function setDocument(Asset $asset, ?UploadedFile $document): Asset
+    {
+        $name = $document === null ? null : mb_substr($document->getClientOriginalName(), 0, 255);
+
+        return $this->replaceFile($asset, $document, 'document_path', ['document_name' => $name], 'asset.document', "assets/{$asset->organization_id}/{$asset->id}/documents");
+    }
+
+    /** @param array<string, mixed> $extra other columns that change along with the file */
+    private function replaceFile(Asset $asset, ?UploadedFile $file, string $column, array $extra, string $auditPrefix, string $folder): Asset
+    {
         $this->assertNotArchived($asset);
-        if ($image === null && $asset->image_path === null) {
+        if ($file === null && $asset->getAttribute($column) === null) {
             return $asset;
         }
         $disk = Storage::disk(self::IMAGE_DISK);
-        $old = $asset->image_path;
-        $new = $image?->store("assets/{$asset->organization_id}/{$asset->id}", self::IMAGE_DISK);
+        $old = $asset->getAttribute($column);
+        $new = $file?->store($folder, self::IMAGE_DISK);
         if ($new === false) {
-            throw ApiException::unprocessable('UPLOAD_FAILED', 'Gambar gagal disimpan. Coba lagi.');
+            throw ApiException::unprocessable('UPLOAD_FAILED', 'File gagal disimpan. Coba lagi.');
         }
 
         try {
-            DB::transaction(function () use ($asset, $new) {
-                $asset->forceFill(['image_path' => $new, 'lock_version' => $asset->lock_version + 1, 'updated_by' => $this->tenancy->tenant()->userId()])->save();
-                $this->audit->record($new === null ? 'asset.image_removed' : 'asset.image_updated', $asset);
+            DB::transaction(function () use ($asset, $new, $column, $extra, $auditPrefix) {
+                $asset->forceFill([...$extra, $column => $new, 'lock_version' => $asset->lock_version + 1, 'updated_by' => $this->tenancy->tenant()->userId()])->save();
+                $this->audit->record($auditPrefix.($new === null ? '_removed' : '_updated'), $asset);
             });
         } catch (\Throwable $e) {
             if ($new !== null) {

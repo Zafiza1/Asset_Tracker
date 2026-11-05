@@ -117,7 +117,7 @@ class AssetController extends Controller
     {
         $data = $request->validate([
             ...$this->descriptiveRules(creating: true),
-            'location_id' => ['nullable', 'uuid'],
+            'location_id' => ['required', 'uuid'],
             'status' => ['nullable', Rule::in(AssetStatus::INITIAL)],
             'registered_on' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after:1999-12-31'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -191,6 +191,35 @@ class AssetController extends Controller
         return new AssetResource($this->assets->setImage($asset, null)->load(self::RELATIONS));
     }
 
+    /** The asset's document, always as a download; route binding applies the data scope. */
+    public function document(Asset $asset): StreamedResponse
+    {
+        $disk = Storage::disk(AssetService::IMAGE_DISK);
+        if ($asset->document_path === null || ! $disk->exists($asset->document_path)) {
+            throw new ApiException('DOCUMENT_NOT_FOUND', 'Aset ini belum memiliki dokumen.', 404);
+        }
+
+        return $disk->download($asset->document_path, $asset->document_name, ['X-Content-Type-Options' => 'nosniff']);
+    }
+
+    public function uploadDocument(Request $request, Asset $asset): AssetResource
+    {
+        $request->validate([
+            'document' => ['required', 'file', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png', 'max:10240'],
+        ], [
+            'document.required' => 'Pilih file dokumen.',
+            'document.mimes' => 'Dokumen harus berformat PDF, Word, Excel, JPG, atau PNG.',
+            'document.max' => 'Ukuran dokumen maksimal 10 MB.',
+        ]);
+
+        return new AssetResource($this->assets->setDocument($asset, $request->file('document'))->load(self::RELATIONS));
+    }
+
+    public function deleteDocument(Asset $asset): AssetResource
+    {
+        return new AssetResource($this->assets->setDocument($asset, null)->load(self::RELATIONS));
+    }
+
     public function archive(Request $request, Asset $asset): AssetResource
     {
         $data = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
@@ -215,13 +244,15 @@ class AssetController extends Controller
             $data = Validator::make($row, [
                 ...Arr::only($rules, ['name', 'serial_number', 'acquisition_date', 'acquisition_cost', 'description']),
                 'category_code' => ['required', 'string'],
-                'location_code' => ['nullable', 'string'],
+                'location_code' => ['required', 'string'],
                 'status' => ['nullable', Rule::in(AssetStatus::INITIAL)],
+                'condition' => ['nullable', 'string'],
             ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
 
             $data['category_id'] = SpreadsheetImport::idByCode(TenantAssetCategory::query(), $data['category_code'], 'Kategori');
-            $data['location_id'] = SpreadsheetImport::idByCode(Location::query(), $data['location_code'] ?? null, 'Lokasi');
-            $this->assets->create(Arr::except($data, ['category_code', 'location_code']));
+            $data['location_id'] = SpreadsheetImport::idByCode(Location::query(), $data['location_code'], 'Lokasi');
+            $data['attributes'] = $this->importConditionValue($data['category_id'], $data['condition'] ?? null);
+            $this->assets->create(Arr::except($data, ['category_code', 'location_code', 'condition']));
         });
 
         return response()->json(['data' => ['imported' => $imported]]);
@@ -233,6 +264,7 @@ class AssetController extends Controller
             'Kategori' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
             'Lokasi' => SpreadsheetImport::codeList(Location::query()),
             'Status' => array_map(fn ($s) => AssetStatus::LABELS[$s], AssetStatus::INITIAL),
+            'Kondisi' => array_column(self::conditionOptions(), 'label'),
         ], [
             'Kategori dan lokasi harus sudah dibuat sebelum mengimpor aset. Nomor aset dibuat otomatis oleh sistem.',
         ]);
@@ -308,7 +340,7 @@ class AssetController extends Controller
             new ImportColumn('asset_number', 'Nomor Aset (info)', hint: 'Nomor aset dibuat oleh sistem dan tidak dapat diubah.', width: 20, readOnly: true),
             new ImportColumn('name', 'Nama Aset', required: true, hint: 'Nama aset, maksimal 150 karakter.', width: 32),
             new ImportColumn('category_code', 'Kategori', required: true, hint: 'Pilih kategori aset dari daftar.', list: 'Kategori', width: 34),
-            new ImportColumn('serial_number', 'Nomor Seri', required: true, hint: 'Nomor seri dari pabrik, harus unik.', width: 22),
+            new ImportColumn('serial_number', 'Nomor Seri', hint: 'Nomor seri dari pabrik, harus unik bila diisi.', width: 22),
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
             new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
             new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Kosongkan untuk menghapus.', width: 40),
@@ -325,16 +357,47 @@ class AssetController extends Controller
         return [
             new ImportColumn('name', 'Nama Aset', required: true, hint: 'Nama aset, maksimal 150 karakter. Contoh: Laptop Dell Latitude 5440', width: 32),
             new ImportColumn('category_code', 'Kategori', required: true, hint: 'Pilih kategori aset dari daftar.', list: 'Kategori', width: 34),
-            new ImportColumn('location_code', 'Lokasi', hint: 'Pilih lokasi aset dari daftar. Boleh dikosongkan.', list: 'Lokasi', width: 34),
-            new ImportColumn('status', 'Status', hint: 'Pilih status awal. Jika kosong: Tersedia.', list: 'Status', width: 18),
-            new ImportColumn('serial_number', 'Nomor Seri', required: true, hint: 'Nomor seri dari pabrik, harus unik. Contoh: SN-2024-0001', width: 22),
+            new ImportColumn('location_code', 'Lokasi', required: true, hint: 'Pilih lokasi aset dari daftar.', list: 'Lokasi', width: 34),
+            new ImportColumn('status', 'Status', hint: 'Pilih status awal. Jika kosong: Aktif.', list: 'Status', width: 18),
+            new ImportColumn('condition', 'Kondisi', required: true, hint: 'Pilih kondisi aset dari daftar.', list: 'Kondisi', width: 18),
+            new ImportColumn('serial_number', 'Nomor Seri', hint: 'Nomor seri dari pabrik, harus unik bila diisi. Contoh: SN-2024-0001', width: 22),
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Tanggal pembelian/perolehan, format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
             new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
             new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Boleh dikosongkan.', width: 40),
         ];
     }
 
-    /** The status column accepts the key (in_use) or its label (Digunakan); empty means available. */
+    /** @return list<array{value: string, label: string}> */
+    private static function conditionOptions(): array
+    {
+        $condition = array_filter(CategoryAttributeService::DEFAULT_ATTRIBUTES['status_condition'],
+            fn (array $a) => $a['label'] === CategoryAttributeService::CONDITION_LABEL);
+
+        return reset($condition)['options'];
+    }
+
+    /**
+     * The condition column as a category field value: {key: option value}. A value that is not an
+     * option is passed on as is, so the field's own validation reports it.
+     *
+     * @return array<string, string>
+     */
+    private function importConditionValue(string $categoryId, ?string $value): array
+    {
+        $attribute = $this->attributes->conditionAttribute($categoryId);
+        if ($attribute === null || $value === null) {
+            return [];
+        }
+        foreach ($attribute->options as $option) {
+            if (strcasecmp($option['label'], $value) === 0 || strcasecmp($option['value'], $value) === 0) {
+                return [$attribute->key => $option['value']];
+            }
+        }
+
+        return [$attribute->key => $value];
+    }
+
+    /** The status column accepts the key (in_use) or its label (Aktif); empty means in use. */
     private function importStatus(?string $value): ?string
     {
         if ($value === null) {
@@ -364,7 +427,7 @@ class AssetController extends Controller
 
         return [
             'name' => [...$required, 'string', 'max:150'],
-            'serial_number' => [...$required, 'string', 'max:100'],
+            'serial_number' => [...$optional, 'string', 'max:100'],
             'category_id' => [...$required, 'uuid'],
             'acquisition_date' => [...$optional, 'date_format:Y-m-d', 'before_or_equal:today'],
             'acquisition_cost' => [...$optional, 'numeric', 'min:0', 'max:9999999999999999'],

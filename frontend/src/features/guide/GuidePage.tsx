@@ -269,8 +269,8 @@ function Step4() {
     ]}>
       <NumberedList items={[
         <>Buka <MenuLink to="/aset" permission="asset.view">Pendataan Aset</MenuLink>, lalu klik <Label>Tambah aset</Label>.</>,
-        <>Isi <Label>Nama aset</Label>, <Label>No Seri</Label> (harus unik), dan <Label>Kategori</Label>. Isian atribut tampil sesuai kategori yang dipilih.</>,
-        <>Pilih <Label>Lokasi</Label> dan <Label>Status</Label> awal, lalu lengkapi tanggal dan nilai perolehan bila ada.</>,
+        <>Isi <Label>Nama aset</Label> dan <Label>Kategori</Label>. <Label>Nomor Seri</Label> boleh dikosongkan, tetapi harus unik bila diisi. Isian atribut tampil sesuai kategori yang dipilih.</>,
+        <>Pilih <Label>Lokasi</Label>, <Label>Status</Label> awal, dan <Label>Kondisi Aset</Label>, lalu lengkapi tanggal dan harga perolehan bila ada.</>,
         <>Klik <Label>Simpan</Label>. Kode aset dibuat otomatis dan riwayat <Label>Penambahan aset</Label> tercatat dengan sendirinya.</>,
       ]} />
       <div className="grid gap-3 md:grid-cols-2">
@@ -384,8 +384,8 @@ function Step6() {
 const TRANSACTION_GUIDE = [
   { type: 'transfer', when: 'Aset pindah tempat', fill: 'Lokasi tujuan', effect: 'Lokasi aset berubah' },
   { type: 'status_change', when: 'Kondisi pemakaian berubah, misalnya masuk perbaikan', fill: 'Status baru', effect: 'Status aset berubah' },
-  { type: 'loan', when: 'Aset dipinjamkan', fill: 'Nama peminjam, rencana tanggal kembali', effect: 'Status menjadi Dipinjam' },
-  { type: 'return', when: 'Aset pinjaman kembali', fill: 'Lokasi pengembalian bila berbeda', effect: 'Status menjadi Tersedia' },
+  { type: 'loan', when: 'Aset dipinjamkan', fill: 'Nama peminjam, rencana tanggal kembali', effect: 'Status menjadi Dipinjamkan' },
+  { type: 'return', when: 'Aset pinjaman kembali', fill: 'Lokasi pengembalian bila berbeda', effect: 'Status menjadi Tidak Aktif' },
   { type: 'note', when: 'Kegiatan lain, misalnya servis rutin', fill: 'Keterangan aktivitas', effect: 'Hanya menambah riwayat' },
 ] as const
 
