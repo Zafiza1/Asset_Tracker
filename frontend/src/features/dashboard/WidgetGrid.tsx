@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { EyeOff, GripVertical } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { SIZE_CLASS, SIZE_LABEL, widgetDef, type LayoutItem, type WidgetKey, type WidgetSize } from './layout'
+import { WidgetSizeProvider } from './WidgetSizeProvider'
 
 export const GRID_CLASS = 'grid grid-cols-1 gap-4 md:grid-cols-6 xl:grid-cols-12'
 
@@ -65,7 +66,9 @@ function SortableWidget({ item, editing, onResize, onHide, children }: { item: L
   if (!editing) {
     return (
       <div ref={setNodeRef} className={clsx('min-w-0', SIZE_CLASS[item.size])}>
-        {children}
+        <WidgetSizeProvider size={item.size} className="h-full">
+          {children}
+        </WidgetSizeProvider>
       </div>
     )
   }
@@ -117,7 +120,9 @@ function SortableWidget({ item, editing, onResize, onHide, children }: { item: L
       </div>
       {/* Live preview only: links and tabs inside must not fire while arranging. */}
       <div className="pointer-events-none flex-1 select-none" inert>
-        {children}
+        <WidgetSizeProvider size={item.size} className="h-full">
+          {children}
+        </WidgetSizeProvider>
       </div>
     </div>
   )

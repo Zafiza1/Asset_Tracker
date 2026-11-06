@@ -471,7 +471,7 @@ function Step8() {
     ]}>
       <div className="grid gap-3 md:grid-cols-3">
         <PathCard title={<MenuLink to="/" permission="report.view">Dashboard</MenuLink>}>
-          <p>Ringkasan jumlah, nilai, status, dan lokasi aset. Gunakan <Label>Atur tata letak</Label> untuk menyusun analisis yang ingin ditampilkan.</p>
+          <p>Ringkasan jumlah, nilai, status, dan lokasi aset. Gunakan <Label>Atur tata letak</Label> untuk menyusun analisis yang ingin ditampilkan. Isi widget menyesuaikan lebarnya: makin lebar, makin lengkap analisisnya.</p>
         </PathCard>
         <PathCard title={<MenuLink to="/laporan" permission="report.view">Laporan Aset</MenuLink>}>
           <p>Saring aset yang diperlukan, lalu unduh dengan <Label>Export Excel</Label> atau <Label>Export PDF</Label>. Isi file mengikuti filter yang dipilih.</p>

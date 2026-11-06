@@ -3,6 +3,7 @@
 namespace Tests\Feature\Assets;
 
 use App\Domain\Organization\Models\Organization;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -111,6 +112,16 @@ class AssetAnalyticsTest extends TestCase
         $this->assertSame(['lt1' => 1, '1_3' => 1, '3_5' => 0, '5_10' => 1, 'gte10' => 0], array_column($data['age']['buckets'], 'count', 'key'));
         $this->assertSame(2, $data['age']['unknown']);
 
+        // Largest category first; assets without an acquisition date are left out.
+        $this->assertSame(['Perangkat IT', 'Kategori 1'], array_column($data['age']['by_category'], 'name'));
+        $this->assertSame(['lt1' => 1, '1_3' => 1, '3_5' => 0, '5_10' => 0, 'gte10' => 0], $data['age']['by_category'][0]['buckets']);
+        $this->assertSame(2, $data['age']['by_category'][0]['total']);
+        $this->assertSame(1, $data['age']['by_category'][1]['total']);
+        $this->assertEqualsWithDelta(6.3, $data['age']['by_category'][1]['average_years'], 0.2);
+
+        $this->assertSame(['Proyektor lama', 'Server', 'Laptop'], array_map(fn (array $item): string => $item['asset']['name'], $data['age']['oldest']));
+        $this->assertEqualsWithDelta(6.3, $data['age']['oldest'][0]['age_years'], 0.2);
+
         $this->assertSame(['Perangkat IT', 'Kategori 1'], array_column($data['value_by_category'], 'name'));
         $this->assertEquals(60000000, (float) $data['value_by_category'][0]['value']);
 
@@ -135,7 +146,7 @@ class AssetAnalyticsTest extends TestCase
     {
         // Assets are registered with a location now; older ones without one still count as such.
         if (array_key_exists('location_id', $data) && $data['location_id'] === null) {
-            $id = $this->asset(['name' => $data['name']]);
+            $id = $this->asset(array_diff_key($data, ['location_id' => true]));
             DB::table('assets')->where('id', $id)->update(['location_id' => null]);
 
             return $id;

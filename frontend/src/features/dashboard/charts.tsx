@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { formatPercent } from '../../lib/format'
+import { monthLongLabel, monthShortLabel } from './chartFormat'
 
 /**
  * Small dependency-free charts for the dashboard.
@@ -27,7 +28,7 @@ export interface SliceDatum {
  * Part-to-whole donut for a handful of classes. The legend prints every value and share,
  * so it doubles as the table; hovering a slice or legend row shows it in the center.
  */
-export function DonutChart({ data, totalLabel, emptyText = 'Belum ada data.' }: { data: SliceDatum[]; totalLabel: string; emptyText?: string }) {
+export function DonutChart({ data, totalLabel, emptyText = 'Belum ada data.', layout = 'stacked' }: { data: SliceDatum[]; totalLabel: string; emptyText?: string; layout?: 'stacked' | 'row' }) {
   const [hover, setHover] = useState<string | null>(null)
   const total = data.reduce((sum, d) => sum + d.value, 0)
   if (total === 0) return <p className="p-4 text-sm text-slate-500">{emptyText}</p>
@@ -42,7 +43,7 @@ export function DonutChart({ data, totalLabel, emptyText = 'Belum ada data.' }: 
   const active = data.find((d) => d.key === hover)
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-4 p-4 xl:flex-col xl:items-stretch" onMouseLeave={() => setHover(null)}>
+    <div className={clsx('flex gap-x-6 gap-y-4 p-4', layout === 'stacked' ? 'flex-col items-stretch' : 'flex-wrap items-center')} onMouseLeave={() => setHover(null)}>
       <div className="relative mx-auto shrink-0" style={{ width: size, height: size }}>
         <svg viewBox={`0 0 ${size} ${size}`} className="size-full -rotate-90" role="img" aria-label={`Diagram ${totalLabel}: ${data.map((d) => `${d.label} ${d.value}`).join(', ')}`}>
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={TRACK} strokeWidth={stroke} />
@@ -118,35 +119,59 @@ export function Gauge({ value, label, note }: { value: number | null; label: str
   )
 }
 
-/** One horizontal 100% bar split into parts, with a legend that prints every value. */
-export function StackedBar({ data, emptyText = 'Belum ada data.' }: { data: SliceDatum[]; emptyText?: string }) {
+/** One horizontal 100% bar split into parts, with a legend that prints every value (optional when the rows beside it already do). */
+export function StackedBar({ data, emptyText = 'Belum ada data.', legend = true, format = (v) => v.toLocaleString('id-ID') }: { data: SliceDatum[]; emptyText?: string; legend?: boolean; format?: (value: number) => string }) {
   const total = data.reduce((sum, d) => sum + d.value, 0)
   if (total === 0) return <p className="text-sm text-slate-500">{emptyText}</p>
   return (
     <div>
-      <div className="flex h-3.5 w-full gap-0.5 overflow-hidden rounded-full" role="img" aria-label={data.map((d) => `${d.label} ${d.value}`).join(', ')}>
+      <div className="flex h-3.5 w-full gap-0.5 overflow-hidden rounded-full" role="img" aria-label={data.map((d) => `${d.label} ${format(d.value)}`).join(', ')}>
         {data
           .filter((d) => d.value > 0)
           .map((d) => (
-            <div key={d.key} className="h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${(d.value / total) * 100}%`, backgroundColor: d.color }} title={`${d.label}: ${d.value}`} />
+            <div key={d.key} className="h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${(d.value / total) * 100}%`, backgroundColor: d.color }} title={`${d.label}: ${format(d.value)}`} />
           ))}
       </div>
-      <ul className="mt-2.5 grid gap-1 text-sm">
+      {legend && <ul className="mt-2.5 grid grid-cols-1 gap-1 text-sm">
         {data.map((d) => (
           <li key={d.key} className="flex items-center gap-2">
             <Swatch color={d.color} />
             {d.to ? (
-              <Link to={d.to} className="flex-1 truncate text-slate-700 hover:text-brand-700 hover:underline">
+              <Link to={d.to} className="min-w-0 flex-1 truncate text-slate-700 hover:text-brand-700 hover:underline">
                 {d.label}
               </Link>
             ) : (
-              <span className="flex-1 truncate text-slate-700">{d.label}</span>
+              <span className="min-w-0 flex-1 truncate text-slate-700">{d.label}</span>
             )}
-            <span className="font-medium tabular-nums text-slate-900">{d.value.toLocaleString('id-ID')}</span>
+            <span className="shrink-0 font-medium tabular-nums text-slate-900">{format(d.value)}</span>
           </li>
         ))}
-      </ul>
+      </ul>}
     </div>
+  )
+}
+
+/** Tiny single-series columns for a stat tile: the shape of the series, exact values in each column's tooltip. */
+export function MiniColumns({ data, label, unit = '' }: { data: BarDatum[]; label: string; unit?: string }) {
+  const width = 160
+  const height = 48
+  const gap = 2
+  const max = Math.max(1, ...data.map((d) => d.value))
+  const band = width / Math.max(1, data.length)
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-12 w-full" preserveAspectRatio="none" role="img" aria-label={`${label}: ${data.map((d) => `${d.label} ${d.value}`).join(', ')}`}>
+      <line x1={0} x2={width} y1={height - 0.5} y2={height - 0.5} stroke="#cbd5e1" />
+      {data.map((d, i) => {
+        const h = (d.value / max) * (height - 2)
+        return (
+          <g key={d.key}>
+            <title>{`${d.label}: ${d.value.toLocaleString('id-ID')} ${unit}`.trimEnd()}</title>
+            {d.value > 0 && <rect x={i * band + gap / 2} y={height - h - 1} width={band - gap} height={h} fill={SERIES.one} />}
+            <rect x={i * band} y={0} width={band} height={height} fill="transparent" />
+          </g>
+        )
+      })}
+    </svg>
   )
 }
 
@@ -202,6 +227,13 @@ export interface BarDatum {
   to?: string
 }
 
+type ListColumns = 1 | 2
+
+const LIST_COLUMNS: Record<ListColumns, string> = {
+  1: 'space-y-2.5',
+  2: 'grid grid-cols-2 gap-x-6 gap-y-2.5',
+}
+
 /** Horizontal bars for one measure across categories, sorted by the caller. Values are printed, so the list doubles as its table. */
 export function BarList({
   data: all,
@@ -209,6 +241,7 @@ export function BarList({
   unit = 'aset',
   format = (v) => v.toLocaleString('id-ID'),
   limit,
+  columns = 1,
 }: {
   data: BarDatum[]
   emptyText?: string
@@ -216,13 +249,14 @@ export function BarList({
   format?: (value: number) => string
   /** Show at most this many rows; the rest fold into one "Lainnya" row. */
   limit?: number
+  columns?: ListColumns
 }) {
   const data = limit && all.length > limit ? [...all.slice(0, limit - 1), { key: '__other', label: `Lainnya (${all.length - limit + 1})`, value: all.slice(limit - 1).reduce((s, d) => s + d.value, 0) }] : all
   const max = Math.max(1, ...data.map((d) => d.value))
   if (data.length === 0 || data.every((d) => d.value === 0)) return <p className="p-4 text-sm text-slate-500">{emptyText}</p>
 
   return (
-    <ul className="space-y-2.5 p-4">
+    <ul className={clsx('p-4', LIST_COLUMNS[columns])}>
       {data.map((d) => {
         const label = d.to ? (
           <Link to={d.to} className="truncate text-slate-700 hover:text-brand-700 hover:underline">
@@ -255,9 +289,9 @@ export interface MeterDatum {
 }
 
 /** Share of a whole per row (e.g. data completeness per field): percentage printed, count in the tooltip. */
-export function MeterList({ data }: { data: MeterDatum[] }) {
+export function MeterList({ data, columns = 1 }: { data: MeterDatum[]; columns?: ListColumns }) {
   return (
-    <ul className="space-y-2.5 p-4">
+    <ul className={clsx('p-4', LIST_COLUMNS[columns])}>
       {data.map((d) => {
         const pct = d.total > 0 ? (d.part / d.total) * 100 : 0
         return (
@@ -282,20 +316,16 @@ export interface TrendPoint {
   changes: number
 }
 
-const monthShort = new Intl.DateTimeFormat('id-ID', { month: 'short' })
-const monthLong = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' })
-const toDate = (month: string) => new Date(`${month}-01T00:00:00`)
-
 /**
  * Grouped columns per month: assets added vs. other changes. One y-axis (both are counts),
  * legend + hover tooltip per month, and a table view for screen readers and exact values.
  */
-export function TrendChart({ data }: { data: TrendPoint[] }) {
+export function TrendChart({ data, compact = false }: { data: TrendPoint[]; /** Drawing size for a narrower card, so axis text isn't scaled down with it. */ compact?: boolean }) {
   const [hover, setHover] = useState<number | null>(null)
   const [showTable, setShowTable] = useState(false)
 
-  const width = 640
-  const height = 220
+  const width = compact ? 440 : 640
+  const height = compact ? 200 : 220
   const pad = { top: 12, right: 8, bottom: 26, left: 32 }
   const plotW = width - pad.left - pad.right
   const plotH = height - pad.top - pad.bottom
@@ -340,7 +370,7 @@ export function TrendChart({ data }: { data: TrendPoint[] }) {
           <tbody className="divide-y divide-slate-100">
             {data.map((d) => (
               <tr key={d.month}>
-                <td className="py-1 text-slate-700">{monthLong.format(toDate(d.month))}</td>
+                <td className="py-1 text-slate-700">{monthLongLabel(d.month)}</td>
                 <td className="py-1 text-right tabular-nums text-slate-900">{d.added}</td>
                 <td className="py-1 text-right tabular-nums text-slate-900">{d.changes}</td>
               </tr>
@@ -367,7 +397,7 @@ export function TrendChart({ data }: { data: TrendPoint[] }) {
                   {column(gx, d.added, SERIES.one)}
                   {column(gx + barW + 2, d.changes, SERIES.two)}
                   <text x={x0 + band / 2} y={height - 8} textAnchor="middle" fontSize={10} fill="#64748b">
-                    {monthShort.format(toDate(d.month))}
+                    {monthShortLabel(d.month)}
                   </text>
                   {/* Hit target: the whole month band, larger than the bars. */}
                   <rect x={x0} y={pad.top} width={band} height={plotH} fill="transparent" onMouseEnter={() => setHover(i)} />
@@ -381,7 +411,7 @@ export function TrendChart({ data }: { data: TrendPoint[] }) {
               style={{ left: `${Math.min(80, ((hover + 0.5) / data.length) * 100)}%` }}
               role="status"
             >
-              <p className="mb-1 font-semibold text-slate-900">{monthLong.format(toDate(data[hover].month))}</p>
+              <p className="mb-1 font-semibold text-slate-900">{monthLongLabel(data[hover].month)}</p>
               <p className="flex items-center gap-1.5 text-slate-700">
                 <Swatch color={SERIES.one} /> Ditambahkan: <span className="font-medium tabular-nums text-slate-900">{data[hover].added}</span>
               </p>
@@ -405,6 +435,6 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   )
 }
 
-function Swatch({ color }: { color: string }) {
+export function Swatch({ color }: { color: string }) {
   return <span className="inline-block size-2.5 rounded-sm" style={{ backgroundColor: color }} aria-hidden />
 }

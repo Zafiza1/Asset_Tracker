@@ -36,6 +36,8 @@ final class AssetAnalytics
 
     private const IDLE_LIMIT = 5;
 
+    private const OLDEST_LIMIT = 5;
+
     /** Age buckets by acquisition date: key => [from years (inclusive), to years (exclusive) or null, label]. */
     private const AGE_BUCKETS = [
         'lt1' => [0, 1, '< 1 tahun'],
@@ -129,7 +131,13 @@ final class AssetAnalytics
      * Age of the assets still in service (not disposed) by acquisition date. Dates in the
      * future count as less than a year old.
      *
-     * @return array{buckets: list<array{key: string, label: string, count: int}>, unknown: int, average_years: float|null}
+     * @return array{
+     *     buckets: list<array{key: string, label: string, count: int}>,
+     *     unknown: int,
+     *     average_years: float|null,
+     *     by_category: list<array{id: string, name: string, total: int, average_years: float, buckets: array<string, int>}>,
+     *     oldest: list<array{asset: array{id: string, asset_number: string, name: string}, location: string|null, acquisition_date: string, age_years: float}>,
+     * }
      */
     private function age(CarbonImmutable $today): array
     {
@@ -156,7 +164,76 @@ final class AssetAnalytics
             'buckets' => $buckets,
             'unknown' => (int) $row->unknown,
             'average_years' => $row->average_days === null ? null : round((float) $row->average_days / 365.25, 1),
+            'by_category' => $this->ageByCategory(clone $base, $date),
+            'oldest' => $this->oldestAssets(clone $base, $today),
         ];
+    }
+
+    /**
+     * Age buckets and average age per category, for assets with an acquisition date; largest category first.
+     *
+     * @return list<array{id: string, name: string, total: int, average_years: float, buckets: array<string, int>}>
+     */
+    private function ageByCategory(Builder $assets, string $date): array
+    {
+        $rows = $assets->toBase()
+            ->join('tenant_asset_categories as c', 'c.id', '=', 'assets.category_id')
+            ->whereNotNull('assets.acquisition_date')
+            ->select('c.id', 'c.name')
+            ->selectRaw("greatest(0, date_part('year', age(cast(? AS date), assets.acquisition_date)))::int AS years", [$date])
+            ->selectRaw('count(*) AS count')
+            ->selectRaw('sum(greatest(0, cast(? AS date) - assets.acquisition_date)) AS days', [$date])
+            ->groupBy('c.id', 'c.name', 'years')
+            ->get();
+
+        return $rows->groupBy('id')
+            ->map(function ($group): array {
+                $counts = array_map(fn (): int => 0, self::AGE_BUCKETS);
+                foreach ($group as $row) {
+                    $counts[$this->ageBucketKey((int) $row->years)] += (int) $row->count;
+                }
+                $total = array_sum($counts);
+
+                return [
+                    'id' => $group->first()->id,
+                    'name' => $group->first()->name,
+                    'total' => $total,
+                    'average_years' => round($group->sum(fn ($row): float => (float) $row->days) / $total / 365.25, 1),
+                    'buckets' => $counts,
+                ];
+            })
+            ->sortBy([['total', 'desc'], ['name', 'asc']])
+            ->values()->all();
+    }
+
+    private function ageBucketKey(int $years): string
+    {
+        foreach (self::AGE_BUCKETS as $key => [$from, $to]) {
+            if ($years >= $from && ($to === null || $years < $to)) {
+                return $key;
+            }
+        }
+
+        return array_key_last(self::AGE_BUCKETS);
+    }
+
+    /**
+     * The longest-held assets, oldest acquisition first: candidates for replacement.
+     *
+     * @return list<array{asset: array{id: string, asset_number: string, name: string}, location: string|null, acquisition_date: string, age_years: float}>
+     */
+    private function oldestAssets(Builder $assets, CarbonImmutable $today): array
+    {
+        return $assets->with('location:id,name')
+            ->whereNotNull('assets.acquisition_date')
+            ->orderBy('assets.acquisition_date')->orderBy('assets.asset_number')
+            ->limit(self::OLDEST_LIMIT)->get()
+            ->map(fn (Asset $asset): array => [
+                'asset' => ['id' => $asset->id, 'asset_number' => $asset->asset_number, 'name' => $asset->name],
+                'location' => $asset->location?->name,
+                'acquisition_date' => $asset->acquisition_date->toDateString(),
+                'age_years' => round(max(0, $asset->acquisition_date->diffInDays($today)) / 365.25, 1),
+            ])->all();
     }
 
     /**
