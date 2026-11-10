@@ -9,6 +9,7 @@ use App\Domain\Platform\Services\OrganizationProvisioner;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use App\Domain\TenantMaster\Services\CategoryAttributeService;
+use App\Domain\TenantMaster\Services\TenantCategoryService;
 use App\Domain\TenantMaster\StandardCategories;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -30,8 +31,11 @@ class StandardCategoriesTest extends TestCase
             foreach (['Merek', 'Model / Tipe', 'Catatan', 'Kondisi Aset', 'Satuan', 'Barcode', 'Pemilik', 'Penanggung Jawab', 'Jam Operasi'] as $general) {
                 $this->assertContains($general, $labels('AST_INVENTARIS'));
             }
-            $this->assertContains('Nomor Polisi', $labels('AST_KENDARAAN'));
-            $this->assertNotContains('Nomor Polisi', $labels('AST_IT'));
+            // Category-specific fields are ordinary (editable, removable) fields, not defaults.
+            $specific = fn (string $code) => TenantCategoryAttribute::query()->where('category_id', $categories[$code]->id)->where('is_default', false)->pluck('label')->all();
+            $this->assertNotContains('Nomor Polisi', $labels('AST_KENDARAAN'));
+            $this->assertContains('Nomor Polisi', $specific('AST_KENDARAAN'));
+            $this->assertNotContains('Nomor Polisi', $specific('AST_IT'));
 
             $condition = TenantCategoryAttribute::query()->where('category_id', $categories['AST_IT']->id)->where('label', 'Kondisi Aset')->firstOrFail();
             $this->assertTrue($condition->is_required);
@@ -40,6 +44,35 @@ class StandardCategoriesTest extends TestCase
             $storage = TenantCategoryAttribute::query()->where('category_id', $categories['AST_IT']->id)->where('label', 'Jenis Penyimpanan')->firstOrFail();
             $this->assertSame(CategoryAttributeService::SECTION_SPECIFIC, $storage->section);
         });
+    }
+
+    public function test_specific_fields_can_be_edited_moved_and_removed(): void
+    {
+        $org = $this->createOrganization('ACME');
+        $this->actingAs($org['admin'], 'web');
+        $category = $this->tenancy()->runAsSystem(fn () => $this->app->make(TenantCategoryService::class)
+            ->installStandard($org['organization']->id)['AST_KENDARAAN']);
+        $url = "/api/tenant-masters/categories/{$category->id}/attributes";
+        $fields = collect($this->getJson($url)->assertOk()->json('data'));
+        $plate = $fields->firstWhere('label', 'Nomor Polisi');
+        $this->assertFalse($plate['is_default']);
+        $this->assertSame(CategoryAttributeService::SECTION_SPECIFIC, $plate['section']);
+
+        $row = fn (array $f, array $patch = []) => ['id' => $f['id'], 'label' => $f['label'], 'data_type' => $f['data_type'], 'is_required' => $f['is_required'], 'options' => $f['options'], 'section' => $f['section'], ...$patch];
+        $color = $fields->firstWhere('label', 'Warna Kendaraan');
+        // Plate first, renamed, required and moved to "Informasi Dasar"; the colour field left out (removed).
+        $rows = [$row($plate, ['label' => 'Plat Nomor', 'is_required' => true, 'section' => 'basic_information'])];
+        foreach ($fields->where('category_id', $category->id) as $f) {
+            if ($f['id'] !== $plate['id'] && $f['id'] !== $color['id']) {
+                $rows[] = $row($f);
+            }
+        }
+        $saved = collect($this->putJson($url, ['attributes' => $rows])->assertOk()->json('data'));
+
+        $this->assertSame(['Plat Nomor', true, 'basic_information', $plate['key']], [$saved[0]['label'], $saved[0]['is_required'], $saved[0]['section'], $saved[0]['key']]);
+        $this->assertNull($saved->firstWhere('label', 'Warna Kendaraan'));
+        $this->assertSame('archived', TenantCategoryAttribute::query()->findOrFail($color['id'])->status);
+        $this->assertSame($fields->where('is_default', true)->count(), $saved->where('is_default', true)->count());
     }
 
     public function test_standard_fields_are_valid_and_their_labels_are_unique_within_a_category(): void

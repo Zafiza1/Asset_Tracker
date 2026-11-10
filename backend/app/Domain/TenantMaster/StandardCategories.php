@@ -7,8 +7,9 @@ use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use Illuminate\Support\Str;
 
 /**
- * The asset categories every organization starts with, each with its own default fields on top
- * of the general ones (CategoryAttributeService::DEFAULT_ATTRIBUTES). Merek, Model / Tipe and
+ * The asset categories every organization starts with, each with its own suggested fields
+ * ("atribut khusus") on top of the general defaults (CategoryAttributeService::DEFAULT_ATTRIBUTES).
+ * The suggested fields are ordinary fields the organization may edit, move or remove. Merek, Model / Tipe and
  * Nomor Seri are general fields, so they are not repeated here: labels must stay unique per category.
  */
 final class StandardCategories

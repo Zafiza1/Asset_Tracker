@@ -176,7 +176,9 @@ final class CategoryAttributeService
     }
 
     /**
-     * Adds the default fields specific to a standard category, after its general ones.
+     * Adds the suggested fields of a standard category ("atribut khusus"), after its general ones.
+     * Unlike the general defaults they are ordinary fields: the organization may rename them,
+     * change their options, move them to another section, or remove them.
      *
      * @param  list<array<string, mixed>>  $attributes  label, data_type, section, is_required, options?
      */
@@ -184,12 +186,12 @@ final class CategoryAttributeService
     {
         $sortOrder = (int) TenantCategoryAttribute::query()->where('category_id', $category->id)->max('sort_order');
         foreach ($attributes as $attr) {
-            $this->createDefault($category, $attr, ++$sortOrder);
+            $this->createDefault($category, $attr, ++$sortOrder, isDefault: false);
         }
     }
 
     /** @param array<string, mixed> $attr */
-    private function createDefault(TenantAssetCategory $category, array $attr, int $sortOrder): void
+    private function createDefault(TenantAssetCategory $category, array $attr, int $sortOrder, bool $isDefault = true): void
     {
         $label = trim($attr['label']);
 
@@ -203,7 +205,7 @@ final class CategoryAttributeService
             'is_required' => (bool) ($attr['is_required'] ?? false),
             'options' => $attr['options'] ?? null,
             'sort_order' => $sortOrder,
-            'is_default' => true,
+            'is_default' => $isDefault,
             'section' => $attr['section'],
         ], 'category_attribute.created', self::AUDIT);
     }
@@ -344,17 +346,17 @@ final class CategoryAttributeService
     }
 
     /**
-     * For an asset moving to another category: default fields of both categories with the same
-     * label (e.g. Kondisi Aset) have different keys, so their values move to the new key.
+     * For an asset moving to another category: fields of both categories with the same label and
+     * type (e.g. Kondisi Aset, Tahun Produksi) have different keys, so their values move to the new key.
      *
      * @param  array<string, mixed>  $values
      * @return array<string, mixed>
      */
     public function carryOver(string $fromCategoryId, string $toCategoryId, array $values): array
     {
-        $target = $this->effective($toCategoryId)->where('is_default', true)->keyBy('label');
-        foreach ($this->effective($fromCategoryId)->where('is_default', true) as $source) {
-            $field = $target[$source->label] ?? null;
+        $target = $this->effective($toCategoryId)->keyBy(fn (TenantCategoryAttribute $a) => mb_strtolower($a->label));
+        foreach ($this->effective($fromCategoryId) as $source) {
+            $field = $target[mb_strtolower($source->label)] ?? null;
             if ($field === null || $field->key === $source->key || $field->data_type !== $source->data_type
                 || ! array_key_exists($source->key, $values) || array_key_exists($field->key, $values)) {
                 continue;
