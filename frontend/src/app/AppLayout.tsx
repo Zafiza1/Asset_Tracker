@@ -127,8 +127,8 @@ function NotificationBell() {
     <Link
       to="/notifikasi"
       className="relative grid size-10 shrink-0 place-items-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-      aria-label={pending > 0 ? `Approval, ${pending} pengajuan menunggu` : 'Approval'}
-      title="Approval"
+      aria-label={pending > 0 ? `Persetujuan, ${pending} pengajuan menunggu` : 'Persetujuan'}
+      title="Persetujuan"
     >
       <Bell className="size-5" aria-hidden />
       {pending > 0 && (
@@ -174,7 +174,7 @@ function ApprovalToast() {
             {submitted.data.action_label}: {submitted.data.summary}
           </p>
           <Link to="/notifikasi" onClick={() => setSubmitted(null)} className="mt-2 inline-block font-semibold text-brand-700 hover:text-brand-800">
-            Lihat notifikasi
+            Lihat persetujuan
           </Link>
         </div>
         <button type="button" onClick={() => setSubmitted(null)} className="-mr-1 -mt-1 grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Tutup">
@@ -227,14 +227,19 @@ function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate:
         const expanded = !section.title || (open[section.title] ?? hasActive)
         const listId = `sidenav-${i}`
         return (
-          <div key={section.title ?? i}>
+          <div key={section.title ?? i} className={clsx(section.group && 'pt-3')}>
+            {section.group && (
+              <p className="px-2.5 pb-0.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-brand-400/80" aria-hidden>
+                {section.group}
+              </p>
+            )}
             {section.title && (
               <button
                 type="button"
                 onClick={() => setOpen((o) => ({ ...o, [section.title!]: !expanded }))}
                 className={clsx(
-                  'flex min-h-9 w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm font-semibold uppercase tracking-wide transition-colors hover:bg-white/8 hover:text-white',
-                  hasActive && !expanded ? 'text-white' : 'text-brand-300/90',
+                  'flex min-h-9 w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm font-semibold transition-colors hover:bg-white/8 hover:text-white',
+                  hasActive && !expanded ? 'text-white' : 'text-brand-200',
                 )}
                 aria-expanded={expanded}
                 aria-controls={listId}

@@ -11,6 +11,8 @@ export interface NavItem {
 }
 
 export interface NavSection {
+  /** Small uppercase group label shown above the section (e.g. "Operasional"). */
+  group?: string
   title?: string
   items: NavItem[]
 }
@@ -21,33 +23,24 @@ export interface NavSection {
  * a user menu; developers inspect it with `php artisan asset:inspect`.
  */
 export const tenantNavigation: NavSection[] = [
+  { items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard }] },
   {
+    group: 'Operasional',
+    title: 'Manajemen Aset',
     items: [
-      { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-      // Approval requests: approvers decide here, everyone else follows their own submissions.
-      { to: '/notifikasi', label: 'Approval', icon: Bell, approvalBadge: true },
-      { to: '/panduan', label: 'Panduan', icon: BookOpen },
-    ],
-  },
-  {
-    title: 'Aset',
-    items: [
-      { to: '/aset', label: 'Pendataan Aset', icon: Boxes, permission: 'asset.view' },
-    ],
-  },
-  {
-    title: 'Transaksi',
-    items: [
+      { to: '/aset', label: 'Data Aset', icon: Boxes, permission: 'asset.view' },
       { to: '/transaksi', label: 'Transaksi Aset', icon: ArrowLeftRight, permission: 'transaction.view' },
+      // Approval requests: approvers decide here, everyone else follows their own submissions.
+      { to: '/notifikasi', label: 'Persetujuan', icon: Bell, approvalBadge: true },
     ],
   },
   {
-    title: 'Laporan',
-    items: [
-      { to: '/laporan', label: 'Laporan Aset', icon: FileBarChart, permission: 'report.view' },
-    ],
+    group: 'Monitoring',
+    title: 'Laporan & Analisis',
+    items: [{ to: '/laporan', label: 'Laporan Aset', icon: FileBarChart, permission: 'report.view' }],
   },
   {
+    group: 'Konfigurasi',
     title: 'Master Data',
     items: [
       { to: '/master/kategori', label: 'Kategori Aset', icon: FolderTree, permission: 'master.tenant.view' },
@@ -56,20 +49,21 @@ export const tenantNavigation: NavSection[] = [
   },
   {
     // Optional modules, one entry each; switched on and off on their own page.
+    group: 'Ekstensi',
     title: 'Modul',
-    items: [
-      { to: '/modul/barcode', label: 'Barcode', icon: QrCode, permission: 'settings.manage' },
-    ],
+    items: [{ to: '/modul/barcode', label: 'Barcode', icon: QrCode, permission: 'settings.manage' }],
   },
   {
+    group: 'Administrasi',
     title: 'Administrasi',
     items: [
       { to: '/organisasi', label: 'Organisasi', icon: Building2, permission: 'organization.view' },
       { to: '/pengguna', label: 'Pengguna', icon: Users, permission: 'user.view' },
-      { to: '/pengaturan', label: 'Pengaturan Lisensi', icon: KeyRound, permission: 'license.manage' },
+      { to: '/pengaturan', label: 'Lisensi', icon: KeyRound, permission: 'license.manage' },
       { to: '/audit', label: 'Audit Trail', icon: FileClock, permission: 'audit.view' },
     ],
   },
+  { items: [{ to: '/panduan', label: 'Panduan', icon: BookOpen }] },
   { title: 'Akun', items: [{ to: '/ubah-password', label: 'Ubah Password', icon: KeyRound }] },
 ]
 
@@ -101,14 +95,14 @@ export const breadcrumbLabels: Record<string, string> = {
   'kode-lisensi': 'Kode Lisensi',
   modul: 'Modul',
   barcode: 'Barcode',
-  pengaturan: 'Pengaturan Lisensi',
+  pengaturan: 'Lisensi',
   audit: 'Audit Trail',
-  notifikasi: 'Approval',
+  notifikasi: 'Persetujuan',
   panduan: 'Panduan',
   platform: 'Platform',
   baru: 'Baru',
   'ubah-password': 'Ubah Password',
-  aset: 'Pendataan Aset',
+  aset: 'Data Aset',
   transaksi: 'Transaksi Aset',
   laporan: 'Laporan Aset',
   master: 'Master Data',

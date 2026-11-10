@@ -268,7 +268,7 @@ function Step4() {
       { when: 'Anda Super Admin atau Supervisor, dan aset tidak perlu label', n: 7 },
     ]}>
       <NumberedList items={[
-        <>Buka <MenuLink to="/aset" permission="asset.view">Pendataan Aset</MenuLink>, lalu klik <Label>Tambah aset</Label> → <Label>Isi formulir</Label>.</>,
+        <>Buka <MenuLink to="/aset" permission="asset.view">Data Aset</MenuLink>, lalu klik <Label>Tambah aset</Label> → <Label>Isi formulir</Label>.</>,
         <>Isi <Label>Nama aset</Label> dan <Label>Kategori</Label>. <Label>No Alias</Label> boleh dikosongkan, tetapi harus unik bila diisi. Isian atribut tampil sesuai kategori yang dipilih.</>,
         <>Pilih <Label>Lokasi</Label>, <Label>Status</Label> awal, dan <Label>Kondisi Aset</Label>, lalu lengkapi tanggal dan harga perolehan bila ada.</>,
         <>Klik <Label>Simpan</Label>. No Aset dibuat otomatis dan riwayat <Label>Penambahan aset</Label> tercatat dengan sendirinya.</>,
@@ -371,7 +371,7 @@ function Step6() {
       <NumberedList items={[
         <>Super Admin atau Supervisor mengaktifkan <MenuLink to="/modul/barcode" permission="settings.manage">Modul Barcode</MenuLink>. Cukup sekali.</>,
         <>Pada setiap aset yang perlu label, klik <Label>Ubah</Label> lalu atur isian <Label>Barcode</Label> menjadi <Label>Ya</Label>.</>,
-        <>Di <MenuLink to="/aset" permission="asset.view">Pendataan Aset</MenuLink>, klik <Label>Print</Label> pada aset tersebut, lalu cetak Barcode 1D, QR Code, atau keduanya.</>,
+        <>Di <MenuLink to="/aset" permission="asset.view">Data Aset</MenuLink>, klik <Label>Print</Label> pada aset tersebut, lalu cetak Barcode 1D, QR Code, atau keduanya.</>,
         'Tempel label pada aset fisik.',
       ]} />
       <PathCard title="Memindai dengan aplikasi mobile">
@@ -487,7 +487,7 @@ function Step8() {
 const PROBLEMS: { q: string; a: ReactNode }[] = [
   { q: 'Menu yang saya cari tidak ada, atau muncul "Akses ditolak".', a: 'Role Anda belum memiliki izin untuk menu itu. Hubungi Super Admin atau Supervisor organisasi Anda.' },
   { q: 'Perubahan yang saya simpan belum terlihat.', a: <>Kemungkinan masih menunggu persetujuan. Periksa statusnya di <MenuLink to="/notifikasi">Approval</MenuLink>.</> },
-  { q: 'Saya tidak menemukan aset tertentu.', a: 'Aset itu mungkin berada di luar cakupan data Anda, atau sudah nonaktif. Untuk melihat aset nonaktif, ubah filter di Pendataan Aset menjadi "Aset nonaktif".' },
+  { q: 'Saya tidak menemukan aset tertentu.', a: 'Aset itu mungkin berada di luar cakupan data Anda, atau sudah nonaktif. Untuk melihat aset nonaktif, ubah filter di Data Aset menjadi "Aset nonaktif".' },
   { q: 'Aset tidak dapat dicentang saat mencatat transaksi.', a: 'Status aset tidak mengizinkan jenis transaksi itu, misalnya aset yang sedang dipinjam tidak dapat dipindahkan. Lihat tabel status pada langkah 7.' },
   { q: 'Saya salah mencatat transaksi.', a: 'Transaksi tidak dapat diubah atau dihapus. Catat transaksi baru untuk mengembalikan data ke keadaan yang benar.' },
   { q: 'Tombol cetak barcode tidak muncul.', a: 'Pastikan Modul Barcode sudah aktif dan isian Barcode pada aset itu bernilai Ya.' },
@@ -495,7 +495,7 @@ const PROBLEMS: { q: string; a: ReactNode }[] = [
   { q: 'Import Excel gagal.', a: 'Baca daftar baris yang salah pada pesan error, perbaiki file, lalu unggah ulang. Selama masih ada baris yang salah, tidak ada data yang disimpan.' },
   { q: 'Saya lupa password.', a: 'Minta Super Admin atau Supervisor mengatur password sementara dari halaman detail pengguna. Anda akan diminta menggantinya saat masuk.' },
   { q: 'Tautan undangan tidak berlaku.', a: 'Undangan punya batas waktu dan hanya dapat dipakai sekali. Minta Super Admin memilih Kirim ulang. Bila diminta verifikasi email, selesaikan dahulu lalu buka kembali tautannya.' },
-  { q: 'Saya tidak dapat mengundang pengguna.', a: 'Hanya Super Admin yang dapat mengundang, jadi mintalah Super Admin mengirim undangannya. Bila pilihan kode lisensi kosong, Super Admin dapat memeriksa sisa lisensi di Pengaturan Lisensi, lalu mencabut undangan yang tidak diperlukan atau menghubungi pengelola aplikasi untuk menambah lisensi.' },
+  { q: 'Saya tidak dapat mengundang pengguna.', a: 'Hanya Super Admin yang dapat mengundang, jadi mintalah Super Admin mengirim undangannya. Bila pilihan kode lisensi kosong, Super Admin dapat memeriksa sisa lisensi di menu Lisensi, lalu mencabut undangan yang tidak diperlukan atau menghubungi pengelola aplikasi untuk menambah lisensi.' },
 ]
 
 function Troubleshooting() {

@@ -45,7 +45,7 @@ describe('GuidePage', () => {
 
   it('only links to pages the role can open', () => {
     const first = renderGuide(['asset.view'])
-    expect(screen.getAllByRole('link', { name: 'Pendataan Aset' })[0]).toHaveAttribute('href', '/aset')
+    expect(screen.getAllByRole('link', { name: 'Data Aset' })[0]).toHaveAttribute('href', '/aset')
     expect(screen.queryByRole('link', { name: 'Modul Barcode' })).not.toBeInTheDocument()
     expect(screen.getByText('Modul Barcode')).toBeInTheDocument()
     first.unmount()

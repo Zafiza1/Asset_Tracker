@@ -3,7 +3,7 @@ import { Alert } from '../components/ui/Feedback'
 import { Button } from '../components/ui/Button'
 
 interface Props {
-  /** Shown in the message, e.g. "Pendataan Aset". */
+  /** Shown in the message, e.g. "Data Aset". */
   name?: string
   /** Changing the key (e.g. the pathname) clears the error, so navigating away always recovers. */
   children: ReactNode

@@ -276,7 +276,7 @@ export function AssetsPage() {
   return (
     <>
       <PageHeader
-        title="Pendataan Aset"
+        title="Data Aset"
         actions={
           (can("asset.create") || can("asset.update")) && (
             <div className="flex gap-2">

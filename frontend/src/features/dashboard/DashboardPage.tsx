@@ -161,9 +161,9 @@ function NoAssets() {
           <Boxes className="size-7" aria-hidden />
         </span>
         <p className="font-display text-lg font-semibold text-slate-900">Belum ada aset terdaftar</p>
-        <p className="max-w-md text-sm text-slate-500">Analisis muncul otomatis setelah aset ditambahkan. Mulai dari menu Pendataan Aset.</p>
+        <p className="max-w-md text-sm text-slate-500">Analisis muncul otomatis setelah aset ditambahkan. Mulai dari menu Data Aset.</p>
         <Link to="/aset" className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-800">
-          Buka Pendataan Aset
+          Buka Data Aset
         </Link>
       </div>
     </Card>

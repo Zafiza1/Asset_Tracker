@@ -171,7 +171,7 @@ export function RegisterPage() {
                 Kode lisensi Anda telah dibuat!
               </p>
               <p className="mt-1 text-sm text-green-800">
-                Anda dapat melihat kode lisensi di menu <strong>Pengaturan Lisensi</strong>.
+                Anda dapat melihat kode lisensi di menu <strong>Lisensi</strong>.
               </p>
               <p className="mt-2 text-xs text-green-700">
                 Kode lisensi dapat digunakan untuk mengundang anggota baru ke organisasi Anda.
@@ -180,7 +180,7 @@ export function RegisterPage() {
           )}
           <div className="rounded-md bg-brand-50 p-3">
             <p className="text-sm text-brand-900">
-              Tips: Kunjungi menu <strong>Administrasi → Pengaturan Lisensi</strong> untuk melihat dan mengelola kode lisensi Anda.
+              Tips: Kunjungi menu <strong>Administrasi → Lisensi</strong> untuk melihat dan mengelola kode lisensi Anda.
             </p>
           </div>
         </div>
