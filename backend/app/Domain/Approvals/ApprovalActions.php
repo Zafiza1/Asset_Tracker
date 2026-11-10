@@ -4,7 +4,8 @@ namespace App\Domain\Approvals;
 
 /**
  * Changes that need approval when made by a user without approval.manage: every write of the
- * Transactions, Asset Management and Master Data modules. The route declares its action with
+ * Asset Management and Master Data modules. Transactions apply at once; `transaction.create`
+ * stays listed only so requests submitted before that change can still be shown and decided. The route declares its action with
  * the `approval:<action>` middleware; this class is the single list of actions and labels.
  */
 final class ApprovalActions

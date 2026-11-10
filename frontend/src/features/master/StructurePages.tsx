@@ -1,5 +1,6 @@
-import { FileSpreadsheet, Plus, SlidersHorizontal, Upload } from 'lucide-react'
+import { FileSpreadsheet, SlidersHorizontal } from 'lucide-react'
 import { useState } from 'react'
+import { AddMenu } from '../../components/ui/AddMenu'
 import { Button } from '../../components/ui/Button'
 import { PageHeader } from '../../components/ui/Card'
 import { ImportModal } from '../../components/ui/ImportModal'
@@ -62,14 +63,7 @@ export function LocationsPage() {
                 </Button>
               )}
               {permissions.canCreate && (
-                <>
-                  <Button variant="secondary" onClick={() => setImporting(true)}>
-                    <Upload className="size-4" aria-hidden /> Import
-                  </Button>
-                  <Button onClick={() => setEditing('new')}>
-                    <Plus className="size-4" aria-hidden /> Tambah lokasi
-                  </Button>
-                </>
+                <AddMenu label="Tambah lokasi" noun="lokasi" onForm={() => setEditing('new')} onImport={() => setImporting(true)} />
               )}
             </div>
           )
@@ -109,7 +103,7 @@ export function LocationsPage() {
         <ImportModal
           open={importing}
           onClose={() => setImporting(false)}
-          title="Import Lokasi"
+          title="Tambah Lokasi dari Excel (Import)"
           endpoint="/locations/import"
           templateEndpoint="/locations/template"
           templateFilename="template_lokasi.xlsx"
@@ -135,6 +129,7 @@ export function TenantCategoriesPage() {
   const categories = toOptions(useOptions<TenantCategory>('/tenant-masters/categories').data)
   const permissions = useMasterPermissions()
   const [attributesOf, setAttributesOf] = useState<TenantCategory | null>(null)
+  const [editing, setEditing] = useState<TenantCategory | 'new' | null>(null)
   const [importing, setImporting] = useState(false)
   const [bulkEditing, setBulkEditing] = useState(false)
   return (
@@ -143,6 +138,10 @@ export function TenantCategoriesPage() {
         title="Kategori Aset"
         endpoint="/tenant-masters/categories"
         {...permissions}
+        // Adding goes through the AddMenu in headerActions (form or Excel import).
+        canCreate={false}
+        editing={editing}
+        onEditChange={setEditing}
         canDelete={permissions.canArchive}
         headerActions={
           <>
@@ -152,9 +151,7 @@ export function TenantCategoriesPage() {
               </Button>
             )}
             {permissions.canCreate && (
-              <Button variant="secondary" onClick={() => setImporting(true)}>
-                <Upload className="size-4" aria-hidden /> Import
-              </Button>
+              <AddMenu label="Tambah kategori" noun="kategori" onForm={() => setEditing('new')} onImport={() => setImporting(true)} />
             )}
           </>
         }
@@ -186,7 +183,7 @@ export function TenantCategoriesPage() {
         <ImportModal
           open={importing}
           onClose={() => setImporting(false)}
-          title="Import Kategori Aset"
+          title="Tambah Kategori Aset dari Excel (Import)"
           endpoint="/tenant-masters/categories/import"
           templateEndpoint="/tenant-masters/categories/template"
           templateFilename="template_kategori_aset.xlsx"

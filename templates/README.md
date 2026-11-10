@@ -27,5 +27,5 @@ Kode dibuat otomatis dari nama jika kosong. Kategori Induk boleh berupa Kode kat
 Lokasi Induk boleh berupa Kode lokasi pada baris di atasnya dalam file yang sama.
 
 **Pendataan Aset** — Nama Aset\*, Kategori\*, Lokasi, Status (Tersedia/Digunakan/Dalam perbaikan; default Tersedia),
-Nomor Seri (unik), Tanggal Perolehan (YYYY-MM-DD), Biaya Perolehan (angka), Keterangan.
+No Alias (unik), Tanggal Perolehan (YYYY-MM-DD), Biaya Perolehan (angka), Keterangan.
 Buat kategori dan lokasi terlebih dahulu; nomor aset dibuat otomatis.

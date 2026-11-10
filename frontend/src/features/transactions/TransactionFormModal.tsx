@@ -80,9 +80,9 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
         />
       ),
     },
-    { key: 'code', header: 'Kode', cell: (a: Asset) => <span className="font-mono text-xs">{a.asset_number}</span> },
+    { key: 'code', header: 'No Aset', cell: (a: Asset) => <span className="font-mono text-xs">{a.asset_number}</span> },
     { key: 'name', header: 'Aset', cell: (a: Asset) => <span className="font-medium text-slate-900">{a.name}</span> },
-    { key: 'serial_number', header: 'No Seri', cell: (a: Asset) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>) },
+    { key: 'serial_number', header: 'No Alias', cell: (a: Asset) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>) },
     { key: 'category', header: 'Kategori', cell: (a: Asset) => a.category?.name ?? '—' },
     { key: 'location', header: 'Lokasi', cell: (a: Asset) => a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span> },
     {
@@ -305,7 +305,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
             )}
             {blocked.length > 0 && <Alert tone="error">Hapus aset yang ditandai merah, aset tersebut tidak dapat ikut transaksi ini.</Alert>}
 
-            <p className="mt-1.5 text-xs text-slate-500">Cari berdasarkan nama, nomor aset, atau nomor seri. Centang semua aset yang ikut dalam transaksi ini.</p>
+            <p className="mt-1.5 text-xs text-slate-500">Cari berdasarkan nama, nomor aset, atau nomor alias. Centang semua aset yang ikut dalam transaksi ini.</p>
             <FilterPanel>
               <SearchForm
                 value={search}

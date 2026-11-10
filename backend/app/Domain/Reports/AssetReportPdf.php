@@ -18,9 +18,9 @@ final class AssetReportPdf extends TCPDF
     /** Column header => [width mm, alignment]; widths add up to the printable width (277 mm). */
     private const COLUMNS = [
         'No' => [9, 'C'],
-        'Kode Aset' => [30, 'L'],
+        'No Aset' => [30, 'L'],
         'Nama Aset' => [52, 'L'],
-        'No Seri' => [30, 'L'],
+        'No Alias' => [30, 'L'],
         'Kategori' => [36, 'L'],
         'Lokasi' => [36, 'L'],
         'Status' => [26, 'L'],

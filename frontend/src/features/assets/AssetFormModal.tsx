@@ -190,10 +190,10 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
         {formError && <Alert tone="error">{formError}</Alert>}
         {asset ? (
           <p className="text-sm text-slate-600">
-            Kode <span className="font-mono">{asset.asset_number}</span> dibuat sistem dan tidak dapat diubah. Lokasi dan status diubah lewat transaksi agar riwayatnya tercatat.
+            No Aset <span className="font-mono">{asset.asset_number}</span> dibuat sistem dan tidak dapat diubah. Lokasi dan status diubah lewat transaksi agar riwayatnya tercatat.
           </p>
         ) : (
-          <p className="text-sm text-slate-600">Kode aset dibuat otomatis oleh sistem setelah disimpan.</p>
+          <p className="text-sm text-slate-600">No Aset dibuat otomatis oleh sistem setelah disimpan.</p>
         )}
 
         <AssetImagePicker currentUrl={saved?.image_url ?? null} value={image} onChange={(v) => (setImageError(null), setImage(v))} error={imageError} />
@@ -202,7 +202,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
           {(p) => <Input {...p} {...register('name', { required: 'Nama aset wajib diisi.' })} />}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nomor Seri" error={err('serial_number')} hint="Nomor seri dari pabrik atau milik organisasi (harus unik bila diisi).">
+          <Field label="No Alias" error={err('serial_number')} hint="Nomor alias aset, misalnya nomor seri pabrik atau kode lama organisasi (harus unik bila diisi).">
             {(p) => <Input {...p} {...register('serial_number')} />}
           </Field>
           <Field label="Kategori" required error={err('category_id')}>

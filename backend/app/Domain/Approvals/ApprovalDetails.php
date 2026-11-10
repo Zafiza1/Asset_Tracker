@@ -8,6 +8,7 @@ use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Organization\Models\Location;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The submitted input of an approval request as readable rows for the approver: field labels
@@ -29,7 +30,7 @@ final class ApprovalDetails
         'code' => 'Kode',
         'name' => 'Nama',
         'label' => 'Nama atribut',
-        'serial_number' => 'Nomor seri',
+        'serial_number' => 'No alias',
         'category_id' => 'Kategori',
         'location_id' => 'Lokasi',
         'parent_id' => 'Induk',
@@ -101,7 +102,7 @@ final class ApprovalDetails
         };
     }
 
-    /** @param class-string<\Illuminate\Database\Eloquent\Model> $model */
+    /** @param class-string<Model> $model */
     private static function name(string $model, mixed $id): string
     {
         if (! is_string($id)) {

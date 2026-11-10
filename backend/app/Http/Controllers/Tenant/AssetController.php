@@ -9,6 +9,7 @@ use App\Domain\Assets\Services\AssetService;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\Shared\Exceptions\ApiException;
+use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use App\Http\Controllers\Controller;
@@ -34,6 +35,9 @@ class AssetController extends Controller
 {
     private const RELATIONS = ['category', 'location'];
 
+    /** Most assets the Multiple Edit dialog can pick; the ids travel in the download URL. */
+    private const MAX_EDIT_SELECTION = 100;
+
     private const SORTS = ['asset_number' => 'asset_number', 'name' => 'name', 'created_at' => 'created_at',
         'acquisition_date' => 'acquisition_date', 'status' => 'status'];
 
@@ -48,6 +52,7 @@ class AssetController extends Controller
         private readonly AssetService $assets,
         private readonly AssetScope $scope,
         private readonly CategoryAttributeService $attributes,
+        private readonly Tenancy $tenancy,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -276,7 +281,17 @@ class AssetController extends Controller
      */
     public function downloadEditSheet(Request $request): BinaryFileResponse
     {
-        $query = $this->filtered($request)->whereNull('archived_at');
+        // Comma-separated asset ids picked in the Multiple Edit dialog; they replace the list filters.
+        $request->validate(['ids' => ['nullable', 'string', 'max:'.(self::MAX_EDIT_SELECTION * 37)]]);
+        $ids = array_values(array_unique(array_filter(explode(',', (string) $request->query('ids')))));
+        $request->merge(['id_list' => $ids])->validate([
+            'id_list' => ['array', 'max:'.self::MAX_EDIT_SELECTION],
+            'id_list.*' => ['uuid'],
+        ]);
+
+        $query = $ids !== []
+            ? $this->scope->apply(Asset::query())->with(self::RELATIONS)->whereIn('id', $ids)->whereNull('archived_at')
+            : $this->filtered($request)->whereNull('archived_at');
         SpreadsheetImport::assertExportable($query->count());
 
         $rows = $query->orderBy('asset_number')->get()->map(fn (Asset $a) => [
@@ -289,23 +304,22 @@ class AssetController extends Controller
             'description' => $a->description,
             'location' => SpreadsheetImport::codeItem($a->location),
             'status' => AssetStatus::LABELS[$a->status] ?? $a->status,
-            'id' => $a->id,
-            'lock_version' => $a->lock_version,
+            'updated_at' => $this->lastChanged($a),
         ]);
 
         return SpreadsheetImport::editSheet('edit_aset.xlsx', 'Edit Massal Pendataan Aset', $this->editColumns(), $rows, [
             'Kategori' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
         ], [
             'Lokasi dan status tidak dapat diubah di sini; gunakan transaksi (mutasi, peminjaman, perbaikan). Atribut kategori diubah dari halaman detail aset.',
-            'Jika aset diubah orang lain setelah file ini diunduh, baris aset tersebut ditolak. Unduh ulang file untuk mendapatkan data terbaru.',
+            'Kolom "Terakhir Diubah" dipakai untuk memeriksa perubahan: jika aset diubah orang lain setelah file ini diunduh, baris aset tersebut ditolak. Unduh ulang file untuk mendapatkan data terbaru.',
         ]);
     }
 
-    /** Applies an edited sheet from downloadEditSheet(): rows are matched by the hidden id, unchanged ones skipped. */
+    /** Applies an edited sheet from downloadEditSheet(): rows are matched by asset number, unchanged ones skipped. */
     public function importEdits(Request $request): JsonResponse
     {
         $columns = $this->editColumns();
-        $rows = SpreadsheetImport::read($request, $columns);
+        $rows = SpreadsheetImport::read($request, $columns, edit: true);
         $rules = $this->descriptiveRules(creating: true);
         $seen = [];
 
@@ -313,10 +327,9 @@ class AssetController extends Controller
             $data = Validator::make($row, [
                 ...Arr::only($rules, ['name', 'serial_number', 'acquisition_date', 'acquisition_cost', 'description']),
                 'category_code' => ['required', 'string'],
-                'lock_version' => ['nullable', 'integer'],
             ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
 
-            $asset = SpreadsheetImport::existing($this->scope->apply(Asset::query())->whereNull('archived_at'), $row['id'], $seen);
+            $asset = SpreadsheetImport::existing($this->scope->apply(Asset::query())->whereNull('archived_at'), $row['asset_number'], $seen, 'asset_number');
             $changes = SpreadsheetImport::changes($asset, [
                 ...Arr::only($data, ['name', 'serial_number', 'acquisition_date', 'acquisition_cost', 'description']),
                 'category_id' => SpreadsheetImport::idByCode(TenantAssetCategory::query(), $data['category_code'], 'Kategori'),
@@ -324,7 +337,7 @@ class AssetController extends Controller
             if ($changes === []) {
                 return false;
             }
-            if (isset($data['lock_version']) && (int) $data['lock_version'] !== $asset->lock_version) {
+            if (($row['updated_at'] ?? null) !== $this->lastChanged($asset)) {
                 throw ApiException::conflict('STALE_ASSET', 'Aset ini telah diubah setelah file diunduh. Unduh ulang file lalu ulangi perubahannya.');
             }
             $this->assets->update($asset, $changes);
@@ -333,22 +346,31 @@ class AssetController extends Controller
         return response()->json(['data' => ['updated' => $updated]]);
     }
 
-    /** @return list<ImportColumn> the asset number is shown to tell assets apart, but not read back */
+    /** @return list<ImportColumn> rows are matched by the asset number, which cannot be changed */
     private function editColumns(): array
     {
         return [
-            new ImportColumn('asset_number', 'Nomor Aset (info)', hint: 'Nomor aset dibuat oleh sistem dan tidak dapat diubah.', width: 20, readOnly: true),
+            new ImportColumn('asset_number', 'No Aset', required: true, hint: 'Penanda baris aset, dibuat oleh sistem. Jangan diubah.', width: 20, identifier: true),
             new ImportColumn('name', 'Nama Aset', required: true, hint: 'Nama aset, maksimal 150 karakter.', width: 32),
             new ImportColumn('category_code', 'Kategori', required: true, hint: 'Pilih kategori aset dari daftar.', list: 'Kategori', width: 34),
-            new ImportColumn('serial_number', 'Nomor Seri', hint: 'Nomor seri dari pabrik, harus unik bila diisi.', width: 22),
+            new ImportColumn('serial_number', 'No Alias', hint: 'Nomor alias aset (misalnya nomor seri pabrik), harus unik bila diisi.', width: 22),
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
             new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
             new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Kosongkan untuk menghapus.', width: 40),
             new ImportColumn('location', 'Lokasi (info)', hint: 'Lokasi saat ini; diubah lewat transaksi mutasi.', width: 30, readOnly: true),
             new ImportColumn('status', 'Status (info)', hint: 'Status saat ini; diubah lewat transaksi.', width: 18, readOnly: true),
-            SpreadsheetImport::idColumn(),
-            new ImportColumn('lock_version', 'Versi', type: ImportColumn::NUMBER, width: 8, hidden: true),
+            new ImportColumn('updated_at', 'Terakhir Diubah (info)', hint: 'Waktu aset terakhir disimpan. Dipakai untuk memeriksa apakah aset diubah orang lain setelah file diunduh; jangan diubah.', width: 22, readOnly: true, readBack: true),
         ];
+    }
+
+    /**
+     * When the asset was last saved, in the organization's time zone, as written to the edit sheet.
+     * Every save bumps updated_at, so a different value on upload means someone changed the asset
+     * after the file was downloaded.
+     */
+    private function lastChanged(Asset $asset): ?string
+    {
+        return $asset->updated_at?->copy()->timezone($this->tenancy->tenant()->organization->timezone ?: 'UTC')->format('Y-m-d H:i:s');
     }
 
     /** @return list<ImportColumn> */
@@ -360,7 +382,7 @@ class AssetController extends Controller
             new ImportColumn('location_code', 'Lokasi', required: true, hint: 'Pilih lokasi aset dari daftar.', list: 'Lokasi', width: 34),
             new ImportColumn('status', 'Status', hint: 'Pilih status awal. Jika kosong: Aktif.', list: 'Status', width: 18),
             new ImportColumn('condition', 'Kondisi', required: true, hint: 'Pilih kondisi aset dari daftar.', list: 'Kondisi', width: 18),
-            new ImportColumn('serial_number', 'Nomor Seri', hint: 'Nomor seri dari pabrik, harus unik bila diisi. Contoh: SN-2024-0001', width: 22),
+            new ImportColumn('serial_number', 'No Alias', hint: 'Nomor alias aset (misalnya nomor seri pabrik), harus unik bila diisi. Contoh: SN-2024-0001', width: 22),
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Tanggal pembelian/perolehan, format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
             new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
             new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Boleh dikosongkan.', width: 40),

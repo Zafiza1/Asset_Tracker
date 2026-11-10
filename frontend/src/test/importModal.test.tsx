@@ -52,3 +52,30 @@ describe('ImportModal in edit mode', () => {
     await waitFor(() => expect(screen.getByText(/Baris 3: Lokasi dengan kode 'X'/)).toBeInTheDocument())
   })
 })
+
+describe('ImportModal keeps Import and Multiple Edit apart', () => {
+  const pick = (name: string) =>
+    fireEvent.change(document.querySelector('input[type=file]')!, { target: { files: [new File(['x'], name)] } })
+
+  it('labels the import dialog and warns about an edit file', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ImportModal open title="Import Aset" endpoint="/assets/import" templateEndpoint="/assets/template"
+          templateFilename="template_aset.xlsx" onClose={vi.fn()} />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText(/Mode Import — menambah data baru/)).toBeInTheDocument()
+    pick('edit_aset.xlsx')
+    expect(screen.getByText(/Nama file ini seperti file Multiple Edit/)).toBeInTheDocument()
+    pick('template_aset.xlsx')
+    expect(screen.queryByText(/Nama file ini seperti/)).not.toBeInTheDocument()
+  })
+
+  it('labels the edit dialog and warns about an import template', () => {
+    renderEdit()
+    expect(screen.getByText(/Mode Multiple Edit — mengubah data yang sudah ada/)).toBeInTheDocument()
+    expect(screen.queryByText(/Nama file ini seperti/)).not.toBeInTheDocument()
+    pick('template_lokasi.xlsx')
+    expect(screen.getByText(/Nama file ini seperti template Import/)).toBeInTheDocument()
+  })
+})

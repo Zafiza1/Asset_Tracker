@@ -90,11 +90,11 @@ function PersonalNote() {
   const { can } = useAuth()
   return can('approval.manage') ? (
     <Alert tone="info" title="Anda termasuk penyetuju">
-      Perubahan yang Anda buat langsung berlaku. Periksa menu <MenuLink to="/notifikasi">Notifikasi</MenuLink> secara rutin, karena perubahan pengguna lain menunggu keputusan Anda di sana.
+      Perubahan yang Anda buat langsung berlaku. Periksa menu <MenuLink to="/notifikasi">Approval</MenuLink> secara rutin, karena perubahan pengguna lain menunggu keputusan Anda di sana.
     </Alert>
   ) : (
     <Alert tone="info" title="Perubahan Anda perlu disetujui">
-      Perubahan data aset, transaksi, dan Master Data baru berlaku setelah disetujui Super Admin atau Supervisor. Ikuti statusnya di menu <MenuLink to="/notifikasi">Notifikasi</MenuLink>.
+      Perubahan data aset dan Master Data (kategori, lokasi) baru berlaku setelah disetujui Super Admin atau Supervisor. Ikuti statusnya di menu <MenuLink to="/notifikasi">Approval</MenuLink>.
     </Alert>
   )
 }
@@ -254,7 +254,7 @@ function Step3() {
         <>Buka <MenuLink to="/master/lokasi" permission="master.tenant.view">Lokasi</MenuLink> dan buat tempat penyimpanan aset. Isi <Label>Lokasi induk</Label> untuk membuat susunan seperti Gedung → Lantai → Ruang.</>,
       ]} />
       <Tip>
-        Kategori wajib ada sebelum aset didaftarkan. Lokasi boleh menyusul, tetapi aset tanpa lokasi hanya terlihat oleh pengguna dengan cakupan seluruh organisasi. Bila datanya banyak, gunakan <Label>Import</Label> dengan template Excel.
+        Kategori wajib ada sebelum aset didaftarkan. Lokasi boleh menyusul, tetapi aset tanpa lokasi hanya terlihat oleh pengguna dengan cakupan seluruh organisasi. Bila datanya banyak, gunakan <Label>Tambah aset</Label> → <Label>Import dari Excel</Label> dengan template Excel.
       </Tip>
     </StepSection>
   )
@@ -268,17 +268,17 @@ function Step4() {
       { when: 'Anda Super Admin atau Supervisor, dan aset tidak perlu label', n: 7 },
     ]}>
       <NumberedList items={[
-        <>Buka <MenuLink to="/aset" permission="asset.view">Pendataan Aset</MenuLink>, lalu klik <Label>Tambah aset</Label>.</>,
-        <>Isi <Label>Nama aset</Label> dan <Label>Kategori</Label>. <Label>Nomor Seri</Label> boleh dikosongkan, tetapi harus unik bila diisi. Isian atribut tampil sesuai kategori yang dipilih.</>,
+        <>Buka <MenuLink to="/aset" permission="asset.view">Pendataan Aset</MenuLink>, lalu klik <Label>Tambah aset</Label> → <Label>Isi formulir</Label>.</>,
+        <>Isi <Label>Nama aset</Label> dan <Label>Kategori</Label>. <Label>No Alias</Label> boleh dikosongkan, tetapi harus unik bila diisi. Isian atribut tampil sesuai kategori yang dipilih.</>,
         <>Pilih <Label>Lokasi</Label>, <Label>Status</Label> awal, dan <Label>Kondisi Aset</Label>, lalu lengkapi tanggal dan harga perolehan bila ada.</>,
-        <>Klik <Label>Simpan</Label>. Kode aset dibuat otomatis dan riwayat <Label>Penambahan aset</Label> tercatat dengan sendirinya.</>,
+        <>Klik <Label>Simpan</Label>. No Aset dibuat otomatis dan riwayat <Label>Penambahan aset</Label> tercatat dengan sendirinya.</>,
       ]} />
       <div className="grid gap-3 md:grid-cols-2">
         <PathCard title="Mendaftarkan banyak aset">
-          <p>Klik <Label>Import</Label>, unduh template, isi di Excel, lalu unggah. Bila ada satu baris yang salah, tidak ada data yang disimpan. Perbaiki lalu unggah ulang.</p>
+          <p>Klik <Label>Tambah aset</Label> → <Label>Import dari Excel</Label>, unduh template, isi di Excel, lalu unggah. Bila ada satu baris yang salah, tidak ada data yang disimpan. Perbaiki lalu unggah ulang.</p>
         </PathCard>
         <PathCard title="Mengubah banyak aset">
-          <p>Klik <Label>Multiple Edit</Label>, unduh data, ubah di Excel, lalu unggah. Hanya baris yang berubah yang disimpan.</p>
+          <p>Klik <Label>Multiple Edit</Label>, unduh data, ubah di Excel, lalu unggah. Hanya baris yang berubah yang disimpan. File Multiple Edit dan template Import tidak bisa tertukar: file yang diunggah ke menu yang salah akan ditolak.</p>
         </PathCard>
       </div>
       <Tip>Bila aset baru Anda perlu disetujui, gambar belum ikut tersimpan. Tambahkan gambar lewat tombol <Label>Ubah</Label> setelah aset disetujui.</Tip>
@@ -292,20 +292,20 @@ function Step5() {
       { when: 'Pengajuan aset baru disetujui dan aset perlu label', n: 6 },
       { when: 'Pengajuan lain disetujui', n: 7 },
     ]}>
-      <p className="text-sm text-slate-700">Langkah ini berlaku untuk semua perubahan pada transaksi, aset, dan Master Data, bukan hanya aset baru.</p>
+      <p className="text-sm text-slate-700">Langkah ini berlaku untuk semua perubahan pada data aset dan Master Data, bukan hanya aset baru. Transaksi tidak memerlukan persetujuan.</p>
       <ApprovalFlow />
       <div className="grid gap-3 md:grid-cols-2">
         <PathCard title="Bila Anda mengajukan">
           <NumberedList items={[
             <>Setelah menyimpan, muncul pesan <Label>Menunggu persetujuan</Label>. Data belum berubah.</>,
-            <>Ikuti statusnya di <MenuLink to="/notifikasi">Notifikasi</MenuLink>.</>,
+            <>Ikuti statusnya di <MenuLink to="/notifikasi">Approval</MenuLink>.</>,
             <>Keliru? Buka pengajuannya dan pilih <Label>Batalkan pengajuan</Label> selama masih menunggu.</>,
             'Ditolak? Baca catatannya, perbaiki, lalu ajukan lagi dari menu asalnya.',
           ]} />
         </PathCard>
         <PathCard title="Bila Anda menyetujui">
           <NumberedList items={[
-            <>Buka <MenuLink to="/notifikasi">Notifikasi</MenuLink>. Angka merah menunjukkan jumlah pengajuan yang menunggu.</>,
+            <>Buka <MenuLink to="/notifikasi">Approval</MenuLink>. Angka merah menunjukkan jumlah pengajuan yang menunggu.</>,
             'Klik pengajuan untuk membaca rinciannya.',
             <>Isi catatan bila perlu, lalu pilih <Label>Setujui</Label> atau <Label>Tolak</Label>.</>,
           ]} />
@@ -393,8 +393,7 @@ function Step7() {
   const statuses = Object.keys(assetStatusLabel) as AssetStatus[]
   return (
     <StepSection n={7} goal="Setiap perpindahan, peminjaman, dan perubahan aset punya riwayat yang lengkap." next={[
-      { when: 'Anda bukan penyetuju', n: 5 },
-      { when: 'Transaksi sudah berlaku', n: 8 },
+      { when: 'Transaksi tersimpan', n: 8 },
     ]}>
       <NumberedList items={[
         <>Buka <MenuLink to="/transaksi" permission="transaction.view">Transaksi Aset</MenuLink>, lalu klik <Label>Catat transaksi</Label>. Untuk satu aset, Anda juga dapat memulai dari halaman detail asetnya.</>,
@@ -487,10 +486,10 @@ function Step8() {
 
 const PROBLEMS: { q: string; a: ReactNode }[] = [
   { q: 'Menu yang saya cari tidak ada, atau muncul "Akses ditolak".', a: 'Role Anda belum memiliki izin untuk menu itu. Hubungi Super Admin atau Supervisor organisasi Anda.' },
-  { q: 'Perubahan yang saya simpan belum terlihat.', a: <>Kemungkinan masih menunggu persetujuan. Periksa statusnya di <MenuLink to="/notifikasi">Notifikasi</MenuLink>.</> },
+  { q: 'Perubahan yang saya simpan belum terlihat.', a: <>Kemungkinan masih menunggu persetujuan. Periksa statusnya di <MenuLink to="/notifikasi">Approval</MenuLink>.</> },
   { q: 'Saya tidak menemukan aset tertentu.', a: 'Aset itu mungkin berada di luar cakupan data Anda, atau sudah nonaktif. Untuk melihat aset nonaktif, ubah filter di Pendataan Aset menjadi "Aset nonaktif".' },
   { q: 'Aset tidak dapat dicentang saat mencatat transaksi.', a: 'Status aset tidak mengizinkan jenis transaksi itu, misalnya aset yang sedang dipinjam tidak dapat dipindahkan. Lihat tabel status pada langkah 7.' },
-  { q: 'Saya salah mencatat transaksi.', a: 'Transaksi tidak dapat diubah atau dihapus. Catat transaksi baru untuk mengembalikan data ke keadaan yang benar. Bila transaksi masih menunggu persetujuan, batalkan saja pengajuannya.' },
+  { q: 'Saya salah mencatat transaksi.', a: 'Transaksi tidak dapat diubah atau dihapus. Catat transaksi baru untuk mengembalikan data ke keadaan yang benar.' },
   { q: 'Tombol cetak barcode tidak muncul.', a: 'Pastikan Modul Barcode sudah aktif dan isian Barcode pada aset itu bernilai Ya.' },
   { q: 'Kategori atau lokasi tidak dapat diarsipkan.', a: 'Kategori atau lokasi itu masih dipakai aset aktif. Pindahkan atau ubah asetnya terlebih dahulu.' },
   { q: 'Import Excel gagal.', a: 'Baca daftar baris yang salah pada pesan error, perbaiki file, lalu unggah ulang. Selama masih ada baris yang salah, tidak ada data yang disimpan.' },

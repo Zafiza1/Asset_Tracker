@@ -22,12 +22,24 @@ interface ImportModalProps {
   mode?: 'import' | 'edit'
   /** Edit mode: which records the download contains, e.g. "sesuai filter yang aktif". */
   scopeNote?: string
+  /** Edit mode: controls shown above the file picker, e.g. choosing which records to download. */
+  selection?: React.ReactNode
   onSuccess?: () => void
 }
 
 const MAX_SIZE = 5 * 1024 * 1024
 
-export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, templateFilename, mode = 'import', scopeNote, onSuccess }: ImportModalProps) {
+/**
+ * Whether a picked file looks like it belongs to the other menu, judged by the downloaded
+ * file names (template_*.xlsx for Import, edit_*.xlsx for Multiple Edit). Only a hint: the
+ * server checks the kind stored inside the file and refuses the wrong one.
+ */
+function looksLikeOtherKind(name: string, editing: boolean): boolean {
+  const lower = name.toLowerCase()
+  return editing ? lower.startsWith('template_') : lower.startsWith('edit_')
+}
+
+export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, templateFilename, mode = 'import', scopeNote, selection, onSuccess }: ImportModalProps) {
   const editing = mode === 'edit'
   const queryClient = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
@@ -141,6 +153,24 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
       }
     >
       <div className="space-y-4">
+        {/* Which job this dialog does, so an edit file is not uploaded as new data (or the reverse). */}
+        <div
+          className={
+            editing
+              ? 'rounded-lg border-l-4 border-amber-500 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900'
+              : 'rounded-lg border-l-4 border-brand-600 bg-brand-50 px-3.5 py-2.5 text-sm text-brand-900'
+          }
+        >
+          <p className="font-semibold">
+            {editing ? 'Mode Multiple Edit — mengubah data yang sudah ada' : 'Mode Import — menambah data baru'}
+          </p>
+          <p className="mt-0.5">
+            {editing
+              ? 'Gunakan file hasil "Download Data" di sini. Data baru tidak dapat ditambahkan lewat menu ini; gunakan Import.'
+              : 'Gunakan file hasil "Download Template" di sini. Untuk mengubah data yang sudah ada, gunakan Multiple Edit.'}
+          </p>
+        </div>
+
         {error && (
           <Alert tone="error">
             <div className={importErrors.length > 0 ? 'mb-2 font-medium' : undefined}>{error}</div>
@@ -153,6 +183,16 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
             )}
           </Alert>
         )}
+
+        {file && looksLikeOtherKind(file.name, editing) && (
+          <Alert tone="warning" title="Periksa kembali file Anda">
+            {editing
+              ? 'Nama file ini seperti template Import (menambah data baru). Untuk Multiple Edit, gunakan file hasil "Download Data".'
+              : 'Nama file ini seperti file Multiple Edit (mengubah data). Untuk Import, gunakan file hasil "Download Template".'}
+          </Alert>
+        )}
+
+        {editing && selection}
 
         <div className="rounded-lg border-2 border-dashed border-slate-300 p-6 text-center">
           <input
@@ -197,6 +237,7 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
           <p className="mb-1 font-medium text-slate-900">Instruksi:</p>
           {editing ? (
             <ol className="list-inside list-decimal space-y-1">
+              {selection && <li>Pilih aset yang akan diubah (opsional)</li>}
               <li>Download data Excel{scopeNote ? ` (${scopeNote})` : ''}</li>
               <li>Ubah nilai di sheet "Data". Kolom berjudul abu-abu muda hanya informasi; jangan menyalin baris ke baris lain</li>
               <li>Upload file yang sudah diubah. Hanya baris yang berubah yang disimpan</li>

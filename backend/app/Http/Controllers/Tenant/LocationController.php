@@ -147,7 +147,7 @@ class LocationController extends Controller
     public function importEdits(Request $request): JsonResponse
     {
         $columns = $this->editColumns();
-        $rows = SpreadsheetImport::read($request, $columns);
+        $rows = SpreadsheetImport::read($request, $columns, edit: true);
         $seen = [];
 
         $updated = SpreadsheetImport::run($rows, function (array $row) use ($columns, &$seen) {

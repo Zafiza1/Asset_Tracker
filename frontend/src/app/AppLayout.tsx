@@ -127,8 +127,8 @@ function NotificationBell() {
     <Link
       to="/notifikasi"
       className="relative grid size-10 shrink-0 place-items-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-      aria-label={pending > 0 ? `Notifikasi, ${pending} pengajuan menunggu` : 'Notifikasi'}
-      title="Notifikasi"
+      aria-label={pending > 0 ? `Approval, ${pending} pengajuan menunggu` : 'Approval'}
+      title="Approval"
     >
       <Bell className="size-5" aria-hidden />
       {pending > 0 && (

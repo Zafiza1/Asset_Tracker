@@ -72,7 +72,7 @@ export function NotificationsPage() {
   return (
     <>
       <PageHeader
-        title="Notifikasi"
+        title="Approval"
         description={
           canDecide
             ? 'Pengajuan transaksi, aset, dan master data yang menunggu persetujuan Anda.'
@@ -101,7 +101,8 @@ export function NotificationsPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Select aria-label="Jenis pengajuan" value={params.get('category') ?? ''} onChange={(e) => update({ category: e.target.value })} className="w-auto">
               <option value="">Semua jenis</option>
-              {(Object.keys(approvalCategoryLabel) as ApprovalCategory[]).map((c) => (
+              {/* Transactions no longer need approval; their label stays only for older requests. */}
+              {(Object.keys(approvalCategoryLabel) as ApprovalCategory[]).filter((c) => c !== 'transaction').map((c) => (
                 <option key={c} value={c}>
                   {approvalCategoryLabel[c]}
                 </option>

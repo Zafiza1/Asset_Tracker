@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FileSpreadsheet, ImageOff, Plus, Printer, Upload } from "lucide-react";
+import { FileSpreadsheet, ImageOff, Printer } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -32,7 +32,9 @@ import {
   type Asset,
   type AssetStatus,
 } from "./api";
+import { AddMenu } from "../../components/ui/AddMenu";
 import { AssetBarcodeModal } from "./AssetBarcodeModal";
+import { AssetEditSelection, type PickedAssets } from "./AssetEditSelection";
 import { AssetFormModal } from "./AssetFormModal";
 import { CategoryFilter } from "./CategoryFilter";
 
@@ -67,6 +69,7 @@ export function AssetsPage() {
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   const [bulkEditing, setBulkEditing] = useState(false);
+  const [picked, setPicked] = useState<PickedAssets>(new Map());
   const [printing, setPrinting] = useState<Asset | null>(null);
 
   // Persisted filters from localStorage
@@ -178,7 +181,7 @@ export function AssetsPage() {
   const columns: Column<Asset>[] = [
     {
       key: "code",
-      header: "Kode",
+      header: "No Aset",
       cell: (a) => <span className="font-mono text-xs">{a.asset_number}</span>,
     },
     {
@@ -208,7 +211,7 @@ export function AssetsPage() {
     },
     {
       key: "serial_number",
-      header: "No Seri",
+      header: "No Alias",
       cell: (a) =>
         a.serial_number ? (
           <span className="font-mono text-xs">{a.serial_number}</span>
@@ -286,17 +289,12 @@ export function AssetsPage() {
                 </Button>
               )}
               {can("asset.create") && (
-                <>
-                  <Button
-                    variant="secondary"
-                    onClick={() => setImporting(true)}
-                  >
-                    <Upload className="size-4" aria-hidden /> Import
-                  </Button>
-                  <Button onClick={() => setCreating(true)}>
-                    <Plus className="size-4" aria-hidden /> Tambah aset
-                  </Button>
-                </>
+                <AddMenu
+                  label="Tambah aset"
+                  noun="aset"
+                  onForm={() => setCreating(true)}
+                  onImport={() => setImporting(true)}
+                />
               )}
             </div>
           )
@@ -308,7 +306,7 @@ export function AssetsPage() {
             value={search}
             onChange={setSearch}
             onSubmit={() => update({ search })}
-            placeholder="Cari nama, kode, atau no seri"
+            placeholder="Cari nama, no aset, atau no alias"
             label="Cari aset"
             aside={
               <div className="flex gap-2">
@@ -325,7 +323,7 @@ export function AssetsPage() {
                   aria-label="Urutkan"
                 >
                   <option value="">Urutkan: terbaru ditambahkan</option>
-                  <option value="asset_number">Urutkan: kode</option>
+                  <option value="asset_number">Urutkan: no aset</option>
                   <option value="name">Urutkan: nama (A–Z)</option>
                   <option value="-acquisition_date">
                     Urutkan: tanggal perolehan terbaru
@@ -420,22 +418,31 @@ export function AssetsPage() {
         <ImportModal
           open
           mode="edit"
-          onClose={() => setBulkEditing(false)}
+          onClose={() => (setBulkEditing(false), setPicked(new Map()))}
           title="Multiple Edit Aset (Excel)"
           endpoint="/assets/edit-sheet"
           // The download holds the (active) assets matching the current search and filters.
-          templateEndpoint={`/assets/edit-sheet${qs({
-            search: filters.search,
-            category_ids: filters.category_ids,
-            location_id: filters.location_id,
-            status: filters.status,
-          })}`}
+          // Picked assets replace the filters; otherwise the download holds the
+          // (active) assets matching the current search and filters.
+          templateEndpoint={`/assets/edit-sheet${qs(
+            picked.size > 0
+              ? { ids: [...picked.keys()].join(",") }
+              : {
+                  search: filters.search,
+                  category_ids: filters.category_ids,
+                  location_id: filters.location_id,
+                  status: filters.status,
+                },
+          )}`}
           templateFilename="edit_aset.xlsx"
           scopeNote={
-            filters.search || filters.category_ids || filters.location_id || filters.status
-              ? "aset aktif sesuai pencarian & filter saat ini"
-              : "semua aset aktif; gunakan filter untuk mempersempit"
+            picked.size > 0
+              ? `${picked.size} aset yang dipilih`
+              : filters.search || filters.category_ids || filters.location_id || filters.status
+                ? "aset aktif sesuai pencarian & filter saat ini"
+                : "semua aset aktif; pilih aset atau gunakan filter untuk mempersempit"
           }
+          selection={<AssetEditSelection picked={picked} onChange={setPicked} />}
         />
       )}
       {printing && (
@@ -451,7 +458,7 @@ export function AssetsPage() {
         <ImportModal
           open={importing}
           onClose={() => setImporting(false)}
-          title="Import Aset"
+          title="Tambah Aset dari Excel (Import)"
           endpoint="/assets/import"
           templateEndpoint="/assets/template"
           templateFilename="template_aset.xlsx"

@@ -51,7 +51,7 @@ export function AssetDetailPage() {
     <>
       <PageHeader
         title={a.name}
-        description={`${a.asset_number}${a.serial_number ? ` · No Seri ${a.serial_number}` : ''}`}
+        description={`${a.asset_number}${a.serial_number ? ` · No Alias ${a.serial_number}` : ''}`}
         actions={
           <>
             {a.barcode_enabled && (

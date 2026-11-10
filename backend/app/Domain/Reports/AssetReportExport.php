@@ -28,9 +28,9 @@ final class AssetReportExport
     /** Column key => [header, Excel width]. */
     private const COLUMNS = [
         'no' => ['No', 6],
-        'asset_number' => ['Kode Aset', 18],
+        'asset_number' => ['No Aset', 18],
         'name' => ['Nama Aset', 34],
-        'serial_number' => ['No Seri', 20],
+        'serial_number' => ['No Alias', 20],
         'category' => ['Kategori', 24],
         'location' => ['Lokasi', 24],
         'status' => ['Status', 18],

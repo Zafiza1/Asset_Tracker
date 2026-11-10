@@ -16,7 +16,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
 /**
- * Approval of transactions, asset changes and master data changes: users without
+ * Approval of asset changes and master data changes (transactions apply at once): users without
  * approval.manage submit, Super Admin and Supervisor decide (Notifications menu).
  */
 class ApprovalTest extends TestCase
@@ -75,28 +75,21 @@ class ApprovalTest extends TestCase
         $this->loginAs($this->admin);
         $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'Tanpa kategori']), 422, 'VALIDATION_FAILED');
         $asset = $this->createAsset();
-        $this->assertErrorCode($this->postJson('/api/transactions', ['asset_id' => $asset->id, 'type' => 'return']), 409, 'INVALID_ASSET_STATUS');
+        $this->assertErrorCode($this->patchJson("/api/assets/{$asset->id}", ['name' => '']), 422, 'VALIDATION_FAILED');
 
         $this->assertSame(0, ApprovalRequest::query()->count());
-        $this->assertSame(1, AssetTransaction::query()->count(), 'only the registration of the fixture asset');
     }
 
-    public function test_transaction_by_admin_applies_only_when_approved(): void
+    public function test_transaction_by_admin_applies_at_once_without_approval(): void
     {
         $asset = $this->createAsset();
         $target = $this->location('LOC2', 'Kantor Pusat');
 
         $this->loginAs($this->admin);
-        $id = $this->postJson('/api/transactions', ['asset_id' => $asset->id, 'type' => 'transfer', 'to_location_id' => $target->id])
-            ->assertStatus(202)->assertJsonPath('data.category', 'transaction')->json('data.id');
-        $this->assertStringContainsString($asset->asset_number, ApprovalRequest::query()->findOrFail($id)->summary);
-        $this->assertSame($this->masters['location']->id, $asset->fresh()->location_id);
-
-        $this->loginAs($this->supervisor);
-        $this->postJson("/api/approvals/{$id}/approve")->assertOk();
+        $this->postJson('/api/transactions', ['asset_id' => $asset->id, 'type' => 'transfer', 'to_location_id' => $target->id])->assertCreated();
         $this->assertSame($target->id, $asset->fresh()->location_id);
-        $transaction = AssetTransaction::query()->where('type', 'transfer')->firstOrFail();
-        $this->assertSame($this->admin->id, $transaction->created_by);
+        $this->assertSame($this->admin->id, AssetTransaction::query()->where('type', 'transfer')->firstOrFail()->created_by);
+        $this->assertSame(0, ApprovalRequest::query()->count());
     }
 
     public function test_approval_rechecks_the_rules_and_keeps_the_request_pending_when_they_fail(): void

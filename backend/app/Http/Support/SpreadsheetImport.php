@@ -35,7 +35,8 @@ use Throwable;
  * once, and nothing is saved if any row fails.
  *
  * Bulk editing uses the same format: editSheet() exports the existing records, the user edits
- * them in Excel and uploads the file back; each row is matched to its record by a hidden id.
+ * them in Excel and uploads the file back; each row is matched to its record by a hidden id
+ * (or by a visible identifier column, such as the asset number).
  */
 final class SpreadsheetImport
 {
@@ -63,6 +64,19 @@ final class SpreadsheetImport
 
     private const COLOR_BORDER = 'CBD5E1';
 
+    /** Banner and tab colour that mark an edit sheet, so it is not mistaken for an import template. */
+    private const COLOR_EDIT = 'B45309';
+
+    /**
+     * Custom document property naming the file's kind (KIND_IMPORT or KIND_EDIT). Excel keeps it
+     * when the file is saved, so an upload to the wrong menu can be refused with a clear message.
+     */
+    private const KIND_PROPERTY = 'AssetTrackerFile';
+
+    private const KIND_IMPORT = 'import';
+
+    private const KIND_EDIT = 'edit';
+
     /** @return list<mixed> */
     public static function fileRules(): array
     {
@@ -73,10 +87,15 @@ final class SpreadsheetImport
      * Rows of the uploaded file keyed by column, with their spreadsheet row number. Blank rows
      * are skipped; cell values are trimmed strings (dates as Y-m-d) or null when empty.
      *
+     * `$edit` says which menu the file was uploaded to: Multiple Edit (editSheet()) or Import
+     * (template()). A file of the other kind is refused (WRONG_FILE_KIND) before any row is read,
+     * so records are never added from an edit sheet nor an import template sent to an edit.
+     * Files without the kind property (e.g. re-saved by Google Sheets) fall back to the column check.
+     *
      * @param  list<ImportColumn>  $columns
      * @return list<array{row: int, data: array<string, string|null>}>
      */
-    public static function read(Request $request, array $columns): array
+    public static function read(Request $request, array $columns, bool $edit = false): array
     {
         $request->validate(['file' => self::fileRules()]);
         /** @var UploadedFile $file */
@@ -89,6 +108,7 @@ final class SpreadsheetImport
         } catch (Throwable) {
             throw ApiException::unprocessable('INVALID_FILE', 'File tidak dapat dibaca. Pastikan file berformat Excel (.xlsx).');
         }
+        self::assertKind($book, $edit);
         $sheet = $book->getSheetByName(self::DATA_SHEET) ?? $book->getSheet(0);
 
         $lastColumn = Coordinate::columnIndexFromString($sheet->getHighestDataColumn());
@@ -157,12 +177,13 @@ final class SpreadsheetImport
      */
     public static function template(string $filename, string $title, array $columns, array $lists = [], array $notes = []): BinaryFileResponse
     {
-        return self::workbook($filename, $title, $columns, $lists, [
+        return self::workbook(self::KIND_IMPORT, $filename, $title, $columns, $lists, [
             'Isi data pada sheet "Data", mulai baris ke-2. Satu baris = satu data.',
             'Jangan mengubah, menghapus, atau memindah baris judul (baris 1).',
             'Kolom berwarna biru dan bertanda * wajib diisi; kolom abu-abu boleh dikosongkan.',
             'Sel berlatar biru muda memiliki dropdown: klik sel lalu pilih dari daftar (sumbernya ada di sheet "'.self::LIST_SHEET.'").',
             'Klik sebuah sel untuk melihat petunjuk singkat kolom tersebut.',
+            'File ini khusus untuk menambah data baru lewat menu Import. Untuk mengubah data yang sudah ada, gunakan menu Multiple Edit.',
             ...$notes,
             'Jika ada baris yang salah, tidak ada data yang disimpan. Perbaiki baris yang disebutkan lalu upload ulang file yang sama.',
             'Maksimal '.self::MAX_ROWS.' baris dan ukuran file 5MB per import.',
@@ -171,23 +192,30 @@ final class SpreadsheetImport
 
     /**
      * Existing records in the template format, for editing in Excel and uploading back. Each
-     * row carries its record's id in a hidden column (see idColumn()), so codes need not be shown.
+     * row carries its record's id in a hidden column (see idColumn()), so codes need not be shown,
+     * or a visible identifier column (ImportColumn::$identifier) such as the asset number.
      *
-     * @param  list<ImportColumn>  $columns  including idColumn()
+     * @param  list<ImportColumn>  $columns  including idColumn() or an identifier column
      * @param  iterable<array<string, mixed>>  $rows  column key => value (string, number, date or null)
      * @param  array<string, list<string>>  $lists
      * @param  list<string>  $notes
      */
     public static function editSheet(string $filename, string $title, array $columns, iterable $rows, array $lists = [], array $notes = []): BinaryFileResponse
     {
-        return self::workbook($filename, $title, $columns, $lists, [
+        $identifier = array_values(array_filter($columns, fn (ImportColumn $c) => $c->identifier))[0] ?? null;
+        $link = $identifier === null
+            ? 'Setiap baris terhubung ke datanya lewat kolom tersembunyi.'
+            : "Setiap baris terhubung ke datanya lewat kolom \"{$identifier->label}\", jadi jangan mengubah isinya.";
+
+        return self::workbook(self::KIND_EDIT, $filename, $title, $columns, $lists, [
             'Sheet "Data" berisi data yang sudah ada. Ubah nilainya langsung di sel; satu baris = satu data.',
-            'Setiap baris terhubung ke datanya lewat kolom tersembunyi. Jangan menyalin baris ke baris lain atau menghapus kolom; mengurutkan baris tidak masalah.',
+            $link.' Jangan menyalin baris ke baris lain atau menghapus kolom; mengurutkan baris tidak masalah.',
             'Jangan mengubah, menghapus, atau memindah baris judul (baris 1).',
             'Kolom bertanda * wajib diisi. Mengosongkan kolom lain akan menghapus nilainya.',
-            'Kolom dengan judul abu-abu muda hanya informasi dan tidak ikut disimpan.',
+            ($identifier === null ? 'Kolom dengan judul abu-abu muda hanya informasi dan tidak ikut disimpan.' : 'Kolom dengan judul abu-abu muda tidak dapat diubah dan tidak ikut disimpan; kolom "'.$identifier->label.'" adalah penanda baris.'),
             'Sel berlatar biru muda memiliki dropdown: klik sel lalu pilih dari daftar (sumbernya ada di sheet "'.self::LIST_SHEET.'").',
             'Baris yang tidak diubah dilewati, dan boleh juga dihapus. Data baru tidak dapat ditambahkan di sini; gunakan menu Import.',
+            'File ini khusus untuk menu Multiple Edit dan akan ditolak bila diupload lewat menu Import.',
             ...$notes,
             'Jika ada baris yang salah, tidak ada perubahan yang disimpan. Perbaiki baris yang disebutkan lalu upload ulang file yang sama.',
             'Maksimal '.self::MAX_ROWS.' baris dan ukuran file 5MB per upload.',
@@ -209,17 +237,21 @@ final class SpreadsheetImport
      * @param  list<string>  $steps
      * @param  iterable<array<string, mixed>>  $rows
      */
-    private static function workbook(string $filename, string $title, array $columns, array $lists, array $steps, iterable $rows = []): BinaryFileResponse
+    private static function workbook(string $kind, string $filename, string $title, array $columns, array $lists, array $steps, iterable $rows = []): BinaryFileResponse
     {
         $book = new Spreadsheet;
-        $book->getProperties()->setCreator('Asset Tracker')->setTitle($title);
+        $book->getProperties()->setCreator('Asset Tracker')->setTitle($title)
+            ->setCustomProperty(self::KIND_PROPERTY, $kind);
         $book->getDefaultStyle()->getFont()->setName('Calibri')->setSize(11);
 
         $data = $book->getActiveSheet()->setTitle(self::DATA_SHEET);
         $ranges = $lists === [] ? [] : self::listSheet($book->createSheet(), $lists);
         self::dataSheet($data, $columns, $ranges);
         self::fill($data, $columns, $rows);
-        self::instructionSheet($book->createSheet(1), $title, $columns, $steps);
+        if ($kind === self::KIND_EDIT) {
+            $data->getTabColor()->setRGB(self::COLOR_EDIT);
+        }
+        self::instructionSheet($book->createSheet(1), $kind, $title, $columns, $steps);
         $book->setActiveSheetIndex(0);
 
         $path = tempnam(sys_get_temp_dir(), 'tpl');
@@ -312,8 +344,9 @@ final class SpreadsheetImport
     }
 
     /**
-     * The record an edit row refers to by its hidden id. `$seen` collects the ids of earlier
-     * rows, so a copied row is reported instead of silently editing the record twice.
+     * The record an edit row refers to by its hidden id, or by `$column` when the sheet uses a
+     * visible identifier (e.g. the asset number). `$seen` collects the keys of earlier rows, so a
+     * copied row is reported instead of silently editing the record twice.
      *
      * @template T of Model
      *
@@ -321,9 +354,9 @@ final class SpreadsheetImport
      * @param  array<string, true>  $seen
      * @return T
      */
-    public static function existing(Builder $query, ?string $id, array &$seen)
+    public static function existing(Builder $query, ?string $id, array &$seen, ?string $column = null)
     {
-        if ($id === null || ! Str::isUuid($id)) {
+        if ($id === null || ($column === null && ! Str::isUuid($id))) {
             throw ApiException::unprocessable('INVALID_REFERENCE',
                 'Baris ini bukan berasal dari file unduhan. Data baru tidak dapat ditambahkan di sini; gunakan menu Import.');
         }
@@ -332,7 +365,7 @@ final class SpreadsheetImport
         }
         $seen[$id] = true;
 
-        return $query->whereKey($id)->first()
+        return ($column === null ? $query->whereKey($id) : $query->where($column, $id))->first()
             ?? throw ApiException::unprocessable('INVALID_REFERENCE', 'Data pada baris ini tidak ditemukan, sudah diarsipkan, atau di luar cakupan Anda. Unduh ulang file.');
     }
 
@@ -389,13 +422,13 @@ final class SpreadsheetImport
             $sheet->setCellValue("{$letter}1", $column->label.($column->required ? ' *' : ''));
             $sheet->getStyle("{$letter}1")->getFill()->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()->setRGB(match (true) {
-                    $column->readOnly => self::COLOR_READONLY,
+                    $column->readOnly, $column->identifier => self::COLOR_READONLY,
                     $column->required => self::COLOR_REQUIRED,
                     default => self::COLOR_OPTIONAL,
                 });
             $sheet->getColumnDimension($letter)->setWidth($column->width)->setVisible(! $column->hidden);
 
-            if ($column->readOnly) {
+            if ($column->readOnly || $column->identifier) {
                 $sheet->getStyle($body)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(self::COLOR_READONLY_CELL);
                 $sheet->getStyle($body)->getFont()->getColor()->setRGB(self::COLOR_OPTIONAL);
             }
@@ -454,7 +487,7 @@ final class SpreadsheetImport
 
     private static function validation(ImportColumn $column, ?string $range): ?DataValidation
     {
-        if ($column->readOnly || $column->hidden) {
+        if ($column->readOnly || $column->hidden || $column->identifier) {
             return null;
         }
         $validation = (new DataValidation)
@@ -519,7 +552,7 @@ final class SpreadsheetImport
      * @param  list<ImportColumn>  $columns
      * @param  list<string>  $steps
      */
-    private static function instructionSheet(Worksheet $sheet, string $title, array $columns, array $steps): void
+    private static function instructionSheet(Worksheet $sheet, string $kind, string $title, array $columns, array $steps): void
     {
         $sheet->setTitle('Petunjuk');
         $sheet->setShowGridlines(false);
@@ -530,7 +563,19 @@ final class SpreadsheetImport
         $sheet->setCellValue('A1', $title);
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16)->getColor()->setRGB(self::COLOR_REQUIRED);
 
-        $row = 3;
+        // Which menu this file belongs to, in a coloured banner: the two kinds look alike otherwise.
+        $edit = $kind === self::KIND_EDIT;
+        $sheet->setCellValue('A2', $edit
+            ? 'JENIS FILE: MULTIPLE EDIT — mengubah data yang sudah ada. Upload lewat menu Multiple Edit, bukan Import.'
+            : 'JENIS FILE: IMPORT — menambah data baru. Upload lewat menu Import, bukan Multiple Edit.');
+        $sheet->mergeCells('A2:C2');
+        $sheet->getStyle('A2')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $edit ? self::COLOR_EDIT : self::COLOR_REQUIRED]],
+        ]);
+        $sheet->getRowDimension(2)->setRowHeight(22);
+
+        $row = 4;
         $sheet->setCellValue("A{$row}", 'Cara pengisian');
         $sheet->getStyle("A{$row}")->getFont()->setBold(true)->setSize(12);
         foreach ($steps as $i => $step) {
@@ -549,6 +594,7 @@ final class SpreadsheetImport
             $row++;
             $required = match (true) {
                 $column->readOnly => 'Info',
+                $column->identifier => 'Ya (jangan diubah)',
                 $column->required => 'Ya',
                 default => 'Tidak',
             };
@@ -566,6 +612,21 @@ final class SpreadsheetImport
             'alignment' => ['vertical' => Alignment::VERTICAL_TOP, 'wrapText' => true],
         ]);
         $sheet->getStyle("B{$headerRow}:B{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+    }
+
+    /** Refuses a file made for the other menu (an edit sheet uploaded to Import, or the reverse). */
+    private static function assertKind(Spreadsheet $book, bool $edit): void
+    {
+        $properties = $book->getProperties();
+        $kind = $properties->isCustomPropertySet(self::KIND_PROPERTY) ? $properties->getCustomPropertyValue(self::KIND_PROPERTY) : null;
+        if ($kind === null || $kind === ($edit ? self::KIND_EDIT : self::KIND_IMPORT)) {
+            return;
+        }
+        $book->disconnectWorksheets();
+
+        throw ApiException::unprocessable('WRONG_FILE_KIND', $edit
+            ? 'File ini adalah template Import (untuk menambah data baru), bukan file Multiple Edit. Untuk mengubah data, klik "Download Data" di menu Multiple Edit lalu ubah file tersebut. Untuk menambah data, upload file ini lewat menu Import.'
+            : 'File ini adalah file Multiple Edit (berisi data yang sudah ada), bukan template Import. Untuk menambah data baru, klik "Download Template" di menu Import lalu isi di sana. Untuk mengubah data, upload file ini lewat menu Multiple Edit.');
     }
 
     private static function cell(Cell $cell): ?string
@@ -596,7 +657,7 @@ final class SpreadsheetImport
     /**
      * Index of each expected column in the header row, matched by label (with or without the
      * required mark) or key, in any order; extra columns are ignored. Read-only columns are not
-     * read, and hidden ones only when present.
+     * read (unless marked readBack), and hidden ones only when present.
      *
      * @param  array<int, string|null>  $header
      * @param  list<ImportColumn>  $columns
@@ -607,7 +668,7 @@ final class SpreadsheetImport
         $normalize = fn (?string $h) => str_replace(' ', '_', strtolower(trim(rtrim((string) $h, ' *'))));
         $keys = array_map($normalize, $header);
         $positions = [];
-        $columns = array_values(array_filter($columns, fn (ImportColumn $c) => ! $c->readOnly));
+        $columns = array_values(array_filter($columns, fn (ImportColumn $c) => ! $c->readOnly || $c->readBack));
         foreach ($columns as $column) {
             $index = array_search($normalize($column->label), $keys, true);
             if ($index === false) {

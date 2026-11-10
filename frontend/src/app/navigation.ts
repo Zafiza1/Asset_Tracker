@@ -25,7 +25,7 @@ export const tenantNavigation: NavSection[] = [
     items: [
       { to: '/', label: 'Dashboard', icon: LayoutDashboard },
       // Approval requests: approvers decide here, everyone else follows their own submissions.
-      { to: '/notifikasi', label: 'Notifikasi', icon: Bell, approvalBadge: true },
+      { to: '/notifikasi', label: 'Approval', icon: Bell, approvalBadge: true },
       { to: '/panduan', label: 'Panduan', icon: BookOpen },
     ],
   },
@@ -103,7 +103,7 @@ export const breadcrumbLabels: Record<string, string> = {
   barcode: 'Barcode',
   pengaturan: 'Pengaturan Lisensi',
   audit: 'Audit Trail',
-  notifikasi: 'Notifikasi',
+  notifikasi: 'Approval',
   panduan: 'Panduan',
   platform: 'Platform',
   baru: 'Baru',
