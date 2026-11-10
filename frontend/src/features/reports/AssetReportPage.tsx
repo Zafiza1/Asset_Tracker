@@ -113,7 +113,7 @@ export function AssetReportPage() {
         </Link>
       ),
     },
-    { key: 'serial_number', header: 'No Alias', cell: (a) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>), hideOnMobile: true },
+    { key: 'serial_number', header: 'No Seri', cell: (a) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>), hideOnMobile: true },
     { key: 'category', header: 'Kategori', cell: (a) => a.category?.name ?? '—', hideOnMobile: true },
     { key: 'location', header: 'Lokasi', cell: (a) => a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span>, hideOnMobile: true },
     {
@@ -165,7 +165,7 @@ export function AssetReportPage() {
             value={search}
             onChange={setSearch}
             onSubmit={() => update({ search })}
-            placeholder="Cari nama, no aset, atau no alias"
+            placeholder="Cari nama, no aset, atau no seri"
             label="Cari aset"
             aside={
               <Select value={params.get('sort') ?? ''} onChange={(e) => update({ sort: e.target.value })} className="sm:w-64" aria-label="Urutkan">

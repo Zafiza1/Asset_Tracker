@@ -124,7 +124,7 @@ function LayoutToolbar({ layout }: { layout: ReturnType<typeof useDashboardLayou
   return (
     <section aria-label="Atur tata letak" className="rounded-xl bg-brand-50/60 p-4 ring-1 ring-brand-100">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-2xl text-sm text-slate-700">Seret widget untuk mengubah urutan, pilih lebarnya, atau sembunyikan yang tidak diperlukan. Isi widget menyesuaikan lebarnya: makin lebar, makin lengkap analisisnya. Perubahan tersimpan otomatis di browser ini.</p>
+        <p className="max-w-2xl text-sm text-slate-700">Seret widget untuk mengubah urutan, pilih lebarnya dalam rasio grid (mis. 1:2 = setengah baris, 1:1 = penuh), atau sembunyikan yang tidak diperlukan. Isi widget menyesuaikan lebarnya: makin lebar, makin lengkap analisisnya. Perubahan tersimpan otomatis di browser ini.</p>
         <Button variant="ghost" size="sm" onClick={layout.reset}>
           <RotateCcw className="size-4" aria-hidden />
           Kembalikan bawaan

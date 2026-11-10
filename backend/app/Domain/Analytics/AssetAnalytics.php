@@ -52,7 +52,7 @@ final class AssetAnalytics
         'location_id' => 'Lokasi',
         'acquisition_date' => 'Tanggal perolehan',
         'acquisition_cost' => 'Nilai perolehan',
-        'serial_number' => 'No alias',
+        'serial_number' => 'No seri',
         'image_path' => 'Foto aset',
     ];
 

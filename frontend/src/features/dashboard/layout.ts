@@ -3,12 +3,13 @@ import { useState } from 'react'
 /** Widths a widget can take. The grid is 12 columns on desktop, 6 on tablet, 1 on phone. */
 export type WidgetSize = 'quarter' | 'third' | 'half' | 'two_thirds' | 'full'
 
+/** Labels are the ratio of the widget's width to the full desktop grid row. */
 export const SIZE_LABEL: Record<WidgetSize, string> = {
-  quarter: '1/4 lebar',
-  third: '1/3 lebar',
-  half: '1/2 lebar',
-  two_thirds: '2/3 lebar',
-  full: 'Lebar penuh',
+  quarter: '1:4',
+  third: '1:3',
+  half: '1:2',
+  two_thirds: '2:3',
+  full: '1:1',
 }
 
 /** Literal class strings so Tailwind picks them up. On tablet anything up to half shares a row in pairs. */

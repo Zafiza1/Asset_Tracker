@@ -30,7 +30,7 @@ final class ApprovalDetails
         'code' => 'Kode',
         'name' => 'Nama',
         'label' => 'Nama atribut',
-        'serial_number' => 'No alias',
+        'serial_number' => 'No seri',
         'category_id' => 'Kategori',
         'location_id' => 'Lokasi',
         'parent_id' => 'Induk',

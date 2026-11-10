@@ -202,7 +202,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
           {(p) => <Input {...p} {...register('name', { required: 'Nama aset wajib diisi.' })} />}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="No Alias" error={err('serial_number')} hint="Nomor alias aset, misalnya nomor seri pabrik atau kode lama organisasi (harus unik bila diisi).">
+          <Field label="No Seri" error={err('serial_number')} hint="Nomor seri aset yang dipakai sebagai nomor alias, misalnya nomor seri pabrik atau kode lama organisasi (harus unik bila diisi).">
             {(p) => <Input {...p} {...register('serial_number')} />}
           </Field>
           <Field label="Kategori" required error={err('category_id')}>

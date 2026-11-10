@@ -51,7 +51,7 @@ export function AssetDetailPage() {
     <>
       <PageHeader
         title={a.name}
-        description={`${a.asset_number}${a.serial_number ? ` · No Alias ${a.serial_number}` : ''}`}
+        description={`${a.asset_number}${a.serial_number ? ` · No Seri ${a.serial_number}` : ''}`}
         actions={
           <>
             {a.barcode_enabled && (
@@ -119,7 +119,8 @@ export function AssetDetailPage() {
           }
         >
           {a.image_url && (
-            <a href={a.image_url} target="_blank" rel="noreferrer" className="block border-b border-slate-100 bg-slate-50" title="Buka gambar ukuran penuh">
+            // No "noreferrer": Sanctum only accepts the session cookie when a Referer is sent, so the new tab would get a 401.
+            <a href={a.image_url} target="_blank" rel="noopener" className="block border-b border-slate-100 bg-slate-50" title="Buka gambar ukuran penuh">
               <img src={a.image_url} alt={`Gambar ${a.name}`} className="mx-auto max-h-72 w-full object-contain" />
             </a>
           )}

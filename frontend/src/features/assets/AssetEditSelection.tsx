@@ -145,7 +145,7 @@ export function AssetEditSelection({ picked, onChange }: Props) {
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Cari nama, no aset, atau no alias lalu tekan Enter"
+                  placeholder="Cari nama, no aset, atau no seri lalu tekan Enter"
                   aria-label="Cari aset untuk dipilih"
                 />
               </form>

@@ -269,7 +269,7 @@ function Step4() {
     ]}>
       <NumberedList items={[
         <>Buka <MenuLink to="/aset" permission="asset.view">Data Aset</MenuLink>, lalu klik <Label>Tambah aset</Label> → <Label>Isi formulir</Label>.</>,
-        <>Isi <Label>Nama aset</Label> dan <Label>Kategori</Label>. <Label>No Alias</Label> boleh dikosongkan, tetapi harus unik bila diisi. Isian atribut tampil sesuai kategori yang dipilih.</>,
+        <>Isi <Label>Nama aset</Label> dan <Label>Kategori</Label>. <Label>No Seri</Label> boleh dikosongkan, tetapi harus unik bila diisi. Isian atribut tampil sesuai kategori yang dipilih.</>,
         <>Pilih <Label>Lokasi</Label>, <Label>Status</Label> awal, dan <Label>Kondisi Aset</Label>, lalu lengkapi tanggal dan harga perolehan bila ada.</>,
         <>Klik <Label>Simpan</Label>. No Aset dibuat otomatis dan riwayat <Label>Penambahan aset</Label> tercatat dengan sendirinya.</>,
       ]} />

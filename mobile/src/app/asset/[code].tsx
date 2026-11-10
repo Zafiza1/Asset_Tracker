@@ -95,7 +95,7 @@ export default function AssetDetailScreen() {
 
       <View style={{ gap: 2 }}>
         <Text style={styles.name}>{a.name}</Text>
-        <Text style={styles.code}>{`${a.asset_number}${a.serial_number ? ` · No Alias ${a.serial_number}` : ''}`}</Text>
+        <Text style={styles.code}>{`${a.asset_number}${a.serial_number ? ` · No Seri ${a.serial_number}` : ''}`}</Text>
       </View>
 
       {a.is_archived && (

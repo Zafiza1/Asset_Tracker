@@ -211,7 +211,7 @@ export function AssetsPage() {
     },
     {
       key: "serial_number",
-      header: "No Alias",
+      header: "No Seri",
       cell: (a) =>
         a.serial_number ? (
           <span className="font-mono text-xs">{a.serial_number}</span>
@@ -306,7 +306,7 @@ export function AssetsPage() {
             value={search}
             onChange={setSearch}
             onSubmit={() => update({ search })}
-            placeholder="Cari nama, no aset, atau no alias"
+            placeholder="Cari nama, no aset, atau no seri"
             label="Cari aset"
             aside={
               <div className="flex gap-2">
