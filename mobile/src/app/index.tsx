@@ -1,5 +1,5 @@
-import { router } from 'expo-router'
-import { useState } from 'react'
+import { router, useFocusEffect, type Href } from 'expo-router'
+import { useCallback, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Button, Card, colors } from '@/components/ui'
@@ -8,11 +8,45 @@ import { useSession } from '@/lib/session'
 // A screen that throws keeps the header; only the content shows the error.
 export { ErrorBoundary } from '@/components/ErrorBoundary'
 
-/** Home after login: the account, a button that opens the scanner, and a manual lookup. */
+/**
+ * Home after login: the account, the scanner, a manual lookup, and the actions the account's
+ * role allows (register assets, categories and locations; follow or decide approval requests).
+ */
 export default function HomeScreen() {
-  const { profile, logout } = useSession()
+  const { profile, logout, can, get } = useSession()
   const [manual, setManual] = useState('')
   const [leaving, setLeaving] = useState(false)
+  const [pending, setPending] = useState<number | null>(null)
+  const canDecide = can('approval.manage')
+
+  // Pending requests: every one for approvers, the user's own otherwise; refreshed on return.
+  useFocusEffect(
+    useCallback(() => {
+      let live = true
+      get<{ data: { pending: number } }>('/approvals/summary')
+        .then((r) => live && setPending(r.data.pending))
+        .catch(() => undefined)
+      return () => {
+        live = false
+      }
+    }, [get]),
+  )
+
+  const actions: { title: string; text: string; href: Href; badge?: number | null }[] = [
+    ...(can('asset.create') ? [{ title: 'Tambah Aset', text: 'Daftarkan aset baru beserta atribut kategorinya.', href: '/new/asset' as const }] : []),
+    ...(can('master.tenant.create')
+      ? [
+          { title: 'Tambah Kategori', text: 'Kategori atau subkategori aset baru.', href: '/new/category' as const },
+          { title: 'Tambah Lokasi', text: 'Gedung, ruangan, atau gudang baru.', href: '/new/location' as const },
+        ]
+      : []),
+    {
+      title: canDecide ? 'Persetujuan' : 'Pengajuan Saya',
+      text: canDecide ? 'Setujui atau tolak pengajuan aset, transaksi, dan master data.' : 'Pantau status pengajuan yang menunggu persetujuan.',
+      href: '/approvals',
+      badge: pending,
+    },
+  ]
 
   const search = () => {
     const value = manual.trim()
@@ -66,6 +100,29 @@ export default function HomeScreen() {
           </View>
         </Card>
 
+        <Card title="Menu">
+          {actions.map((a, i) => (
+            <Pressable
+              key={a.title}
+              onPress={() => router.push(a.href)}
+              style={({ pressed }) => [styles.action, i > 0 && styles.actionDivider, pressed && { backgroundColor: colors.background }]}
+              accessibilityRole="button"
+              accessibilityLabel={a.badge ? `${a.title}, ${a.badge} menunggu` : a.title}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.actionTitle}>{a.title}</Text>
+                <Text style={styles.muted}>{a.text}</Text>
+              </View>
+              {!!a.badge && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{a.badge > 99 ? '99+' : a.badge}</Text>
+                </View>
+              )}
+              <Text style={styles.chevron}>›</Text>
+            </Pressable>
+          ))}
+        </Card>
+
         <Button title="Keluar" variant="secondary" onPress={signOut} loading={leaving} />
       </ScrollView>
     </SafeAreaView>
@@ -96,5 +153,11 @@ const styles = StyleSheet.create({
   scanTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
   scanText: { color: 'rgba(255,255,255,0.85)', fontSize: 14 },
   search: { padding: 16, gap: 12 },
+  action: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, minHeight: 64 },
+  actionDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  actionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  badge: { minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger },
+  badgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  chevron: { fontSize: 24, color: colors.muted },
   input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, fontSize: 16, color: colors.text },
 })

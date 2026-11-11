@@ -25,7 +25,8 @@ use Symfony\Component\HttpFoundation\Response;
  * is rejected instead of silently acting on a different organization.
  *
  * Bearer tokens of the mobile scanner app have no session: the organization is the one the
- * token was issued for (re-validated the same way), and only safe (read) methods pass.
+ * token was issued for (re-validated the same way), and only reads and the writes listed in
+ * MobileAccessToken::WRITE_ROUTES pass.
  */
 final class ResolveTenant
 {
@@ -58,10 +59,10 @@ final class ResolveTenant
             throw ApiException::forbidden('PASSWORD_CHANGE_REQUIRED', 'Anda harus mengganti password sebelum melanjutkan.');
         }
 
-        // The mobile scanner app only reads; its token carries the organization chosen at login.
+        // The mobile app reads and makes a few listed writes; its token carries the organization chosen at login.
         if ($token instanceof MobileAccessToken) {
-            if (! $request->isMethodSafe()) {
-                throw ApiException::forbidden('MOBILE_TOKEN_READ_ONLY', 'Aplikasi mobile hanya dapat melihat data.');
+            if (! MobileAccessToken::allows($request)) {
+                throw ApiException::forbidden('MOBILE_TOKEN_READ_ONLY', 'Perubahan ini hanya dapat dilakukan melalui aplikasi web.');
             }
             $organization = $this->access->find($user, $token->organization_id)
                 ?? throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Organisasi ini sedang tidak aktif atau akses Anda telah dicabut.');

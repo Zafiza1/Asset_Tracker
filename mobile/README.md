@@ -7,9 +7,24 @@ Aplikasi Android/iOS untuk memindai barcode aset dan menampilkan detailnya, sama
 | Teknologi | Expo SDK 58, React Native 0.88, Expo Router, `expo-camera` |
 | Barcode 1D | Code 128 (label cetak), Code 39, Code 93, Codabar, EAN-13, EAN-8, UPC-A, UPC-E, ITF-14 |
 | Barcode 2D | QR Code (label cetak), Data Matrix, PDF417, Aztec |
-| Akses | Hanya membaca. Token login terikat ke satu organisasi dan berlaku 30 hari |
+| Akses | Membaca, menambah aset/kategori/lokasi, dan menindaklanjuti approval, sesuai role. Token login terikat ke satu organisasi dan berlaku 30 hari |
 
-Setelah login, aplikasi membuka halaman **beranda** (nama akun dan organisasi, tombol **Scan Aset**, pencarian nomor aset manual, dan tombol **Keluar**). Kamera baru aktif setelah tombol Scan Aset ditekan.
+Setelah login, aplikasi membuka halaman **beranda** (nama akun dan organisasi, tombol **Scan Aset**, pencarian nomor aset manual, menu, dan tombol **Keluar**). Kamera baru aktif setelah tombol Scan Aset ditekan.
+
+## Menu sesuai role
+
+Menu beranda mengikuti izin akun di organisasi token (sama dengan web):
+
+| Menu | Muncul bila | Keterangan |
+|---|---|---|
+| Tambah Aset | `asset.create` | Nama, No Seri, kategori, lokasi, status awal, atribut kategori (termasuk yang wajib, mis. *Kondisi Aset*), tanggal/harga perolehan, deskripsi. No Aset dibuat sistem. Form juga punya pintasan *Tambah kategori/lokasi baru* |
+| Tambah Kategori / Tambah Lokasi | `master.tenant.create` | Nama, kode (opsional, otomatis dari nama), induk, deskripsi/alamat |
+| Persetujuan | `approval.manage` (Super Admin, Supervisor) | Semua pengajuan organisasi; setujui (catatan opsional) atau tolak (alasan wajib, min. 5 karakter). Tab *Pengajuan saya* untuk pengajuan sendiri |
+| Pengajuan Saya | role lain (mis. Admin) | Pengajuan milik sendiri dan statusnya; pengajuan yang masih menunggu dapat dibatalkan |
+
+Alur approval sama dengan web: penambahan oleh Super Admin/Supervisor langsung tersimpan; oleh role lain disimpan sebagai pengajuan (HTTP 202) dan baru diterapkan setelah disetujui. Badge merah di menu menunjukkan jumlah pengajuan yang menunggu.
+
+Foto dan dokumen aset, perubahan data, arsip, impor Excel, dan transaksi tetap lewat aplikasi web.
 
 Isi barcode adalah **nomor aset** (seperti label dari tombol *Print barcode* di web). Aplikasi mencarinya lewat `GET /api/assets/lookup?code=…`, dengan cakupan data dan izin akun yang sama seperti di web. Nomor aset juga bisa diketik manual bila label rusak.
 
@@ -24,7 +39,9 @@ Aplikasi memakai endpoint berikut (sudah ada di `backend/`):
 | `POST /api/auth/mobile/logout` | Mencabut token |
 | `GET /api/assets/lookup?code=` | Detail aset berdasarkan nomor aset (`404 ASSET_NOT_FOUND` bila tidak ada) |
 
-Token disimpan di tabel `mobile_access_tokens` yang hanya dapat dibaca dalam konteks system (RLS), sehingga konteks tenant tidak pernah melihat token. Token hanya diterima untuk request baca (GET) pada rute tenant, dan ditolak di rute akun web (`/api/auth/logout`, `/password`, `/organizations`, dst.).
+Selain itu aplikasi memakai endpoint tenant yang sama dengan web: `GET /locations`, `GET /tenant-masters/categories`, `GET /tenant-masters/categories/{id}/attributes`, `POST /assets`, `POST /locations`, `POST /tenant-masters/categories`, dan `GET /approvals`, `/approvals/counts`, `/approvals/summary`, `/approvals/{id}`, `POST /approvals/{id}/approve|reject|cancel`.
+
+Token disimpan di tabel `mobile_access_tokens` yang hanya dapat dibaca dalam konteks system (RLS), sehingga konteks tenant tidak pernah melihat token. Pada rute tenant token diterima untuk request baca (GET) dan hanya untuk write yang terdaftar di `MobileAccessToken::WRITE_ROUTES` (daftar POST di atas); write lain ditolak dengan `403 MOBILE_TOKEN_READ_ONLY`. Izin (`permission:`) dan gerbang approval (`approval:`) tetap berlaku seperti di web. Token ditolak di rute akun web (`/api/auth/logout`, `/password`, `/organizations`, dst.).
 
 Jalankan migrasinya sekali:
 

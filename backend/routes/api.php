@@ -49,7 +49,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/invitation/register', [InvitationAcceptanceController::class, 'register'])->middleware('throttle:invitation');
     Route::post('/invitation/login', [InvitationAcceptanceController::class, 'login'])->middleware('throttle:invitation');
 
-    // Mobile scanner app: read-only bearer token bound to one organization.
+    // Mobile app: bearer token bound to one organization (reads + MobileAccessToken::WRITE_ROUTES).
     Route::post('/mobile/login', [AuthController::class, 'mobileLogin'])->middleware('throttle:login');
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/mobile/me', [AuthController::class, 'mobileMe']);

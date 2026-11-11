@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Domain\Assets\Models\Asset;
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
@@ -13,7 +14,7 @@ use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
- * Mobile scanner app: a read-only bearer token bound to one organization, and the lookup of
+ * Mobile app: a bearer token bound to one organization (reads and a few listed writes) and the lookup of
  * a scanned barcode (the asset number) to the asset's detail.
  */
 class MobileAccessTest extends TestCase
@@ -69,13 +70,67 @@ class MobileAccessTest extends TestCase
         $this->assertErrorCode($this->login(['password' => 'wrong-password']), 422, 'INVALID_CREDENTIALS');
     }
 
-    public function test_token_only_reads(): void
+    public function test_token_writes_only_the_listed_routes(): void
+    {
+        $token = $this->login()->json('data.token');
+        $asset = $this->tenancy()->runAsTenant(new TenantContext($this->alpha, $this->admin), fn () => Asset::query()->where('asset_number', 'FIX-1')->sole());
+
+        $this->assertErrorCode($this->bearer($token)->patchJson("/api/assets/{$asset->id}", ['name' => 'X']), 403, 'MOBILE_TOKEN_READ_ONLY');
+        $this->assertErrorCode($this->bearer($token)->postJson("/api/assets/{$asset->id}/archive"), 403, 'MOBILE_TOKEN_READ_ONLY');
+        $this->assertErrorCode($this->bearer($token)->postJson('/api/assets/import'), 403, 'MOBILE_TOKEN_READ_ONLY');
+        $this->assertErrorCode($this->bearer($token)->patchJson("/api/locations/{$this->masters['location']->id}", ['name' => 'X']), 403, 'MOBILE_TOKEN_READ_ONLY');
+        $this->assertErrorCode($this->bearer($token)->postJson('/api/users/'.$this->admin->id.'/deactivate'), 403, 'MOBILE_TOKEN_READ_ONLY');
+        $this->assertErrorCode($this->bearer($token)->postJson('/api/auth/organizations', ['organization_name' => 'X', 'organization_code' => 'XX']), 403, 'SESSION_REQUIRED');
+        $this->assertErrorCode($this->bearer($token)->putJson('/api/auth/password', []), 403, 'SESSION_REQUIRED');
+    }
+
+    public function test_approver_registers_assets_locations_and_categories_directly(): void
     {
         $token = $this->login()->json('data.token');
 
-        $this->assertErrorCode($this->bearer($token)->postJson('/api/assets', ['name' => 'X']), 403, 'MOBILE_TOKEN_READ_ONLY');
-        $this->assertErrorCode($this->bearer($token)->postJson('/api/auth/organizations', ['organization_name' => 'X', 'organization_code' => 'XX']), 403, 'SESSION_REQUIRED');
-        $this->assertErrorCode($this->bearer($token)->putJson('/api/auth/password', []), 403, 'SESSION_REQUIRED');
+        $location = $this->bearer($token)->postJson('/api/locations', ['name' => 'Gudang Mobile'])->assertCreated()->json('data');
+        $category = $this->bearer($token)->postJson('/api/tenant-masters/categories', ['name' => 'Kategori Mobile'])->assertCreated()->json('data');
+        // A new category has the default fields, with the required Kondisi Aset, as on the web.
+        $fields = $this->bearer($token)->getJson("/api/tenant-masters/categories/{$category['id']}/attributes")->assertOk()->json('data');
+        $condition = collect($fields)->firstWhere('label', 'Kondisi Aset');
+        $this->assertTrue($condition['is_required']);
+        $this->bearer($token)->postJson('/api/assets', [
+            'name' => 'Laptop Lapangan', 'category_id' => $category['id'], 'location_id' => $location['id'], 'status' => 'in_use',
+        ])->assertStatus(422);
+        $this->bearer($token)->postJson('/api/assets', [
+            'name' => 'Laptop Lapangan', 'category_id' => $category['id'], 'location_id' => $location['id'], 'status' => 'in_use',
+            'attributes' => [$condition['key'] => 'BAIK'],
+        ])->assertCreated()->assertJsonPath('data.name', 'Laptop Lapangan')->assertJsonPath('data.location.id', $location['id']);
+    }
+
+    public function test_changes_without_approval_permission_wait_for_an_approver_on_mobile(): void
+    {
+        $staff = $this->createTenantUser($this->alpha, ['ADMIN']);
+        $staffToken = $this->login(['email' => $staff->email])->assertOk()->json('data.token');
+        $this->assertNotContains('approval.manage', $this->bearer($staffToken)->getJson('/api/auth/mobile/me')->json('data.permissions'));
+
+        $pending = $this->bearer($staffToken)->postJson('/api/assets', [
+            'name' => 'Proyektor', 'category_id' => $this->masters['category']->id, 'location_id' => $this->masters['location']->id,
+        ])->assertStatus(202)->assertJsonPath('meta.approval_pending', true)->assertJsonPath('data.status', 'pending');
+        $locationRequest = $this->bearer($staffToken)->postJson('/api/locations', ['name' => 'Ruang Rapat'])->assertStatus(202)->json('data.id');
+        $this->bearer($staffToken)->postJson('/api/tenant-masters/categories', ['name' => 'Elektronik'])->assertStatus(202);
+        $this->assertFalse($this->tenancy()->runAsTenant(new TenantContext($this->alpha, $this->admin),
+            fn () => Asset::query()->where('name', 'Proyektor')->exists()));
+
+        // The requester follows (and may withdraw) their own requests, but cannot decide.
+        $this->bearer($staffToken)->getJson('/api/approvals?status=pending')->assertOk()->assertJsonCount(3, 'data');
+        $this->assertErrorCode($this->bearer($staffToken)->postJson("/api/approvals/{$pending['data']['id']}/approve"), 403, 'FORBIDDEN');
+        $this->bearer($staffToken)->postJson("/api/approvals/{$locationRequest}/cancel")->assertOk()->assertJsonPath('data.status', 'cancelled');
+
+        $approverToken = $this->login()->json('data.token');
+        $this->bearer($approverToken)->getJson("/api/approvals/{$pending['data']['id']}")->assertOk()->assertJsonStructure(['data' => ['details', 'impact', 'history']]);
+        $this->bearer($approverToken)->postJson("/api/approvals/{$pending['data']['id']}/approve", ['note' => 'OK'])->assertOk()->assertJsonPath('data.status', 'approved');
+        $this->assertTrue($this->tenancy()->runAsTenant(new TenantContext($this->alpha, $this->admin),
+            fn () => \App\Domain\Assets\Models\Asset::query()->where('name', 'Proyektor')->exists()));
+
+        $categoryRequest = $this->bearer($approverToken)->getJson('/api/approvals?status=pending')->assertJsonCount(1, 'data')->json('data.0.id');
+        $this->assertErrorCode($this->bearer($approverToken)->postJson("/api/approvals/{$categoryRequest}/reject", ['note' => '']), 422, 'VALIDATION_FAILED');
+        $this->bearer($approverToken)->postJson("/api/approvals/{$categoryRequest}/reject", ['note' => 'Sudah ada kategori serupa'])->assertOk()->assertJsonPath('data.status', 'rejected');
     }
 
     public function test_account_in_several_organizations_chooses_one_per_token(): void

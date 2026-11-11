@@ -6,7 +6,7 @@ import { ApiError, normalizeServer, request } from './api'
 import type { Organization, Profile } from './types'
 
 /**
- * The logged-in account: server address, read-only bearer token (bound to one organization
+ * The logged-in account: server address, bearer token (bound to one organization
  * by the backend) and profile, kept in the device's secure storage between launches.
  */
 interface Session {
@@ -18,7 +18,11 @@ interface Session {
   logout: () => Promise<void>
   /** GET {server}/api{path} with the token; a rejected token ends the session. */
   get: <T>(path: string) => Promise<T>
+  /** POST {server}/api{path} with a JSON body; same session handling as get. */
+  post: <T>(path: string, body?: unknown) => Promise<T>
   can: (permission: string) => boolean
+  /** Optional module (e.g. 'barcode') switched on for the organization. */
+  hasModule: (module: string) => boolean
 }
 
 const KEYS = { server: 'server', token: 'token', profile: 'profile' } as const
@@ -112,10 +116,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     await clear()
   }, [server, token, clear])
 
-  const get = useCallback(
-    async <T,>(path: string) => {
+  const call = useCallback(
+    async <T,>(path: string, options: { method?: 'GET' | 'POST'; body?: unknown } = {}) => {
       try {
-        return await request<T>(server, path, { token })
+        return await request<T>(server, path, { ...options, token })
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) await clear()
         throw e
@@ -123,10 +127,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     [server, token, clear],
   )
+  const get = useCallback(<T,>(path: string) => call<T>(path), [call])
+  const post = useCallback(<T,>(path: string, body: unknown = {}) => call<T>(path, { method: 'POST', body }), [call])
 
   const value = useMemo<Session>(
-    () => ({ ready, server, token, profile, login, logout, get, can: (p) => profile?.permissions.includes(p) ?? false }),
-    [ready, server, token, profile, login, logout, get],
+    () => ({
+      ready,
+      server,
+      token,
+      profile,
+      login,
+      logout,
+      get,
+      post,
+      can: (p) => profile?.permissions.includes(p) ?? false,
+      hasModule: (m) => profile?.modules?.includes(m) ?? false,
+    }),
+    [ready, server, token, profile, login, logout, get, post],
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

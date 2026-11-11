@@ -58,7 +58,8 @@ class AuthController extends Controller
     }
 
     /**
-     * Login of the mobile scanner app: issues a read-only bearer token for one organization.
+     * Login of the mobile app: issues a bearer token for one organization (reads, plus the
+     * writes in MobileAccessToken::WRITE_ROUTES).
      * An account in several organizations without a usable default gets 409 with the choices,
      * and repeats the login with organization_id.
      */

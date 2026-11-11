@@ -37,14 +37,69 @@ export interface Asset {
   updated_at: string
 }
 
+export type AttributeType = 'string' | 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'enum' | 'multi_enum'
+
 export interface CategoryAttribute {
   id: string
   key: string
   label: string
-  data_type: string
+  data_type: AttributeType | string
   options: { value: string; label: string }[] | null
   sort_order: number
-  section: 'basic_information' | 'location_ownership' | 'status_condition' | null
+  section: 'basic_information' | 'location_ownership' | 'status_condition' | 'specific_attributes' | null
+  /** Only on GET /tenant-masters/categories/{id}/attributes (the form's fields). */
+  is_required?: boolean
+  is_default?: boolean
+}
+
+/** Row of a master list (locations, categories) used in pickers; depth is its level in the tree. */
+export interface MasterOption {
+  id: string
+  code: string
+  name: string
+  depth?: number
+  status: string
+}
+
+/** Statuses an asset can be registered with (AssetStatus::INITIAL). */
+export const INITIAL_STATUSES: AssetStatus[] = ['in_use', 'available', 'under_maintenance']
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+
+/** Approval request (Notifications menu on the web); details, impact and history only on the detail endpoint. */
+export interface ApprovalRequest {
+  id: string
+  category: 'transaction' | 'asset' | 'master'
+  category_label: string
+  action: string
+  action_label: string
+  summary: string
+  status: ApprovalStatus
+  requester?: { id: string; name: string } | null
+  decider?: { id: string; name: string } | null
+  decided_at: string | null
+  decision_note: string | null
+  details?: { label: string; value: string; current?: string }[]
+  impact?: { text: string; destructive: boolean }
+  asset_id?: string | null
+  history?: { action: string; label: string; actor: string | null; note: string | null; at: string | null }[]
+  created_at: string
+}
+
+export type ApprovalCounts = Record<ApprovalStatus | 'all', number>
+
+export const approvalStatusLabel: Record<ApprovalStatus, string> = {
+  pending: 'Menunggu',
+  approved: 'Disetujui',
+  rejected: 'Ditolak',
+  cancelled: 'Dibatalkan',
+}
+
+export const approvalStatusColors: Record<ApprovalStatus, [string, string]> = {
+  pending: ['#fef3c7', '#92400e'],
+  approved: ['#dcfce7', '#166534'],
+  rejected: ['#fee2e2', '#991b1b'],
+  cancelled: ['#f1f5f9', '#334155'],
 }
 
 export interface AssetDetail {
@@ -63,6 +118,7 @@ export interface AssetTransaction {
 
 export interface Paginated<T> {
   data: T[]
+  meta?: { current_page: number; last_page: number; total: number }
 }
 
 export interface Organization {
@@ -75,6 +131,8 @@ export interface Profile {
   user: { id: string; name: string; email: string; job_title: string | null }
   organization: Organization
   permissions: string[]
+  /** Optional modules switched on for the organization (e.g. 'barcode'). */
+  modules?: string[]
 }
 
 export const assetStatusLabel: Record<AssetStatus, string> = {

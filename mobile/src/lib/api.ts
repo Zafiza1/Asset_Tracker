@@ -8,6 +8,21 @@ export class ApiError extends Error {
   ) {
     super(message)
   }
+
+  /** Validation errors per input ({ name: ['…'] }), as details.fields of a 422. */
+  get fields(): Record<string, string[]> {
+    return (this.details.fields as Record<string, string[]> | undefined) ?? {}
+  }
+}
+
+/** A write by a user without approval.manage: 202, stored as a pending approval request. */
+export interface ApprovalPending {
+  data: { id: string; summary: string; action_label: string; status: string }
+  meta: { approval_pending: true; message: string }
+}
+
+export function isApprovalPending(response: unknown): response is ApprovalPending {
+  return (response as ApprovalPending | null)?.meta?.approval_pending === true
 }
 
 const TIMEOUT_MS = 15_000
