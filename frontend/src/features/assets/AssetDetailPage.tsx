@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeftRight, CalendarDays, FolderTree, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
+import clsx from 'clsx'
 import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -21,8 +22,9 @@ import { TransactionFormModal } from '../transactions/TransactionFormModal'
 import { assetStatusLabel, assetStatusTone, formatMoney, type Asset } from './api'
 import { AssetBarcodeModal } from './AssetBarcodeModal'
 import { AssetFormModal } from './AssetFormModal'
+import { AssetTimeline, type TimelineEvent } from './AssetTimeline'
 
-/** Detail of one asset: data, quick actions, and its full transaction history. */
+/** Detail of one asset: data, quick actions, and its timeline (transactions and data edits). */
 export function AssetDetailPage() {
   const { id } = useParams()
   const { can } = useAuth()
@@ -31,13 +33,19 @@ export function AssetDetailPage() {
   const [archiving, setArchiving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
+  const [historyView, setHistoryView] = useState<'timeline' | 'table'>('timeline')
 
   const asset = useQuery({ queryKey: ['/assets', id], queryFn: () => api.get<Resource<Asset> & { attribute_fields: CategoryAttribute[] }>(`/assets/${id}`) })
   const attributeFields = useAssetFields(asset.data?.attribute_fields ?? [])
   const history = useQuery({
     queryKey: ['/assets', id, 'transactions'],
     queryFn: () => api.get<Paginated<AssetTransaction>>(`/assets/${id}/transactions?per_page=100`),
-    enabled: can('transaction.view'),
+    enabled: can('transaction.view') && historyView === 'table',
+  })
+  const timeline = useQuery({
+    queryKey: ['/assets', id, 'timeline'],
+    queryFn: () => api.get<{ data: TimelineEvent[] }>(`/assets/${id}/timeline`),
+    enabled: historyView === 'timeline',
   })
 
   if (asset.isLoading) return <Spinner />
@@ -204,9 +212,35 @@ export function AssetDetailPage() {
           </dl>
         </Card>
 
-        <Card title="Riwayat transaksi" className="min-w-0 xl:col-span-3">
-          {!can('transaction.view') ? (
-            <p className="p-4 text-sm text-slate-500">Anda tidak memiliki izin melihat riwayat transaksi.</p>
+        <Card
+          title={historyView === 'timeline' ? 'Timeline aset' : 'Riwayat transaksi'}
+          className="min-w-0 xl:col-span-3"
+          actions={
+            can('transaction.view') && (
+              <div className="inline-flex rounded-lg bg-slate-100 p-0.5" role="group" aria-label="Tampilan riwayat">
+                {(['timeline', 'table'] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    aria-pressed={historyView === v}
+                    onClick={() => setHistoryView(v)}
+                    className={clsx('rounded-md px-3 py-1 text-xs font-medium', historyView === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900')}
+                  >
+                    {v === 'timeline' ? 'Timeline' : 'Tabel'}
+                  </button>
+                ))}
+              </div>
+            )
+          }
+        >
+          {historyView === 'timeline' ? (
+            timeline.isLoading ? (
+              <Spinner />
+            ) : timeline.isError ? (
+              <ErrorState error={timeline.error} />
+            ) : (
+              <AssetTimeline events={timeline.data!.data} />
+            )
           ) : history.isLoading ? (
             <Spinner />
           ) : history.isError ? (

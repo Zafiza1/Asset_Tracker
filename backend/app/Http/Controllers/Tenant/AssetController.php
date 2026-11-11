@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Domain\Analytics\AssetAnalytics;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
+use App\Domain\Assets\AssetTimeline;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Assets\Services\AssetService;
 use App\Domain\Organization\Models\Location;
@@ -450,6 +451,15 @@ class AssetController extends Controller
             ->paginate(ListQuery::perPage($request, 10));
 
         return AssetTransactionResource::collection($history);
+    }
+
+    /**
+     * Timeline of one asset: transactions plus edits to its data, newest first.
+     * Transactions are left out for users without transaction.view.
+     */
+    public function timeline(Request $request, Asset $asset, AssetTimeline $timeline): JsonResponse
+    {
+        return response()->json(['data' => $timeline->for($asset, $request, $this->tenancy->tenant()->can('transaction.view'))]);
     }
 
     /** @return array<string, list<mixed>> */

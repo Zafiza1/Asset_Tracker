@@ -7,6 +7,7 @@ use App\Domain\Assets\Services\AssetService;
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\GenericMaster\Models\GenericAssetCategory;
 use App\Domain\Identity\Models\User;
+use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use Illuminate\Database\QueryException;
@@ -260,6 +261,38 @@ class AssetManagementTest extends TestCase
         $this->patchJson("/api/assets/{$with['id']}", ['attributes' => [$field['key'] => false], 'lock_version' => $with['lock_version']])
             ->assertOk()->assertJsonPath('data.barcode_enabled', false);
         $this->assertErrorCode($this->patchJson("/api/assets/{$without['id']}", ['attributes' => [$field['key'] => 'ya']]), 422, 'VALIDATION_FAILED');
+    }
+
+    public function test_timeline_merges_transactions_and_data_edits_newest_first(): void
+    {
+        $asset = $this->register(['name' => 'Laptop', 'acquisition_cost' => 1000])->assertCreated()->json('data');
+        $other = $this->category('CAT9', 'Elektronik');
+        $this->travel(1)->minutes();
+        $this->patchJson("/api/assets/{$asset['id']}", ['name' => 'Laptop Dell', 'acquisition_cost' => 2500, 'category_id' => $other->id])->assertOk();
+        // An edit that changes nothing leaves no entry.
+        $this->patchJson("/api/assets/{$asset['id']}", ['name' => 'Laptop Dell'])->assertOk();
+        $location = (new Location)->forceFill(['organization_id' => $this->org->id, 'code' => 'LOC2', 'name' => 'Kantor']);
+        $location->save();
+        $this->travel(1)->minutes();
+        $this->postJson('/api/transactions', ['asset_id' => $asset['id'], 'type' => 'transfer', 'to_location_id' => $location->id])->assertCreated();
+
+        $events = $this->getJson("/api/assets/{$asset['id']}/timeline")->assertOk()->json('data');
+
+        $this->assertSame(['transaction', 'data_change', 'transaction'], array_column($events, 'kind'));
+        $this->assertSame('transfer', $events[0]['transaction']['type']);
+        $this->assertSame('Kantor', $events[0]['transaction']['to_location']['name']);
+        $this->assertSame('registration', $events[2]['transaction']['type']);
+        $this->assertSame($this->admin->name, $events[1]['actor']);
+        $changes = collect($events[1]['changes'])->keyBy('field');
+        $this->assertSame(['Laptop', 'Laptop Dell'], [$changes['name']['before'], $changes['name']['after']]);
+        $this->assertSame('Harga perolehan', $changes['acquisition_cost']['label']);
+        $this->assertSame(['Kategori 1', 'Elektronik'], [$changes['category_id']['before'], $changes['category_id']['after']]);
+
+        // Without transaction.view only the data edits are shown.
+        $role = $this->createRole($this->org, 'ASSET_ONLY', ['organization.view', 'master.tenant.view', 'asset.view'])->code;
+        $this->flushSession();
+        $this->actingAs($this->createTenantUser($this->org, [$role]), 'web');
+        $this->assertSame(['data_change'], array_column($this->getJson("/api/assets/{$asset['id']}/timeline")->assertOk()->json('data'), 'kind'));
     }
 
     /** @param array<string, mixed> $data */

@@ -27,4 +27,5 @@ Route::middleware('module:assets')->group(function () {
     Route::post('/assets/{asset}/archive', [AssetController::class, 'archive'])->middleware(['permission:asset.archive', 'approval:asset.archive']);
     Route::post('/assets/{asset}/restore', [AssetController::class, 'restore'])->middleware(['permission:asset.restore', 'approval:asset.restore']);
     Route::get('/assets/{asset}/transactions', [AssetController::class, 'transactions'])->middleware('permission:asset.view,transaction.view');
+    Route::get('/assets/{asset}/timeline', [AssetController::class, 'timeline'])->middleware('permission:asset.view');
 });
