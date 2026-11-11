@@ -148,6 +148,50 @@ class ApprovalTest extends TestCase
         $this->assertSame('Elektronik', $category->fresh()->name);
     }
 
+    public function test_update_details_show_current_and_submitted_values_with_impact_and_history(): void
+    {
+        $asset = $this->createAsset();
+        $this->loginAs($this->admin);
+        $id = $this->patchJson("/api/assets/{$asset->id}", ['name' => 'Laptop Baru', 'lock_version' => $asset->lock_version])->assertStatus(202)->json('data.id');
+
+        $this->loginAs($this->supervisor);
+        $detail = $this->getJson("/api/approvals/{$id}")->assertOk()
+            ->assertJsonPath('data.asset_id', $asset->id)
+            ->assertJsonPath('data.impact.destructive', false)
+            ->assertJsonPath('data.history.0.action', 'approval.submitted')
+            ->assertJsonPath('data.history.0.actor', $this->admin->name);
+        $name = collect($detail->json('data.details'))->firstWhere('label', 'Nama');
+        $this->assertSame(['label' => 'Nama', 'value' => 'Laptop Baru', 'current' => 'Laptop'], $name);
+
+        $this->assertErrorCode($this->postJson("/api/approvals/{$id}/reject"), 422, 'VALIDATION_FAILED');
+        $this->assertErrorCode($this->postJson("/api/approvals/{$id}/reject", ['note' => 'no']), 422, 'VALIDATION_FAILED');
+        $this->postJson("/api/approvals/{$id}/reject", ['note' => 'Nama tidak sesuai label'])->assertOk()
+            ->assertJsonPath('data.history.1.action', 'approval.rejected')
+            ->assertJsonPath('data.history.1.actor', $this->supervisor->name)
+            ->assertJsonPath('data.history.1.note', 'Nama tidak sesuai label');
+        $this->assertSame('Laptop', $asset->fresh()->name);
+    }
+
+    public function test_counts_per_status_and_search_follow_the_list_filters(): void
+    {
+        $this->loginAs($this->admin);
+        $first = $this->postJson('/api/locations', ['name' => 'Gudang Barat'])->assertStatus(202)->json('data.id');
+        $this->postJson('/api/locations', ['name' => 'Gudang Timur'])->assertStatus(202);
+        $this->postJson('/api/assets', $this->assetInput('Printer Epson'))->assertStatus(202);
+        $this->postJson("/api/approvals/{$first}/cancel")->assertOk();
+
+        $this->loginAs($this->supervisor);
+        $this->getJson('/api/approvals/counts')->assertOk()
+            ->assertExactJson(['data' => ['pending' => 2, 'approved' => 0, 'rejected' => 0, 'cancelled' => 1, 'all' => 3]]);
+        $this->getJson('/api/approvals/counts?category=asset')->assertJsonPath('data.all', 1);
+        $this->getJson('/api/approvals/counts?search=gudang')->assertJsonPath('data.pending', 1)->assertJsonPath('data.cancelled', 1);
+        // Search also matches the requester's name and the type of change.
+        $this->getJson('/api/approvals?search='.urlencode($this->admin->name))->assertJsonCount(3, 'data');
+        $this->getJson('/api/approvals?search=penambahan%20aset')->assertJsonCount(1, 'data')->assertJsonPath('data.0.summary', 'Printer Epson');
+        $this->getJson('/api/approvals?decided_by_me=1')->assertJsonCount(0, 'data');
+        $this->assertErrorCode($this->getJson('/api/approvals/counts?category=unknown'), 422, 'VALIDATION_FAILED');
+    }
+
     public function test_uploaded_file_is_kept_until_the_import_is_approved(): void
     {
         Storage::fake('local');

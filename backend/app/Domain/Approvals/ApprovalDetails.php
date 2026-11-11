@@ -6,13 +6,17 @@ use App\Domain\Approvals\Models\ApprovalRequest;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\TransactionType;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * The submitted input of an approval request as readable rows for the approver: field labels
- * instead of keys, names instead of ids, labels instead of status codes.
+ * instead of keys, names instead of ids, labels instead of status codes. For changes of an existing
+ * record (`*.update`) every row also carries the record's current value, so the approver sees
+ * what changes before deciding.
  */
 final class ApprovalDetails
 {
@@ -51,20 +55,29 @@ final class ApprovalDetails
 
     private const MASTER_STATUS = ['active' => 'Aktif', 'inactive' => 'Nonaktif', 'archived' => 'Diarsipkan'];
 
-    /** @return list<array{label: string, value: string}> */
+    /** Model of the record an `<entity>.update` action changes. */
+    private const SUBJECTS = [
+        'asset' => Asset::class,
+        'location' => Location::class,
+        'category' => TenantAssetCategory::class,
+        'department' => Department::class,
+    ];
+
+    /** @return list<array{label: string, value: string, current?: string}> */
     public static function rows(ApprovalRequest $approval): array
     {
         $payload = $approval->payload ?? [];
+        $subject = self::subject($approval);
         $rows = [];
         foreach ($payload as $key => $value) {
             if ($key === 'changes' && is_array($value)) {
                 foreach ($value as $field => $changed) {
-                    self::add($rows, $approval, (string) $field, $changed);
+                    self::add($rows, $approval, (string) $field, $changed, null);
                 }
 
                 continue;
             }
-            self::add($rows, $approval, (string) $key, $value);
+            self::add($rows, $approval, (string) $key, $value, $subject);
         }
         foreach ($approval->files ?? [] as $file) {
             $rows[] = ['label' => 'File', 'value' => $file['name']];
@@ -73,13 +86,46 @@ final class ApprovalDetails
         return $rows;
     }
 
-    /** @param list<array{label: string, value: string}> $rows */
-    private static function add(array &$rows, ApprovalRequest $approval, string $key, mixed $value): void
+    /** @param list<array{label: string, value: string, current?: string}> $rows */
+    private static function add(array &$rows, ApprovalRequest $approval, string $key, mixed $value, ?Model $subject): void
     {
         if (in_array($key, self::HIDDEN, true)) {
             return;
         }
-        $rows[] = ['label' => self::LABELS[$key] ?? $key, 'value' => self::value($approval, $key, $value)];
+        $row = ['label' => self::LABELS[$key] ?? $key, 'value' => self::value($approval, $key, $value)];
+        if ($subject !== null) {
+            $row['current'] = self::value($approval, $key, self::currentValue($subject, $key));
+        }
+        $rows[] = $row;
+    }
+
+    /** The existing record an update request changes; null for other actions or when it is gone. */
+    private static function subject(ApprovalRequest $approval): ?Model
+    {
+        [$entity, $verb] = array_pad(explode('.', $approval->action, 2), 2, '');
+        $model = self::SUBJECTS[$entity] ?? null;
+        if ($verb !== 'update' || $model === null || ! preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $approval->path, $m)) {
+            return null;
+        }
+
+        return $model::query()->whereKey($m[0])->first();
+    }
+
+    private static function currentValue(Model $subject, string $key): mixed
+    {
+        if ($key === 'attributes' && $subject instanceof Asset) {
+            return $subject->attribute_values;
+        }
+        if (! array_key_exists($key, $subject->getAttributes())) {
+            return null;
+        }
+        $value = $subject->getAttribute($key);
+
+        return match (true) {
+            $value instanceof CarbonInterface => $value->toDateString(),
+            $value instanceof \BackedEnum => $value->value,
+            default => $value,
+        };
     }
 
     private static function value(ApprovalRequest $approval, string $key, mixed $value): string

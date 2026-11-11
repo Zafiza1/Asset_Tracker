@@ -20,10 +20,27 @@ export interface ApprovalRequest {
   decider?: { id: string; name: string } | null
   decided_at: string | null
   decision_note: string | null
-  /** Readable submitted input; only on the detail endpoint. */
-  details?: { label: string; value: string }[]
+  /** Readable submitted input; only on the detail endpoint. `current` is the record's value now (changes of an existing record). */
+  details?: { label: string; value: string; current?: string }[]
+  /** What approving does to the data; only on the detail endpoint. */
+  impact?: { text: string; destructive: boolean }
+  /** The existing asset the request is about; only on the detail endpoint. */
+  asset_id?: string | null
+  /** Submission and decision, oldest first (audit trail); only on the detail endpoint. */
+  history?: ApprovalHistoryEntry[]
   created_at: string
 }
+
+export interface ApprovalHistoryEntry {
+  action: 'approval.submitted' | 'approval.approved' | 'approval.rejected' | 'approval.cancelled'
+  label: string
+  actor: string | null
+  note: string | null
+  at: string | null
+}
+
+/** Number of requests per status under the list filters (GET /approvals/counts). */
+export type ApprovalCounts = Record<ApprovalStatus | 'all', number>
 
 export const approvalStatusLabel: Record<ApprovalStatus, string> = {
   pending: 'Menunggu',

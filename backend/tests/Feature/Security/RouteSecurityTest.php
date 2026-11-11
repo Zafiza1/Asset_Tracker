@@ -31,7 +31,7 @@ class RouteSecurityTest extends TestCase
      * each user follows their own approval requests (ApprovalController narrows the rows; only
      * approve/reject need approval.manage).
      */
-    private const MEMBER_ROUTES = ['api/approvals', 'api/approvals/summary', 'api/approvals/{approvalRequest}', 'api/approvals/{approvalRequest}/cancel'];
+    private const MEMBER_ROUTES = ['api/approvals', 'api/approvals/summary', 'api/approvals/counts', 'api/approvals/{approvalRequest}', 'api/approvals/{approvalRequest}/cancel'];
 
     public function test_every_api_route_is_authenticated_scoped_and_permission_checked(): void
     {

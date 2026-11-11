@@ -90,11 +90,11 @@ function PersonalNote() {
   const { can } = useAuth()
   return can('approval.manage') ? (
     <Alert tone="info" title="Anda termasuk penyetuju">
-      Perubahan yang Anda buat langsung berlaku. Periksa menu <MenuLink to="/notifikasi">Approval</MenuLink> secara rutin, karena perubahan pengguna lain menunggu keputusan Anda di sana.
+      Perubahan yang Anda buat langsung berlaku. Periksa menu <MenuLink to="/notifikasi">Persetujuan</MenuLink> secara rutin, karena perubahan pengguna lain menunggu keputusan Anda di sana.
     </Alert>
   ) : (
     <Alert tone="info" title="Perubahan Anda perlu disetujui">
-      Perubahan data aset dan Master Data (kategori, lokasi) baru berlaku setelah disetujui Super Admin atau Supervisor. Ikuti statusnya di menu <MenuLink to="/notifikasi">Approval</MenuLink>.
+      Perubahan data aset dan Master Data (kategori, lokasi) baru berlaku setelah disetujui Super Admin atau Supervisor. Ikuti statusnya di menu <MenuLink to="/notifikasi">Persetujuan</MenuLink>.
     </Alert>
   )
 }
@@ -298,14 +298,14 @@ function Step5() {
         <PathCard title="Bila Anda mengajukan">
           <NumberedList items={[
             <>Setelah menyimpan, muncul pesan <Label>Menunggu persetujuan</Label>. Data belum berubah.</>,
-            <>Ikuti statusnya di <MenuLink to="/notifikasi">Approval</MenuLink>.</>,
+            <>Ikuti statusnya di <MenuLink to="/notifikasi">Persetujuan</MenuLink>.</>,
             <>Keliru? Buka pengajuannya dan pilih <Label>Batalkan pengajuan</Label> selama masih menunggu.</>,
             'Ditolak? Baca catatannya, perbaiki, lalu ajukan lagi dari menu asalnya.',
           ]} />
         </PathCard>
         <PathCard title="Bila Anda menyetujui">
           <NumberedList items={[
-            <>Buka <MenuLink to="/notifikasi">Approval</MenuLink>. Angka merah menunjukkan jumlah pengajuan yang menunggu.</>,
+            <>Buka <MenuLink to="/notifikasi">Persetujuan</MenuLink>. Angka merah menunjukkan jumlah pengajuan yang menunggu.</>,
             'Klik pengajuan untuk membaca rinciannya.',
             <>Isi catatan bila perlu, lalu pilih <Label>Setujui</Label> atau <Label>Tolak</Label>.</>,
           ]} />
@@ -486,7 +486,7 @@ function Step8() {
 
 const PROBLEMS: { q: string; a: ReactNode }[] = [
   { q: 'Menu yang saya cari tidak ada, atau muncul "Akses ditolak".', a: 'Role Anda belum memiliki izin untuk menu itu. Hubungi Super Admin atau Supervisor organisasi Anda.' },
-  { q: 'Perubahan yang saya simpan belum terlihat.', a: <>Kemungkinan masih menunggu persetujuan. Periksa statusnya di <MenuLink to="/notifikasi">Approval</MenuLink>.</> },
+  { q: 'Perubahan yang saya simpan belum terlihat.', a: <>Kemungkinan masih menunggu persetujuan. Periksa statusnya di <MenuLink to="/notifikasi">Persetujuan</MenuLink>.</> },
   { q: 'Saya tidak menemukan aset tertentu.', a: 'Aset itu mungkin berada di luar cakupan data Anda, atau sudah nonaktif. Untuk melihat aset nonaktif, ubah filter di Data Aset menjadi "Aset nonaktif".' },
   { q: 'Aset tidak dapat dicentang saat mencatat transaksi.', a: 'Status aset tidak mengizinkan jenis transaksi itu, misalnya aset yang sedang dipinjam tidak dapat dipindahkan. Lihat tabel status pada langkah 7.' },
   { q: 'Saya salah mencatat transaksi.', a: 'Transaksi tidak dapat diubah atau dihapus. Catat transaksi baru untuk mengembalikan data ke keadaan yang benar.' },

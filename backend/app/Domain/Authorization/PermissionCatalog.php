@@ -67,7 +67,7 @@ final class PermissionCatalog
         'audit.view' => ['tenant', 'audit', 'Melihat audit trail organisasi'],
         'approval.manage' => ['tenant', 'approval', 'Menyetujui/menolak pengajuan transaksi, aset, dan master data'],
         'workflow.view' => ['tenant', 'workflow', 'Melihat konfigurasi workflow'],
-        'workflow.manage' => ['tenant', 'workflow', 'Mengelola workflow approval'],
+        'workflow.manage' => ['tenant', 'workflow', 'Mengelola workflow persetujuan'],
         'settings.manage' => ['tenant', 'settings', 'Mengelola pengaturan organisasi'],
         'license.manage' => ['tenant', 'license', 'Mengelola lisensi dan kode lisensi'],
     ];

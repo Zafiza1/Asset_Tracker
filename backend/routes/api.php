@@ -193,6 +193,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     // Notifications menu: approval requests of transactions, assets and master data.
     Route::get('/approvals', [ApprovalController::class, 'index']);
     Route::get('/approvals/summary', [ApprovalController::class, 'summary']);
+    Route::get('/approvals/counts', [ApprovalController::class, 'counts']);
     Route::get('/approvals/{approvalRequest}', [ApprovalController::class, 'show']);
     Route::post('/approvals/{approvalRequest}/approve', [ApprovalController::class, 'approve'])->middleware('permission:approval.manage');
     Route::post('/approvals/{approvalRequest}/reject', [ApprovalController::class, 'reject'])->middleware('permission:approval.manage');

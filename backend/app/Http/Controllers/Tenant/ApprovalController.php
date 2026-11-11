@@ -33,18 +33,28 @@ class ApprovalController extends Controller
     {
         $request->validate([
             'status' => ['nullable', Rule::in(ApprovalRequest::STATUSES)],
-            'category' => ['nullable', Rule::in(array_keys(ApprovalActions::CATEGORIES))],
-            'mine' => ['nullable', 'boolean'],
-            'search' => ['nullable', 'string', 'max:100'],
+            ...$this->filterRules(),
         ]);
 
-        $query = $this->visible($request->boolean('mine'))->with(self::RELATIONS)
+        $query = $this->filtered($request)->with(self::RELATIONS)
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
-            ->when($request->query('category'), fn ($q, $category) => $q->where('category', $category))
-            ->when($request->query('search'), fn ($q, $term) => $q->where('summary', 'ilike', ListQuery::like($term)))
             ->orderByDesc('created_at');
 
         return ApprovalRequestResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());
+    }
+
+    /** Number of requests per status (and in total) under the list filters, for the status tabs. */
+    public function counts(Request $request): JsonResponse
+    {
+        $request->validate($this->filterRules());
+        $byStatus = $this->filtered($request)->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $counts = [];
+        foreach (ApprovalRequest::STATUSES as $status) {
+            $counts[$status] = (int) ($byStatus[$status] ?? 0);
+        }
+        $counts['all'] = array_sum($counts);
+
+        return response()->json(['data' => $counts]);
     }
 
     /** Pending requests the user should look at: all of them for approvers, their own for others. */
@@ -70,7 +80,11 @@ class ApprovalController extends Controller
 
     public function reject(Request $request, ApprovalRequest $approvalRequest): ApprovalRequestResource
     {
-        $data = $request->validate(['note' => ['nullable', 'string', 'max:1000']]);
+        // The requester has to know why, so a rejection always carries its reason.
+        $data = $request->validate(
+            ['note' => ['required', 'string', 'min:5', 'max:1000']],
+            ['note.required' => 'Alasan penolakan wajib diisi.', 'note.min' => 'Alasan penolakan minimal :min karakter.'],
+        );
 
         return (new ApprovalRequestResource($this->approvals->reject($approvalRequest, $data['note'] ?? null)->load(self::RELATIONS)))->withDetails();
     }
@@ -78,6 +92,35 @@ class ApprovalController extends Controller
     public function cancel(ApprovalRequest $approvalRequest): ApprovalRequestResource
     {
         return (new ApprovalRequestResource($this->approvals->cancel($this->visibleOrFail($approvalRequest))->load(self::RELATIONS)))->withDetails();
+    }
+
+    /** Filters shared by the list and its per-status counts. */
+    private function filterRules(): array
+    {
+        return [
+            'category' => ['nullable', Rule::in(array_keys(ApprovalActions::CATEGORIES))],
+            'mine' => ['nullable', 'boolean'],
+            'decided_by_me' => ['nullable', 'boolean'],
+            'search' => ['nullable', 'string', 'max:100'],
+        ];
+    }
+
+    /**
+     * Visible requests under the list filters (all but status). The search matches the summary
+     * (asset number, name), the requester's name and the type of change.
+     */
+    private function filtered(Request $request): Builder
+    {
+        return $this->visible($request->boolean('mine'))
+            ->when($request->query('category'), fn ($q, $category) => $q->where('category', $category))
+            ->when($request->boolean('decided_by_me'), fn ($q) => $q->where('decided_by', $this->tenancy->tenant()->userId()))
+            ->when(trim((string) $request->query('search')), function ($q, $term) {
+                $like = ListQuery::like($term);
+                $actions = ApprovalActions::matching($term);
+                $q->where(fn ($w) => $w->where('summary', 'ilike', $like)
+                    ->orWhereHas('requester', fn ($u) => $u->where('name', 'ilike', $like))
+                    ->when($actions !== [], fn ($w) => $w->orWhereIn('action', $actions)));
+            });
     }
 
     private function visible(bool $mine): Builder

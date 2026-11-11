@@ -44,7 +44,7 @@ export const permissionGroupLabel: Record<string, string> = {
   transaction: 'Transaksi',
   report: 'Laporan',
   audit: 'Audit',
-  approval: 'Approval',
+  approval: 'Persetujuan',
   workflow: 'Workflow',
   settings: 'Pengaturan',
   license: 'Lisensi',
@@ -169,6 +169,15 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
       'asset.archived': 'Mengarsipkan aset',
       'asset.restored': 'Memulihkan aset',
       'asset_transaction.created': 'Mencatat transaksi aset',
+    },
+  },
+  {
+    label: 'Persetujuan',
+    actions: {
+      'approval.submitted': 'Mengajukan perubahan',
+      'approval.approved': 'Menyetujui pengajuan',
+      'approval.rejected': 'Menolak pengajuan',
+      'approval.cancelled': 'Membatalkan pengajuan',
     },
   },
   {

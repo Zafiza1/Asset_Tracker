@@ -82,6 +82,46 @@ final class ApprovalActions
         return ! in_array($action, self::NOT_TRIED, true);
     }
 
+    /** Actions whose label contains $term (case-insensitive), for searching requests by type. @return list<string> */
+    public static function matching(string $term): array
+    {
+        $term = mb_strtolower(trim($term));
+
+        return $term === '' ? [] : array_keys(array_filter(self::ACTIONS, fn ($a) => str_contains(mb_strtolower($a[1]), $term)));
+    }
+
+    /**
+     * What approving the request does to the data, for the approver before deciding.
+     *
+     * @return array{text: string, destructive: bool}
+     */
+    public static function impact(string $action): array
+    {
+        [$entity, $verb] = array_pad(explode('.', $action, 2), 2, '');
+        $asset = $entity === 'asset';
+
+        $text = match ($verb) {
+            'create' => $action === 'transaction.create'
+                ? 'Transaksi dicatat dan status atau lokasi aset yang terlibat diperbarui.'
+                : ($asset ? 'Aset baru ditambahkan ke daftar aset.' : 'Data baru ditambahkan dan dapat langsung dipilih di form lain.'),
+            'update' => 'Nilai pada data yang ada diganti dengan nilai yang diajukan (lihat kolom "Saat ini" dan "Diajukan").',
+            'bulk_update' => 'Semua aset yang dipilih diubah sekaligus dengan nilai yang diajukan.',
+            'image' => 'Gambar aset diganti atau dihapus.',
+            'document' => 'Dokumen aset ditambahkan atau dihapus.',
+            'archive' => $asset
+                ? 'Aset dinonaktifkan: tidak lagi dihitung sebagai aset aktif dan tidak dapat ditransaksikan.'
+                : 'Data diarsipkan dan tidak dapat dipilih lagi untuk data baru. Data lama yang memakainya tidak berubah.',
+            'restore' => $asset ? 'Aset diaktifkan kembali dan dapat ditransaksikan lagi.' : 'Data dipulihkan dan dapat dipilih lagi.',
+            'delete' => 'Data dihapus permanen dan tidak dapat dikembalikan.',
+            'import' => 'Setiap baris file Excel ditambahkan sebagai data baru.',
+            'import_edits' => 'Data yang ada diubah sesuai isi file Excel.',
+            'attributes' => 'Atribut kategori berubah untuk kategori ini, subkategorinya, dan form aset di dalamnya.',
+            default => 'Perubahan diterapkan persis seperti yang diajukan.',
+        };
+
+        return ['text' => $text, 'destructive' => in_array($verb, ['archive', 'delete', 'import_edits', 'bulk_update'], true)];
+    }
+
     /** The master entity of a master data action (department, location, category). */
     public static function entity(string $action): string
     {
