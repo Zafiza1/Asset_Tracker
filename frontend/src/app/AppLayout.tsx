@@ -50,7 +50,7 @@ export function AppLayout() {
 
   const isPlatform = profile.user.user_type === 'platform'
   const sections = (isPlatform ? platformNavigation : tenantNavigation)
-    .map((s) => ({ ...s, items: s.items.filter((i) => !i.permission || can(i.permission)) }))
+    .map((s) => ({ ...s, items: s.items.filter((i) => (!i.permission || can(i.permission)) && !(i.hiddenWithPermission && can(i.hiddenWithPermission))) }))
     .filter((s) => s.items.length > 0)
 
   const handleLogout = async () => {
@@ -103,7 +103,7 @@ export function AppLayout() {
           <div className="min-w-0 flex-1">
             {isPlatform ? <p className="truncate font-display text-sm font-semibold text-slate-900">Administrasi Platform</p> : <OrganizationSwitcher />}
           </div>
-          {!isPlatform && <NotificationBell />}
+          {!isPlatform && <NotificationBell approver={can('approval.manage')} />}
           <UserMenu name={profile.user.name} email={profile.user.email} onLogout={handleLogout} />
         </header>
 
@@ -123,15 +123,19 @@ export function AppLayout() {
   )
 }
 
-/** Header shortcut to the Notifications menu with the number of pending approval requests. */
-function NotificationBell() {
-  const pending = useApprovalSummary().data?.data.pending ?? 0
+/**
+ * Header shortcut to the approval page: "Persetujuan" with the number of pending requests for
+ * approvers, "Notifikasi" (the outcome of one's own submissions) for everyone else.
+ */
+function NotificationBell({ approver }: { approver: boolean }) {
+  const pending = useApprovalSummary(approver).data?.data.pending ?? 0
+  const label = approver ? 'Persetujuan' : 'Notifikasi'
   return (
     <Link
       to="/notifikasi"
       className="relative grid size-10 shrink-0 place-items-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-      aria-label={pending > 0 ? `Persetujuan, ${pending} pengajuan menunggu` : 'Persetujuan'}
-      title="Persetujuan"
+      aria-label={pending > 0 ? `${label}, ${pending} pengajuan menunggu` : label}
+      title={label}
     >
       <Bell className="size-5" aria-hidden />
       {pending > 0 && (
@@ -148,6 +152,7 @@ function NotificationBell() {
  * it was made; also refreshes the notification badge.
  */
 function ApprovalToast() {
+  const { can } = useAuth()
   const queryClient = useQueryClient()
   const [submitted, setSubmitted] = useState<ApprovalPendingResponse | null>(null)
 
@@ -177,7 +182,7 @@ function ApprovalToast() {
             {submitted.data.action_label}: {submitted.data.summary}
           </p>
           <Link to="/notifikasi" onClick={() => setSubmitted(null)} className="mt-2 inline-block font-semibold text-brand-700 hover:text-brand-800">
-            Lihat persetujuan
+            {can('approval.manage') ? 'Lihat persetujuan' : 'Lihat notifikasi'}
           </Link>
         </div>
         <button type="button" onClick={() => setSubmitted(null)} className="-mr-1 -mt-1 grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Tutup">
@@ -355,6 +360,7 @@ function Avatar({ name, light }: { name: string; light?: boolean }) {
 
 function Breadcrumb() {
   const { pathname } = useLocation()
+  const { can } = useAuth()
   const segments = pathname.split('/').filter(Boolean)
   if (segments.length === 0) return null
 
@@ -368,7 +374,7 @@ function Breadcrumb() {
         </li>
         {segments.map((segment, i) => {
           const to = '/' + segments.slice(0, i + 1).join('/')
-          const label = breadcrumbLabels[segment] ?? 'Detail'
+          const label = segment === 'notifikasi' && !can('approval.manage') ? 'Notifikasi' : (breadcrumbLabels[segment] ?? 'Detail')
           const last = i === segments.length - 1
           return (
             <li key={to} className="flex items-center gap-1">

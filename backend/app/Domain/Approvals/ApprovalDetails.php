@@ -92,6 +92,11 @@ final class ApprovalDetails
         if (in_array($key, self::HIDDEN, true)) {
             return;
         }
+        // An asset's category attribute values are a long list of mostly empty fields; the
+        // approver decides on the asset's main data. Category attribute changes still show them.
+        if ($key === 'attributes' && ApprovalActions::entity($approval->action) === 'asset') {
+            return;
+        }
         $row = ['label' => self::LABELS[$key] ?? $key, 'value' => self::value($approval, $key, $value)];
         if ($subject !== null) {
             $row['current'] = self::value($approval, $key, self::currentValue($subject, $key));

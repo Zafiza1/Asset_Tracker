@@ -6,6 +6,8 @@ export interface NavItem {
   icon: LucideIcon
   /** Shown only when the user has this permission (the API enforces it independently). */
   permission?: string
+  /** Hidden when the user has this permission (a lighter entry that a fuller one replaces). */
+  hiddenWithPermission?: string
   /** Shows the number of pending approval requests next to the label. */
   approvalBadge?: boolean
 }
@@ -30,8 +32,10 @@ export const tenantNavigation: NavSection[] = [
     items: [
       { to: '/aset', label: 'Data Aset', icon: Boxes, permission: 'asset.view' },
       { to: '/transaksi', label: 'Transaksi Aset', icon: ArrowLeftRight, permission: 'transaction.view' },
-      // Approval requests: approvers decide here, everyone else follows their own submissions.
-      { to: '/notifikasi', label: 'Persetujuan', icon: Bell, approvalBadge: true },
+      // Approval requests on one page: approvers (Super Admin, Supervisor) decide them under
+      // "Persetujuan"; everyone else follows whether their own submissions were approved under "Notifikasi".
+      { to: '/notifikasi', label: 'Persetujuan', icon: Bell, permission: 'approval.manage', approvalBadge: true },
+      { to: '/notifikasi', label: 'Notifikasi', icon: Bell, hiddenWithPermission: 'approval.manage' },
     ],
   },
   {

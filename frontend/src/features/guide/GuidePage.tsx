@@ -94,7 +94,7 @@ function PersonalNote() {
     </Alert>
   ) : (
     <Alert tone="info" title="Perubahan Anda perlu disetujui">
-      Perubahan data aset dan Master Data (kategori, lokasi) baru berlaku setelah disetujui Super Admin atau Supervisor. Ikuti statusnya di menu <MenuLink to="/notifikasi">Persetujuan</MenuLink>.
+      Perubahan data aset dan Master Data (kategori, lokasi) baru berlaku setelah disetujui Super Admin atau Supervisor. Lihat hasilnya (disetujui atau ditolak) di menu <MenuLink to="/notifikasi">Notifikasi</MenuLink>.
     </Alert>
   )
 }
@@ -298,7 +298,7 @@ function Step5() {
         <PathCard title="Bila Anda mengajukan">
           <NumberedList items={[
             <>Setelah menyimpan, muncul pesan <Label>Menunggu persetujuan</Label>. Data belum berubah.</>,
-            <>Ikuti statusnya di <MenuLink to="/notifikasi">Persetujuan</MenuLink>.</>,
+            <>Lihat hasilnya di menu <MenuLink to="/notifikasi">Notifikasi</MenuLink>.</>,
             <>Keliru? Buka pengajuannya dan pilih <Label>Batalkan pengajuan</Label> selama masih menunggu.</>,
             'Ditolak? Baca catatannya, perbaiki, lalu ajukan lagi dari menu asalnya.',
           ]} />
@@ -486,7 +486,7 @@ function Step8() {
 
 const PROBLEMS: { q: string; a: ReactNode }[] = [
   { q: 'Menu yang saya cari tidak ada, atau muncul "Akses ditolak".', a: 'Role Anda belum memiliki izin untuk menu itu. Hubungi Super Admin atau Supervisor organisasi Anda.' },
-  { q: 'Perubahan yang saya simpan belum terlihat.', a: <>Kemungkinan masih menunggu persetujuan. Periksa statusnya di <MenuLink to="/notifikasi">Persetujuan</MenuLink>.</> },
+  { q: 'Perubahan yang saya simpan belum terlihat.', a: <>Kemungkinan masih menunggu persetujuan. Periksa statusnya di menu <MenuLink to="/notifikasi">Notifikasi</MenuLink>.</> },
   { q: 'Saya tidak menemukan aset tertentu.', a: 'Aset itu mungkin berada di luar cakupan data Anda, atau sudah nonaktif. Untuk melihat aset nonaktif, ubah filter di Data Aset menjadi "Aset nonaktif".' },
   { q: 'Aset tidak dapat dicentang saat mencatat transaksi.', a: 'Status aset tidak mengizinkan jenis transaksi itu, misalnya aset yang sedang dipinjam tidak dapat dipindahkan. Lihat tabel status pada langkah 7.' },
   { q: 'Saya salah mencatat transaksi.', a: 'Transaksi tidak dapat diubah atau dihapus. Catat transaksi baru untuk mengembalikan data ke keadaan yang benar.' },

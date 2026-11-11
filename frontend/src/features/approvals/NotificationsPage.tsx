@@ -43,8 +43,8 @@ const REJECT_MIN = 5
 
 /**
  * Persetujuan (approval requests of assets and master data). Super Admin and Supervisor
- * (approval.manage) see every request and approve or reject pending ones; other users follow
- * their own submissions here. The page is built around deciding: what waits, who asked, what
+ * (approval.manage) see every request and approve or reject pending ones; other users see it as
+ * "Notifikasi": their own submissions, opening on all of them so recent decisions show first. The page is built around deciding: what waits, who asked, what
  * changes, and who decided.
  */
 export function NotificationsPage() {
@@ -53,7 +53,7 @@ export function NotificationsPage() {
   const [params, setParams] = useSearchParams()
   const [openId, setOpenId] = useState<string | null>(null)
 
-  const status = (params.get('status') ?? 'pending') as Tab
+  const status = (params.get('status') ?? (canDecide ? 'pending' : '')) as Tab
   const search = params.get('search') ?? ''
   // The typed text follows the applied search when it changes elsewhere (reset, back button).
   const [searchDraft, setSearchDraft] = useState(search)
@@ -63,7 +63,7 @@ export function NotificationsPage() {
     setSearchDraft(search)
   }
 
-  const listFilters = { category: params.get('category'), mine: params.get('mine'), decided_by_me: params.get('decided_by_me'), search: search || null }
+  const listFilters = { category: params.get('category'), search: search || null }
   const filters = { status, ...listFilters, page: params.get('page') }
   const query = useQuery({
     queryKey: [...APPROVALS_KEY, filters],
@@ -83,8 +83,8 @@ export function NotificationsPage() {
     for (const [k, v] of [...merged.entries()]) if (v === '' && k !== 'status') merged.delete(k)
     setParams(merged)
   }
-  const filtered = Boolean(search || params.get('category') || params.get('mine') || params.get('decided_by_me'))
-  const resetFilters = () => update({ search: '', category: '', mine: '', decided_by_me: '' })
+  const filtered = Boolean(search || params.get('category'))
+  const resetFilters = () => update({ search: '', category: '' })
 
   const columns: Column<ApprovalRequest>[] = [
     {
@@ -135,11 +135,11 @@ export function NotificationsPage() {
   return (
     <>
       <PageHeader
-        title="Persetujuan"
+        title={canDecide ? 'Persetujuan' : 'Notifikasi'}
         description={
           canDecide
             ? 'Pengajuan perubahan aset dan master data yang menunggu keputusan Anda.'
-            : 'Status pengajuan Anda. Perubahan aset dan master data berlaku setelah disetujui Super Admin atau Supervisor.'
+            : 'Hasil pengajuan Anda: disetujui atau ditolak beserta alasannya. Perubahan aset dan master data berlaku setelah disetujui Super Admin atau Supervisor.'
         }
       />
       {canDecide && status !== 'pending' && (counts?.pending ?? 0) > 0 && (
@@ -204,12 +204,6 @@ export function NotificationsPage() {
                       </option>
                     ))}
                 </Select>
-                {canDecide && (
-                  <>
-                    <Checkbox label="Pengajuan saya" checked={params.get('mine') === '1'} onChange={(on) => update({ mine: on ? '1' : '' })} />
-                    <Checkbox label="Keputusan saya" checked={params.get('decided_by_me') === '1'} onChange={(on) => update({ decided_by_me: on ? '1' : '' })} />
-                  </>
-                )}
               </div>
             }
           />
@@ -267,15 +261,6 @@ function emptyState(status: Tab, canDecide: boolean, filtered: boolean): { icon:
           : 'Perubahan aset dan master data yang Anda simpan akan tampil di sini.',
       }
   }
-}
-
-function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return (
-    <label className="flex items-center gap-2 text-sm text-slate-700">
-      <input type="checkbox" className="size-4 rounded border-slate-300 text-brand-700" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      {label}
-    </label>
-  )
 }
 
 function ApprovalDetailModal({ id, canDecide, onClose }: { id: string; canDecide: boolean; onClose: () => void }) {

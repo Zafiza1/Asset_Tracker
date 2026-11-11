@@ -152,7 +152,7 @@ class ApprovalTest extends TestCase
     {
         $asset = $this->createAsset();
         $this->loginAs($this->admin);
-        $id = $this->patchJson("/api/assets/{$asset->id}", ['name' => 'Laptop Baru', 'lock_version' => $asset->lock_version])->assertStatus(202)->json('data.id');
+        $id = $this->patchJson("/api/assets/{$asset->id}", ['name' => 'Laptop Baru', 'attributes' => ['merek' => null], 'lock_version' => $asset->lock_version])->assertStatus(202)->json('data.id');
 
         $this->loginAs($this->supervisor);
         $detail = $this->getJson("/api/approvals/{$id}")->assertOk()
@@ -162,6 +162,7 @@ class ApprovalTest extends TestCase
             ->assertJsonPath('data.history.0.actor', $this->admin->name);
         $name = collect($detail->json('data.details'))->firstWhere('label', 'Nama');
         $this->assertSame(['label' => 'Nama', 'value' => 'Laptop Baru', 'current' => 'Laptop'], $name);
+        $this->assertNull(collect($detail->json('data.details'))->firstWhere('label', 'Atribut kategori'));
 
         $this->assertErrorCode($this->postJson("/api/approvals/{$id}/reject"), 422, 'VALIDATION_FAILED');
         $this->assertErrorCode($this->postJson("/api/approvals/{$id}/reject", ['note' => 'no']), 422, 'VALIDATION_FAILED');

@@ -35,7 +35,7 @@ const detail: ApprovalRequest = {
   history: [{ action: 'approval.submitted', label: 'Diajukan', actor: 'Andi', note: null, at: '2026-11-10T08:00:00Z' }],
 }
 
-function renderPage({ rows = [request], counts = { pending: 1, approved: 4, rejected: 2, cancelled: 0, all: 7 }, url = '/notifikasi' } = {}) {
+function renderPage({ rows = [request], counts = { pending: 1, approved: 4, rejected: 2, cancelled: 0, all: 7 }, url = '/notifikasi', approver = true } = {}) {
   const posts: { url: string; body: unknown }[] = []
   vi.stubGlobal(
     'fetch',
@@ -48,9 +48,9 @@ function renderPage({ rows = [request], counts = { pending: 1, approved: 4, reje
     }),
   )
   const auth: AuthState = {
-    profile: { user: { id: 'u1' }, permissions: ['approval.manage'] } as unknown as Profile,
+    profile: { user: { id: 'u1' }, permissions: approver ? ['approval.manage'] : [] } as unknown as Profile,
     isLoading: false,
-    can: (p) => p === 'approval.manage',
+    can: (p) => approver && p === 'approval.manage',
     login: vi.fn(),
     signUp: vi.fn(),
     logout: vi.fn(),
@@ -109,5 +109,17 @@ describe('Persetujuan page', () => {
     fireEvent.change(within(dialog).getByLabelText(/Alasan penolakan/), { target: { value: 'Nama tidak sesuai label' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Tolak pengajuan', hidden: true }))
     await vi.waitFor(() => expect(posts.find((p) => p.url.endsWith('/approvals/a1/reject'))?.body).toEqual({ note: 'Nama tidak sesuai label' }))
+  })
+})
+
+describe('Notifikasi page (users without approval.manage)', () => {
+  it('is called Notifikasi, opens on all submissions and offers no decision', async () => {
+    renderPage({ approver: false })
+    expect(screen.getByRole('heading', { name: 'Notifikasi' })).toBeInTheDocument()
+    expect(await screen.findByRole('tab', { name: /Semua\s*7/ })).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(await screen.findByText('Perubahan data aset'))
+    const dialog = await screen.findByRole('dialog', { hidden: true })
+    expect(await within(dialog).findByText('Rincian pengajuan')).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'Setujui', hidden: true })).toBeNull()
   })
 })
