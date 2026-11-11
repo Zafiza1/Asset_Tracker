@@ -9,7 +9,7 @@ import { formatMoney } from '../assets/api'
 import { transactionTypeLabel } from '../transactions/api'
 import { AgeWidget } from './AgeWidget'
 import { formatCount, monthLongLabel, monthShortLabel, sum } from './chartFormat'
-import { BarList, ColumnChart, DonutChart, Gauge, MeterList, MiniColumns, StackedBar, Swatch, TrendChart, type SliceDatum } from './charts'
+import { BarList, ColumnChart, DonutChart, Gauge, MiniColumns, StackedBar, Swatch, TrendChart, type SliceDatum } from './charts'
 import type { Dashboard } from './DashboardPage'
 import type { WidgetKey, WidgetSize } from './layout'
 import { CATEGORICAL, NEUTRAL, STATUS_COLOR } from './palette'
@@ -65,6 +65,27 @@ function statusSlices(data: Dashboard): SliceDatum[] {
   return data.by_status.map((s, i) => ({ key: s.status, label: s.label, value: s.count, color: i < CATEGORICAL.length ? CATEGORICAL[i] : NEUTRAL, to: `/aset?status=${s.status}` }))
 }
 
+/**
+ * How the status breakdown relates to the "Total aset" tile: every status of the non-archived
+ * assets, so the parts add up to that figure. Warns if they ever don't (e.g. an unknown stored status).
+ */
+function StatusTotalNote({ data, total }: { data: Dashboard; total: number }) {
+  const { archived } = data.summary
+  if (total !== data.summary.total) {
+    return (
+      <p className="mx-4 mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+        Jumlah per status ({formatCount(total)}) berbeda dari total aset ({formatCount(data.summary.total)}). Ada aset dengan status yang tidak dikenali; periksa di Data Aset.
+      </p>
+    )
+  }
+  return (
+    <p className="border-t border-slate-100 px-4 py-2.5 text-xs text-slate-500">
+      Jumlah seluruh status = <span className="font-semibold tabular-nums text-slate-700">{formatCount(total)}</span> total aset
+      {archived > 0 && <> · {formatCount(archived)} aset nonaktif (diarsipkan) tidak dihitung</>}
+    </p>
+  )
+}
+
 function StatusWidget({ data }: { data: Dashboard }) {
   const size = useWidgetSize()
   const slices = statusSlices(data)
@@ -73,7 +94,8 @@ function StatusWidget({ data }: { data: Dashboard }) {
   if (size === 'third' || size === 'half' || total === 0) {
     return (
       <Widget title="Status aset">
-        <DonutChart data={slices} totalLabel="aset aktif" layout={size === 'half' ? 'row' : 'stacked'} />
+        <DonutChart data={slices} totalLabel="total aset" layout={size === 'half' ? 'row' : 'stacked'} />
+        {total > 0 && <StatusTotalNote data={data} total={total} />}
       </Widget>
     )
   }
@@ -86,7 +108,7 @@ function StatusWidget({ data }: { data: Dashboard }) {
       {size === 'two_thirds' ? (
         <BarList columns={2} data={ranked.map(({ key, label, value, to }) => ({ key, label, value, to }))} />
       ) : (
-        <ul className="grid grid-cols-6 gap-3 p-4">
+        <ul className="grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-3 p-4">
           {slices.map((s) => (
             <li key={s.key} className="min-w-0 rounded-lg bg-slate-50 px-3 py-2.5">
               <Link to={s.to!} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-brand-700 hover:underline">
@@ -99,7 +121,57 @@ function StatusWidget({ data }: { data: Dashboard }) {
           ))}
         </ul>
       )}
+      <StatusTotalNote data={data} total={total} />
     </Widget>
+  )
+}
+
+type UsageRow = SliceDatum & { status: string; hint: string }
+
+/**
+ * The operable assets split by what they are doing, in plain words, each tied to the stored
+ * status it counts (labels differ: "Aktif" means in use, "Tidak Aktif" means idle/available).
+ * Colors match the same statuses in "Status aset".
+ */
+function usageRows(data: Dashboard): UsageRow[] {
+  const color = Object.fromEntries(statusSlices(data).map((s) => [s.key, s.color]))
+  const label = Object.fromEntries(data.by_status.map((s) => [s.status, s.label]))
+  const u = data.utilization
+  const row = (key: string, name: string, value: number, hint: string): UsageRow => ({ key, label: name, status: label[key] ?? key, value, hint, color: color[key] ?? NEUTRAL, to: `/aset?status=${key}` })
+  return [
+    row('in_use', 'Digunakan', u.in_use, 'Sedang dipakai sendiri oleh unit/pegawai.'),
+    row('on_loan', 'Dipinjam', u.on_loan, 'Dipinjamkan ke pihak lain lewat transaksi peminjaman.'),
+    row('available', 'Tersedia', u.available, 'Siap dipakai, tetapi saat ini tidak digunakan.'),
+    row('under_maintenance', 'Dalam perbaikan', u.under_maintenance, 'Sementara tidak dapat dipakai.'),
+  ]
+}
+
+function UsageBreakdown({ data, detailed = false }: { data: Dashboard; detailed?: boolean }) {
+  const { operable, excluded } = data.utilization
+  const rows = usageRows(data)
+  return (
+    <div className="min-w-0">
+      <StackedBar data={rows} legend={false} emptyText="Belum ada aset operasional." />
+      <ul className="mt-3 space-y-2 text-sm">
+        {rows.map((r) => (
+          <li key={r.key} className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Swatch color={r.color} />
+              <Link to={r.to!} className="min-w-0 flex-1 truncate text-slate-700 hover:text-brand-700 hover:underline">
+                {r.label} <span className="text-xs text-slate-500">(status {r.status})</span>
+              </Link>
+              <span className="shrink-0 font-medium tabular-nums text-slate-900">{formatCount(r.value)}</span>
+              <span className="w-11 shrink-0 text-right text-xs tabular-nums text-slate-500">{operable > 0 ? formatPercent((r.value / operable) * 100) : '—'}</span>
+            </div>
+            {detailed && <p className="ml-5 text-xs text-slate-500">{r.hint}</p>}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-xs text-slate-500">
+        Pemanfaatan = (Digunakan + Dipinjam) ÷ {formatCount(operable)} aset operasional.
+        {excluded > 0 && <> {formatCount(excluded)} aset hilang/dihapuskan tidak dihitung.</>}
+      </p>
+    </div>
   )
 }
 
@@ -112,11 +184,11 @@ function UtilizationWidget({ data }: { data: Dashboard }) {
     { key: 'due_soon', label: `Jatuh tempo ≤ ${loans.due_soon_days} hari`, value: loans.due_soon, color: STATUS_COLOR.warning },
     { key: 'on_time', label: 'Belum jatuh tempo', value: onTime, color: STATUS_COLOR.good },
   ]
-  const gauge = <Gauge value={utilization.rate} label="Tingkat pemanfaatan" note={`${utilization.in_service} dari ${utilization.operable} aset digunakan/dipinjam`} />
+  const gauge = <Gauge value={utilization.rate} label="Tingkat pemanfaatan" note={`${formatCount(utilization.in_service)} dari ${formatCount(utilization.operable)} aset operasional digunakan atau dipinjam`} />
   const loanBlock = (
     <div className="min-w-0">
-      <p className="mb-2 flex items-baseline justify-between text-sm">
-        <span className="font-medium text-slate-700">Peminjaman aktif</span>
+      <p className="mb-2 flex items-baseline justify-between gap-2 text-sm">
+        <span className="font-medium text-slate-700">Jatuh tempo aset dipinjam</span>
         <Link to="/aset?status=on_loan" className="font-semibold tabular-nums text-slate-900 hover:text-brand-700">
           {formatCount(loans.active)}
         </Link>
@@ -128,9 +200,10 @@ function UtilizationWidget({ data }: { data: Dashboard }) {
   if (size === 'third') {
     return (
       <Widget title="Pemanfaatan & peminjaman">
-        <div className="space-y-4 p-4">
+        <div className="space-y-5 p-4">
           {gauge}
-          {loanBlock}
+          <UsageBreakdown data={data} />
+          {loans.active > 0 && loanBlock}
         </div>
       </Widget>
     )
@@ -138,31 +211,20 @@ function UtilizationWidget({ data }: { data: Dashboard }) {
   if (size === 'half') {
     return (
       <Widget title="Pemanfaatan & peminjaman">
-        <div className="grid grid-cols-2 items-center gap-5 p-4">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-5 p-4">
           {gauge}
-          {loanBlock}
+          <UsageBreakdown data={data} />
+          <div className="col-span-2">{loanBlock}</div>
         </div>
       </Widget>
     )
   }
-  const usage = (
-    <div className="min-w-0">
-      <p className="mb-2 text-sm font-medium text-slate-700">Penggunaan aset</p>
-      <StackedBar
-        data={[
-          { key: 'in_service', label: 'Digunakan/dipinjam', value: utilization.in_service, color: CATEGORICAL[0] },
-          { key: 'available', label: 'Tersedia', value: utilization.available, color: CATEGORICAL[1] },
-          { key: 'other', label: 'Lainnya (mis. perbaikan)', value: utilization.operable - utilization.in_service - utilization.available, color: CATEGORICAL[2] },
-        ]}
-      />
-    </div>
-  )
   if (size === 'two_thirds') {
     return (
       <Widget title="Pemanfaatan & peminjaman">
-        <div className="grid grid-cols-3 items-start gap-5 p-4">
+        <div className="grid grid-cols-[auto_minmax(0,1.3fr)_minmax(0,1fr)] items-start gap-5 p-4">
           {gauge}
-          {usage}
+          <UsageBreakdown data={data} detailed />
           {loanBlock}
         </div>
       </Widget>
@@ -171,9 +233,9 @@ function UtilizationWidget({ data }: { data: Dashboard }) {
   const overdue = data.attention.items.filter((i) => i.reason === 'overdue_loan')
   return (
     <Widget title="Pemanfaatan & peminjaman">
-      <div className="grid grid-cols-4 items-start gap-5 p-4">
+      <div className="grid grid-cols-[auto_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] items-start gap-5 p-4">
         {gauge}
-        {usage}
+        <UsageBreakdown data={data} detailed />
         {loanBlock}
         <div className="min-w-0">
           <h3 className="mb-2 text-sm font-medium text-slate-700">Pinjaman terlambat</h3>
@@ -199,24 +261,70 @@ function UtilizationWidget({ data }: { data: Dashboard }) {
   )
 }
 
+/** Which optional columns are left empty and on how many assets, most empty first; each links to those assets. */
+function MissingFields({ quality, columns = 1 }: { quality: Dashboard['data_quality']; columns?: 1 | 2 }) {
+  const fields = quality.fields.map((f) => ({ ...f, empty: quality.total - f.filled })).sort((a, b) => b.empty - a.empty)
+  const missing = fields.filter((f) => f.empty > 0)
+  const complete = fields.filter((f) => f.empty === 0)
+  return (
+    <div className="min-w-0">
+      {missing.length === 0 ? (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Semua kolom opsional sudah terisi.</p>
+      ) : (
+        <>
+          <p className="mb-2 text-xs font-medium text-slate-600">Kolom yang belum lengkap</p>
+          <ul className={clsx('gap-x-6 gap-y-2.5', columns === 2 ? 'grid grid-cols-2' : 'space-y-2.5')}>
+            {missing.map((f) => {
+              const pct = quality.total > 0 ? (f.filled / quality.total) * 100 : 0
+              return (
+                <li key={f.key} className="min-w-0 text-sm">
+                  <div className="mb-1 flex items-baseline justify-between gap-3">
+                    <span className="truncate text-slate-700">{f.label}</span>
+                    <Link to={`/aset?missing=${f.key}`} className="inline-flex shrink-0 items-center gap-0.5 font-medium tabular-nums text-amber-800 hover:text-brand-700 hover:underline" title={`Lihat ${f.empty} aset tanpa ${f.label.toLowerCase()}`}>
+                      {formatCount(f.empty)} kosong
+                      <ArrowUpRight className="size-3.5" aria-hidden />
+                    </Link>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100" role="meter" aria-label={`${f.label} terisi`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: CATEGORICAL[0] }} />
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {formatCount(f.filled)} dari {formatCount(quality.total)} terisi ({formatPercent(pct)})
+                  </p>
+                </li>
+              )
+            })}
+          </ul>
+        </>
+      )}
+      {complete.length > 0 && missing.length > 0 && <p className="mt-3 text-xs text-slate-500">Sudah lengkap: {complete.map((f) => f.label).join(', ')}.</p>}
+    </div>
+  )
+}
+
 function DataQualityWidget({ quality }: { quality: Dashboard['data_quality'] }) {
   const size = useWidgetSize()
-  const gauge = <Gauge value={quality.score} label="Skor kelengkapan" note="Rata-rata kolom opsional terisi" />
-  const meters = quality.fields.map((f) => ({ key: f.key, label: f.label, part: f.filled, total: quality.total }))
-  const share = (filled: number) => (quality.total > 0 ? (filled / quality.total) * 100 : 0)
-  const worstFirst = [...quality.fields].sort((a, b) => a.filled - b.filled)
+  const incomplete = quality.total - quality.complete
+  const gauge = <Gauge value={quality.score} label="Skor kelengkapan" note={`Rata-rata ${quality.fields.length} kolom opsional terisi`} />
+  const summary = (
+    <p className="rounded-lg bg-slate-50 px-3 py-2 text-center text-sm text-slate-700">
+      <span className="font-semibold tabular-nums text-slate-900">{formatCount(quality.complete)}</span> dari {formatCount(quality.total)} aset lengkap
+      {incomplete > 0 && (
+        <>
+          {' · '}
+          <span className="font-semibold tabular-nums text-amber-800">{formatCount(incomplete)}</span> belum
+        </>
+      )}
+    </p>
+  )
 
   if (size === 'third') {
-    const worst = worstFirst[0]
     return (
       <Widget title="Kelengkapan data">
-        <div className="p-4">
+        <div className="space-y-4 p-4">
           {gauge}
-          {worst && (
-            <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-center text-sm text-slate-700">
-              Paling kurang: <span className="font-semibold text-slate-900">{worst.label}</span> ({formatPercent(share(worst.filled))})
-            </p>
-          )}
+          {summary}
+          <MissingFields quality={quality} />
         </div>
       </Widget>
     )
@@ -224,43 +332,61 @@ function DataQualityWidget({ quality }: { quality: Dashboard['data_quality'] }) 
   if (size === 'half' || size === 'two_thirds') {
     return (
       <Widget title="Kelengkapan data">
-        <div className="flex items-center gap-2 p-4 pb-0">
-          <div className="shrink-0">{gauge}</div>
-          <div className="min-w-0 flex-1 [&>ul]:px-0">
-            <MeterList data={meters} columns={size === 'two_thirds' ? 2 : 1} />
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-5 p-4">
+          <div className="space-y-3">
+            {gauge}
+            {summary}
           </div>
+          <MissingFields quality={quality} columns={size === 'two_thirds' ? 2 : 1} />
         </div>
       </Widget>
     )
   }
+  const share = (filled: number) => (quality.total > 0 ? (filled / quality.total) * 100 : 0)
+  const worstFirst = [...quality.fields].sort((a, b) => a.filled - b.filled)
   return (
     <Widget title="Kelengkapan data">
-      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-6 p-4">
-        {gauge}
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-6 p-4">
+        <div className="space-y-3">
+          {gauge}
+          {summary}
+        </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-slate-500">
               <th className="py-1 font-medium">Kolom</th>
               <th className="w-20 py-1 text-right font-medium">Terisi</th>
-              <th className="w-20 py-1 text-right font-medium">Kosong</th>
+              <th className="w-28 py-1 text-right font-medium">Kosong</th>
               <th className="w-20 py-1 text-right font-medium">Persen</th>
-              <th className="w-2/5 py-1 pl-4 font-medium">Kelengkapan</th>
+              <th className="w-1/3 py-1 pl-4 font-medium">Kelengkapan</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {worstFirst.map((f) => (
-              <tr key={f.key}>
-                <td className="py-1.5 text-slate-700">{f.label}</td>
-                <td className="py-1.5 text-right tabular-nums text-slate-900">{formatCount(f.filled)}</td>
-                <td className="py-1.5 text-right tabular-nums text-slate-900">{formatCount(quality.total - f.filled)}</td>
-                <td className="py-1.5 text-right tabular-nums text-slate-900">{formatPercent(share(f.filled))}</td>
-                <td className="py-1.5 pl-4">
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden>
-                    <div className="h-full rounded-full" style={{ width: `${share(f.filled)}%`, backgroundColor: CATEGORICAL[0] }} />
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {worstFirst.map((f) => {
+              const empty = quality.total - f.filled
+              return (
+                <tr key={f.key}>
+                  <td className="py-1.5 text-slate-700">{f.label}</td>
+                  <td className="py-1.5 text-right tabular-nums text-slate-900">{formatCount(f.filled)}</td>
+                  <td className="py-1.5 text-right tabular-nums">
+                    {empty > 0 ? (
+                      <Link to={`/aset?missing=${f.key}`} className="inline-flex items-center gap-0.5 font-medium text-amber-800 hover:text-brand-700 hover:underline" title={`Lihat ${empty} aset tanpa ${f.label.toLowerCase()}`}>
+                        {formatCount(empty)}
+                        <ArrowUpRight className="size-3.5" aria-hidden />
+                      </Link>
+                    ) : (
+                      <span className="text-slate-500">0</span>
+                    )}
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums text-slate-900">{formatPercent(share(f.filled))}</td>
+                  <td className="py-1.5 pl-4">
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden>
+                      <div className="h-full rounded-full" style={{ width: `${share(f.filled)}%`, backgroundColor: CATEGORICAL[0] }} />
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -664,10 +790,10 @@ function TotalStat({ data }: { data: Dashboard }) {
     <StatTile
       icon={Boxes}
       tone="brand"
-      label="Aset aktif"
+      label="Total aset"
       value={formatCount(data.summary.total)}
-      note={data.summary.archived ? `${data.summary.archived} aset nonaktif tidak dihitung` : undefined}
-      secondary={`${formatCount(data.utilization.available)} tersedia`}
+      note={`Semua status${data.summary.archived ? ` · ${formatCount(data.summary.archived)} diarsipkan tidak dihitung` : ''}`}
+      secondary={`${formatCount(data.utilization.in_service)} digunakan/dipinjam · ${formatCount(data.utilization.available)} tersedia`}
       chart={top.length > 0 && <StackedBar data={top} />}
       to="/aset"
     />
@@ -682,7 +808,7 @@ function ValueStat({ data }: { data: Dashboard }) {
       tone="emerald"
       label="Total nilai perolehan"
       value={formatMoney(data.summary.total_value)}
-      note="Aset aktif yang nilainya diisi"
+      note="Aset yang nilainya diisi (tanpa yang diarsipkan)"
       secondary={categories[0] && `Terbesar: ${categories[0].name}`}
       chart={categories.length > 0 && <StackedBar format={(value) => formatPercent((value / Number(data.summary.total_value)) * 100)} data={categories.map((c, i) => ({ key: c.id, label: c.name, value: Number(c.value), color: CATEGORICAL[i] }))} />}
     />

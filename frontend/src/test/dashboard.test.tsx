@@ -23,16 +23,16 @@ describe('DashboardPage widgets', () => {
     transactions: { days: 30, total: 0, by_type: [], recent: [] },
     trend: [],
     attention: { counts: { overdue_loan: 0, under_maintenance: 0, no_location: 0 }, items: [] },
-    utilization: { in_service: 0, available: 1, operable: 1, rate: 0 },
+    utilization: { in_service: 0, in_use: 0, on_loan: 0, available: 1, under_maintenance: 0, operable: 1, excluded: 0, rate: 0 },
     loans: { active: 0, overdue: 0, due_soon: 0, no_due_date: 0, due_soon_days: 7 },
     age: { buckets: [], unknown: 1, average_years: null, by_category: [], oldest: [] },
     value_by_category: [],
-    data_quality: { total: 1, fields: [], score: null },
+    data_quality: { total: 1, complete: 1, fields: [], score: null },
     idle: { days: 90, count: 0, items: [] },
   }
 
-  function renderPage(userId = 'u1') {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: dashboard }), { status: 200 })))
+  function renderPage(userId = 'u1', data: Dashboard = dashboard) {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data }), { status: 200 })))
     const auth: AuthState = { profile: { user: { id: userId }, permissions: [] } as unknown as Profile, isLoading: false, can: () => true, login: vi.fn(), signUp: vi.fn(), logout: vi.fn(), setProfile: vi.fn(), switchOrganization: vi.fn(), createOrganization: vi.fn() }
     return render(
       <QueryClientProvider client={new QueryClient()}>
@@ -46,6 +46,47 @@ describe('DashboardPage widgets', () => {
   }
 
   const headings = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+
+  it('labels the headline count as the total of every status and explains usage and missing data', async () => {
+    renderPage('u1', {
+      ...dashboard,
+      summary: { ...dashboard.summary, total: 21, archived: 2 },
+      by_status: [
+        { status: 'in_use', label: 'Aktif', count: 15 },
+        { status: 'available', label: 'Tidak Aktif', count: 5 },
+        { status: 'lost', label: 'Hilang', count: 1 },
+      ],
+      utilization: { in_service: 15, in_use: 15, on_loan: 0, available: 5, under_maintenance: 0, operable: 20, excluded: 1, rate: 75 },
+      data_quality: {
+        total: 21,
+        complete: 1,
+        score: 80,
+        fields: [
+          { key: 'location_id', label: 'Lokasi', filled: 21 },
+          { key: 'image_path', label: 'Foto aset', filled: 1 },
+        ],
+      },
+    })
+    expect(await screen.findByText('Total aset')).toBeInTheDocument()
+    expect(screen.getByText('Semua status · 2 diarsipkan tidak dihitung')).toBeInTheDocument()
+
+    // Status parts add up to the total, so no mismatch warning.
+    expect(screen.queryByText(/berbeda dari total aset/)).not.toBeInTheDocument()
+
+    // Usage rows name the status each one counts.
+    expect(screen.getByRole('link', { name: /Digunakan \(status Aktif\)/ })).toHaveAttribute('href', '/aset?status=in_use')
+    expect(screen.getByRole('link', { name: /Tersedia \(status Tidak Aktif\)/ })).toHaveAttribute('href', '/aset?status=available')
+    expect(screen.getByText(/1 aset hilang\/dihapuskan tidak dihitung/)).toBeInTheDocument()
+
+    // Each incomplete column links to the assets missing it; complete ones are listed apart.
+    expect(screen.getByRole('link', { name: /20 kosong/ })).toHaveAttribute('href', '/aset?missing=image_path')
+    expect(screen.getByText('Sudah lengkap: Lokasi.')).toBeInTheDocument()
+  })
+
+  it('warns when the status breakdown does not add up to the total', async () => {
+    renderPage('u1', { ...dashboard, summary: { ...dashboard.summary, total: 3 } })
+    expect(await screen.findByText(/Jumlah per status \(1\) berbeda dari total aset \(3\)/)).toBeInTheDocument()
+  })
 
   it('hides a widget while arranging and remembers it for the same user', async () => {
     const { unmount } = renderPage()
@@ -116,7 +157,7 @@ describe('DashboardPage widgets', () => {
     renderPage()
     await screen.findByRole('heading', { name: 'Status aset' })
     expect(screen.queryByRole('heading', { name: 'Per lokasi' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Aset aktif')).not.toBeInTheDocument()
+    expect(screen.queryByText('Total aset')).not.toBeInTheDocument()
   })
 
   describe('age widget views', () => {
@@ -174,7 +215,7 @@ describe('DashboardPage widgets', () => {
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: 'Tampilkan semua' }))
     expect(screen.getByRole('heading', { name: 'Status aset' })).toBeInTheDocument()
-    expect(screen.getByText('Aset aktif')).toBeInTheDocument()
+    expect(screen.getByText('Total aset')).toBeInTheDocument()
   })
 })
 

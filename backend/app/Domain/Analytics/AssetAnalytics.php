@@ -47,8 +47,8 @@ final class AssetAnalytics
         'gte10' => [10, null, '≥ 10 tahun'],
     ];
 
-    /** Optional asset fields checked for data completeness: column => label. */
-    private const QUALITY_FIELDS = [
+    /** Optional asset fields checked for data completeness: column => label. Also the asset list's "missing" filter. */
+    public const QUALITY_FIELDS = [
         'location_id' => 'Lokasi',
         'acquisition_date' => 'Tanggal perolehan',
         'acquisition_cost' => 'Nilai perolehan',
@@ -86,24 +86,29 @@ final class AssetAnalytics
 
     /**
      * Share of operable assets (not lost or disposed) that are in service: in use or on loan.
+     * operable = in_use + on_loan + available + under_maintenance; excluded = lost + disposed.
      *
-     * @return array{in_service: int, available: int, operable: int, rate: float|null}
+     * @return array{in_service: int, in_use: int, on_loan: int, available: int, under_maintenance: int, operable: int, excluded: int, rate: float|null}
      */
     private function utilization(): array
     {
-        $row = $this->assets()->toBase()->selectRaw(<<<'SQL'
-            count(*) FILTER (WHERE status IN (?, ?)) AS in_service,
-            count(*) FILTER (WHERE status = ?) AS available,
-            count(*) FILTER (WHERE status NOT IN (?, ?)) AS operable
-        SQL, [AssetStatus::IN_USE, AssetStatus::ON_LOAN, AssetStatus::AVAILABLE, AssetStatus::LOST, AssetStatus::DISPOSED])->first();
+        $counts = $this->assets()->toBase()->select('status', DB::raw('count(*) AS count'))->groupBy('status')->pluck('count', 'status')
+            ->map(fn ($c): int => (int) $c);
+        $of = fn (string ...$statuses): int => (int) $counts->only($statuses)->sum();
 
-        $operable = (int) $row->operable;
+        $inService = $of(AssetStatus::IN_USE, AssetStatus::ON_LOAN);
+        $excluded = $of(AssetStatus::LOST, AssetStatus::DISPOSED);
+        $operable = (int) $counts->sum() - $excluded;
 
         return [
-            'in_service' => (int) $row->in_service,
-            'available' => (int) $row->available,
+            'in_service' => $inService,
+            'in_use' => $of(AssetStatus::IN_USE),
+            'on_loan' => $of(AssetStatus::ON_LOAN),
+            'available' => $of(AssetStatus::AVAILABLE),
+            'under_maintenance' => $of(AssetStatus::UNDER_MAINTENANCE),
             'operable' => $operable,
-            'rate' => $operable > 0 ? round((int) $row->in_service / $operable * 100, 1) : null,
+            'excluded' => $excluded,
+            'rate' => $operable > 0 ? round($inService / $operable * 100, 1) : null,
         ];
     }
 
@@ -254,17 +259,19 @@ final class AssetAnalytics
     }
 
     /**
-     * How many active assets have each optional field filled in.
+     * How many active assets have each optional field filled in, and how many lack at least one.
      *
-     * @return array{total: int, fields: list<array{key: string, label: string, filled: int}>, score: float|null}
+     * @return array{total: int, complete: int, fields: list<array{key: string, label: string, filled: int}>, score: float|null}
      */
     private function dataQuality(): array
     {
         $select = ['count(*) AS total'];
+        $conditions = [];
         foreach (array_keys(self::QUALITY_FIELDS) as $column) {
-            $filled = $column === 'serial_number' ? "nullif(trim({$column}), '') IS NOT NULL" : "{$column} IS NOT NULL";
+            $conditions[] = $filled = self::filledCondition($column);
             $select[] = "count(*) FILTER (WHERE {$filled}) AS {$column}";
         }
+        $select[] = 'count(*) FILTER (WHERE '.implode(' AND ', $conditions).') AS complete';
         $row = $this->assets()->toBase()->selectRaw(implode(', ', $select))->first();
 
         $total = (int) $row->total;
@@ -276,9 +283,20 @@ final class AssetAnalytics
 
         return [
             'total' => $total,
+            'complete' => (int) $row->complete,
             'fields' => $fields,
             'score' => $slots > 0 ? round(array_sum(array_column($fields, 'filled')) / $slots * 100, 1) : null,
         ];
+    }
+
+    /** SQL condition: the QUALITY_FIELDS column is filled in (a blank serial number counts as empty). */
+    public static function filledCondition(string $column): string
+    {
+        if (! array_key_exists($column, self::QUALITY_FIELDS)) {
+            throw new \InvalidArgumentException("Unknown quality field {$column}.");
+        }
+
+        return $column === 'serial_number' ? "nullif(trim(assets.{$column}), '') IS NOT NULL" : "assets.{$column} IS NOT NULL";
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Analytics\AssetAnalytics;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
@@ -76,6 +77,8 @@ class AssetController extends Controller
             'location_id' => ['nullable', 'uuid'],
             'status' => ['nullable', Rule::in(AssetStatus::ALL)],
             'archived' => ['nullable', Rule::in(['only', 'all'])],
+            // An optional field left empty (dashboard "Kelengkapan data").
+            'missing' => ['nullable', Rule::in(array_keys(AssetAnalytics::QUALITY_FIELDS))],
         ]);
         $categoryIds = array_values(array_filter(explode(',', (string) $request->query('category_ids'))));
         $request->merge(['category_id_list' => $categoryIds])->validate(['category_id_list.*' => ['uuid']]);
@@ -87,7 +90,8 @@ class AssetController extends Controller
                 ->orWhere('serial_number', 'ilike', ListQuery::like($term))))
             ->when($categoryIds, fn ($q) => $q->whereIn('category_id', $this->subtree(TenantAssetCategory::query(), $categoryIds)))
             ->when($request->query('location_id'), fn ($q, $id) => $q->whereIn('location_id', $this->subtree(Location::query(), [$id])))
-            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status));
+            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
+            ->when($request->query('missing'), fn ($q, $field) => $q->whereRaw('NOT ('.AssetAnalytics::filledCondition($field).')'));
 
         match ($request->query('archived')) {
             'only' => $query->whereNotNull('archived_at'),

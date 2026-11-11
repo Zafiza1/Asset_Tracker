@@ -26,7 +26,7 @@ const PANEL_SIZES: WidgetSize[] = ['third', 'half', 'two_thirds', 'full']
 
 /** Every widget, in default page order with its default width. */
 export const DASHBOARD_WIDGETS = [
-  { key: 'stat_total', header: 'Aset aktif', kind: 'stat', size: 'quarter', sizes: STAT_SIZES },
+  { key: 'stat_total', header: 'Total aset', kind: 'stat', size: 'quarter', sizes: STAT_SIZES },
   { key: 'stat_value', header: 'Total nilai perolehan', kind: 'stat', size: 'quarter', sizes: STAT_SIZES },
   { key: 'stat_added', header: 'Ditambahkan bulan ini', kind: 'stat', size: 'quarter', sizes: STAT_SIZES },
   { key: 'stat_transactions', header: 'Jumlah transaksi', kind: 'stat', size: 'quarter', sizes: STAT_SIZES },

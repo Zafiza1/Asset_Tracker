@@ -62,6 +62,9 @@ class AssetAnalyticsTest extends TestCase
 
         $byStatus = array_column($data['by_status'], 'count', 'status');
         $this->assertSame(['in_use' => 1, 'available' => 1, 'under_maintenance' => 1, 'on_loan' => 1, 'lost' => 0, 'disposed' => 0], $byStatus);
+        // The status breakdown adds up to the "Total aset" figure (every status, archived left out).
+        $this->assertSame($data['summary']['total'], array_sum($byStatus));
+        $this->assertSame($data['summary']['total'], $data['utilization']['operable'] + $data['utilization']['excluded']);
 
         $this->assertSame(['Kategori 1' => 2, 'Perangkat IT' => 2], collect($data['by_category'])->pluck('count', 'name')->sortKeys()->all());
         $this->assertSame(['Gudang 1' => 3, 'Tanpa lokasi' => 1], collect($data['by_location'])->pluck('count', 'name')->sortKeys()->all());
@@ -106,7 +109,7 @@ class AssetAnalyticsTest extends TestCase
         $data = $this->getJson('/api/dashboard')->assertOk()->json('data');
 
         // 5 operable assets, 3 in service (server in use, laptop + printer on loan).
-        $this->assertEquals(['in_service' => 3, 'available' => 1, 'operable' => 5, 'rate' => 60], $data['utilization']);
+        $this->assertEquals(['in_service' => 3, 'in_use' => 1, 'on_loan' => 2, 'available' => 1, 'under_maintenance' => 1, 'operable' => 5, 'excluded' => 0, 'rate' => 60], $data['utilization']);
         $this->assertSame(['active' => 2, 'overdue' => 1, 'due_soon' => 1, 'no_due_date' => 0, 'due_soon_days' => 7], $data['loans']);
 
         $this->assertSame(['lt1' => 1, '1_3' => 1, '3_5' => 0, '5_10' => 1, 'gte10' => 0], array_column($data['age']['buckets'], 'count', 'key'));
@@ -129,6 +132,14 @@ class AssetAnalyticsTest extends TestCase
         $this->assertSame(5, $data['data_quality']['total']);
         $this->assertSame(['location_id' => 4, 'acquisition_date' => 3, 'acquisition_cost' => 3, 'serial_number' => 5, 'image_path' => 0], $quality);
         $this->assertEquals(60, $data['data_quality']['score']);
+        // Nobody has a photo, so no asset is complete.
+        $this->assertSame(0, $data['data_quality']['complete']);
+
+        // Each incomplete field links to the asset list filtered to the assets missing it.
+        $this->assertSame(['Genset'], array_column($this->getJson('/api/assets?missing=location_id')->assertOk()->json('data'), 'name'));
+        $this->assertCount(2, $this->getJson('/api/assets?missing=acquisition_date')->assertOk()->json('data'));
+        $this->assertCount(0, $this->getJson('/api/assets?missing=serial_number')->assertOk()->json('data'));
+        $this->getJson('/api/assets?missing=name')->assertUnprocessable();
 
         $this->assertSame(1, $data['idle']['count']);
         $this->assertSame($idle, $data['idle']['items'][0]['asset']['id']);

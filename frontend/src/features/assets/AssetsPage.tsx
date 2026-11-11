@@ -45,9 +45,18 @@ const FILTERS = [
   "location_id",
   "status",
   "archived",
+  "missing",
   "sort",
   "columns",
 ] as const;
+/** Labels for the "missing" filter, set from the dashboard's "Kelengkapan data" links. */
+const MISSING_LABEL: Record<string, string> = {
+  location_id: "Lokasi",
+  acquisition_date: "Tanggal perolehan",
+  acquisition_cost: "Nilai perolehan",
+  serial_number: "No seri",
+  image_path: "Foto aset",
+};
 const ADVANCED = ["category_ids", "location_id", "status", "archived"] as const;
 const DEFAULT_COLUMNS = [
   "code",
@@ -164,6 +173,15 @@ export function AssetsPage() {
             key: "status",
             label: `Status: ${assetStatusLabel[params.get("status") as AssetStatus] ?? params.get("status")}`,
             clear: () => update({ status: "" }),
+          },
+        ]
+      : []),
+    ...(params.get("missing")
+      ? [
+          {
+            key: "missing",
+            label: `Belum diisi: ${MISSING_LABEL[params.get("missing")!] ?? params.get("missing")}`,
+            clear: () => update({ missing: "" }),
           },
         ]
       : []),

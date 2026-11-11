@@ -31,7 +31,8 @@ export interface Dashboard {
   }
   trend: TrendPoint[]
   attention: { counts: Record<AttentionReason, number>; items: { reason: AttentionReason; asset: AssetRef; status: AssetStatus; location: string | null; borrower_name: string | null; loan_due_date: string | null }[] }
-  utilization: { in_service: number; available: number; operable: number; rate: number | null }
+  /** operable = in_use + on_loan + available + under_maintenance; excluded = lost + disposed. */
+  utilization: { in_service: number; in_use: number; on_loan: number; available: number; under_maintenance: number; operable: number; excluded: number; rate: number | null }
   loans: { active: number; overdue: number; due_soon: number; no_due_date: number; due_soon_days: number }
   age: {
     buckets: { key: string; label: string; count: number }[]
@@ -41,7 +42,8 @@ export interface Dashboard {
     oldest: { asset: AssetRef; location: string | null; acquisition_date: string; age_years: number }[]
   }
   value_by_category: { id: string; name: string; value: string; count: number }[]
-  data_quality: { total: number; fields: { key: string; label: string; filled: number }[]; score: number | null }
+  /** complete = assets with every field below filled in. */
+  data_quality: { total: number; complete: number; fields: { key: string; label: string; filled: number }[]; score: number | null }
   idle: { days: number; count: number; items: { asset: AssetRef; location: string | null; last_activity: string; idle_days: number }[] }
 }
 
