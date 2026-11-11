@@ -32,12 +32,19 @@ describe('AssetReportPage', () => {
     total: 1,
     archived: 0,
     total_value: '15000000.00',
+    valued: 1,
     by_status: [
       { status: 'available', label: 'Tersedia', count: 1 },
       { status: 'in_use', label: 'Digunakan', count: 0 },
     ],
     by_category: [{ id: 'c1', name: 'Perangkat IT', count: 1, value: '15000000.00' }],
+    by_location: [
+      { id: 'l1', name: 'Gudang', count: 1, value: '15000000.00' },
+      { id: null, name: 'Tanpa lokasi', count: 1, value: '0' },
+    ],
   }
+  const reportCalls = () => vi.mocked(fetch).mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith('/api/reports/assets?') || u === '/api/reports/assets')
+  const lastQuery = () => new URL(reportCalls().at(-1)!, 'http://x').searchParams
 
   function renderPage(permissions: string[], url = '/laporan') {
     vi.stubGlobal(
@@ -45,7 +52,7 @@ describe('AssetReportPage', () => {
       vi.fn(async (input: string) => {
         if (input.startsWith('/api/reports/assets/export')) return new Response(new Blob(['xlsx']), { status: 200 })
         if (input.startsWith('/api/reports/assets')) {
-          return new Response(JSON.stringify({ data: [asset], summary, meta: { current_page: 1, last_page: 1, per_page: 25, total: 1, from: 1, to: 1 } }), { status: 200 })
+          return new Response(JSON.stringify({ data: [asset], summary, meta: { current_page: 1, last_page: 3, per_page: 25, total: 60, from: 1, to: 25 } }), { status: 200 })
         }
         return new Response(JSON.stringify({ data: [] }), { status: 200 })
       }),
@@ -69,13 +76,54 @@ describe('AssetReportPage', () => {
     renderPage(['report.view'])
     expect(await screen.findByText('Laptop Dell')).toBeInTheDocument()
     expect(screen.getByText('Jumlah aset').nextSibling).toHaveTextContent('1')
-    expect(screen.getByText('Tersedia: 1')).toBeInTheDocument()
+    // The status chart lists every status with its count and share.
+    expect(screen.getByRole('button', { name: /Tidak Aktif.*1 · 100%/ })).toBeInTheDocument()
     // Without report.export the export actions are hidden.
     expect(screen.queryByRole('button', { name: /Export/ })).not.toBeInTheDocument()
   })
 
+  it('links both the asset number and the name to the asset detail', async () => {
+    renderPage(['report.view'])
+    await screen.findByText('Laptop Dell')
+    const links = screen.getAllByRole('link').filter((l) => l.getAttribute('href') === `/aset/${asset.id}`)
+    expect(links.map((l) => l.textContent)).toEqual(expect.arrayContaining(['AST-2026-000001', expect.stringContaining('Laptop Dell')]))
+  })
+
+  it('explains how the total acquisition value is computed', async () => {
+    renderPage(['report.view'])
+    await screen.findByText('Laptop Dell')
+    expect(screen.getByText('Jumlah nilai perolehan seluruh 1 aset.')).toBeInTheDocument()
+    expect(screen.getByText(/Nilai perolehan halaman ini/)).toBeInTheDocument()
+  })
+
+  it('pages with a page size and filters from the charts', async () => {
+    renderPage(['report.view'])
+    await screen.findByText('Laptop Dell')
+    fireEvent.change(screen.getByRole('combobox', { name: /Baris per halaman/ }), { target: { value: '50' } })
+    await waitFor(() => expect(lastQuery().get('per_page')).toBe('50'))
+
+    fireEvent.click(screen.getByRole('button', { name: /^Gudang/ }))
+    await waitFor(() => expect(lastQuery().get('location_id')).toBe('l1'))
+    expect(screen.getByRole('button', { name: 'Hapus filter Lokasi: …' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /^Tanpa lokasi/ }))
+    await waitFor(() => expect(lastQuery().get('missing')).toBe('location_id'))
+    expect(screen.getByText('Belum diisi: Lokasi')).toBeInTheDocument()
+  })
+
+  it('applies a reversed cost range the right way round', async () => {
+    renderPage(['report.view'])
+    await screen.findByText('Laptop Dell')
+    fireEvent.click(screen.getByRole('button', { name: /Filter lanjutan/ }))
+    fireEvent.change(screen.getByLabelText('Nilai min'), { target: { value: '5000000' } })
+    fireEvent.change(screen.getByLabelText('Nilai maks'), { target: { value: '1000000' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Terapkan filter' }))
+    await waitFor(() => expect(lastQuery().get('cost_min')).toBe('1000000'))
+    expect(lastQuery().get('cost_max')).toBe('5000000')
+  })
+
   it('exports with the filters shown on screen', async () => {
-    renderPage(['report.view', 'report.export'], '/laporan?status=available&page=2')
+    renderPage(['report.view', 'report.export'], '/laporan?status=available&page=2&per_page=50')
     await screen.findByText('Laptop Dell')
     fireEvent.click(screen.getByRole('button', { name: /Export Excel/ }))
 
@@ -85,6 +133,7 @@ describe('AssetReportPage', () => {
     expect(query.get('format')).toBe('xlsx')
     expect(query.get('status')).toBe('available')
     expect(query.has('page')).toBe(false)
+    expect(query.has('per_page')).toBe(false)
   })
 
   it('is a permission-guarded menu item', () => {

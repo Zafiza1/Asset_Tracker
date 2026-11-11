@@ -178,7 +178,7 @@ final class AssetReportExport
     private function summarySheet(Spreadsheet $book): void
     {
         $sheet = $book->createSheet()->setTitle('Ringkasan');
-        $sheet->getColumnDimension('A')->setWidth(32);
+        $sheet->getColumnDimension('A')->setWidth(42);
         $sheet->getColumnDimension('B')->setWidth(14);
         $sheet->getColumnDimension('C')->setWidth(22);
 
@@ -186,6 +186,8 @@ final class AssetReportExport
             ['RINGKASAN LAPORAN ASET', null, null],
             ['Jumlah aset', $this->summary['total'], null],
             ['Total nilai perolehan (Rp)', null, (float) $this->summary['total_value']],
+            ['Aset dengan nilai perolehan', $this->summary['valued'], null],
+            ['Aset tanpa nilai perolehan (tidak dihitung)', $this->summary['total'] - $this->summary['valued'], null],
             [null, null, null],
             ['Per status', 'Jumlah', null],
             ...array_map(fn ($s) => [$s['label'], $s['count'], null], $this->summary['by_status']),
@@ -195,7 +197,7 @@ final class AssetReportExport
         ];
         $sheet->fromArray($rows, null, 'A1', true);
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13);
-        $statusHeader = 5;
+        $statusHeader = 7;
         $categoryHeader = $statusHeader + count($this->summary['by_status']) + 2;
         foreach ([$statusHeader, $categoryHeader] as $r) {
             $sheet->getStyle("A{$r}:C{$r}")->applyFromArray([

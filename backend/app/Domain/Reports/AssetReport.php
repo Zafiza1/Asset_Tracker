@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reports;
 
+use App\Domain\Analytics\AssetAnalytics;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
@@ -38,6 +39,11 @@ final class AssetReport
             'archived' => ['nullable', Rule::in(['only', 'all'])],
             'acquired_from' => ['nullable', 'date_format:Y-m-d'],
             'acquired_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:acquired_from'],
+            // An optional field left empty (same keys as the dashboard's "Kelengkapan data").
+            'missing' => ['nullable', Rule::in(array_keys(AssetAnalytics::QUALITY_FIELDS))],
+            // Acquisition cost range in rupiah (inclusive); assets without a cost never match.
+            'cost_min' => ['nullable', 'numeric', 'min:0', 'max:999999999999999'],
+            'cost_max' => ['nullable', 'numeric', 'min:0', 'max:999999999999999', 'gte:cost_min'],
         ];
     }
 
@@ -59,7 +65,10 @@ final class AssetReport
             ->when($filters['location_id'] ?? null, fn ($q, $id) => $q->whereIn('assets.location_id', $this->subtree(Location::query(), [$id])))
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('assets.status', $status))
             ->when($filters['acquired_from'] ?? null, fn ($q, $date) => $q->whereDate('assets.acquisition_date', '>=', $date))
-            ->when($filters['acquired_to'] ?? null, fn ($q, $date) => $q->whereDate('assets.acquisition_date', '<=', $date));
+            ->when($filters['acquired_to'] ?? null, fn ($q, $date) => $q->whereDate('assets.acquisition_date', '<=', $date))
+            ->when(self::filled($filters, 'cost_min'), fn ($q) => $q->where('assets.acquisition_cost', '>=', $filters['cost_min']))
+            ->when(self::filled($filters, 'cost_max'), fn ($q) => $q->where('assets.acquisition_cost', '<=', $filters['cost_max']))
+            ->when($filters['missing'] ?? null, fn ($q, $field) => $q->whereRaw('NOT ('.AssetAnalytics::filledCondition($field).')'));
 
         match ($filters['archived'] ?? null) {
             'only' => $query->whereNotNull('assets.archived_at'),
@@ -71,7 +80,9 @@ final class AssetReport
     }
 
     /**
-     * Totals of the selection: count, acquisition value, and breakdowns by status and category.
+     * Totals of the selection: count, acquisition value, and breakdowns by status, category and location.
+     * `total_value` sums the cost of the `valued` assets only; assets without a cost add nothing,
+     * and archived assets count only when the selection includes them.
      *
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
@@ -81,7 +92,7 @@ final class AssetReport
         $base = fn () => $this->query($filters)->toBase();
 
         $row = $base()->selectRaw('count(*) AS total, coalesce(sum(acquisition_cost), 0) AS total_value,
-            count(*) FILTER (WHERE archived_at IS NOT NULL) AS archived')->first();
+            count(acquisition_cost) AS valued, count(*) FILTER (WHERE archived_at IS NOT NULL) AS archived')->first();
 
         $statusCounts = $base()->select('status', DB::raw('count(*) AS count'))->groupBy('status')->pluck('count', 'status');
 
@@ -92,12 +103,22 @@ final class AssetReport
             ->get(['c.id', 'c.name', DB::raw('count(*) AS count'), DB::raw('coalesce(sum(assets.acquisition_cost), 0) AS value')])
             ->map(fn ($r) => ['id' => $r->id, 'name' => $r->name, 'count' => (int) $r->count, 'value' => (string) $r->value])->all();
 
+        // Assets without a location get their own row (id null), so the rows add up to the total.
+        $byLocation = $base()
+            ->leftJoin('locations as l', 'l.id', '=', 'assets.location_id')
+            ->groupBy('l.id', 'l.name')
+            ->orderByDesc('count')->orderBy('l.name')
+            ->get(['l.id', 'l.name', DB::raw('count(*) AS count'), DB::raw('coalesce(sum(assets.acquisition_cost), 0) AS value')])
+            ->map(fn ($r) => ['id' => $r->id, 'name' => $r->name ?? 'Tanpa lokasi', 'count' => (int) $r->count, 'value' => (string) $r->value])->all();
+
         return [
             'total' => (int) $row->total,
             'archived' => (int) $row->archived,
             'total_value' => (string) $row->total_value,
+            'valued' => (int) $row->valued,
             'by_status' => array_map(fn (string $s) => ['status' => $s, 'label' => AssetStatus::LABELS[$s], 'count' => (int) ($statusCounts[$s] ?? 0)], AssetStatus::ALL),
             'by_category' => $byCategory,
+            'by_location' => $byLocation,
         ];
     }
 
@@ -132,6 +153,14 @@ final class AssetReport
         if ($from || $to) {
             $lines[] = 'Tanggal perolehan: '.($from ? self::date($from) : '…').' s.d. '.($to ? self::date($to) : '…');
         }
+        $min = self::filled($filters, 'cost_min') ? self::money($filters['cost_min']) : null;
+        $max = self::filled($filters, 'cost_max') ? self::money($filters['cost_max']) : null;
+        if ($min || $max) {
+            $lines[] = 'Nilai perolehan: '.($min ?? '…').' s.d. '.($max ?? '…');
+        }
+        if ($filters['missing'] ?? null) {
+            $lines[] = 'Belum diisi: '.AssetAnalytics::QUALITY_FIELDS[$filters['missing']];
+        }
 
         return $lines;
     }
@@ -139,6 +168,35 @@ final class AssetReport
     public static function date(?string $value): string
     {
         return $value ? date('d/m/Y', strtotime($value)) : '';
+    }
+
+    /**
+     * How the total acquisition value was computed, printed under the totals of the exports.
+     *
+     * @param  array<string, mixed>  $summary
+     */
+    public static function valueNote(array $summary): string
+    {
+        $unvalued = $summary['total'] - $summary['valued'];
+        $note = 'Total nilai perolehan = jumlah nilai perolehan '.number_format($summary['valued'], 0, ',', '.')
+            .' dari '.number_format($summary['total'], 0, ',', '.').' aset sesuai filter (nilai saat perolehan, tanpa penyusutan).';
+
+        return $unvalued > 0 ? $note.' '.number_format($unvalued, 0, ',', '.').' aset belum memiliki nilai perolehan dan tidak dihitung.' : $note;
+    }
+
+    public static function money(mixed $value): string
+    {
+        return 'Rp '.number_format((float) $value, 0, ',', '.');
+    }
+
+    /**
+     * A numeric filter that was given (0 counts; null and '' do not).
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    private static function filled(array $filters, string $key): bool
+    {
+        return isset($filters[$key]) && $filters[$key] !== '';
     }
 
     /**

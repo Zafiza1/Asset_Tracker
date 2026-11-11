@@ -67,7 +67,11 @@ final class AssetReportPdf extends TCPDF
         $this->summaryBox(45, 'JUMLAH ASET', number_format($summary['total'], 0, ',', '.'));
         $this->summaryBox(70, 'TOTAL NILAI PEROLEHAN', 'Rp '.number_format((float) $summary['total_value'], 0, ',', '.'));
         $this->summaryBox(0, 'PER STATUS', $statuses, small: true);
-        $this->Ln(16);
+        $this->Ln(14);
+        $this->SetFont('', '', 6.5);
+        $this->SetTextColor(100, 116, 139);
+        $this->MultiCell(0, 3.4, AssetReport::valueNote($summary), 0, 'L', false, 1);
+        $this->Ln(1.5);
 
         $this->tableHeader();
         $this->inTable = true;

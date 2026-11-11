@@ -56,6 +56,32 @@ class AssetReportTest extends TestCase
         $this->getJson('/api/reports/assets?acquired_from=2024-01-01&acquired_to=2023-01-01')->assertStatus(422);
     }
 
+    public function test_report_filters_by_cost_range_and_missing_data_with_breakdowns(): void
+    {
+        $this->asset(['name' => 'Laptop', 'acquisition_cost' => 10000000]);
+        $this->asset(['name' => 'Server', 'acquisition_cost' => 50000000]);
+        $this->asset(['name' => 'Kabel', 'acquisition_cost' => 0]);
+        $meja = $this->asset(['name' => 'Meja', 'acquisition_cost' => null]);
+        // The form requires a location; legacy rows may still lack one.
+        Asset::query()->whereKey($meja)->update(['location_id' => null]);
+
+        $all = $this->getJson('/api/reports/assets')->assertOk()->json('summary');
+        $this->assertSame(4, $all['total']);
+        // Assets without a cost are counted, but add nothing to the total value.
+        $this->assertSame(3, $all['valued']);
+        $this->assertEquals(60000000, (float) $all['total_value']);
+        $this->assertSame([$this->masters['location']->name => 3, 'Tanpa lokasi' => 1], array_column($all['by_location'], 'count', 'name'));
+
+        $names = fn (string $query) => collect($this->getJson("/api/reports/assets?{$query}")->assertOk()->json('data'))->pluck('name')->sort()->values()->all();
+        $this->assertSame(['Laptop', 'Server'], $names('cost_min=10000000'));
+        $this->assertSame(['Kabel', 'Laptop'], $names('cost_min=0&cost_max=10000000'));
+        $this->assertSame(['Meja'], $names('missing=acquisition_cost'));
+        $this->assertSame(['Meja'], $names('missing=location_id'));
+
+        $this->getJson('/api/reports/assets?cost_min=5&cost_max=1')->assertStatus(422);
+        $this->getJson('/api/reports/assets?missing=name')->assertStatus(422);
+    }
+
     public function test_excel_export_contains_the_filtered_rows_and_total(): void
     {
         $this->asset(['name' => 'Laptop', 'acquisition_cost' => 10000000, 'serial_number' => '00123']);
@@ -66,6 +92,7 @@ class AssetReportTest extends TestCase
 
         $book = IOFactory::load($response->getFile()->getPathname());
         $values = collect($book->getSheetByName('Laporan Aset')->toArray())->flatten()->filter()->values()->all();
+        $summary = array_column($book->getSheetByName('Ringkasan')->toArray(), 1, 0);
         // Worksheets reference their workbook: free them, the suite runs within PHP's memory limit.
         $book->disconnectWorksheets();
         @unlink($response->getFile()->getPathname());
@@ -73,6 +100,8 @@ class AssetReportTest extends TestCase
         $this->assertNotContains('Laptop', $values);
         $this->assertContains('Status: Dalam Perbaikan', $values);
         $this->assertContains('Total: 1 aset', $values);
+        $this->assertEquals(1, $summary['Aset dengan nilai perolehan']);
+        $this->assertEquals(0, $summary['Aset tanpa nilai perolehan (tidak dihitung)']);
 
         $this->assertSame(1, AuditLog::query()->where('action', 'report.exported')->count());
     }
