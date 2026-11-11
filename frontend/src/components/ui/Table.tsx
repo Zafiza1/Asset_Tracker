@@ -15,12 +15,17 @@ export interface Column<T> {
   defaultVisible?: boolean
 }
 
-export function DataTable<T extends { id: string }>({ columns, rows, onRowClick, visibleColumns }: { columns: Column<T>[]; rows: T[]; onRowClick?: (row: T) => void; visibleColumns?: string[] }) {
+/**
+ * Columns with a width class keep it; the others share what is left. Pass a min-width in
+ * `className` when the fixed columns could leave the shared ones too little: the table then
+ * scrolls sideways instead of squeezing them.
+ */
+export function DataTable<T extends { id: string }>({ columns, rows, onRowClick, visibleColumns, className }: { columns: Column<T>[]; rows: T[]; onRowClick?: (row: T) => void; visibleColumns?: string[]; className?: string }) {
   const displayedColumns = visibleColumns ? columns.filter((c) => visibleColumns.includes(c.key)) : columns
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full divide-y divide-slate-200 text-sm table-fixed">
+      <table className={clsx('w-full table-fixed divide-y divide-slate-200 text-sm', className)}>
         <thead className="bg-slate-50/80">
           <tr>
             {displayedColumns.map((c) => (
@@ -49,7 +54,16 @@ export function DataTable<T extends { id: string }>({ columns, rows, onRowClick,
               className={clsx('transition-colors duration-100', onRowClick && 'cursor-pointer hover:bg-brand-50/60 focus-visible:bg-brand-50/60 focus-visible:outline-offset-[-2px]')}
             >
               {displayedColumns.map((c) => (
-                <td key={c.key} className={clsx('px-4 py-3 align-top text-slate-700 overflow-hidden text-ellipsis whitespace-nowrap', c.hideOnMobile && 'hidden md:table-cell', c.className)}>
+                <td
+                  key={c.key}
+                  className={clsx(
+                    'overflow-hidden px-4 py-3 align-middle text-slate-700',
+                    // Cells stay on one line and end in "…" unless the column opts into wrapping.
+                    c.className?.includes('whitespace-normal') ? 'break-words' : 'text-ellipsis whitespace-nowrap',
+                    c.hideOnMobile && 'hidden md:table-cell',
+                    c.className,
+                  )}
+                >
                   {c.cell(row)}
                 </td>
               ))}

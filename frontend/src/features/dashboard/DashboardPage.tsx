@@ -65,9 +65,9 @@ export function DashboardPage() {
       <PageHeader
         title="Dashboard Aset"
         description={profile?.organization?.name}
+        meta={query.data && <span>Data per {formatDateTime(query.data.data.generated_at)}</span>}
         actions={
           <>
-            {query.data && <span className="text-xs text-slate-500">Data per {formatDateTime(query.data.data.generated_at)}</span>}
             <ColumnToggle
               label="Tampilan"
               title="Tampilkan analisis"
@@ -187,7 +187,7 @@ function AllHidden({ onShowAll }: { onShowAll: () => void }) {
 /** Placeholders in the user's own layout so nothing jumps when the data arrives. */
 function DashboardSkeleton({ items }: { items: LayoutItem[] }) {
   return (
-    <div className={GRID_CLASS} role="status" aria-label="Memuat dashboard">
+    <div className={clsx(GRID_CLASS, 'grid-flow-row-dense')} role="status" aria-label="Memuat dashboard">
       {items
         .filter((i) => !i.hidden)
         .map((i) =>

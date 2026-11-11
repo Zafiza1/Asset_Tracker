@@ -182,11 +182,15 @@ export function AssetsPage() {
     {
       key: "code",
       header: "No Aset",
+      className: "w-36",
+      // On phones the number moves under the asset name, so the table fits without scrolling.
+      hideOnMobile: true,
       cell: (a) => <span className="font-mono text-xs">{a.asset_number}</span>,
     },
     {
       key: "name",
       header: "Aset",
+      className: "whitespace-normal",
       cell: (a) => (
         <Link
           to={`/aset/${a.id}`}
@@ -205,13 +209,17 @@ export function AssetsPage() {
               <ImageOff className="size-4 text-slate-400" aria-hidden />
             </span>
           )}
-          {a.name}
+          <span className="min-w-0 break-words">
+            {a.name}
+            <span className="block font-mono text-xs font-normal text-slate-500 md:hidden">{a.asset_number}</span>
+          </span>
         </Link>
       ),
     },
     {
       key: "serial_number",
       header: "No Seri",
+      className: "w-36",
       cell: (a) =>
         a.serial_number ? (
           <span className="font-mono text-xs">{a.serial_number}</span>
@@ -223,12 +231,14 @@ export function AssetsPage() {
     {
       key: "category",
       header: "Kategori",
+      className: "w-36 whitespace-normal",
       cell: (a) => a.category?.name ?? "—",
       hideOnMobile: true,
     },
     {
       key: "location",
       header: "Lokasi",
+      className: "w-36 whitespace-normal",
       cell: (a) =>
         a.location?.name ?? (
           <span className="text-slate-400">Tanpa lokasi</span>
@@ -238,6 +248,7 @@ export function AssetsPage() {
     {
       key: "status",
       header: "Status",
+      className: "w-36",
       cell: (a) => (
         <div className="flex flex-wrap gap-1">
           <Badge tone={assetStatusTone[a.status]}>
@@ -253,7 +264,8 @@ export function AssetsPage() {
           {
             key: "barcode",
             header: "Barcode",
-            className: "whitespace-nowrap",
+            className: "w-28 whitespace-nowrap",
+            hideOnMobile: true,
             cell: (a) =>
               a.barcode_enabled ? (
                 <Button
@@ -277,6 +289,7 @@ export function AssetsPage() {
     <>
       <PageHeader
         title="Data Aset"
+        description="Seluruh aset organisasi: cari, saring, lalu buka untuk melihat detail dan riwayatnya."
         actions={
           (can("asset.create") || can("asset.update")) && (
             <div className="flex gap-2">
@@ -406,6 +419,7 @@ export function AssetsPage() {
               rows={query.data!.data}
               visibleColumns={visibleColumns}
               onRowClick={(a) => navigate(`/aset/${a.id}`)}
+              className="md:min-w-[60rem]"
             />
             <Pagination
               meta={query.data!.meta}

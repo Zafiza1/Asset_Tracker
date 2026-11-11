@@ -103,22 +103,24 @@ export function AssetReportPage() {
   ]
 
   const columns: Column<Asset>[] = [
-    { key: 'code', header: 'No Aset', cell: (a) => <span className="font-mono text-xs">{a.asset_number}</span> },
+    { key: 'code', header: 'No Aset', className: 'w-36', cell: (a) => <span className="font-mono text-xs">{a.asset_number}</span> },
     {
       key: 'name',
       header: 'Aset',
+      className: 'whitespace-normal',
       cell: (a) => (
         <Link to={`/aset/${a.id}`} className="font-medium text-slate-900 hover:text-brand-700" onClick={(e) => e.stopPropagation()}>
           {a.name}
         </Link>
       ),
     },
-    { key: 'serial_number', header: 'No Seri', cell: (a) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>), hideOnMobile: true },
-    { key: 'category', header: 'Kategori', cell: (a) => a.category?.name ?? '—', hideOnMobile: true },
-    { key: 'location', header: 'Lokasi', cell: (a) => a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span>, hideOnMobile: true },
+    { key: 'serial_number', header: 'No Seri', className: 'w-32', cell: (a) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>), hideOnMobile: true },
+    { key: 'category', header: 'Kategori', className: 'w-36 whitespace-normal', cell: (a) => a.category?.name ?? '—', hideOnMobile: true },
+    { key: 'location', header: 'Lokasi', className: 'w-36 whitespace-normal', cell: (a) => a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span>, hideOnMobile: true },
     {
       key: 'status',
       header: 'Status',
+      className: 'w-36',
       cell: (a) => (
         <div className="flex flex-wrap gap-1">
           <Badge tone={assetStatusTone[a.status]}>{assetStatusLabel[a.status]}</Badge>
@@ -126,8 +128,8 @@ export function AssetReportPage() {
         </div>
       ),
     },
-    { key: 'acquisition_date', header: 'Tgl Perolehan', cell: (a) => (a.acquisition_date ? formatDate(a.acquisition_date) : <span className="text-slate-400">—</span>), hideOnMobile: true },
-    { key: 'acquisition_cost', header: 'Nilai Perolehan', cell: (a) => <span className="tabular-nums">{formatMoney(a.acquisition_cost)}</span>, hideOnMobile: true },
+    { key: 'acquisition_date', header: 'Tgl Perolehan', className: 'w-28', cell: (a) => (a.acquisition_date ? formatDate(a.acquisition_date) : <span className="text-slate-400">—</span>), hideOnMobile: true },
+    { key: 'acquisition_cost', header: 'Nilai Perolehan', className: 'w-40 text-right!', cell: (a) => <span className="tabular-nums">{formatMoney(a.acquisition_cost)}</span>, hideOnMobile: true },
   ]
 
   const summary = query.data?.summary
@@ -215,7 +217,7 @@ export function AssetReportPage() {
           />
         ) : (
           <>
-            <DataTable columns={columns} rows={query.data!.data} onRowClick={(a) => navigate(`/aset/${a.id}`)} />
+            <DataTable columns={columns} rows={query.data!.data} onRowClick={(a) => navigate(`/aset/${a.id}`)} className="min-w-[40rem] md:min-w-[64rem]" />
             <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} />
           </>
         )}

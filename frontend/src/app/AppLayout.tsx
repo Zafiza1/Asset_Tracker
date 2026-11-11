@@ -108,11 +108,14 @@ export function AppLayout() {
         </header>
 
         <main id="main" className="w-full flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <Breadcrumb />
-          {/* Keyed by path: an error in one page never follows the user to another menu. */}
-          <ModuleBoundary key={pathname}>
-            <Outlet />
-          </ModuleBoundary>
+          {/* Capped width: on wide monitors lines and tables stay readable instead of stretching edge to edge. */}
+          <div className="mx-auto w-full max-w-[100rem]">
+            <Breadcrumb />
+            {/* Keyed by path: an error in one page never follows the user to another menu. */}
+            <ModuleBoundary key={pathname}>
+              <Outlet />
+            </ModuleBoundary>
+          </div>
         </main>
       </div>
       {!isPlatform && <ApprovalToast />}
@@ -228,7 +231,8 @@ function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate:
         const listId = `sidenav-${i}`
         return (
           <div key={section.title ?? i} className={clsx(section.group && 'pt-3')}>
-            {section.group && (
+            {/* The group label is skipped when it would only repeat the section title right below it. */}
+            {section.group && section.group !== section.title && (
               <p className="px-2.5 pb-0.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-brand-400/80" aria-hidden>
                 {section.group}
               </p>
@@ -355,7 +359,7 @@ function Breadcrumb() {
   if (segments.length === 0) return null
 
   return (
-    <nav aria-label="Breadcrumb" className="mb-4">
+    <nav aria-label="Breadcrumb" className="mb-3">
       <ol className="flex flex-wrap items-center gap-1 text-sm text-slate-500">
         <li>
           <Link to="/" className="hover:text-brand-700">

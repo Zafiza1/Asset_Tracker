@@ -159,7 +159,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const actionsColumn: Column<T> = {
     key: 'actions',
     header: 'Aksi',
-    className: 'text-right whitespace-nowrap',
+    className: 'w-44 text-right! whitespace-nowrap',
     cell: (row) =>
       config.isReadOnly?.(row) ? null : (
       <div className="flex justify-end gap-1">
@@ -200,6 +200,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const statusColumn: Column<T> = {
     key: 'status',
     header: 'Status',
+    className: 'w-32',
     cell: (r) => <Badge tone={statusTone[r.status]}>{masterStatusLabel[r.status]}</Badge>,
   }
   const columns = [...config.columns, statusColumn, ...(config.canUpdate || config.canArchive || config.canDelete ? [actionsColumn] : [])]
@@ -259,7 +260,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
         <EmptyState title={chips.length > 0 ? 'Tidak ada data yang cocok' : 'Belum ada data'} description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : config.emptyHint} />
       ) : (
         <>
-          <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} />
+          <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} className="min-w-[40rem]" />
           <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} />
         </>
       )}

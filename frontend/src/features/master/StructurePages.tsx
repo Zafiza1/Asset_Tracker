@@ -21,7 +21,7 @@ function treeName(row: { name: string; depth: number }) {
   )
 }
 
-const code = <T extends { code: string }>(): Column<T> => ({ key: 'code', header: 'Kode', cell: (r) => <span className="font-mono text-xs">{r.code}</span> })
+const code = <T extends { code: string }>(): Column<T> => ({ key: 'code', header: 'Kode', className: 'w-32', cell: (r) => <span className="font-mono text-xs">{r.code}</span> })
 
 function useMasterPermissions() {
   const { can } = useAuth()
@@ -161,6 +161,7 @@ export function TenantCategoriesPage() {
           {
             key: 'attributes',
             header: 'Atribut',
+            className: 'w-40',
             cell: (r) => (
               <Button size="sm" variant="ghost" onClick={() => setAttributesOf(r)} aria-label={`Atribut ${r.name} (${r.attributes_count ?? 0})`}>
                 <SlidersHorizontal className="size-4" aria-hidden /> {r.attributes_count ? `${r.attributes_count} atribut` : permissions.canUpdate && r.status !== 'archived' ? 'Tambah' : '—'}

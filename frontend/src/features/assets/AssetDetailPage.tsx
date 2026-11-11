@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftRight, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRoundPlus } from 'lucide-react'
+import { ArrowLeftRight, CalendarDays, FolderTree, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -51,7 +51,18 @@ export function AssetDetailPage() {
     <>
       <PageHeader
         title={a.name}
-        description={`${a.asset_number}${a.serial_number ? ` · No Seri ${a.serial_number}` : ''}`}
+        badges={
+          <>
+            <Badge tone={assetStatusTone[a.status]}>{assetStatusLabel[a.status]}</Badge>
+            {a.is_archived && <Badge tone="slate">Nonaktif</Badge>}
+          </>
+        }
+        description={
+          <span className="font-mono text-sm">
+            {a.asset_number}
+            {a.serial_number && <span className="font-sans text-slate-500"> · No Seri {a.serial_number}</span>}
+          </span>
+        }
         actions={
           <>
             {a.barcode_enabled && (
@@ -98,10 +109,26 @@ export function AssetDetailPage() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      {/* The facts people look for first, before reading the full data sheet. */}
+      <dl className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Fact icon={CalendarDays} label="Tanggal perolehan">
+          {a.acquisition_date ? formatDate(a.acquisition_date) : '—'}
+        </Fact>
+        <Fact icon={MapPin} label="Lokasi">
+          {a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span>}
+        </Fact>
+        <Fact icon={FolderTree} label="Kategori">
+          {a.category?.name ?? '—'}
+        </Fact>
+        <Fact icon={Wallet} label="Harga perolehan">
+          <span className="tabular-nums">{formatMoney(a.acquisition_cost)}</span>
+        </Fact>
+      </dl>
+
+      <div className="grid items-start gap-4 xl:grid-cols-5">
         <Card
           title="Data aset"
-          className="lg:col-span-1"
+          className="min-w-0 xl:col-span-2"
           actions={
             <div className="flex gap-1">
               {can('asset.update') && !a.is_archived && (
@@ -177,7 +204,7 @@ export function AssetDetailPage() {
           </dl>
         </Card>
 
-        <Card title="Riwayat transaksi" className="lg:col-span-2">
+        <Card title="Riwayat transaksi" className="min-w-0 xl:col-span-3">
           {!can('transaction.view') ? (
             <p className="p-4 text-sm text-slate-500">Anda tidak memiliki izin melihat riwayat transaksi.</p>
           ) : history.isLoading ? (
@@ -187,7 +214,7 @@ export function AssetDetailPage() {
           ) : history.data!.data.length === 0 ? (
             <EmptyState title="Belum ada riwayat" />
           ) : (
-            <DataTable columns={historyColumns} rows={withStateAfter(history.data!.data, a)} />
+            <DataTable columns={historyColumns} rows={withStateAfter(history.data!.data, a)} className="md:min-w-[36rem]" />
           )}
         </Card>
       </div>
@@ -202,19 +229,45 @@ export function AssetDetailPage() {
 
 // The asset's own history: the Transaksi Aset table without the asset column.
 const historyColumns: Column<TransactionWithState>[] = [
-  { key: 'date', header: 'Tanggal', cell: (t) => formatDate(t.transaction_date), className: 'w-32' },
-  { key: 'number', header: 'No Transaksi', cell: (t) => <span className="font-mono text-xs text-slate-900">{t.transaction_number}</span>, className: 'w-44' },
-  { key: 'type', header: 'Jenis', cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge>, className: 'w-36' },
-  { key: 'location', header: 'Lokasi', cell: (t) => <LocationChange trx={t} />, className: 'w-48 whitespace-normal', hideOnMobile: true },
-  { key: 'status', header: 'Status', cell: (t) => <StatusChange trx={t} />, className: 'w-48 whitespace-normal', hideOnMobile: true },
-  { key: 'by', header: 'Dicatat oleh', cell: (t) => t.created_by ?? '—', className: 'w-40', hideOnMobile: true },
+  // Number, date and recorder share one cell so the before → after columns get the room.
+  {
+    key: 'number',
+    header: 'Transaksi',
+    className: 'w-48 whitespace-normal',
+    cell: (t) => (
+      <div>
+        <p className="font-mono text-xs text-slate-900">{t.transaction_number}</p>
+        <p className="mt-0.5 text-xs text-slate-500">
+          {formatDate(t.transaction_date)}
+          {t.created_by && ` · ${t.created_by}`}
+        </p>
+      </div>
+    ),
+  },
+  { key: 'type', header: 'Jenis', cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge>, className: 'w-40' },
+  { key: 'location', header: 'Lokasi', cell: (t) => <LocationChange trx={t} />, className: 'whitespace-normal', hideOnMobile: true },
+  { key: 'status', header: 'Status', cell: (t) => <StatusChange trx={t} />, className: 'whitespace-normal', hideOnMobile: true },
 ]
+
+function Fact({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 gap-3 rounded-xl bg-white p-4 shadow-card ring-1 ring-slate-200/80">
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700" aria-hidden>
+        <Icon className="size-4.5" />
+      </span>
+      <div className="min-w-0">
+        <dt className="text-xs font-medium text-slate-500">{label}</dt>
+        <dd className="mt-0.5 break-words text-sm font-semibold text-slate-900">{children}</dd>
+      </div>
+    </div>
+  )
+}
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="grid grid-cols-3 gap-2 px-4 py-2.5">
       <dt className="text-slate-500">{label}</dt>
-      <dd className="col-span-2 text-slate-800">{children}</dd>
+      <dd className="col-span-2 min-w-0 text-slate-800 [overflow-wrap:anywhere]">{children}</dd>
     </div>
   )
 }

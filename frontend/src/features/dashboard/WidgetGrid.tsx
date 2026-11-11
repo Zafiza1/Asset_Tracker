@@ -47,7 +47,12 @@ export function WidgetGrid({ items, editing, render, onMove, onResize, onHide }:
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={{ announcements, screenReaderInstructions }}>
       <SortableContext items={items.map((i) => i.key)} strategy={rectSortingStrategy} disabled={!editing}>
-        <div className={GRID_CLASS}>
+        {/*
+          Viewing: "dense" lets a later widget fill a gap a wider one left (e.g. the third 1:3 panel
+          alone on a tablet row), so the page has no holes. Arranging: plain order, so where a widget
+          is dropped is exactly where it shows.
+        */}
+        <div className={clsx(GRID_CLASS, !editing && 'grid-flow-row-dense')}>
           {items.map((item) => (
             <SortableWidget key={item.key} item={item} editing={editing} onResize={onResize} onHide={onHide}>
               {render(item.key)}

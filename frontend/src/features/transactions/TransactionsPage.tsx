@@ -86,6 +86,7 @@ export function TransactionsPage() {
     {
       key: 'number',
       header: 'Transaksi',
+      className: 'w-48',
       cell: (t) => (
         <div>
           <p className="font-mono text-xs text-slate-900">{t.transaction_number}</p>
@@ -96,6 +97,7 @@ export function TransactionsPage() {
     {
       key: 'asset',
       header: 'Aset',
+      className: 'w-[28%]',
       cell: (t) =>
         t.asset && (
           <Link to={`/aset/${t.asset.id}`} className="hover:text-brand-700">
@@ -104,15 +106,16 @@ export function TransactionsPage() {
           </Link>
         ),
     },
-    { key: 'type', header: 'Jenis', cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge> },
-    { key: 'changes', header: 'Rincian', cell: (t) => <TransactionChanges trx={t} />, hideOnMobile: true },
-    { key: 'by', header: 'Dicatat oleh', cell: (t) => t.created_by ?? '—', hideOnMobile: true },
+    { key: 'type', header: 'Jenis', className: 'w-36', cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge> },
+    { key: 'changes', header: 'Rincian', className: 'whitespace-normal', cell: (t) => <TransactionChanges trx={t} />, hideOnMobile: true },
+    { key: 'by', header: 'Dicatat oleh', className: 'w-40', cell: (t) => t.created_by ?? '—', hideOnMobile: true },
   ]
 
   return (
     <>
       <PageHeader
         title="Transaksi Aset"
+        description="Riwayat setiap perpindahan, peminjaman, pengembalian, dan perubahan status aset."
         actions={
           can('transaction.create') && (
             <Button onClick={() => setCreating(true)}>
@@ -162,7 +165,7 @@ export function TransactionsPage() {
           />
         ) : (
           <>
-            <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} />
+            <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} className="min-w-[36rem] md:min-w-[60rem]" />
             <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} />
           </>
         )}

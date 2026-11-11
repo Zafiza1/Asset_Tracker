@@ -734,12 +734,13 @@ function StatTile({ icon: Icon, tone, label, value, note, secondary, chart, to }
       <span className={clsx('grid size-11 shrink-0 place-items-center rounded-xl ring-1', tileTones[tone])}>
         <Icon className="size-5" aria-hidden />
       </span>
-      <div className="min-w-0 flex-1">
+      <div className="@container min-w-0 flex-1">
         <p className="flex items-center justify-between gap-2 text-sm font-medium text-slate-600">
           {label}
           {to && <ArrowUpRight className="size-4 shrink-0 text-slate-300 transition-colors group-hover:text-brand-600" aria-hidden />}
         </p>
-        <p className="mt-1 truncate font-display text-2xl font-semibold tracking-tight text-slate-900" title={value}>
+        {/* Long figures (money) shrink with the tile instead of being cut off; short counts keep the full size. */}
+        <p className={clsx('mt-1 truncate font-display font-semibold tracking-tight text-slate-900', value.length > 10 ? 'text-[clamp(1rem,9.5cqi,1.5rem)]' : 'text-2xl')} title={value}>
           {value}
         </p>
         {size !== 'quarter' && secondary && <p className="mt-0.5 truncate text-sm text-slate-700">{secondary}</p>}
