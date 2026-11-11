@@ -61,6 +61,9 @@ export const assetStatusTone: Record<AssetStatus, BadgeTone> = {
   disposed: 'slate',
 }
 
+/** Mirrors AssetController::MAX_EDIT_SELECTION: the checked ids travel in the download URL. */
+export const MAX_EDIT_SELECTION = 100
+
 /** Statuses selectable when registering an asset. */
 export const initialStatuses: AssetStatus[] = ['in_use', 'available', 'under_maintenance']
 

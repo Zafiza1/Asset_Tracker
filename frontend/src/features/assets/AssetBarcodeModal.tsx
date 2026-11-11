@@ -21,18 +21,23 @@ async function barcodeSvgs(value: string): Promise<Record<Kind, string>> {
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
+type LabelAsset = Pick<Asset, 'name' | 'asset_number'>
+
 /** Prints labels through a hidden frame, so only the labels end up on paper. */
-function printLabels(asset: Asset, svgs: Record<Kind, string>, kinds: Kind[]) {
+function printLabels(items: { asset: LabelAsset; svgs: Record<Kind, string> }[], kinds: Kind[]) {
   const frame = document.createElement('iframe')
   frame.setAttribute('aria-hidden', 'true')
   frame.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0'
   document.body.appendChild(frame)
   const doc = frame.contentDocument!
-  const labels = kinds
-    .map((k) => `<div class="label ${k}"><div class="code">${svgs[k]}</div><p class="name">${escape(asset.name)}</p>${k === 'qr' ? `<p class="number">${escape(asset.asset_number)}</p>` : ''}</div>`)
+  const labels = items
+    .flatMap(({ asset, svgs }) =>
+      kinds.map((k) => `<div class="label ${k}"><div class="code">${svgs[k]}</div><p class="name">${escape(asset.name)}</p>${k === 'qr' ? `<p class="number">${escape(asset.asset_number)}</p>` : ''}</div>`),
+    )
     .join('')
+  const title = items.length === 1 ? items[0].asset.asset_number : `Label barcode (${items.length} aset)`
   doc.open()
-  doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escape(asset.asset_number)}</title><style>
+  doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escape(title)}</title><style>
     body{margin:0;font-family:system-ui,sans-serif;display:flex;flex-wrap:wrap;gap:8mm;padding:8mm}
     .label{border:1px dashed #94a3b8;padding:3mm;text-align:center;break-inside:avoid}
     .linear svg{width:60mm;height:auto}.qr svg{width:30mm;height:30mm}
@@ -44,6 +49,12 @@ function printLabels(asset: Asset, svgs: Record<Kind, string>, kinds: Kind[]) {
   frame.contentWindow!.print()
   // Removed after the print dialog closes (print() blocks in most browsers).
   setTimeout(() => frame.remove(), 1000)
+}
+
+/** Prints the 1D and 2D labels of several assets on one sheet (bulk action on the asset list). */
+export async function printAssetLabels(assets: LabelAsset[], kinds: Kind[] = ['linear', 'qr']) {
+  const items = await Promise.all(assets.map(async (asset) => ({ asset, svgs: await barcodeSvgs(asset.asset_number) })))
+  printLabels(items, kinds)
 }
 
 /** Shows an asset's 1D and 2D barcode and prints them as labels. */
@@ -61,7 +72,7 @@ export function AssetBarcodeModal({ asset, onClose }: { asset: Asset; onClose: (
           <Button variant="secondary" onClick={onClose}>
             Tutup
           </Button>
-          <Button disabled={!svgs.data} onClick={() => printLabels(asset, svgs.data!, ['linear', 'qr'])}>
+          <Button disabled={!svgs.data} onClick={() => printLabels([{ asset, svgs: svgs.data! }], ['linear', 'qr'])}>
             <Printer className="size-4" aria-hidden /> Cetak keduanya
           </Button>
         </>
@@ -83,7 +94,7 @@ export function AssetBarcodeModal({ asset, onClose }: { asset: Asset; onClose: (
                 dangerouslySetInnerHTML={{ __html: svgs.data![k] }}
               />
               <p className="font-mono text-xs text-slate-600">{asset.asset_number}</p>
-              <Button size="sm" variant="secondary" onClick={() => printLabels(asset, svgs.data!, [k])}>
+              <Button size="sm" variant="secondary" onClick={() => printLabels([{ asset, svgs: svgs.data! }], [k])}>
                 <Printer className="size-4" aria-hidden /> Cetak
               </Button>
             </figure>

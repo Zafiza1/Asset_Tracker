@@ -60,6 +60,8 @@ class AssetController extends Controller
     {
         $query = $this->filtered($request);
         ListQuery::sort($query, $request, self::SORTS, '-created_at');
+        // Ties (same status, same date) keep one order, so no asset repeats or vanishes between pages.
+        $query->orderBy('id');
 
         return AssetResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());
     }
@@ -79,6 +81,9 @@ class AssetController extends Controller
             'archived' => ['nullable', Rule::in(['only', 'all'])],
             // An optional field left empty (dashboard "Kelengkapan data").
             'missing' => ['nullable', Rule::in(array_keys(AssetAnalytics::QUALITY_FIELDS))],
+            // Acquisition date range (inclusive); assets without a date never match.
+            'acquired_from' => ['nullable', 'date_format:Y-m-d'],
+            'acquired_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:acquired_from'],
         ]);
         $categoryIds = array_values(array_filter(explode(',', (string) $request->query('category_ids'))));
         $request->merge(['category_id_list' => $categoryIds])->validate(['category_id_list.*' => ['uuid']]);
@@ -91,6 +96,8 @@ class AssetController extends Controller
             ->when($categoryIds, fn ($q) => $q->whereIn('category_id', $this->subtree(TenantAssetCategory::query(), $categoryIds)))
             ->when($request->query('location_id'), fn ($q, $id) => $q->whereIn('location_id', $this->subtree(Location::query(), [$id])))
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
+            ->when($request->query('acquired_from'), fn ($q, $date) => $q->whereDate('acquisition_date', '>=', $date))
+            ->when($request->query('acquired_to'), fn ($q, $date) => $q->whereDate('acquisition_date', '<=', $date))
             ->when($request->query('missing'), fn ($q, $field) => $q->whereRaw('NOT ('.AssetAnalytics::filledCondition($field).')'));
 
         match ($request->query('archived')) {

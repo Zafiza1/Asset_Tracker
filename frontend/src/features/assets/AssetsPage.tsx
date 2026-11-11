@@ -1,10 +1,11 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FileSpreadsheet, ImageOff, Printer } from "lucide-react";
-import { useState } from "react";
+import { ImageOff, Printer } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   ActiveFilters,
   AdvancedFilters,
+  DateRangeFilter,
   FilterPanel,
   SearchForm,
   useFilterDraft,
@@ -17,7 +18,7 @@ import { ColumnToggle } from "../../components/ui/ColumnToggle";
 import { EmptyState, ErrorState, Spinner } from "../../components/ui/Feedback";
 import { ImportModal } from "../../components/ui/ImportModal";
 import { Select } from "../../components/ui/Field";
-import { DataTable, Pagination, type Column } from "../../components/ui/Table";
+import { DataTable, Pagination, type Column, type RowSelection } from "../../components/ui/Table";
 import { api, qs } from "../../lib/api/client";
 import type { Paginated } from "../../lib/api/types";
 import { useAuth, useModule } from "../../lib/auth/context";
@@ -34,7 +35,7 @@ import {
 } from "./api";
 import { AddMenu } from "../../components/ui/AddMenu";
 import { AssetBarcodeModal } from "./AssetBarcodeModal";
-import { AssetEditSelection, type PickedAssets } from "./AssetEditSelection";
+import { AssetBulkActions } from "./AssetBulkActions";
 import { AssetFormModal } from "./AssetFormModal";
 import { CategoryFilter } from "./CategoryFilter";
 
@@ -46,9 +47,14 @@ const FILTERS = [
   "status",
   "archived",
   "missing",
+  "acquired_from",
+  "acquired_to",
   "sort",
+  "per_page",
   "columns",
 ] as const;
+/** URL keys that change how the list is shown, not which assets are in it. */
+const VIEW_KEYS = new Set<string>(["page", "sort", "per_page", "columns"]);
 /** Labels for the "missing" filter, set from the dashboard's "Kelengkapan data" links. */
 const MISSING_LABEL: Record<string, string> = {
   location_id: "Lokasi",
@@ -57,7 +63,63 @@ const MISSING_LABEL: Record<string, string> = {
   serial_number: "No seri",
   image_path: "Foto aset",
 };
-const ADVANCED = ["category_ids", "location_id", "status", "archived"] as const;
+const ADVANCED = [
+  "category_ids",
+  "location_id",
+  "status",
+  "archived",
+  "missing",
+  "acquired_from",
+  "acquired_to",
+] as const;
+/** Sort options of the dropdown; the column headers can set the other directions too. */
+const SORT_OPTIONS = ["", "asset_number", "name", "-name", "-acquisition_date", "acquisition_date", "status"];
+const SORT_LABEL: Record<string, string> = {
+  "": "terbaru ditambahkan",
+  "-created_at": "terbaru ditambahkan",
+  created_at: "terlama ditambahkan",
+  asset_number: "no aset (naik)",
+  "-asset_number": "no aset (turun)",
+  name: "nama (A–Z)",
+  "-name": "nama (Z–A)",
+  "-acquisition_date": "tanggal perolehan terbaru",
+  acquisition_date: "tanggal perolehan terlama",
+  status: "status (A–Z)",
+  "-status": "status (Z–A)",
+};
+const dateLabel = (d: string) =>
+  new Date(`${d}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+
+/**
+ * Small square photo of the asset; a missing or broken image falls back to the same placeholder,
+ * so a deleted file never shows the browser's broken-image icon.
+ */
+function AssetThumb({ asset }: { asset: Asset }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const src = asset.image_url;
+  if (!src || failed === src) {
+    return (
+      <span
+        className="flex size-10 shrink-0 items-center justify-center rounded-md bg-slate-100 ring-1 ring-slate-200"
+        title={src ? "Foto tidak dapat dimuat" : "Belum ada foto"}
+      >
+        <ImageOff className="size-4 text-slate-400" aria-hidden />
+      </span>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={`Foto ${asset.name}`}
+      loading="lazy"
+      decoding="async"
+      width={40}
+      height={40}
+      onError={() => setFailed(src)}
+      className="size-10 shrink-0 rounded-md bg-slate-100 object-cover ring-1 ring-slate-200"
+    />
+  );
+}
 const DEFAULT_COLUMNS = [
   "code",
   "name",
@@ -78,7 +140,8 @@ export function AssetsPage() {
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   const [bulkEditing, setBulkEditing] = useState(false);
-  const [picked, setPicked] = useState<PickedAssets>(new Map());
+  // Checked rows of the list; kept across pages so a selection can span several pages.
+  const [selected, setSelected] = useState<Map<string, Asset>>(new Map());
   const [printing, setPrinting] = useState<Asset | null>(null);
 
   // Persisted filters from localStorage
@@ -135,9 +198,29 @@ export function AssetsPage() {
     if (!("page" in next)) merged.delete("page");
     setParams(merged);
   };
-  const hasFilters = FILTERS.some(
-    (k) => k !== "page" && k !== "sort" && params.get(k),
-  );
+  const hasFilters = FILTERS.some((k) => !VIEW_KEYS.has(k) && params.get(k));
+  const sort = params.get("sort") ?? "";
+  const sortOptions = SORT_OPTIONS.includes(sort) ? SORT_OPTIONS : [...SORT_OPTIONS, sort];
+
+  const selectedIds = useMemo(() => new Set(selected.keys()), [selected]);
+  const selection: RowSelection<Asset> = {
+    selected: selectedIds,
+    rowLabel: (a) => `${a.asset_number} ${a.name}`,
+    onChange: (rows, pick) =>
+      setSelected((prev) => {
+        const next = new Map(prev);
+        for (const a of rows) {
+          if (pick) next.set(a.id, a);
+          else next.delete(a.id);
+        }
+        return next;
+      }),
+  };
+  const pageIds = new Set(query.data?.data.map((a) => a.id) ?? []);
+  const offPage = [...selected.keys()].filter((id) => !pageIds.has(id)).length;
+  // Multiple Edit takes the checked rows; the sheet only holds active assets.
+  const editIds = [...selected.values()].filter((a) => !a.is_archived).map((a) => a.id);
+  const skippedArchived = selected.size - editIds.length;
 
   // Every applied filter as a removable chip, so the filter controls stay one tidy row.
   const nameOf = (
@@ -185,6 +268,15 @@ export function AssetsPage() {
           },
         ]
       : []),
+    ...(params.get("acquired_from") || params.get("acquired_to")
+      ? [
+          {
+            key: "acquired",
+            label: `Perolehan: ${params.get("acquired_from") ? dateLabel(params.get("acquired_from")!) : "…"} – ${params.get("acquired_to") ? dateLabel(params.get("acquired_to")!) : "…"}`,
+            clear: () => update({ acquired_from: "", acquired_to: "" }),
+          },
+        ]
+      : []),
     ...(archived
       ? [
           {
@@ -200,36 +292,31 @@ export function AssetsPage() {
     {
       key: "code",
       header: "No Aset",
-      className: "w-36",
+      className: "w-40",
+      sortKey: "asset_number",
       // On phones the number moves under the asset name, so the table fits without scrolling.
       hideOnMobile: true,
+      title: (a) => a.asset_number,
       cell: (a) => <span className="font-mono text-xs">{a.asset_number}</span>,
     },
     {
       key: "name",
       header: "Aset",
-      className: "whitespace-normal",
+      sortKey: "name",
+      title: (a) => a.name,
       cell: (a) => (
         <Link
           to={`/aset/${a.id}`}
-          className="flex items-center gap-2.5 font-medium text-slate-900 hover:text-brand-700"
-          onClick={(e) => e.stopPropagation()}
+          className="flex min-w-0 items-center gap-3 font-medium text-slate-900 hover:text-brand-700"
         >
-          {a.image_url ? (
-            <img
-              src={a.image_url}
-              alt=""
-              loading="lazy"
-              className="size-8 shrink-0 rounded object-cover ring-1 ring-slate-200"
-            />
-          ) : (
-            <span className="flex size-8 shrink-0 items-center justify-center rounded bg-slate-100 ring-1 ring-slate-200">
-              <ImageOff className="size-4 text-slate-400" aria-hidden />
+          <AssetThumb asset={a} />
+          <span className="min-w-0">
+            {/* Long names stop after two lines; the full name is the cell's tooltip. */}
+            <span className="line-clamp-2 whitespace-normal break-words">{a.name}</span>
+            <span className="block truncate font-mono text-xs font-normal text-slate-500 md:hidden">{a.asset_number}</span>
+            <span className="block truncate text-xs font-normal text-slate-500 md:hidden">
+              {[a.category?.name, a.location?.name ?? "Tanpa lokasi"].filter(Boolean).join(" · ")}
             </span>
-          )}
-          <span className="min-w-0 break-words">
-            {a.name}
-            <span className="block font-mono text-xs font-normal text-slate-500 md:hidden">{a.asset_number}</span>
           </span>
         </Link>
       ),
@@ -238,6 +325,7 @@ export function AssetsPage() {
       key: "serial_number",
       header: "No Seri",
       className: "w-36",
+      title: (a) => a.serial_number,
       cell: (a) =>
         a.serial_number ? (
           <span className="font-mono text-xs">{a.serial_number}</span>
@@ -249,14 +337,16 @@ export function AssetsPage() {
     {
       key: "category",
       header: "Kategori",
-      className: "w-36 whitespace-normal",
-      cell: (a) => a.category?.name ?? "—",
+      className: "w-40",
+      title: (a) => a.category?.name,
+      cell: (a) => a.category?.name ?? <span className="text-slate-400">—</span>,
       hideOnMobile: true,
     },
     {
       key: "location",
       header: "Lokasi",
-      className: "w-36 whitespace-normal",
+      className: "w-40",
+      title: (a) => a.location?.name ?? "Tanpa lokasi",
       cell: (a) =>
         a.location?.name ?? (
           <span className="text-slate-400">Tanpa lokasi</span>
@@ -266,7 +356,8 @@ export function AssetsPage() {
     {
       key: "status",
       header: "Status",
-      className: "w-36",
+      className: "w-32 md:w-36",
+      sortKey: "status",
       cell: (a) => (
         <div className="flex flex-wrap gap-1">
           <Badge tone={assetStatusTone[a.status]}>
@@ -282,21 +373,25 @@ export function AssetsPage() {
           {
             key: "barcode",
             header: "Barcode",
-            className: "w-28 whitespace-nowrap",
+            className: "w-28",
             hideOnMobile: true,
+            title: (a) =>
+              a.barcode_enabled
+                ? undefined
+                : "Barcode belum diaktifkan untuk aset ini (isian Barcode pada data aset)",
             cell: (a) =>
               a.barcode_enabled ? (
                 <Button
                   size="sm"
-                  variant="ghost"
-                  onClick={(e) => (e.stopPropagation(), setPrinting(a))}
-                  aria-label={`Print barcode ${a.name}`}
-                  title="Print barcode"
+                  variant="secondary"
+                  onClick={() => setPrinting(a)}
+                  aria-label={`Lihat dan cetak barcode ${a.name}`}
+                  title="Lihat & cetak barcode"
                 >
-                  <Printer className="size-4" aria-hidden /> Print
+                  <Printer className="size-4" aria-hidden /> Cetak
                 </Button>
               ) : (
-                <span className="text-slate-400">—</span>
+                <span className="text-xs text-slate-400">Tidak aktif</span>
               ),
           } satisfies Column<Asset>,
         ]
@@ -309,25 +404,13 @@ export function AssetsPage() {
         title="Data Aset"
         description="Seluruh aset organisasi: cari, saring, lalu buka untuk melihat detail dan riwayatnya."
         actions={
-          (can("asset.create") || can("asset.update")) && (
-            <div className="flex gap-2">
-              {can("asset.update") && (
-                <Button
-                  variant="secondary"
-                  onClick={() => setBulkEditing(true)}
-                >
-                  <FileSpreadsheet className="size-4" aria-hidden /> Multiple Edit
-                </Button>
-              )}
-              {can("asset.create") && (
-                <AddMenu
-                  label="Tambah aset"
-                  noun="aset"
-                  onForm={() => setCreating(true)}
-                  onImport={() => setImporting(true)}
-                />
-              )}
-            </div>
+          can("asset.create") && (
+            <AddMenu
+              label="Tambah aset"
+              noun="aset"
+              onForm={() => setCreating(true)}
+              onImport={() => setImporting(true)}
+            />
           )
         }
       />
@@ -348,17 +431,16 @@ export function AssetsPage() {
                   onReset={resetColumns}
                 />
                 <Select
-                  value={params.get("sort") ?? ""}
+                  value={sort}
                   onChange={(e) => update({ sort: e.target.value })}
-                  className="sm:w-64"
+                  className="min-w-0 flex-1 sm:w-64 sm:flex-none"
                   aria-label="Urutkan"
                 >
-                  <option value="">Urutkan: terbaru ditambahkan</option>
-                  <option value="asset_number">Urutkan: no aset</option>
-                  <option value="name">Urutkan: nama (A–Z)</option>
-                  <option value="-acquisition_date">
-                    Urutkan: tanggal perolehan terbaru
-                  </option>
+                  {sortOptions.map((v) => (
+                    <option key={v} value={v}>
+                      Urutkan: {SORT_LABEL[v] ?? v}
+                    </option>
+                  ))}
                 </Select>
               </div>
             }
@@ -407,6 +489,23 @@ export function AssetsPage() {
               <option value="only">Aset nonaktif</option>
               <option value="all">Aktif &amp; nonaktif</option>
             </Select>
+            <Select
+              value={draft.missing}
+              onChange={(e) => advanced.set({ missing: e.target.value })}
+              aria-label="Filter kelengkapan data"
+            >
+              <option value="">Kelengkapan data: semua</option>
+              {Object.entries(MISSING_LABEL).map(([k, label]) => (
+                <option key={k} value={k}>
+                  Belum diisi: {label}
+                </option>
+              ))}
+            </Select>
+            <DateRangeFilter
+              from={draft.acquired_from}
+              to={draft.acquired_to}
+              onChange={(from, to) => advanced.set({ acquired_from: from, acquired_to: to })}
+            />
           </AdvancedFilters>
           <ActiveFilters
             chips={chips}
@@ -432,49 +531,53 @@ export function AssetsPage() {
           />
         ) : (
           <>
+            <AssetBulkActions
+              selected={[...selected.values()]}
+              offPage={offPage}
+              canEdit={can("asset.update")}
+              canArchive={can("asset.archive")}
+              barcode={barcodeModule}
+              editable={editIds.length}
+              onEdit={() => setBulkEditing(true)}
+              onClear={() => setSelected(new Map())}
+              onDone={(ids) =>
+                setSelected((prev) => {
+                  const next = new Map(prev);
+                  ids.forEach((id) => next.delete(id));
+                  return next;
+                })
+              }
+            />
             <DataTable
               columns={columns}
               rows={query.data!.data}
               visibleColumns={visibleColumns}
+              selection={selection}
+              sort={sort}
+              onSort={(next) => update({ sort: next })}
               onRowClick={(a) => navigate(`/aset/${a.id}`)}
-              className="md:min-w-[60rem]"
+              rowHref={(a) => `/aset/${a.id}`}
+              className="md:min-w-[64rem]"
             />
             <Pagination
               meta={query.data!.meta}
               onPage={(p) => update({ page: String(p) })}
+              onPerPage={(n) => update({ per_page: n === 10 ? "" : String(n) })}
             />
           </>
         )}
       </Card>
-      {bulkEditing && (
+      {/* Multiple Edit starts from the bulk action bar, so it always has checked assets. */}
+      {bulkEditing && editIds.length > 0 && (
         <ImportModal
           open
           mode="edit"
-          onClose={() => (setBulkEditing(false), setPicked(new Map()))}
+          onClose={() => setBulkEditing(false)}
           title="Multiple Edit Aset (Excel)"
           endpoint="/assets/edit-sheet"
-          // The download holds the (active) assets matching the current search and filters.
-          // Picked assets replace the filters; otherwise the download holds the
-          // (active) assets matching the current search and filters.
-          templateEndpoint={`/assets/edit-sheet${qs(
-            picked.size > 0
-              ? { ids: [...picked.keys()].join(",") }
-              : {
-                  search: filters.search,
-                  category_ids: filters.category_ids,
-                  location_id: filters.location_id,
-                  status: filters.status,
-                },
-          )}`}
+          templateEndpoint={`/assets/edit-sheet${qs({ ids: editIds.join(",") })}`}
           templateFilename="edit_aset.xlsx"
-          scopeNote={
-            picked.size > 0
-              ? `${picked.size} aset yang dipilih`
-              : filters.search || filters.category_ids || filters.location_id || filters.status
-                ? "aset aktif sesuai pencarian & filter saat ini"
-                : "semua aset aktif; pilih aset atau gunakan filter untuk mempersempit"
-          }
-          selection={<AssetEditSelection picked={picked} onChange={setPicked} />}
+          scopeNote={`${editIds.length} aset yang dicentang${skippedArchived > 0 ? `; ${skippedArchived} aset nonaktif tidak ikut` : ""}`}
         />
       )}
       {printing && (

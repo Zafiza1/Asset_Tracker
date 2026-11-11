@@ -22,8 +22,6 @@ interface ImportModalProps {
   mode?: 'import' | 'edit'
   /** Edit mode: which records the download contains, e.g. "sesuai filter yang aktif". */
   scopeNote?: string
-  /** Edit mode: controls shown above the file picker, e.g. choosing which records to download. */
-  selection?: React.ReactNode
   onSuccess?: () => void
 }
 
@@ -39,7 +37,7 @@ function looksLikeOtherKind(name: string, editing: boolean): boolean {
   return editing ? lower.startsWith('template_') : lower.startsWith('edit_')
 }
 
-export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, templateFilename, mode = 'import', scopeNote, selection, onSuccess }: ImportModalProps) {
+export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, templateFilename, mode = 'import', scopeNote, onSuccess }: ImportModalProps) {
   const editing = mode === 'edit'
   const queryClient = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
@@ -192,8 +190,6 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
           </Alert>
         )}
 
-        {editing && selection}
-
         <div className="rounded-lg border-2 border-dashed border-slate-300 p-6 text-center">
           <input
             type="file"
@@ -237,7 +233,6 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
           <p className="mb-1 font-medium text-slate-900">Instruksi:</p>
           {editing ? (
             <ol className="list-inside list-decimal space-y-1">
-              {selection && <li>Pilih aset yang akan diubah (opsional)</li>}
               <li>Download data Excel{scopeNote ? ` (${scopeNote})` : ''}</li>
               <li>Ubah nilai di sheet "Data". Kolom berjudul abu-abu muda hanya informasi; jangan menyalin baris ke baris lain</li>
               <li>Upload file yang sudah diubah. Hanya baris yang berubah yang disimpan</li>

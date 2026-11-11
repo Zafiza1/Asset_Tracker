@@ -110,6 +110,25 @@ class AssetManagementTest extends TestCase
         $this->assertErrorCode($this->getJson('/api/assets?category_ids=bukan-uuid'), 422, 'VALIDATION_FAILED');
     }
 
+    public function test_list_filters_by_acquisition_date_range_and_pages_in_a_stable_order(): void
+    {
+        $this->register(['name' => 'Lama', 'acquisition_date' => '2020-01-15']);
+        $this->register(['name' => 'Tengah', 'acquisition_date' => '2022-06-01']);
+        $this->register(['name' => 'Baru', 'acquisition_date' => '2024-03-10']);
+        $this->register(['name' => 'Tanpa tanggal']);
+
+        $names = fn (string $query) => collect($this->getJson("/api/assets?{$query}")->assertOk()->json('data'))->pluck('name')->sort()->values()->all();
+
+        $this->assertSame(['Baru', 'Tengah'], $names('acquired_from=2022-06-01'));
+        $this->assertSame(['Lama', 'Tengah'], $names('acquired_to=2022-06-01'));
+        $this->assertSame(['Tengah'], $names('acquired_from=2021-01-01&acquired_to=2023-12-31'));
+        $this->assertErrorCode($this->getJson('/api/assets?acquired_from=2024-01-01&acquired_to=2023-01-01'), 422, 'VALIDATION_FAILED');
+
+        // Same status for all: pages split by the id tie-breaker never repeat an asset.
+        $paged = [...$this->getJson('/api/assets?sort=status&per_page=2&page=1')->json('data'), ...$this->getJson('/api/assets?sort=status&per_page=2&page=2')->json('data')];
+        $this->assertCount(4, array_unique(array_column($paged, 'id')));
+    }
+
     public function test_edit_descriptive_data_with_optimistic_lock(): void
     {
         $asset = $this->register(['name' => 'Laptop'])->json('data');
