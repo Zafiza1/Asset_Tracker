@@ -125,11 +125,11 @@ export function AppLayout() {
 
 /**
  * Header shortcut to the approval page: "Persetujuan" with the number of pending requests for
- * approvers, "Notifikasi" (the outcome of one's own submissions) for everyone else.
+ * approvers, "Pengajuan Saya" (the outcome of one's own submissions) for everyone else.
  */
 function NotificationBell({ approver }: { approver: boolean }) {
   const pending = useApprovalSummary(approver).data?.data.pending ?? 0
-  const label = approver ? 'Persetujuan' : 'Notifikasi'
+  const label = approver ? 'Persetujuan' : 'Pengajuan Saya'
   return (
     <Link
       to="/notifikasi"
@@ -182,7 +182,7 @@ function ApprovalToast() {
             {submitted.data.action_label}: {submitted.data.summary}
           </p>
           <Link to="/notifikasi" onClick={() => setSubmitted(null)} className="mt-2 inline-block font-semibold text-brand-700 hover:text-brand-800">
-            {can('approval.manage') ? 'Lihat persetujuan' : 'Lihat notifikasi'}
+            {can('approval.manage') ? 'Lihat persetujuan' : 'Lihat pengajuan saya'}
           </Link>
         </div>
         <button type="button" onClick={() => setSubmitted(null)} className="-mr-1 -mt-1 grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Tutup">
@@ -374,7 +374,7 @@ function Breadcrumb() {
         </li>
         {segments.map((segment, i) => {
           const to = '/' + segments.slice(0, i + 1).join('/')
-          const label = segment === 'notifikasi' && !can('approval.manage') ? 'Notifikasi' : (breadcrumbLabels[segment] ?? 'Detail')
+          const label = segment === 'notifikasi' && !can('approval.manage') ? 'Pengajuan Saya' : (breadcrumbLabels[segment] ?? 'Detail')
           const last = i === segments.length - 1
           return (
             <li key={to} className="flex items-center gap-1">

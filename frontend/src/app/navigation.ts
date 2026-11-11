@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, BookOpen, Boxes, Building2, FileBarChart, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, QrCode, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileBarChart, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, QrCode, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -33,9 +33,9 @@ export const tenantNavigation: NavSection[] = [
       { to: '/aset', label: 'Data Aset', icon: Boxes, permission: 'asset.view' },
       { to: '/transaksi', label: 'Transaksi Aset', icon: ArrowLeftRight, permission: 'transaction.view' },
       // Approval requests on one page: approvers (Super Admin, Supervisor) decide them under
-      // "Persetujuan"; everyone else follows whether their own submissions were approved under "Notifikasi".
+      // "Persetujuan"; everyone else follows whether their own submissions were approved under "Pengajuan Saya".
       { to: '/notifikasi', label: 'Persetujuan', icon: Bell, permission: 'approval.manage', approvalBadge: true },
-      { to: '/notifikasi', label: 'Notifikasi', icon: Bell, hiddenWithPermission: 'approval.manage' },
+      { to: '/notifikasi', label: 'Pengajuan Saya', icon: ClipboardList, hiddenWithPermission: 'approval.manage' },
     ],
   },
   {

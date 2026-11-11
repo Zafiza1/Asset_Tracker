@@ -44,7 +44,7 @@ const REJECT_MIN = 5
 /**
  * Persetujuan (approval requests of assets and master data). Super Admin and Supervisor
  * (approval.manage) see every request and approve or reject pending ones; other users see it as
- * "Notifikasi": their own submissions, opening on all of them so recent decisions show first. The page is built around deciding: what waits, who asked, what
+ * "Pengajuan Saya": their own submissions, opening on all of them so recent decisions show first. The page is built around deciding: what waits, who asked, what
  * changes, and who decided.
  */
 export function NotificationsPage() {
@@ -135,7 +135,7 @@ export function NotificationsPage() {
   return (
     <>
       <PageHeader
-        title={canDecide ? 'Persetujuan' : 'Notifikasi'}
+        title={canDecide ? 'Persetujuan' : 'Pengajuan Saya'}
         description={
           canDecide
             ? 'Pengajuan perubahan aset dan master data yang menunggu keputusan Anda.'

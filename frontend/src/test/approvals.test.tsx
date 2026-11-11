@@ -112,10 +112,10 @@ describe('Persetujuan page', () => {
   })
 })
 
-describe('Notifikasi page (users without approval.manage)', () => {
-  it('is called Notifikasi, opens on all submissions and offers no decision', async () => {
+describe('Pengajuan Saya page (users without approval.manage)', () => {
+  it('is called Pengajuan Saya, opens on all submissions and offers no decision', async () => {
     renderPage({ approver: false })
-    expect(screen.getByRole('heading', { name: 'Notifikasi' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Pengajuan Saya' })).toBeInTheDocument()
     expect(await screen.findByRole('tab', { name: /Semua\s*7/ })).toHaveAttribute('aria-selected', 'true')
     fireEvent.click(await screen.findByText('Perubahan data aset'))
     const dialog = await screen.findByRole('dialog', { hidden: true })
