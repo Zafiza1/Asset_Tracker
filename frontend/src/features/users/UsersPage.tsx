@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Eye, KeyRound, Plus, ShieldCheck, UserX } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -11,44 +11,71 @@ import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
 import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
+import { RowMenu, type RowMenuItem } from '../../components/ui/RowMenu'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { Paginated, User } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { formatDateTime, userStatusLabel } from '../../lib/format'
+import { useRoles } from './api'
 import { UserAdminTabs } from './UserAdminTabs'
+import { availableStatusAction, type UserStatusAction } from './statusActions'
+import { ResetPasswordModal, UserStatusModal } from './UserDetailPage'
 
 const DEFAULT_COLUMNS = ['name', 'roles', 'job', 'status', 'login']
+
+const roleNames = (u: User) => u.roles?.map((r) => r.name).join(', ') || null
+
+/** The same "12 Nov 2026, 14.30" format on every row, or a muted note for accounts that never signed in. */
+function LastLogin({ value }: { value: string | null }) {
+  if (!value) return <span className="text-slate-400">Belum pernah login</span>
+  return (
+    <time dateTime={value} className="tabular-nums">
+      {formatDateTime(value)}
+    </time>
+  )
+}
+
 const columns: Column<User>[] = [
   {
     key: 'name',
     header: 'Nama',
+    title: (u) => `${u.name} · ${u.email}`,
     cell: (u) => (
-      <div>
-        <p className="font-medium text-slate-900">{u.name}</p>
-        <p className="text-xs text-slate-500">{u.email}</p>
+      <div className="min-w-0">
+        <p className="truncate font-medium text-slate-900">{u.name}</p>
+        <p className="truncate text-xs text-slate-500">{u.email}</p>
+        {/* On phones the role and last-login columns are hidden, so their values sit under the name. */}
+        <p className="mt-1 truncate text-xs text-slate-500 md:hidden">
+          {roleNames(u) ?? 'Tanpa role'} · {u.last_login_at ? `Login ${formatDateTime(u.last_login_at)}` : 'Belum pernah login'}
+        </p>
       </div>
     ),
   },
-  { key: 'roles', header: 'Role', cell: (u) => u.roles?.map((r) => r.name).join(', ') || '—', hideOnMobile: true },
-  { key: 'job', header: 'Jabatan', cell: (u) => u.job_title ?? '—', hideOnMobile: true },
-  { key: 'status', header: 'Status', cell: (u) => <Badge tone={statusTone[u.status]}>{userStatusLabel[u.status]}</Badge> },
-  { key: 'login', header: 'Login terakhir', cell: (u) => formatDateTime(u.last_login_at), hideOnMobile: true },
+  { key: 'roles', header: 'Role', title: (u) => roleNames(u), cell: (u) => roleNames(u) ?? '—', hideOnMobile: true },
+  { key: 'job', header: 'Jabatan', title: (u) => u.job_title, cell: (u) => u.job_title ?? '—', hideOnMobile: true },
+  { key: 'status', header: 'Status', className: 'w-28', cell: (u) => <Badge tone={statusTone[u.status]}>{userStatusLabel[u.status]}</Badge> },
+  { key: 'login', header: 'Login terakhir', className: 'w-44', cell: (u) => <LastLogin value={u.last_login_at} />, hideOnMobile: true },
 ]
 
 export function UsersPage() {
-  const { can } = useAuth()
+  const { can, profile } = useAuth()
   const navigate = useNavigate()
   const [params, setParams] = usePersistedSearchParams('/users')
   const [search, setSearch] = useState(params.get('search') ?? '')
   const page = Number(params.get('page') ?? 1)
   const status = params.get('status') ?? ''
+  const roleId = params.get('role_id') ?? ''
+  const canFilterRole = can('role.view')
+  const roles = useRoles(canFilterRole)
+  const [statusChange, setStatusChange] = useState<{ user: User; action: UserStatusAction } | null>(null)
+  const [resetting, setResetting] = useState<User | null>(null)
 
   // Persisted filters from localStorage
   const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters('/users')
 
-  const advanced = useFilterDraft(params, ['status'])
+  const advanced = useFilterDraft(params, canFilterRole ? ['status', 'role_id'] : ['status'])
 
   const visibleColumns = (params.get('columns') ?? DEFAULT_COLUMNS.join(',')).split(',').filter(Boolean)
 
@@ -64,8 +91,8 @@ export function UsersPage() {
   }
 
   const query = useQuery({
-    queryKey: ['users', { page, status, search: params.get('search') }],
-    queryFn: () => api.get<Paginated<User>>(`/users${qs({ page, status, search: params.get('search') })}`),
+    queryKey: ['users', { page, status, roleId, search: params.get('search') }],
+    queryFn: () => api.get<Paginated<User>>(`/users${qs({ page, status, role_id: roleId, search: params.get('search') })}`),
     placeholderData: keepPreviousData,
   })
 
@@ -85,7 +112,27 @@ export function UsersPage() {
   const chips: FilterChip[] = [
     ...searchChip(params.get('search'), () => (setSearch(''), update({ search: '', page: '' }))),
     ...(status ? [{ key: 'status', label: `Status: ${userStatusLabel[status as keyof typeof userStatusLabel] ?? status}`, clear: () => update({ status: '', page: '' }) }] : []),
+    ...(roleId ? [{ key: 'role_id', label: `Role: ${roles.data?.find((r) => r.id === roleId)?.name ?? '…'}`, clear: () => update({ role_id: '', page: '' }) }] : []),
   ]
+
+  const rowActions = (u: User): RowMenuItem[] => {
+    const isSelf = u.id === profile?.user.id
+    const deactivate = can('user.deactivate') && !isSelf ? availableStatusAction(u) : null
+    const open = () => navigate(`/pengguna/${u.id}`)
+    return [
+      { label: 'Lihat detail', icon: <Eye aria-hidden />, onSelect: open },
+      ...(can('role.manage') ? [{ label: 'Kelola role & akses', icon: <ShieldCheck aria-hidden />, onSelect: open }] : []),
+      ...(can('user.update') ? [{ label: 'Reset password', icon: <KeyRound aria-hidden />, onSelect: () => setResetting(u) }] : []),
+      ...(deactivate ? [{ label: 'Nonaktifkan', icon: <UserX aria-hidden />, tone: 'danger' as const, onSelect: () => setStatusChange({ user: u, action: deactivate }) }] : []),
+    ]
+  }
+  const actionsColumn: Column<User> = {
+    key: 'actions',
+    header: 'Aksi',
+    className: 'w-16 text-right! pr-2!',
+    cell: (u) => <RowMenu label={`Tindakan untuk ${u.name}`} items={rowActions(u)} />,
+  }
+  const meta = query.data?.meta
 
   return (
     <>
@@ -109,6 +156,7 @@ export function UsersPage() {
             value={search}
             onChange={setSearch}
             onSubmit={() => update({ search, page: '' })}
+            onClear={() => params.get('search') && update({ search: '', page: '' })}
             placeholder="Cari nama, email, atau NIK"
             label="Cari pengguna"
             aside={
@@ -120,7 +168,7 @@ export function UsersPage() {
               />
             }
           />
-          <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update({ ...advanced.draft, page: '' })} onClear={() => advanced.set(advanced.empty)}>
+          <AdvancedFilters defaultOpen activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update({ ...advanced.draft, page: '' })} onClear={() => advanced.set(advanced.empty)}>
             <Select value={advanced.draft.status} onChange={(e) => advanced.set({ status: e.target.value })} aria-label="Filter status">
               <option value="">Status: semua</option>
               {Object.entries(userStatusLabel).map(([value, label]) => (
@@ -129,6 +177,16 @@ export function UsersPage() {
                 </option>
               ))}
             </Select>
+            {canFilterRole && (
+              <Select value={advanced.draft.role_id} onChange={(e) => advanced.set({ role_id: e.target.value })} aria-label="Filter role" disabled={roles.isLoading}>
+                <option value="">Role: semua</option>
+                {roles.data?.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </Select>
+            )}
           </AdvancedFilters>
           <ActiveFilters chips={chips} onReset={() => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))} />
         </FilterPanel>
@@ -140,11 +198,24 @@ export function UsersPage() {
           <EmptyState title={chips.length > 0 ? 'Tidak ada pengguna yang cocok' : 'Belum ada pengguna'} description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : undefined} />
         ) : (
           <>
-            <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} onRowClick={(u) => navigate(`/pengguna/${u.id}`)} />
-            <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} />
+            <DataTable
+              columns={[...columns, actionsColumn]}
+              rows={query.data!.data}
+              visibleColumns={[...visibleColumns, 'actions']}
+              onRowClick={(u) => navigate(`/pengguna/${u.id}`)}
+              rowHref={(u) => `/pengguna/${u.id}`}
+            />
+            {/* One page needs no paging controls; the count alone is enough. */}
+            {meta && meta.last_page > 1 ? (
+              <Pagination meta={meta} onPage={(p) => update({ page: String(p) })} />
+            ) : (
+              meta && <p className="border-t border-slate-200 px-4 py-3 text-sm tabular-nums text-slate-500">{meta.total} pengguna</p>
+            )}
           </>
         )}
       </Card>
+      {statusChange && <UserStatusModal user={statusChange.user} action={statusChange.action} onClose={() => setStatusChange(null)} />}
+      {resetting && <ResetPasswordModal user={resetting} open onClose={() => setResetting(null)} />}
     </>
   )
 }

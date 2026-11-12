@@ -28,6 +28,7 @@ final class RoleManagement
         $this->assertGrantable($permissions);
         $this->assertApprovalHolder(null, $permissions);
         $this->assertInviteHolder(null, $permissions);
+        $this->assertOrganizationManager(null, $permissions);
 
         return DB::transaction(function () use ($data, $permissions) {
             $role = new Role(['name' => $data['name'], 'description' => $data['description'] ?? null]);
@@ -55,6 +56,7 @@ final class RoleManagement
             $this->assertGrantable($permissions);
             $this->assertApprovalHolder($role->template_code, $permissions);
             $this->assertInviteHolder($role->template_code, $permissions);
+            $this->assertOrganizationManager($role->template_code, $permissions);
             $current = $role->permissions()->pluck('code')->all();
             $ceiling = RoleTemplates::ceiling($role->template_code);
             if ($ceiling !== null && ($beyond = array_values(array_diff($permissions, $ceiling))) !== []) {
@@ -141,6 +143,18 @@ final class RoleManagement
     {
         if (in_array(RoleTemplates::INVITE_PERMISSION, $permissions, true) && ! RoleTemplates::mayInvite($templateCode)) {
             throw new ApiException('INVITE_ROLE_ONLY', 'Permission mengundang pengguna hanya dapat dimiliki role Super Admin.', 422, ['permissions' => [RoleTemplates::INVITE_PERMISSION]]);
+        }
+    }
+
+    /**
+     * Only the Super Admin role edits the organization profile (RoleTemplates::mayManageOrganization).
+     *
+     * @param  list<string>  $permissions
+     */
+    private function assertOrganizationManager(?string $templateCode, array $permissions): void
+    {
+        if (in_array(RoleTemplates::ORGANIZATION_MANAGE_PERMISSION, $permissions, true) && ! RoleTemplates::mayManageOrganization($templateCode)) {
+            throw new ApiException('ORGANIZATION_MANAGE_ROLE_ONLY', 'Permission mengubah profil organisasi hanya dapat dimiliki role Super Admin.', 422, ['permissions' => [RoleTemplates::ORGANIZATION_MANAGE_PERMISSION]]);
         }
     }
 

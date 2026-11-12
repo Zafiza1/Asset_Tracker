@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Pencil, Plus, Power, RotateCcw, Trash2 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { Archive, FileSpreadsheet, Pencil, Plus, Power, PowerOff, RotateCcw, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { Badge } from '../../components/ui/Badge'
@@ -12,8 +12,10 @@ import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feed
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
+import { IconButton } from '../../components/ui/IconButton'
+import { ImportModal } from '../../components/ui/ImportModal'
 import { Modal } from '../../components/ui/Modal'
-import { DataTable, Pagination, type Column } from '../../components/ui/Table'
+import { DataTable, Pagination, type Column, type RowSelection } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { MasterRecord, Paginated } from '../../lib/api/types'
 import { applyApiErrors, errorMessage } from '../../lib/forms'
@@ -28,6 +30,7 @@ export interface MasterField {
   /** Only settable at creation (e.g. codes, which are immutable). */
   createOnly?: boolean
   hint?: string
+  placeholder?: string
   options?: SelectOption[]
   /** Label of the empty choice for optional selects. */
   emptyOption?: string
@@ -39,12 +42,33 @@ export interface MasterFilter {
   options: SelectOption[]
 }
 
+/** What depends on a record, shown before it is deactivated or archived. */
+export interface MasterImpact {
+  /** Effects of deactivating, one sentence each. */
+  deactivate?: string[]
+  /** Why archiving is refused right now (e.g. still in use); the button is disabled while set. */
+  archiveBlocked?: string | null
+}
+
+/** Excel round trip for editing many records at once (see ImportModal, mode "edit"). */
+export interface MasterBulkEdit {
+  title: string
+  /** GET downloads the sheet, POST uploads it. */
+  endpoint: string
+  filename: string
+  /** Plural noun for messages, e.g. "kategori". */
+  noun: string
+  /** The API accepts `ids` on the download: rows can be checked to edit only those. */
+  selectable?: boolean
+}
+
 export interface MasterListConfig<T extends MasterRecord> {
   title: string
   description?: string
   /** API path, e.g. "/departments". */
   endpoint: string
-  columns: Column<T>[]
+  /** A function receives whether the list is narrowed by search or filters (tree indentation then means little). */
+  columns: Column<T>[] | ((context: { filtered: boolean }) => Column<T>[])
   fields: MasterField[]
   canCreate: boolean
   canUpdate: boolean
@@ -56,19 +80,29 @@ export interface MasterListConfig<T extends MasterRecord> {
   /** Render without page header (inside tabs). */
   embedded?: boolean
   emptyHint?: string
+  /** Placeholder of the search field. */
+  searchPlaceholder?: string
   /** Rows that cannot be changed here (e.g. built-in records): no action buttons. */
   isReadOnly?: (row: T) => boolean
   /** Enable column visibility toggle. */
   showColumnToggle?: boolean
-  /** Default columns to show (used when column toggle is enabled). */
+  /** Default columns to show (used when column toggle is enabled). Status and actions are always shown. */
   defaultColumns?: string[]
   /** External editing state (for custom create buttons). */
   editing?: T | 'new' | null
   /** Callback when editing state changes. */
   onEditChange?: (value: T | 'new' | null) => void
+  impact?: (row: T) => MasterImpact
+  bulkEdit?: MasterBulkEdit
 }
 
 type Values = Record<string, string>
+
+/** Columns that are never hidden by the column picker: without them a row cannot be judged or acted on. */
+const FIXED_COLUMNS = ['status', 'actions']
+const DEFAULT_PER_PAGE = 10
+/** Typing pause after which the search applies by itself (Enter / "Cari" still apply at once). */
+const SEARCH_DELAY_MS = 400
 
 /**
  * Search/filter/paginate a master list and create, edit, (de)activate, archive and restore
@@ -83,7 +117,11 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const editing = config.editing !== undefined ? config.editing : internalEditing
   const setEditing = config.onEditChange ?? setInternalEditing
   const [archiving, setArchiving] = useState<T | null>(null)
+  const [deactivating, setDeactivating] = useState<T | null>(null)
   const [deleting, setDeleting] = useState<T | null>(null)
+  const [bulkEditing, setBulkEditing] = useState(false)
+  // Checked rows, kept across pages so a selection can span several pages.
+  const [selected, setSelected] = useState<Map<string, T>>(new Map())
 
   // Persisted filters from localStorage
   const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters(config.endpoint)
@@ -91,44 +129,9 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const filterValues = Object.fromEntries((config.filters ?? []).map((f) => [f.name, params.get(f.name) ?? '']))
   const advanced = useFilterDraft(params, [...(config.filters ?? []).map((f) => f.name), 'status'])
   const draft = advanced.draft
-  const listParams = { page: params.get('page'), search: params.get('search'), status: params.get('status'), columns: params.get('columns'), ...filterValues }
-
-  const visibleColumns = config.showColumnToggle
-    ? (params.get('columns') ?? config.defaultColumns?.join(',') ?? config.columns.map((c) => c.key).join(',')).split(',').filter(Boolean)
-    : undefined
-
-  const toggleColumn = config.showColumnToggle
-    ? (key: string) => {
-        const next = visibleColumns!.includes(key)
-          ? visibleColumns!.filter((c) => c !== key)
-          : [...visibleColumns!, key]
-        update({ columns: next.join(',') })
-      }
-    : undefined
-
-  const resetColumns = config.showColumnToggle
-    ? () => {
-        update({ columns: config.defaultColumns?.join(',') ?? config.columns.map((c) => c.key).join(',') })
-      }
-    : undefined
-
-  const query = useQuery({
-    queryKey: [config.endpoint, listParams],
-    queryFn: () => api.get<Paginated<T>>(`${config.endpoint}${qs(listParams)}`),
-    placeholderData: keepPreviousData,
-  })
-
-  const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: [config.endpoint] })
-    await queryClient.invalidateQueries({ queryKey: ['options'] })
-  }
-  const statusChange = useMutation({
-    mutationFn: ({ row, action }: { row: T; action: 'activate' | 'deactivate' | 'restore' }) =>
-      action === 'restore'
-        ? api.post(`${config.endpoint}/${row.id}/restore`)
-        : api.patch(`${config.endpoint}/${row.id}`, { status: action === 'activate' ? 'active' : 'inactive' }),
-    onSuccess: refresh,
-  })
+  const listParams = { page: params.get('page'), per_page: params.get('per_page'), search: params.get('search'), status: params.get('status'), ...filterValues }
+  const status = params.get('status')
+  const filtered = !!params.get('search') || !!status || Object.values(filterValues).some(Boolean)
 
   const update = (next: Record<string, string>) => {
     const merged = new URLSearchParams(params)
@@ -143,7 +146,48 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
     }
     setParams(merged)
   }
-  const status = params.get('status')
+
+  // Search as you type, once typing pauses; the applied value also follows the URL (chip removed, reset).
+  const applied = params.get('search') ?? ''
+  const lastApplied = useRef(applied)
+  useEffect(() => {
+    if (applied !== lastApplied.current) {
+      lastApplied.current = applied
+      setSearch(applied)
+    }
+  }, [applied])
+  useEffect(() => {
+    const term = search.trim()
+    if (term === applied) return
+    const timer = setTimeout(() => {
+      lastApplied.current = term
+      update({ search: term, page: '' })
+    }, SEARCH_DELAY_MS)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- update() is rebuilt every render; only the typed text matters
+  }, [search])
+  const submitSearch = () => {
+    lastApplied.current = search.trim()
+    update({ search: search.trim(), page: '' })
+  }
+
+  const query = useQuery({
+    queryKey: [config.endpoint, listParams],
+    queryFn: () => api.get<Paginated<T>>(`${config.endpoint}${qs(listParams)}`),
+    placeholderData: keepPreviousData,
+  })
+
+  const refresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: [config.endpoint] })
+    await queryClient.invalidateQueries({ queryKey: ['options'] })
+  }
+  const statusChange = useMutation({
+    mutationFn: ({ row, action }: { row: T; action: 'activate' | 'restore' }) =>
+      action === 'restore' ? api.post(`${config.endpoint}/${row.id}/restore`) : api.patch(`${config.endpoint}/${row.id}`, { status: 'active' }),
+    onSuccess: refresh,
+  })
+  const busyRow = statusChange.isPending ? statusChange.variables?.row.id : undefined
+
   const chips: FilterChip[] = [
     ...searchChip(params.get('search'), () => (setSearch(''), update({ search: '', page: '' }))),
     ...(config.filters ?? [])
@@ -159,51 +203,90 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const actionsColumn: Column<T> = {
     key: 'actions',
     header: 'Aksi',
-    className: 'w-44 text-right! whitespace-nowrap',
+    className: 'w-40 text-right! whitespace-nowrap',
     cell: (row) =>
       config.isReadOnly?.(row) ? null : (
-      <div className="flex justify-end gap-1">
-        {config.canUpdate && row.status !== 'archived' && (
-          <>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(row)} aria-label={`Ubah ${row.name}`} title="Ubah">
-              <Pencil className="size-4" aria-hidden />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => statusChange.mutate({ row, action: row.status === 'active' ? 'deactivate' : 'activate' })}
-              aria-label={row.status === 'active' ? `Nonaktifkan ${row.name}` : `Aktifkan ${row.name}`}
-              title={row.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
-            >
-              <Power className="size-4" aria-hidden />
-            </Button>
-          </>
-        )}
-        {config.canArchive && row.status !== 'archived' && (
-          <Button size="sm" variant="ghost" onClick={() => setArchiving(row)} aria-label={`Arsipkan ${row.name}`} title="Arsipkan">
-            <Archive className="size-4" aria-hidden />
-          </Button>
-        )}
-        {config.canArchive && row.status === 'archived' && (
-          <Button size="sm" variant="ghost" onClick={() => statusChange.mutate({ row, action: 'restore' })} aria-label={`Pulihkan ${row.name}`} title="Pulihkan">
-            <RotateCcw className="size-4" aria-hidden />
-          </Button>
-        )}
-        {config.canDelete && row.status === 'archived' && (
-          <Button size="sm" variant="ghost" onClick={() => setDeleting(row)} aria-label={`Hapus permanen ${row.name}`} title="Hapus permanen">
-            <Trash2 className="size-4" aria-hidden />
-          </Button>
-        )}
-      </div>
-    ),
+        <div className="flex justify-end gap-0.5">
+          {config.canUpdate && row.status !== 'archived' && (
+            <>
+              <IconButton label={`Ubah ${row.name}`} tooltip="Ubah" onClick={() => setEditing(row)}>
+                <Pencil className="size-4" aria-hidden />
+              </IconButton>
+              {row.status === 'active' ? (
+                <IconButton label={`Nonaktifkan ${row.name}`} tooltip="Nonaktifkan" className="hover:text-amber-700" onClick={() => setDeactivating(row)}>
+                  <PowerOff className="size-4" aria-hidden />
+                </IconButton>
+              ) : (
+                <IconButton
+                  label={`Aktifkan ${row.name}`}
+                  tooltip="Aktifkan"
+                  className="text-emerald-700 hover:text-emerald-800"
+                  loading={busyRow === row.id}
+                  onClick={() => statusChange.mutate({ row, action: 'activate' })}
+                >
+                  {busyRow !== row.id && <Power className="size-4" aria-hidden />}
+                </IconButton>
+              )}
+            </>
+          )}
+          {config.canArchive && row.status !== 'archived' && (
+            <IconButton label={`Arsipkan ${row.name}`} tooltip="Arsipkan" onClick={() => setArchiving(row)}>
+              <Archive className="size-4" aria-hidden />
+            </IconButton>
+          )}
+          {config.canArchive && row.status === 'archived' && (
+            <IconButton label={`Pulihkan ${row.name}`} tooltip="Pulihkan" loading={busyRow === row.id} onClick={() => statusChange.mutate({ row, action: 'restore' })}>
+              {busyRow !== row.id && <RotateCcw className="size-4" aria-hidden />}
+            </IconButton>
+          )}
+          {config.canDelete && row.status === 'archived' && (
+            <IconButton label={`Hapus permanen ${row.name}`} tooltip="Hapus permanen" className="hover:text-red-700" onClick={() => setDeleting(row)}>
+              <Trash2 className="size-4" aria-hidden />
+            </IconButton>
+          )}
+        </div>
+      ),
   }
   const statusColumn: Column<T> = {
     key: 'status',
     header: 'Status',
-    className: 'w-32',
+    className: 'w-28',
     cell: (r) => <Badge tone={statusTone[r.status]}>{masterStatusLabel[r.status]}</Badge>,
   }
-  const columns = [...config.columns, statusColumn, ...(config.canUpdate || config.canArchive || config.canDelete ? [actionsColumn] : [])]
+  const ownColumns = typeof config.columns === 'function' ? config.columns({ filtered }) : config.columns
+  const hasActions = config.canUpdate || config.canArchive || !!config.canDelete
+  const columns = [...ownColumns, statusColumn, ...(hasActions ? [actionsColumn] : [])]
+
+  const defaultColumns = config.defaultColumns ?? ownColumns.map((c) => c.key)
+  const chosenColumns = config.showColumnToggle ? (params.get('columns') ?? defaultColumns.join(',')).split(',').filter(Boolean) : undefined
+  const visibleColumns = chosenColumns ? [...chosenColumns, ...FIXED_COLUMNS] : undefined
+  const toggleColumn = (key: string) => {
+    const next = chosenColumns!.includes(key) ? chosenColumns!.filter((c) => c !== key) : [...chosenColumns!, key]
+    update({ columns: next.join(',') })
+  }
+
+  // Multiple Edit takes the checked rows when there are any; the sheet never holds archived records.
+  const selectable = !!config.bulkEdit?.selectable && config.canUpdate
+  const selectedIds = useMemo(() => new Set(selected.keys()), [selected])
+  const selection: RowSelection<T> | undefined = selectable
+    ? {
+        selected: selectedIds,
+        rowLabel: (r) => `${r.code} ${r.name}`,
+        onChange: (rows, pick) =>
+          setSelected((prev) => {
+            const next = new Map(prev)
+            for (const r of rows) {
+              if (pick) next.set(r.id, r)
+              else next.delete(r.id)
+            }
+            return next
+          }),
+      }
+    : undefined
+  const editIds = [...selected.values()].filter((r) => r.status !== 'archived').map((r) => r.id)
+  const skippedArchived = selected.size - editIds.length
+  const pageIds = new Set(query.data?.data.map((r) => r.id) ?? [])
+  const offPage = [...selected.keys()].filter((id) => !pageIds.has(id)).length
 
   const body = (
     <Card>
@@ -211,16 +294,16 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
         <SearchForm
           value={search}
           onChange={setSearch}
-          onSubmit={() => update({ search, page: '' })}
-          placeholder="Cari kode atau nama"
+          onSubmit={submitSearch}
+          placeholder={config.searchPlaceholder ?? 'Cari kode atau nama'}
           label={`Cari ${config.title}`}
           aside={
-            config.showColumnToggle && toggleColumn && resetColumns ? (
+            config.showColumnToggle ? (
               <ColumnToggle
-                columns={columns}
-                visibleColumns={visibleColumns ?? columns.map((c) => c.key)}
+                columns={ownColumns}
+                visibleColumns={chosenColumns!}
                 onToggle={toggleColumn}
-                onReset={resetColumns}
+                onReset={() => update({ columns: defaultColumns.join(',') })}
               />
             ) : undefined
           }
@@ -237,7 +320,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
             </Select>
           ))}
           <Select value={draft.status} onChange={(e) => advanced.set({ status: e.target.value })} aria-label="Filter status">
-            <option value="">Status: semua</option>
+            <option value="">Status: semua (tanpa arsip)</option>
             {Object.entries(masterStatusLabel).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -252,6 +335,24 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
           <Alert tone="error">{errorMessage(statusChange.error)}</Alert>
         </div>
       )}
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-brand-100 bg-brand-50/60 px-4 py-2.5 text-sm" role="status">
+          <span className="font-medium text-brand-900">
+            {selected.size} {config.bulkEdit!.noun} dipilih
+            {offPage > 0 && <span className="font-normal text-brand-800"> ({offPage} di halaman lain)</span>}
+          </span>
+          {editIds.length > 0 ? (
+            <Button size="sm" variant="secondary" onClick={() => setBulkEditing(true)}>
+              <FileSpreadsheet className="size-4" aria-hidden /> Multiple Edit yang dipilih
+            </Button>
+          ) : (
+            <span className="text-brand-800">Data arsip tidak dapat diubah lewat Multiple Edit.</span>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Map())}>
+            Batal pilih
+          </Button>
+        </div>
+      )}
       {query.isLoading ? (
         <Spinner />
       ) : query.isError ? (
@@ -260,8 +361,12 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
         <EmptyState title={chips.length > 0 ? 'Tidak ada data yang cocok' : 'Belum ada data'} description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : config.emptyHint} />
       ) : (
         <>
-          <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} className="min-w-[40rem]" />
-          <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} />
+          <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} selection={selection} className="min-w-[36rem]" />
+          <Pagination
+            meta={query.data!.meta}
+            onPage={(p) => update({ page: String(p) })}
+            onPerPage={(n) => update({ per_page: n === DEFAULT_PER_PAGE ? '' : String(n), page: '' })}
+          />
         </>
       )}
     </Card>
@@ -272,13 +377,22 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
       <Plus className="size-4" aria-hidden /> Tambah
     </Button>
   )
+  // Edits the checked rows when there are any, otherwise every record that is not archived.
+  const bulkEditButton = config.bulkEdit && config.canUpdate && (
+    <Button variant="secondary" onClick={() => setBulkEditing(true)}>
+      <FileSpreadsheet className="size-4" aria-hidden /> Multiple Edit{editIds.length > 0 ? ` (${editIds.length})` : ''}
+    </Button>
+  )
+  const bulk = config.bulkEdit
+  const editingSelection = bulkEditing && editIds.length > 0
 
   return (
     <>
       {config.embedded ? (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           {config.description && <p className="text-sm text-slate-600">{config.description}</p>}
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex flex-wrap gap-2">
+            {bulkEditButton}
             {config.headerActions}
             {createButton}
           </div>
@@ -289,6 +403,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
           description={config.description}
           actions={
             <>
+              {bulkEditButton}
               {config.headerActions}
               {createButton}
             </>
@@ -297,8 +412,30 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
       )}
       {body}
       {editing && <MasterFormModal config={config} record={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={refresh} />}
-      {archiving && <ArchiveModal endpoint={config.endpoint} record={archiving} onClose={() => setArchiving(null)} onDone={refresh} />}
+      {deactivating && (
+        <DeactivateModal endpoint={config.endpoint} record={deactivating} effects={config.impact?.(deactivating).deactivate} onClose={() => setDeactivating(null)} onDone={refresh} />
+      )}
+      {archiving && (
+        <ArchiveModal endpoint={config.endpoint} record={archiving} blocked={config.impact?.(archiving).archiveBlocked} onClose={() => setArchiving(null)} onDone={refresh} />
+      )}
       {deleting && <DeleteModal endpoint={config.endpoint} record={deleting} onClose={() => setDeleting(null)} onDone={refresh} />}
+      {bulk && bulkEditing && (
+        <ImportModal
+          open
+          mode="edit"
+          onClose={() => setBulkEditing(false)}
+          onSuccess={() => setSelected(new Map())}
+          title={`${bulk.title} (Excel)`}
+          endpoint={bulk.endpoint}
+          templateEndpoint={editingSelection ? `${bulk.endpoint}${qs({ ids: editIds.join(',') })}` : bulk.endpoint}
+          templateFilename={bulk.filename}
+          scopeNote={
+            editingSelection
+              ? `${editIds.length} ${bulk.noun} yang dicentang${skippedArchived > 0 ? `; ${skippedArchived} ${bulk.noun} arsip tidak ikut` : ''}`
+              : `semua ${bulk.noun} yang belum diarsipkan`
+          }
+        />
+      )}
     </>
   )
 }
@@ -365,9 +502,9 @@ function MasterFormModal<T extends MasterRecord>({ config, record, onClose, onSa
                     ))}
                   </Select>
                 ) : f.type === 'textarea' ? (
-                  <Textarea {...p} rows={3} disabled={disabled} {...register(f.name, rules)} />
+                  <Textarea {...p} rows={3} disabled={disabled} placeholder={f.placeholder} {...register(f.name, rules)} />
                 ) : (
-                  <Input {...p} type={f.type === 'number' ? 'number' : 'text'} disabled={disabled} {...register(f.name, rules)} />
+                  <Input {...p} type={f.type === 'number' ? 'number' : 'text'} disabled={disabled} placeholder={f.placeholder} {...register(f.name, rules)} />
                 )
               }
             </Field>
@@ -378,7 +515,44 @@ function MasterFormModal<T extends MasterRecord>({ config, record, onClose, onSa
   )
 }
 
-function ArchiveModal({ endpoint, record, onClose, onDone }: { endpoint: string; record: MasterRecord; onClose: () => void; onDone: () => Promise<void> }) {
+function DeactivateModal({ endpoint, record, effects, onClose, onDone }: { endpoint: string; record: MasterRecord; effects?: string[]; onClose: () => void; onDone: () => Promise<void> }) {
+  const deactivate = useMutation({
+    mutationFn: () => api.patch(`${endpoint}/${record.id}`, { status: 'inactive' }),
+    onSuccess: async () => {
+      await onDone()
+      onClose()
+    },
+  })
+
+  return (
+    <Modal
+      open
+      title={`Nonaktifkan ${record.name}?`}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Batal
+          </Button>
+          <Button loading={deactivate.isPending} onClick={() => deactivate.mutate()}>
+            Nonaktifkan
+          </Button>
+        </>
+      }
+    >
+      {deactivate.isError && <Alert tone="error">{errorMessage(deactivate.error)}</Alert>}
+      <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+        <li>Data nonaktif tidak dapat dipilih untuk data baru.</li>
+        {(effects ?? ['Data yang sudah memakainya tidak berubah.']).map((e) => (
+          <li key={e}>{e}</li>
+        ))}
+        <li>Dapat diaktifkan kembali kapan saja.</li>
+      </ul>
+    </Modal>
+  )
+}
+
+function ArchiveModal({ endpoint, record, blocked, onClose, onDone }: { endpoint: string; record: MasterRecord; blocked?: string | null; onClose: () => void; onDone: () => Promise<void> }) {
   const [reason, setReason] = useState('')
   const archive = useMutation({
     mutationFn: () => api.post(`${endpoint}/${record.id}/archive`, { reason: reason || null }),
@@ -396,17 +570,22 @@ function ArchiveModal({ endpoint, record, onClose, onDone }: { endpoint: string;
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Batal
+            {blocked ? 'Tutup' : 'Batal'}
           </Button>
-          <Button variant="danger" loading={archive.isPending} onClick={() => archive.mutate()}>
+          <Button variant="danger" loading={archive.isPending} disabled={!!blocked} onClick={() => archive.mutate()}>
             Arsipkan
           </Button>
         </>
       }
     >
+      {blocked && (
+        <Alert tone="warning" title="Belum dapat diarsipkan">
+          {blocked}
+        </Alert>
+      )}
       {archive.isError && <Alert tone="error">{errorMessage(archive.error)}</Alert>}
-      <p className="text-sm text-slate-700">Data arsip tidak dapat dipilih untuk data baru, tetapi riwayatnya tetap tersimpan dan dapat dipulihkan.</p>
-      <Field label="Alasan">{(p) => <Textarea {...p} rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />}</Field>
+      <p className="text-sm text-slate-700">Data arsip tidak dapat dipilih untuk data baru dan disembunyikan dari daftar, tetapi riwayatnya tetap tersimpan dan dapat dipulihkan.</p>
+      {!blocked && <Field label="Alasan">{(p) => <Textarea {...p} rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />}</Field>}
     </Modal>
   )
 }

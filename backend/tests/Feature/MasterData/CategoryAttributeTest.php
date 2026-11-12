@@ -55,6 +55,11 @@ class CategoryAttributeTest extends TestCase
         $listed = collect($this->getJson('/api/tenant-masters/categories?all=1')->assertOk()->json('data'))->keyBy('code');
         $this->assertSame(1 + count($this->defaultLabels()), $listed['KEND']['attributes_count']);
         $this->assertSame(2, $listed['MOBIL']['attributes_count']);
+        // Subcategories also show what they inherit, so a subcategory never looks empty.
+        $this->assertSame(0, $listed['KEND']['inherited_attributes_count']);
+        $this->assertSame(1 + count($this->defaultLabels()), $listed['MOBIL']['inherited_attributes_count']);
+        $this->assertSame(1, $listed['KEND']['children_count']);
+        $this->assertSame(0, $listed['MOBIL']['children_count']);
 
         // Same label within the lineage is refused; another branch may reuse it (with its own key).
         $this->assertErrorCode($this->field($cars, ['label' => 'nomor polisi', 'data_type' => 'string']), 422, 'VALIDATION_FAILED');
@@ -68,6 +73,23 @@ class CategoryAttributeTest extends TestCase
         } catch (QueryException $e) {
             $this->assertStringContainsString('immutable', $e->getMessage());
         }
+    }
+
+    public function test_category_list_filters_by_parent_and_level_and_searches_descriptions(): void
+    {
+        $vehicles = $this->category('KEND', 'Kendaraan');
+        $cars = $this->category('MOBIL', 'Mobil', $vehicles);
+        $this->category('SEDAN', 'Sedan', $cars);
+        $this->patchJson("/api/tenant-masters/categories/{$cars->id}", ['description' => 'Roda empat operasional'])->assertOk();
+
+        $codes = fn (string $query) => collect($this->getJson("/api/tenant-masters/categories?{$query}")->assertOk()->json('data'))->pluck('code')->all();
+        $this->assertSame(['KEND', 'MOBIL', 'SEDAN'], $codes("parent_id={$vehicles->id}"));
+        $this->assertSame(['MOBIL', 'SEDAN'], $codes("parent_id={$cars->id}&level=sub"));
+        $this->assertNotContains('MOBIL', $codes('level=root'));
+        $this->assertNotContains('CAT1', $codes('level=sub'));
+        $this->assertSame(['MOBIL'], $codes('search=roda empat'));
+        $this->assertSame([], $codes('parent_id=0199a000-0000-7000-8000-000000000000'));
+        $this->getJson('/api/tenant-masters/categories?level=semua')->assertUnprocessable();
     }
 
     public function test_field_definitions_are_validated(): void

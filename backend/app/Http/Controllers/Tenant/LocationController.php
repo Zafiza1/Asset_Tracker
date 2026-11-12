@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Assets\Models\Asset;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Services\OrganizationStructureService;
 use App\Domain\Shared\Masters\CodeGenerator;
@@ -25,17 +26,36 @@ class LocationController extends Controller
 
     public function __construct(private readonly OrganizationStructureService $structure) {}
 
-    /** Default sort is the tree order (materialized path): parents directly before their children. */
+    /** Most locations one Multiple Edit sheet may be limited to with `ids`. */
+    private const MAX_EDIT_SELECTION = 500;
+
+    /**
+     * Default sort is the tree order (materialized path): parents directly before their children.
+     * Filters: `parent_id` (the location and everything below it), `level` (root = top-level only,
+     * sub = sub-locations only). Each row carries, for the confirmation dialogs, how many
+     * sub-locations and active assets depend on it.
+     */
     public function index(Request $request): AnonymousResourceCollection
     {
         $request->validate([
             'parent_id' => ['nullable', 'uuid'],
+            'level' => ['nullable', Rule::in(['root', 'sub'])],
         ]);
         $query = Location::query()->with(self::RELATIONS)
-            ->when($request->query('parent_id'), fn ($q, $id) => $q->where('parent_id', $id));
+            ->withCount(['children as children_count' => fn ($q) => $q->where('status', '!=', MasterStatus::ARCHIVED)])
+            ->addSelect(['assets_count' => Asset::query()->selectRaw('count(*)')
+                ->whereColumn('assets.location_id', 'locations.id')
+                ->whereNull('assets.archived_at')])
+            ->when($request->query('parent_id'), function ($q, $id) {
+                $path = Location::query()->whereKey($id)->value('path');
+                // An unknown parent matches nothing rather than everything.
+                $path === null ? $q->whereRaw('false') : $q->where('path', 'like', $path.'%');
+            })
+            ->when($request->query('level') === 'root', fn ($q) => $q->whereNull('parent_id'))
+            ->when($request->query('level') === 'sub', fn ($q) => $q->whereNotNull('parent_id'));
 
         return LocationResource::collection(MasterRequests::list($query, $request,
-            ['tree' => 'path', 'code' => 'code', 'name' => 'name', 'status' => 'status', 'created_at' => 'created_at'], 'tree'));
+            ['tree' => 'path', 'code' => 'code', 'name' => 'name', 'status' => 'status', 'created_at' => 'created_at'], 'tree', ['code', 'name', 'address']));
     }
 
     public function store(Request $request, Tenancy $tenancy): LocationResource
@@ -120,14 +140,26 @@ class LocationController extends Controller
         ]);
     }
 
-    /** The locations (not archived) in tree order, as an .xlsx to edit and upload to importEdits(). */
-    public function downloadEditSheet(): BinaryFileResponse
+    /**
+     * The locations (not archived) in tree order, as an .xlsx to edit and upload to importEdits().
+     * `ids` (comma-separated) limits it to the locations checked in the list.
+     */
+    public function downloadEditSheet(Request $request): BinaryFileResponse
     {
-        $query = Location::query()->where('status', '!=', MasterStatus::ARCHIVED);
+        $request->validate(['ids' => ['nullable', 'string', 'max:'.(self::MAX_EDIT_SELECTION * 37)]]);
+        $ids = array_values(array_unique(array_filter(explode(',', (string) $request->query('ids')))));
+        $request->merge(['id_list' => $ids])->validate([
+            'id_list' => ['array', 'max:'.self::MAX_EDIT_SELECTION],
+            'id_list.*' => ['uuid'],
+        ]);
+
+        $query = Location::query()->where('status', '!=', MasterStatus::ARCHIVED)
+            ->when($ids !== [], fn ($q) => $q->whereIn('id', $ids));
         SpreadsheetImport::assertExportable($query->count());
 
         $rows = $query->with('parent')->orderBy('path')->get()->map(fn (Location $l) => [
             'id' => $l->id,
+            'code' => $l->code,
             'name' => $l->name,
             'parent_code' => SpreadsheetImport::codeItem($l->parent),
             'address' => $l->address,
@@ -175,10 +207,11 @@ class LocationController extends Controller
         return response()->json(['data' => ['updated' => $updated]]);
     }
 
-    /** @return list<ImportColumn> the code cannot be changed, so it is not shown */
+    /** @return list<ImportColumn> the code cannot be changed: it is shown greyed out to tell rows apart, never read back */
     private function editColumns(): array
     {
         return [
+            new ImportColumn('code', 'Kode (info)', hint: 'Kode lokasi, tidak dapat diubah.', width: 18, readOnly: true),
             new ImportColumn('name', 'Nama Lokasi', required: true, hint: 'Nama lokasi, maksimal 150 karakter.', width: 30),
             new ImportColumn('parent_code', 'Lokasi Induk', hint: 'Pilih lokasi induk. Kosongkan untuk lokasi utama.', list: 'Lokasi Induk', width: 34),
             new ImportColumn('address', 'Alamat', hint: 'Alamat lengkap lokasi. Kosongkan untuk menghapus.', width: 45),

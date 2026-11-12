@@ -178,7 +178,7 @@ export function DataTable<T extends { id: string }>({
                 className={clsx(
                   'transition-colors duration-100',
                   picked && 'bg-brand-50/40',
-                  onRowClick && 'cursor-pointer hover:bg-brand-50/60 focus-visible:bg-brand-50/60 focus-visible:outline-offset-[-2px]',
+                  onRowClick && 'cursor-pointer hover:bg-brand-50 focus-visible:bg-brand-50 focus-visible:outline-offset-[-2px]',
                 )}
               >
                 {selection && (

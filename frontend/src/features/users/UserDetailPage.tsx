@@ -17,6 +17,7 @@ import { formatDateTime, scopeTypeLabel, userStatusLabel } from '../../lib/forma
 import { toOptions, useOptions } from '../master/options'
 import { RoleQuickCreateModal } from '../roles/RoleQuickCreateModal'
 import { useOrganizationOptions, useRoles } from './api'
+import { availableStatusAction, statusActions, type UserStatusAction } from './statusActions'
 
 export function UserDetailPage() {
   const { id } = useParams()
@@ -388,58 +389,75 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
   )
 }
 
-const statusActions = {
-  activate: { label: 'Aktifkan', confirm: 'Pengguna dapat login kembali.', variant: 'secondary' as const },
-  deactivate: { label: 'Nonaktifkan', confirm: 'Akun dinonaktifkan dan kode lisensi akan terlepas. Pengguna dapat didaftarkan kembali dengan email yang sama.', variant: 'danger' as const },
-}
-
 function StatusActions({ user }: { user: User }) {
-  const [action, setAction] = useState<keyof typeof statusActions | null>(null)
-  const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: (a: keyof typeof statusActions) => api.post<Resource<User>>(`/users/${user.id}/${a}`),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['users'] })
-      setAction(null)
-    },
-  })
-  if (user.status === 'deactivated' || user.status === 'invited') return null
-
-  const available: (keyof typeof statusActions)[] = user.status === 'active' ? ['deactivate'] : ['activate']
+  const [action, setAction] = useState<UserStatusAction | null>(null)
+  const available = availableStatusAction(user)
+  if (!available) return null
 
   return (
     <>
-      {available.map((a) => (
-        <Button key={a} variant={statusActions[a].variant} onClick={() => (mutation.reset(), setAction(a))}>
-          {statusActions[a].label}
-        </Button>
-      ))}
-      <Modal
-        open={action !== null}
-        title={action ? `${statusActions[action].label} pengguna?` : ''}
-        onClose={() => setAction(null)}
-        footer={
-          action && (
-            <>
-              <Button variant="secondary" onClick={() => setAction(null)}>
-                Batal
-              </Button>
-              <Button variant={statusActions[action].variant === 'danger' ? 'danger' : 'primary'} loading={mutation.isPending} onClick={() => mutation.mutate(action)}>
-                {statusActions[action].label}
-              </Button>
-            </>
-          )
-        }
-      >
-        {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
-        <p className="text-sm text-slate-700">{action && statusActions[action].confirm}</p>
-      </Modal>
+      <Button variant={statusActions[available].variant} onClick={() => setAction(available)}>
+        {statusActions[available].label}
+      </Button>
+      <UserStatusModal user={user} action={action} onClose={() => setAction(null)} />
     </>
+  )
+}
+
+/** Confirms and applies an activate/deactivate change; open while `action` is set. */
+export function UserStatusModal({ user, action, onClose }: { user: User; action: UserStatusAction | null; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (a: UserStatusAction) => api.post<Resource<User>>(`/users/${user.id}/${a}`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['users'] })
+      onClose()
+    },
+  })
+  const [shown, setShown] = useState(action)
+  if (shown !== action) {
+    setShown(action)
+    if (action) mutation.reset()
+  }
+
+  return (
+    <Modal
+      open={action !== null}
+      title={action ? `${statusActions[action].label} ${user.name}?` : ''}
+      onClose={onClose}
+      footer={
+        action && (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Batal
+            </Button>
+            <Button variant={statusActions[action].variant === 'danger' ? 'danger' : 'primary'} loading={mutation.isPending} onClick={() => mutation.mutate(action)}>
+              {statusActions[action].label}
+            </Button>
+          </>
+        )
+      }
+    >
+      {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
+      <p className="text-sm text-slate-700">{action && statusActions[action].confirm}</p>
+    </Modal>
   )
 }
 
 function ResetPasswordButton({ user }: { user: User }) {
   const [open, setOpen] = useState(false)
+  return (
+    <>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        Reset password
+      </Button>
+      <ResetPasswordModal user={user} open={open} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
+/** Sets a temporary password the user must change at their next login. */
+export function ResetPasswordModal({ user, open, onClose }: { user: User; open: boolean; onClose: () => void }) {
   const [done, setDone] = useState(false)
   const { register, handleSubmit, setError, formState, reset } = useForm<{ password: string }>()
   const [formError, setFormError] = useState<string | null>(null)
@@ -448,34 +466,37 @@ function ResetPasswordButton({ user }: { user: User }) {
     onSuccess: () => (setDone(true), reset()),
     onError: (e) => setFormError(applyApiErrors(e, setError)),
   })
+  const [wasOpen, setWasOpen] = useState(open)
+  if (wasOpen !== open) {
+    setWasOpen(open)
+    if (open) {
+      setDone(false)
+      setFormError(null)
+    }
+  }
 
   return (
-    <>
-      <Button variant="secondary" onClick={() => (setOpen(true), setDone(false), setFormError(null))}>
-        Reset password
-      </Button>
-      <Modal open={open} title="Reset password" onClose={() => setOpen(false)}>
-        {done ? (
-          <Alert tone="success">Password sementara disimpan. Pengguna wajib menggantinya saat login berikutnya.</Alert>
-        ) : (
-          <form onSubmit={handleSubmit((v) => mutation.mutate(v))} noValidate className="space-y-4">
-            {formError && <Alert tone="error">{formError}</Alert>}
-            <Field label="Password sementara" error={formState.errors.password?.message} hint={passwordRule.message} required>
-              {(p) => (
-                <Input {...p} type="password" autoComplete="new-password" {...register('password', { validate: (v) => passwordRule.test(v) || passwordRule.message })} />
-              )}
-            </Field>
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setOpen(false)}>
-                Batal
-              </Button>
-              <Button type="submit" loading={mutation.isPending}>
-                Simpan
-              </Button>
-            </div>
-          </form>
-        )}
-      </Modal>
-    </>
+    <Modal open={open} title={`Reset password ${user.name}`} onClose={onClose}>
+      {done ? (
+        <Alert tone="success">Password sementara disimpan. Pengguna wajib menggantinya saat login berikutnya.</Alert>
+      ) : (
+        <form onSubmit={handleSubmit((v) => mutation.mutate(v))} noValidate className="space-y-4">
+          {formError && <Alert tone="error">{formError}</Alert>}
+          <Field label="Password sementara" error={formState.errors.password?.message} hint={passwordRule.message} required>
+            {(p) => (
+              <Input {...p} type="password" autoComplete="new-password" {...register('password', { validate: (v) => passwordRule.test(v) || passwordRule.message })} />
+            )}
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={onClose}>
+              Batal
+            </Button>
+            <Button type="submit" loading={mutation.isPending}>
+              Simpan
+            </Button>
+          </div>
+        </form>
+      )}
+    </Modal>
   )
 }

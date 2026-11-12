@@ -42,6 +42,12 @@ class TenantAssetCategory extends Model
         return $this->belongsTo(self::class, 'parent_id');
     }
 
+    /** Direct subcategories. */
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
+    }
+
     public function genericCategory(): BelongsTo
     {
         return $this->belongsTo(GenericAssetCategory::class, 'generic_category_id');

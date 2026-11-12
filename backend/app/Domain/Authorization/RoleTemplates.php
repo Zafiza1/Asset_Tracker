@@ -17,13 +17,20 @@ final class RoleTemplates
     /** Inviting users; reserved for Super Admin, who also holds the license codes an invitation needs. */
     public const INVITE_PERMISSION = 'user.create';
 
+    /** Editing the organization profile; Super Admin only, every other role just reads it. */
+    public const ORGANIZATION_MANAGE_PERMISSION = 'organization.manage';
+
+    /** Reading the organization profile; every default role holds it. */
+    public const ORGANIZATION_VIEW_PERMISSION = 'organization.view';
+
     /** @return array<string, array{name: string, description: string, locked: bool, permissions: list<string>}> */
     public static function tenant(): array
     {
         $allTenantPermissions = PermissionCatalog::codes(PermissionCatalog::SCOPE_TENANT);
-        // Supervisor: every group except license, and no inviting. Admin: only the operational groups.
-        $supervisorPermissions = array_diff($allTenantPermissions, PermissionCatalog::codesInGroups(['license']), [self::INVITE_PERMISSION]);
-        $adminPermissions = PermissionCatalog::codesInGroups(['asset', 'document', 'master', 'report', 'transaction']);
+        // Supervisor: every group except license, no inviting and no profile editing.
+        // Admin: the operational groups, plus reading the organization profile.
+        $supervisorPermissions = array_diff($allTenantPermissions, PermissionCatalog::codesInGroups(['license']), [self::INVITE_PERMISSION, self::ORGANIZATION_MANAGE_PERMISSION]);
+        $adminPermissions = [...PermissionCatalog::codesInGroups(['asset', 'document', 'master', 'report', 'transaction']), self::ORGANIZATION_VIEW_PERMISSION];
 
         return [
             self::SUPER_ADMIN => [
@@ -69,6 +76,12 @@ final class RoleTemplates
 
     /** Only Super Admin invites users: no other role, default or custom, may hold the permission. */
     public static function mayInvite(?string $templateCode): bool
+    {
+        return $templateCode === self::SUPER_ADMIN;
+    }
+
+    /** Only Super Admin edits the organization profile: no other role, default or custom, may hold it. */
+    public static function mayManageOrganization(?string $templateCode): bool
     {
         return $templateCode === self::SUPER_ADMIN;
     }

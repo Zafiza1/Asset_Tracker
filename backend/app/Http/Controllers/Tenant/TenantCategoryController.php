@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Assets\Models\Asset;
 use App\Domain\Shared\Masters\CodeGenerator;
 use App\Domain\Shared\Masters\MasterStatus;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use App\Domain\TenantMaster\Services\TenantCategoryService;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TenantCategoryResource;
@@ -23,17 +25,50 @@ class TenantCategoryController extends Controller
 {
     private const RELATIONS = ['parent', 'genericCategory'];
 
+    /** Most categories one Multiple Edit sheet may be limited to with `ids`. */
+    private const MAX_EDIT_SELECTION = 500;
+
     public function __construct(private readonly TenantCategoryService $categories) {}
 
+    /**
+     * Filters: `parent_id` (the category and everything below it), `level` (root = top-level
+     * only, sub = subcategories only). Each row carries its own and inherited field counts and,
+     * for the confirmation dialogs, how many subcategories and active assets depend on it.
+     */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $request->validate(['generic_category_id' => ['nullable', 'uuid']]);
+        $request->validate([
+            'generic_category_id' => ['nullable', 'uuid'],
+            'parent_id' => ['nullable', 'uuid'],
+            'level' => ['nullable', Rule::in(['root', 'sub'])],
+        ]);
         $query = TenantAssetCategory::query()->with(self::RELATIONS)
-            ->withCount(['attributes as attributes_count' => fn ($q) => $q->where('status', MasterStatus::ACTIVE)])
-            ->when($request->query('generic_category_id'), fn ($q, $id) => $q->where('generic_category_id', $id));
+            ->withCount([
+                'attributes as attributes_count' => fn ($q) => $q->where('status', MasterStatus::ACTIVE),
+                'children as children_count' => fn ($q) => $q->where('status', '!=', MasterStatus::ARCHIVED),
+            ])
+            ->addSelect([
+                // Active fields of the ancestors, which assets of this category also get.
+                'inherited_attributes_count' => TenantCategoryAttribute::query()->selectRaw('count(*)')
+                    ->join('tenant_asset_categories as ancestor', 'ancestor.id', '=', 'tenant_category_attributes.category_id')
+                    ->where('tenant_category_attributes.status', MasterStatus::ACTIVE)
+                    ->whereColumn('ancestor.id', '!=', 'tenant_asset_categories.id')
+                    ->whereRaw("tenant_asset_categories.path like ancestor.path || '%'"),
+                'assets_count' => Asset::query()->selectRaw('count(*)')
+                    ->whereColumn('assets.category_id', 'tenant_asset_categories.id')
+                    ->whereNull('assets.archived_at'),
+            ])
+            ->when($request->query('generic_category_id'), fn ($q, $id) => $q->where('generic_category_id', $id))
+            ->when($request->query('parent_id'), function ($q, $id) {
+                $path = TenantAssetCategory::query()->whereKey($id)->value('path');
+                // An unknown parent matches nothing rather than everything.
+                $path === null ? $q->whereRaw('false') : $q->where('path', 'like', $path.'%');
+            })
+            ->when($request->query('level') === 'root', fn ($q) => $q->whereNull('parent_id'))
+            ->when($request->query('level') === 'sub', fn ($q) => $q->whereNotNull('parent_id'));
 
         return TenantCategoryResource::collection(MasterRequests::list($query, $request,
-            ['tree' => 'path', 'code' => 'code', 'name' => 'name', 'status' => 'status'], 'tree'));
+            ['tree' => 'path', 'code' => 'code', 'name' => 'name', 'status' => 'status'], 'tree', ['code', 'name', 'description']));
     }
 
     public function store(Request $request, Tenancy $tenancy): TenantCategoryResource
@@ -126,14 +161,26 @@ class TenantCategoryController extends Controller
         ]);
     }
 
-    /** The categories (not archived) in tree order, as an .xlsx to edit and upload to importEdits(). */
-    public function downloadEditSheet(): BinaryFileResponse
+    /**
+     * The categories (not archived) in tree order, as an .xlsx to edit and upload to importEdits().
+     * `ids` (comma-separated) limits it to the categories checked in the list.
+     */
+    public function downloadEditSheet(Request $request): BinaryFileResponse
     {
-        $query = TenantAssetCategory::query()->where('status', '!=', MasterStatus::ARCHIVED);
+        $request->validate(['ids' => ['nullable', 'string', 'max:'.(self::MAX_EDIT_SELECTION * 37)]]);
+        $ids = array_values(array_unique(array_filter(explode(',', (string) $request->query('ids')))));
+        $request->merge(['id_list' => $ids])->validate([
+            'id_list' => ['array', 'max:'.self::MAX_EDIT_SELECTION],
+            'id_list.*' => ['uuid'],
+        ]);
+
+        $query = TenantAssetCategory::query()->where('status', '!=', MasterStatus::ARCHIVED)
+            ->when($ids !== [], fn ($q) => $q->whereIn('id', $ids));
         SpreadsheetImport::assertExportable($query->count());
 
         $rows = $query->with('parent')->orderBy('path')->get()->map(fn (TenantAssetCategory $c) => [
             'id' => $c->id,
+            'code' => $c->code,
             'name' => $c->name,
             'parent_code' => SpreadsheetImport::codeItem($c->parent),
             'description' => $c->description,
@@ -191,10 +238,11 @@ class TenantCategoryController extends Controller
         ];
     }
 
-    /** @return list<ImportColumn> the code cannot be changed, so it is not shown */
+    /** @return list<ImportColumn> the code cannot be changed: it is shown greyed out to tell rows apart, never read back */
     private function editColumns(): array
     {
         return [
+            new ImportColumn('code', 'Kode (info)', hint: 'Kode kategori, tidak dapat diubah.', width: 18, readOnly: true),
             new ImportColumn('name', 'Nama Kategori', required: true, hint: 'Nama kategori, maksimal 150 karakter.', width: 30),
             new ImportColumn('parent_code', 'Kategori Induk', hint: 'Pilih kategori induk. Kosongkan untuk kategori utama.', list: 'Kategori Induk', width: 34),
             new ImportColumn('description', 'Deskripsi', hint: 'Penjelasan singkat kategori. Kosongkan untuk menghapus.', width: 45),

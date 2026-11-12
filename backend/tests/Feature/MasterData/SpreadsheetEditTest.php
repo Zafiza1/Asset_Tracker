@@ -43,19 +43,21 @@ class SpreadsheetEditTest extends TestCase
 
         $book = $this->download('/api/tenant-masters/categories/edit-sheet');
         $data = $book->getSheetByName('Data');
-        // The code cannot be changed, so it is not shown; rows are linked by the hidden ID column.
-        $this->assertSame(['Nama Kategori *', 'Kategori Induk', 'Deskripsi', 'Status *'], $data->rangeToArray('A1:D1')[0]);
-        $this->assertSame('ID *', $data->getCell('E1')->getValue());
-        $this->assertFalse($data->getColumnDimension('E')->getVisible());
-        $rows = $this->rowsByKey($data);
+        // The code cannot be changed: it is shown read-only to tell rows apart; rows are linked by the hidden ID column.
+        $this->assertSame(['Kode (info)', 'Nama Kategori *', 'Kategori Induk', 'Deskripsi', 'Status *'], $data->rangeToArray('A1:E1')[0]);
+        $this->assertSame('ID *', $data->getCell('F1')->getValue());
+        $this->assertFalse($data->getColumnDimension('F')->getVisible());
+        $rows = $this->rowsByKey($data, 'B');
         $this->assertEqualsCanonicalizing(['Kategori 1', 'Perangkat IT', 'Laptop'], array_keys($rows));
-        $this->assertSame('Aktif', $rows['Perangkat IT'][3]);
+        $this->assertSame('IT', $rows['Perangkat IT'][0]);
+        $this->assertSame('Aktif', $rows['Perangkat IT'][4]);
 
         // Laptop moves under IT and gets a description; IT is renamed; Kategori 1 is left as is.
-        $it = $this->rowOf($data, 'Perangkat IT');
-        $laptop = $this->rowOf($data, 'Laptop');
-        $data->setCellValue("A{$it}", 'Perangkat Teknologi');
-        $data->setCellValue("B{$laptop}", 'IT — Perangkat Teknologi')->setCellValue("C{$laptop}", 'Notebook kantor');
+        // Editing the read-only code is ignored.
+        $it = $this->rowOf($data, 'Perangkat IT', 'B');
+        $laptop = $this->rowOf($data, 'Laptop', 'B');
+        $data->setCellValue("B{$it}", 'Perangkat Teknologi')->setCellValue("A{$it}", 'DIUBAH');
+        $data->setCellValue("C{$laptop}", 'IT — Perangkat Teknologi')->setCellValue("D{$laptop}", 'Notebook kantor');
 
         $this->upload('/api/tenant-masters/categories/edit-sheet', $book)->assertOk()->assertJsonPath('data.updated', 2);
 
@@ -67,21 +69,44 @@ class SpreadsheetEditTest extends TestCase
         $this->assertStringStartsWith($it->path, $moved->path);
     }
 
+    public function test_category_sheet_can_be_limited_to_checked_categories(): void
+    {
+        $it = $this->postJson('/api/tenant-masters/categories', ['code' => 'IT', 'name' => 'Perangkat IT'])->assertCreated()->json('data.id');
+        $laptop = $this->postJson('/api/tenant-masters/categories', ['code' => 'LAPTOP', 'name' => 'Laptop'])->assertCreated()->json('data.id');
+
+        $data = $this->download("/api/tenant-masters/categories/edit-sheet?ids={$it},{$laptop}")->getSheetByName('Data');
+        $this->assertEqualsCanonicalizing(['Perangkat IT', 'Laptop'], array_keys($this->rowsByKey($data, 'B')));
+
+        $this->getJson('/api/tenant-masters/categories/edit-sheet?ids=bukan-uuid')->assertUnprocessable();
+    }
+
     public function test_location_sheet_clears_emptied_values_and_deactivates(): void
     {
         $this->masters['location']->forceFill(['address' => 'Jl. Lama'])->save();
         $book = $this->download('/api/locations/edit-sheet');
         $data = $book->getSheetByName('Data');
-        $this->assertSame(['Nama Lokasi *', 'Lokasi Induk', 'Alamat', 'Status *'], $data->rangeToArray('A1:D1')[0]);
-        $row = $this->rowOf($data, 'Gudang 1');
-        $this->assertSame('Jl. Lama', $data->getCell("C{$row}")->getValue());
+        $this->assertSame(['Kode (info)', 'Nama Lokasi *', 'Lokasi Induk', 'Alamat', 'Status *'], $data->rangeToArray('A1:E1')[0]);
+        $row = $this->rowOf($data, 'Gudang 1', 'B');
+        $this->assertSame('LOC1', $data->getCell("A{$row}")->getValue());
+        $this->assertSame('Jl. Lama', $data->getCell("D{$row}")->getValue());
 
-        $data->setCellValue("C{$row}", null)->setCellValue("D{$row}", 'Nonaktif');
+        $data->setCellValue("D{$row}", null)->setCellValue("E{$row}", 'Nonaktif');
         $this->upload('/api/locations/edit-sheet', $book)->assertOk()->assertJsonPath('data.updated', 1);
 
         $location = Location::query()->where('code', 'LOC1')->firstOrFail();
         $this->assertNull($location->address);
         $this->assertSame('inactive', $location->status);
+    }
+
+    public function test_location_sheet_can_be_limited_to_checked_locations(): void
+    {
+        $this->postJson('/api/locations', ['code' => 'GDG-B', 'name' => 'Gudang B'])->assertCreated();
+        $picked = $this->masters['location']->id;
+
+        $data = $this->download("/api/locations/edit-sheet?ids={$picked}")->getSheetByName('Data');
+        $this->assertSame(['Gudang 1'], array_keys($this->rowsByKey($data, 'B')));
+
+        $this->getJson('/api/locations/edit-sheet?ids=bukan-uuid')->assertUnprocessable();
     }
 
     public function test_asset_sheet_follows_the_list_filters_and_updates_descriptive_fields(): void
@@ -288,22 +313,23 @@ class SpreadsheetEditTest extends TestCase
     }
 
     /** @return array<string, list<mixed>> data rows keyed by their first column */
-    private function rowsByKey(Worksheet $sheet): array
+    private function rowsByKey(Worksheet $sheet, string $column = 'A'): array
     {
+        $index = ord($column) - ord('A');
         $rows = [];
         foreach (array_slice($sheet->toArray(), 1) as $row) {
-            if ($row[0] !== null) {
-                $rows[$row[0]] = $row;
+            if ($row[$index] !== null) {
+                $rows[$row[$index]] = $row;
             }
         }
 
         return $rows;
     }
 
-    private function rowOf(Worksheet $sheet, string $key): int
+    private function rowOf(Worksheet $sheet, string $key, string $column = 'A'): int
     {
         for ($r = 2; $r <= $sheet->getHighestDataRow(); $r++) {
-            if ($sheet->getCell("A{$r}")->getValue() === $key) {
+            if ($sheet->getCell("{$column}{$r}")->getValue() === $key) {
                 return $r;
             }
         }

@@ -6,6 +6,7 @@ use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /** Departments and locations (hierarchy) of one organization. */
@@ -69,6 +70,34 @@ class OrganizationStructureTest extends TestCase
         // A node cannot be moved under itself or its descendants.
         $this->assertErrorCode($this->patchJson("/api/locations/{$floor['id']}", ['parent_id' => $room['id']]), 422, 'INVALID_PARENT');
         $this->assertErrorCode($this->patchJson("/api/locations/{$floor['id']}", ['parent_id' => $floor['id']]), 422, 'INVALID_PARENT');
+    }
+
+    public function test_location_list_filters_by_subtree_and_level_and_counts_dependents(): void
+    {
+        $building = $this->createLocation('GEDUNG-A');
+        $floor = $this->createLocation('LT-1', $building['id']);
+        $this->createLocation('R-101', $floor['id']);
+        $this->createLocation('GEDUNG-B');
+        $this->patchJson("/api/locations/{$floor['id']}", ['address' => 'Jl. Merdeka 10'])->assertOk();
+
+        $codes = fn (string $query) => array_column($this->getJson("/api/locations{$query}")->assertOk()->json('data'), 'code');
+        $this->assertSame(['GEDUNG-A', 'LT-1', 'R-101'], $codes("?parent_id={$building['id']}"));
+        $this->assertEqualsCanonicalizing(['GEDUNG-A', 'GEDUNG-B'], $codes('?level=root'));
+        $this->assertEqualsCanonicalizing(['LT-1', 'R-101'], $codes('?level=sub'));
+        $this->assertSame([], $codes('?parent_id='.Str::uuid()));
+        // The address is searched too.
+        $this->assertSame(['LT-1'], $codes('?search=merdeka'));
+
+        $rows = collect($this->getJson('/api/locations')->assertOk()->json('data'))->keyBy('code');
+        $this->assertSame(1, $rows['GEDUNG-A']['children_count']);
+        $this->assertSame(0, $rows['R-101']['children_count']);
+        $this->assertSame(0, $rows['GEDUNG-A']['assets_count']);
+        $this->getJson('/api/locations?level=x')->assertUnprocessable();
+
+        // Active assets placed in a location are counted (they block archiving it).
+        $masters = $this->createMasterFixtures($this->org, '9');
+        $this->createAssetFixture($this->org, $masters, '9');
+        $this->assertSame(1, collect($this->getJson('/api/locations?search=LOC9')->json('data'))->first()['assets_count']);
     }
 
     public function test_records_in_use_cannot_be_archived_and_archived_ones_cannot_be_referenced(): void

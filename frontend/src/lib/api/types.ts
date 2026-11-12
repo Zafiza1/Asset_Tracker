@@ -266,6 +266,10 @@ export interface Location extends MasterRecord {
   parent_id: string | null
   parent?: Ref | null
   depth: number
+  /** Sub-locations that are not archived. */
+  children_count?: number
+  /** Active (not archived) assets placed in this location. */
+  assets_count?: number
 }
 
 /** Units, location types, transaction types. */
@@ -292,8 +296,14 @@ export interface TenantCategory extends MasterRecord {
   generic_category_id: string
   generic_category?: Ref | null
   depth: number
-  /** Custom fields defined on the category itself (inherited ones not counted). */
+  /** Active fields defined on the category itself (default + custom). */
   attributes_count?: number
+  /** Active fields of its ancestors, which its assets also get. */
+  inherited_attributes_count?: number
+  /** Subcategories that are not archived. */
+  children_count?: number
+  /** Active (not archived) assets in this category. */
+  assets_count?: number
 }
 
 /** Custom field of an asset category; subcategories inherit it. Key and type never change. */
