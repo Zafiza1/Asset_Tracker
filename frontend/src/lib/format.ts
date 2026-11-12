@@ -92,6 +92,8 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
       'auth.login': 'Masuk ke aplikasi',
       'auth.login_failed': 'Gagal masuk',
       'auth.logout': 'Keluar dari aplikasi',
+      'auth.mobile_login': 'Masuk lewat aplikasi seluler',
+      'auth.mobile_logout': 'Keluar dari aplikasi seluler',
       'auth.registered': 'Mendaftar akun baru',
       'auth.organization_created': 'Membuat organisasi baru',
       'auth.organization_switched': 'Berpindah organisasi',
@@ -178,6 +180,10 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
       'asset.updated': 'Mengubah data aset',
       'asset.archived': 'Mengarsipkan aset',
       'asset.restored': 'Memulihkan aset',
+      'asset.image_updated': 'Mengganti foto aset',
+      'asset.image_removed': 'Menghapus foto aset',
+      'asset.document_updated': 'Mengunggah dokumen aset',
+      'asset.document_removed': 'Menghapus dokumen aset',
       'asset_transaction.created': 'Mencatat transaksi aset',
     },
   },
@@ -256,9 +262,35 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
 
 const auditActionLabels: Record<string, string> = Object.assign({}, ...auditActionGroups.map((g) => g.actions))
 
-/** Readable label for an audit action code; unknown codes fall back to the code itself. */
+const auditVerbs: Record<string, string> = {
+  created: 'Menambah',
+  added: 'Menambah',
+  updated: 'Mengubah',
+  changed: 'Mengubah',
+  deleted: 'Menghapus',
+  removed: 'Menghapus',
+  archived: 'Mengarsipkan',
+  restored: 'Memulihkan',
+  revoked: 'Mencabut',
+  released: 'Merilis',
+  approved: 'Menyetujui',
+  rejected: 'Menolak',
+  exported: 'Mengekspor',
+}
+
+/**
+ * Readable label for an audit action code. Codes without a written label are turned into a
+ * sentence from their parts ("asset.photo_updated" → "Mengubah aset (photo)"), never shown raw.
+ */
 export function auditActionLabel(code: string): string {
-  return auditActionLabels[code] ?? code
+  const known = auditActionLabels[code]
+  if (known) return known
+  const [prefix, rest = ''] = code.split('.')
+  const words = rest.split('_')
+  const verb = auditVerbs[words[words.length - 1]]
+  const module = (auditActionGroups.find((g) => Object.keys(g.actions).some((c) => c.startsWith(`${prefix}.`)))?.label ?? prefix.replace(/_/g, ' ')).toLowerCase()
+  const detail = words.slice(0, verb ? -1 : undefined).join(' ')
+  return `${verb ?? 'Aktivitas'} ${module}${detail ? ` (${detail})` : ''}`
 }
 
 /** Human-readable attribute value for tables and previews. */

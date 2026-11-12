@@ -1,4 +1,4 @@
-import { ChevronDown, SlidersHorizontal, Search, X } from 'lucide-react'
+import { ChevronDown, RotateCcw, SlidersHorizontal, Search, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Button } from './Button'
 import { Input } from './Field'
@@ -90,7 +90,27 @@ export function useFilterDraft(params: URLSearchParams, keys: readonly string[])
  * Advanced filters behind a toggle. Changes stay in the draft until "Terapkan filter" (or Enter),
  * so several filters can be set before the list reloads.
  */
-export function AdvancedFilters({ activeCount, dirty, onApply, onClear, defaultOpen = false, children }: { activeCount: number; dirty: boolean; onApply: () => void; onClear: () => void; defaultOpen?: boolean; children: ReactNode }) {
+export function AdvancedFilters({
+  activeCount,
+  dirty,
+  onApply,
+  onClear,
+  onReset,
+  error,
+  defaultOpen = false,
+  children,
+}: {
+  activeCount: number
+  dirty: boolean
+  onApply: () => void
+  onClear: () => void
+  /** With applied filters, a "Reset filter" button drops them all at once (draft and list). */
+  onReset?: () => void
+  /** Why the draft cannot be applied (e.g. an inverted date range); disables "Terapkan filter". */
+  error?: string | null
+  defaultOpen?: boolean
+  children: ReactNode
+}) {
   const [open, setOpen] = useState(defaultOpen)
 
   return (
@@ -111,16 +131,28 @@ export function AdvancedFilters({ activeCount, dirty, onApply, onClear, defaultO
           className="mt-2 space-y-3 rounded-lg bg-slate-50 p-3 ring-1 ring-inset ring-slate-200"
           onSubmit={(e) => {
             e.preventDefault()
-            onApply()
+            if (dirty && !error) onApply()
           }}
         >
           <FilterGrid>{children}</FilterGrid>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {dirty && <span className="mr-auto text-xs text-amber-700">Perubahan filter belum diterapkan.</span>}
-            <Button variant="ghost" size="sm" onClick={onClear}>
-              Kosongkan
-            </Button>
-            <Button type="submit" size="sm" disabled={!dirty}>
+            {error ? (
+              <span role="alert" className="mr-auto text-xs font-medium text-red-700">
+                {error}
+              </span>
+            ) : (
+              dirty && <span className="mr-auto text-xs text-amber-700">Perubahan filter belum diterapkan.</span>
+            )}
+            {onReset && activeCount > 0 ? (
+              <Button variant="ghost" size="sm" onClick={onReset}>
+                <RotateCcw className="size-3.5" aria-hidden /> Reset filter
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={onClear}>
+                Kosongkan
+              </Button>
+            )}
+            <Button type="submit" size="sm" disabled={!dirty || !!error}>
               Terapkan filter
             </Button>
           </div>

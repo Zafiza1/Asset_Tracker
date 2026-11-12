@@ -123,6 +123,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     Route::get('/permissions', [RoleController::class, 'permissions'])->middleware('permission:role.view');
 
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->middleware('permission:audit.view');
+    Route::get('/audit-logs/actors', [AuditLogController::class, 'actors'])->middleware('permission:audit.view');
 
     // Read-only Generic Master catalog, shared by all organizations (drafts are never exposed).
     Route::prefix('generic-masters')->middleware('permission:catalog.generic.view')->group(function () {

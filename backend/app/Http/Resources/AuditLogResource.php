@@ -21,10 +21,13 @@ class AuditLogResource extends JsonResource
             'action' => $this->action,
             'entity_type' => $this->entity_type,
             'entity_id' => $this->entity_id,
+            // {code, name} of the object, when it can be named (see AuditEntityLabels).
+            'entity_label' => $this->getAttribute('entity_label'),
             'before' => $this->before,
             'after' => $this->after,
             'metadata' => $this->metadata,
             'ip' => $this->ip,
+            'user_agent' => $this->user_agent,
             'request_id' => $this->request_id,
             'created_at' => $this->created_at?->toIso8601String(),
         ];

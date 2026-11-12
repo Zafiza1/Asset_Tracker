@@ -216,12 +216,21 @@ export interface AuditLog {
   action: string
   entity_type: string | null
   entity_id: string | null
+  /** Code and name of the object, when the server could name it. */
+  entity_label?: { code: string | null; name: string | null } | null
   before: Record<string, unknown> | null
   after: Record<string, unknown> | null
   metadata: Record<string, unknown> | null
   ip: string | null
+  user_agent?: string | null
   request_id: string | null
   created_at: string
+}
+
+export interface AuditActor {
+  id: string
+  name: string
+  email: string
 }
 
 export interface OrganizationSummary {
