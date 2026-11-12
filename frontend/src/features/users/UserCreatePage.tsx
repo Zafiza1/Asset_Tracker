@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react'
 import { z } from 'zod'
 import { Badge } from '../../components/ui/Badge'
@@ -22,7 +22,7 @@ const schema = z.object({
   email: z.email('Masukkan email yang valid.'),
   employee_number: z.string().max(50).optional(),
   job_title: z.string().max(100).optional(),
-  license_code_id: z.string().uuid('Format ID kode lisensi tidak valid.'),
+  license_code_id: z.string().uuid('Pilih kode lisensi.'),
   // One entry per organization the user is invited to, each with a single role.
   memberships: z
     .array(z.object({
@@ -61,17 +61,22 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
   const current = organizations.find((o) => o.is_current)
   const multiple = organizations.length > 1
 
-  // Fetch available license codes
+  // Every code that is free: not held by anyone and not already on another open invitation.
   const licenseCodesQuery = useQuery({
-    queryKey: ['license-codes', { status: 'available' }],
-    queryFn: () => api.get<{ data: LicenseCode[] }>('/license-codes?status=available'),
+    queryKey: ['license-codes', { status: 'available', all: true }],
+    queryFn: () => api.get<{ data: LicenseCode[] }>('/license-codes?status=available&per_page=1000'),
   })
+  const freeCodes = licenseCodesQuery.data?.data.filter((c) => !c.pending_invitation) ?? []
+  // "Tugaskan ke pengguna" on the license page opens this form with its code picked.
+  const [searchParams] = useSearchParams()
+  const presetCodeId = searchParams.get('license_code')
+  const presetCode = presetCodeId ? freeCodes.find((c) => c.id === presetCodeId) : undefined
 
   const permissionsQuery = usePermissionCatalog()
 
   const { register, handleSubmit, setError, formState, control, setValue } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { memberships: current ? [{ organization_id: current.id, role_id: '' }] : [] },
+    defaultValues: { license_code_id: presetCodeId ?? '', memberships: current ? [{ organization_id: current.id, role_id: '' }] : [] },
   })
   const memberships = useWatch({ control, name: 'memberships' })
   const setMemberships = (next: FormValues['memberships']) => setValue('memberships', next, { shouldValidate: formState.isSubmitted })
@@ -138,16 +143,35 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
             {(p) => <Input {...p} {...register('job_title')} />}
           </Field>
           {current && (
-            <Field label="Kode Lisensi" error={formState.errors.license_code_id?.message} hint="Pilih kode lisensi untuk ditugaskan ke pengguna ini." required>
-              {(p) => (
-                <Select {...p} {...register('license_code_id')}>
-                  {licenseCodesQuery.data?.data.map((code) => (
-                    <option key={code.id} value={code.id}>
-                      {code.code} {code.notes ? `- ${code.notes}` : ''}
-                    </option>
-                  ))}
-                </Select>
-              )}
+            <Field
+              label="Kode Lisensi"
+              error={formState.errors.license_code_id?.message}
+              hint={
+                presetCode
+                  ? `Kode ${presetCode.code} dari halaman Lisensi. Kode ditugaskan ke pengguna saat undangan diterima.`
+                  : presetCodeId && licenseCodesQuery.isSuccess
+                    ? 'Kode dari halaman Lisensi sudah tidak tersedia; pilih kode lain.'
+                    : 'Kode ditugaskan ke pengguna ini saat undangan diterima.'
+              }
+              required
+            >
+              {(p) =>
+                // Mounted once the codes are in, so the picked code from the URL can be selected.
+                licenseCodesQuery.isLoading ? (
+                  <Select {...p} disabled>
+                    <option>Memuat kode lisensi…</option>
+                  </Select>
+                ) : (
+                  <Select {...p} {...register('license_code_id')}>
+                    <option value="">{freeCodes.length ? 'Pilih kode lisensi' : 'Tidak ada kode lisensi yang tersedia'}</option>
+                    {freeCodes.map((code) => (
+                      <option key={code.id} value={code.id}>
+                        {code.code} {code.notes ? `- ${code.notes}` : ''}
+                      </option>
+                    ))}
+                  </Select>
+                )
+              }
             </Field>
           )}
           <fieldset className="space-y-3 sm:col-span-2">

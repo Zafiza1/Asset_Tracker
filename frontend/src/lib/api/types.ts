@@ -59,7 +59,8 @@ export interface LicenseEntry {
   status: 'active' | 'scheduled' | 'expired' | 'revoked'
 }
 
-export type LicenseCodeStatus = 'available' | 'assigned' | 'revoked'
+/** A code is never revoked: it is either free or held by one user. */
+export type LicenseCodeStatus = 'available' | 'assigned'
 
 export interface LicenseCode {
   id: string
@@ -70,8 +71,32 @@ export interface LicenseCode {
   assigned_at: string | null
   notes: string | null
   reference: string | null
+  /** The license the code was bought with, for its validity period. */
+  license?: Pick<LicenseEntry, 'id' | 'kind' | 'source' | 'status' | 'starts_at' | 'expires_at'> | null
+  /** Open invitation that gives this (still available) code to its invitee on acceptance; the code cannot go to anyone else meanwhile. */
+  pending_invitation?: { id: string; email: string; expires_at: string } | null
   created_at: string
   updated_at: string
+}
+
+export interface LicenseCodeList extends Paginated<LicenseCode> {
+  /** Codes per status for the current search, ignoring the status filter. */
+  counts: Record<LicenseCodeStatus, number>
+}
+
+export interface LicenseCodeHistoryEntry {
+  id: string
+  action: 'license_code.assigned' | 'license_code.released' | string
+  actor: { id: string; name: string } | null
+  /** The user the code went to (assigned) or came from (released). */
+  user_name: string | null
+  /** Why the system did it, e.g. `user_deactivated`. */
+  reason: string | null
+  created_at: string
+}
+
+export interface LicenseCodeDetail extends LicenseCode {
+  history: LicenseCodeHistoryEntry[]
 }
 
 export type UserStatus = 'invited' | 'active' | 'deactivated'

@@ -14,7 +14,8 @@ use Illuminate\Support\Carbon;
 
 /**
  * A reusable license code for user account activation.
- * Each code can be assigned to a user and released when they leave (resign).
+ * Each code can be assigned to a user and released when they leave (resign). Codes are never
+ * revoked: they only move between available and assigned.
  * Codes follow the format: LIC-XXXX-XXXX-XXXX
  *
  * @property string $id
@@ -36,9 +37,7 @@ class LicenseCode extends Model
 
     public const STATUS_ASSIGNED = 'assigned';
 
-    public const STATUS_REVOKED = 'revoked';
-
-    public const STATUSES = [self::STATUS_AVAILABLE, self::STATUS_ASSIGNED, self::STATUS_REVOKED];
+    public const STATUSES = [self::STATUS_AVAILABLE, self::STATUS_ASSIGNED];
 
     protected $fillable = ['code', 'status', 'assigned_to_user_id', 'assigned_at', 'notes', 'reference'];
 
@@ -59,12 +58,6 @@ class LicenseCode extends Model
     public function scopeAssigned(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_ASSIGNED);
-    }
-
-    /** Filter on revoked codes. */
-    public function scopeRevoked(Builder $query): Builder
-    {
-        return $query->where('status', self::STATUS_REVOKED);
     }
 
     /** Relationship to the user this code is currently assigned to. */
@@ -106,16 +99,6 @@ class LicenseCode extends Model
     {
         $this->forceFill([
             'status' => self::STATUS_AVAILABLE,
-            'assigned_to_user_id' => null,
-            'assigned_at' => null,
-        ])->save();
-    }
-
-    /** Revoke the code permanently. */
-    public function revoke(): void
-    {
-        $this->forceFill([
-            'status' => self::STATUS_REVOKED,
             'assigned_to_user_id' => null,
             'assigned_at' => null,
         ])->save();

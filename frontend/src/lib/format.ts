@@ -127,6 +127,16 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
     },
   },
   {
+    label: 'Lisensi',
+    actions: {
+      'license.granted': 'Menambah lisensi',
+      'license.revoked': 'Mencabut lisensi',
+      'license_code.assigned': 'Menugaskan kode lisensi',
+      'license_code.released': 'Melepas kode lisensi',
+      'license_code.revoked': 'Mencabut kode lisensi',
+    },
+  },
+  {
     label: 'Role',
     actions: {
       'role.created': 'Membuat role',

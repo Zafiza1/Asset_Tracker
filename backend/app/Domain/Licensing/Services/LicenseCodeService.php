@@ -2,6 +2,9 @@
 
 namespace App\Domain\Licensing\Services;
 
+use App\Domain\Audit\AuditLogger;
+use App\Domain\Identity\Models\OrganizationMember;
+use App\Domain\Identity\Models\User;
 use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\Tenancy;
@@ -22,6 +25,7 @@ final class LicenseCodeService
 
     public function __construct(
         private readonly Tenancy $tenancy,
+        private readonly AuditLogger $audit,
     ) {}
 
     /**
@@ -115,24 +119,39 @@ final class LicenseCodeService
     }
 
     /**
-     * Assign a license code to a user.
+     * Assign a license code to a user. The user must be a member of the organization who does
+     * not hold another code here yet (one code per person).
      *
-     * @throws  ApiException  if code is not available or doesn't belong to organization
+     * @throws  ApiException  if code is not available, or the user cannot receive it
      */
     public function assign(string $codeId, string $userId): LicenseCode
     {
         return DB::transaction(function () use ($codeId, $userId) {
-            $code = LicenseCode::query()
-                ->where('id', $codeId)
-                ->where('organization_id', $this->tenancy->organizationId())
-                ->lockForUpdate()
-                ->firstOrFail();
+            $orgId = $this->tenancy->organizationId();
+            $code = $this->lockCode($codeId);
 
             if (! $code->isAvailable()) {
                 throw ApiException::conflict('CODE_NOT_AVAILABLE', 'Kode lisensi ini tidak tersedia untuk ditugaskan.');
             }
 
+            $member = OrganizationMember::query()->where('organization_id', $orgId)->where('user_id', $userId)->first();
+            if (! $member) {
+                throw ApiException::unprocessable('USER_NOT_MEMBER', 'Pengguna ini bukan anggota organisasi.');
+            }
+            if ($member->status === User::STATUS_DEACTIVATED) {
+                throw ApiException::conflict('USER_DEACTIVATED', 'Pengguna ini sudah dinonaktifkan. Aktifkan kembali sebelum menugaskan kode lisensi.');
+            }
+
+            $held = LicenseCode::query()->where('organization_id', $orgId)->assigned()->where('assigned_to_user_id', $userId)->value('code');
+            if ($held !== null) {
+                throw ApiException::conflict('USER_ALREADY_LICENSED', "Pengguna ini sudah memegang kode lisensi {$held}. Lepaskan kode tersebut terlebih dahulu.");
+            }
+
             $code->assignTo($userId);
+            $this->audit->record('license_code.assigned', $code,
+                before: ['status' => LicenseCode::STATUS_AVAILABLE],
+                after: ['status' => LicenseCode::STATUS_ASSIGNED, 'user_id' => $userId, 'user_name' => User::query()->whereKey($userId)->value('name')],
+                metadata: ['code' => $code->code]);
 
             return $code;
         });
@@ -146,38 +165,51 @@ final class LicenseCodeService
     public function release(string $codeId): LicenseCode
     {
         return DB::transaction(function () use ($codeId) {
-            $code = LicenseCode::query()
-                ->where('id', $codeId)
-                ->where('organization_id', $this->tenancy->organizationId())
-                ->lockForUpdate()
-                ->firstOrFail();
+            $code = $this->lockCode($codeId);
 
             if (! $code->isAssigned()) {
                 throw ApiException::conflict('CODE_NOT_ASSIGNED', 'Kode lisensi ini tidak sedang ditugaskan ke pengguna manapun.');
             }
 
+            $before = $this->holder($code);
             $code->release();
+            $this->audit->record('license_code.released', $code, before: $before, after: ['status' => LicenseCode::STATUS_AVAILABLE], metadata: ['code' => $code->code]);
 
             return $code;
         });
     }
 
-    /**
-     * Revoke a license code permanently.
-     */
-    public function revoke(string $codeId): LicenseCode
+    /** Releases the code a user holds, when there is one (the member was deactivated). Call inside a transaction. */
+    public function releaseHeldBy(string $userId, string $reason): void
     {
-        return DB::transaction(function () use ($codeId) {
-            $code = LicenseCode::query()
-                ->where('id', $codeId)
-                ->where('organization_id', $this->tenancy->organizationId())
-                ->lockForUpdate()
-                ->firstOrFail();
+        $code = LicenseCode::query()->where('organization_id', $this->tenancy->organizationId())
+            ->assigned()->where('assigned_to_user_id', $userId)->lockForUpdate()->first();
+        if ($code === null) {
+            return;
+        }
 
-            $code->revoke();
+        $before = $this->holder($code);
+        $code->release();
+        $this->audit->record('license_code.released', $code, before: $before, after: ['status' => LicenseCode::STATUS_AVAILABLE], metadata: ['code' => $code->code, 'reason' => $reason]);
+    }
 
-            return $code;
-        });
+    private function lockCode(string $codeId): LicenseCode
+    {
+        return LicenseCode::query()
+            ->where('id', $codeId)
+            ->where('organization_id', $this->tenancy->organizationId())
+            ->lockForUpdate()
+            ->firstOrFail();
+    }
+
+    /** @return array<string, mixed> status and holder of the code, for the audit trail */
+    private function holder(LicenseCode $code): array
+    {
+        return array_filter([
+            'status' => $code->status,
+            'user_id' => $code->assigned_to_user_id,
+            'user_name' => $code->assigned_to_user_id ? User::query()->whereKey($code->assigned_to_user_id)->value('name') : null,
+        ], fn ($v) => $v !== null);
     }
 
     /**

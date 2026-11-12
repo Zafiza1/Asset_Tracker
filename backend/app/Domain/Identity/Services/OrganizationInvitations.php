@@ -110,6 +110,13 @@ final class OrganizationInvitations
             }
             // A pending invitation holds a seat until it is accepted, revoked or expires.
             $this->licensing->assertSeats($this->tenancy->organizationId());
+            // An open invitation already holds this code for its invitee, so a second one could never
+            // be accepted. Checked under the organization lock taken by assertSeats.
+            $reservedFor = $licenseCodeId === null ? null : OrganizationInvitation::query()
+                ->withEffectiveStatus(OrganizationInvitation::STATUS_PENDING)->where('license_code_id', $licenseCodeId)->value('email');
+            if ($reservedFor !== null) {
+                throw ApiException::conflict('LICENSE_CODE_RESERVED', "Kode lisensi ini sudah dipakai undangan untuk {$reservedFor} yang belum diterima. Pilih kode lain atau batalkan undangan tersebut.");
+            }
 
             $invitation = new OrganizationInvitation;
             $invitation->forceFill([

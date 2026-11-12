@@ -11,7 +11,7 @@ use App\Domain\Authorization\Services\OrgAdminGuard;
 use App\Domain\Authorization\Services\RoleManagement;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
-use App\Domain\Licensing\Models\LicenseCode;
+use App\Domain\Licensing\Services\LicenseCodeService;
 use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
@@ -48,6 +48,7 @@ final class UserManagement
         private readonly OrganizationAccess $access,
         private readonly DataScopeGuard $scopeGuard,
         private readonly Licensing $licensing,
+        private readonly LicenseCodeService $licenseCodes,
     ) {}
 
     /**
@@ -178,12 +179,7 @@ final class UserManagement
 
             // Release license code when user is deactivated
             if ($status === User::STATUS_DEACTIVATED) {
-                $licenseCode = LicenseCode::where('organization_id', $orgId)
-                    ->where('assigned_to_user_id', $user->id)
-                    ->first();
-                if ($licenseCode) {
-                    $licenseCode->release();
-                }
+                $this->licenseCodes->releaseHeldBy($user->id, 'user_deactivated');
             }
 
             $this->audit->record('user.status_changed', $user, before: ['status' => $before], after: ['status' => $status]);

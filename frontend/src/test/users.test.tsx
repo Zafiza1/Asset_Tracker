@@ -18,10 +18,20 @@ const organizations: UserOrganizationOption[] = [
 ]
 
 const licenseCodeId = '01a18ab7-0000-7000-8000-000000000001'
+const secondCodeId = '01a18ab7-0000-7000-8000-000000000002'
+const reservedCodeId = '01a18ab7-0000-7000-8000-000000000003'
 
-function renderPage(options: UserOrganizationOption[]) {
+function renderPage(options: UserOrganizationOption[], url = '/pengguna/baru') {
   vi.mocked(api.get).mockImplementation(async (path: string) => {
-    if (path.startsWith('/license-codes')) return { data: [{ id: licenseCodeId, code: 'LIC-AAAA-BBBB-CCCC', notes: null }] }
+    if (path.startsWith('/license-codes'))
+      return {
+        data: [
+          { id: licenseCodeId, code: 'LIC-AAAA-BBBB-CCCC', notes: null },
+          { id: secondCodeId, code: 'LIC-DDDD-EEEE-FFFF', notes: null },
+          // Already on another open invitation, so not offered.
+          { id: reservedCodeId, code: 'LIC-RRRR-RRRR-RRRR', notes: null, pending_invitation: { id: 'inv-x', email: 'x@grup.test', expires_at: '2026-11-20T00:00:00Z' } },
+        ],
+      }
     if (path === '/permissions') return { data: [] }
     return { data: options }
   })
@@ -29,7 +39,7 @@ function renderPage(options: UserOrganizationOption[]) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/pengguna/baru']}>
+      <MemoryRouter initialEntries={[url]}>
         <Routes>
           <Route path="/pengguna/baru" element={<UserCreatePage />} />
           <Route path="/pengguna/undangan" element={<p>daftar undangan</p>} />
@@ -43,6 +53,15 @@ const type = (label: RegExp, value: string) => fireEvent.change(screen.getByLabe
 
 describe('UserCreatePage (invite)', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('picks the license code given by the license page and hides reserved codes', async () => {
+    renderPage([organizations[0]], `/pengguna/baru?license_code=${secondCodeId}`)
+    const licenseCode = (await screen.findByLabelText(/^Kode Lisensi/)) as HTMLSelectElement
+    await within(licenseCode).findByRole('option', { name: /LIC-DDDD-EEEE-FFFF/ })
+    await waitFor(() => expect(licenseCode.value).toBe(secondCodeId))
+    expect(within(licenseCode).queryByRole('option', { name: /LIC-RRRR/ })).not.toBeInTheDocument()
+    expect(screen.getByText(/Kode LIC-DDDD-EEEE-FFFF dari halaman Lisensi/)).toBeInTheDocument()
+  })
 
   it('keeps the single-organization form when only one organization is manageable', async () => {
     renderPage([organizations[0]])

@@ -109,7 +109,6 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     Route::get('/license-codes/{licenseCode}', [LicenseCodeController::class, 'show'])->middleware('permission:license.manage');
     Route::post('/license-codes/{licenseCode}/assign', [LicenseCodeController::class, 'assign'])->middleware('permission:license.manage');
     Route::post('/license-codes/{licenseCode}/release', [LicenseCodeController::class, 'release'])->middleware('permission:license.manage');
-    Route::post('/license-codes/{licenseCode}/revoke', [LicenseCodeController::class, 'revoke'])->middleware('permission:license.manage');
 
     // License purchase: Super Admin can buy additional user licenses (payment bypassed). Adding seats
     // is how an organization over its limit or without a license recovers, so it bypasses 'license'.
