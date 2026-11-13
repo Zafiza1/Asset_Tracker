@@ -5,10 +5,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { Alert, DetailSkeleton, ErrorState } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
-import { Badge } from '../../components/ui/Badge'
-import { statusTone } from '../../components/ui/badgeTones'
 import { api } from '../../lib/api/client'
 import type { Organization, Resource } from '../../lib/api/types'
 import { useAuth, ME_KEY } from '../../lib/auth/context'
@@ -32,6 +30,7 @@ import {
   profileCompleteness,
   type ProfileField,
 } from './profileFormat'
+import { StatusBadge } from '../../components/ui/Badge'
 
 type FormValues = Pick<Organization, ProfileField>
 
@@ -57,8 +56,8 @@ export function OrganizationPage() {
     return () => clearTimeout(timer)
   }, [saved])
 
-  if (query.isLoading) return <Spinner />
-  if (query.isError) return <ErrorState error={query.error} />
+  if (query.isLoading) return <DetailSkeleton label="Memuat profil organisasi…" />
+  if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />
   const org = query.data!.data
   const canManage = can('organization.manage')
 
@@ -72,7 +71,7 @@ export function OrganizationPage() {
       <PageHeader
         title="Profil Organisasi"
         description="Identitas, kontak, dan pengaturan regional organisasi Anda."
-        badges={<Badge tone={statusTone[org.status]}>{orgStatusLabel[org.status]}</Badge>}
+        badges={<StatusBadge status={org.status}>{orgStatusLabel[org.status]}</StatusBadge>}
         meta={
           <>
             <span>

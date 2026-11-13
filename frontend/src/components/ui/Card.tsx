@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 
 export function Card({ title, actions, children, className }: { title?: string; actions?: ReactNode; children: ReactNode; className?: string }) {
   return (
@@ -18,9 +18,19 @@ export function Card({ title, actions, children, className }: { title?: string; 
 /**
  * Title row of every page. `badges` sit beside the title (e.g. a status), `description` and
  * `meta` below it. Actions line up on the right on wide screens and wrap under the title,
- * left-aligned, on narrow ones.
+ * left-aligned, on narrow ones. Also names the browser tab after the page.
  */
 export function PageHeader({ title, description, actions, badges, meta }: { title: string; description?: ReactNode; actions?: ReactNode; badges?: ReactNode; meta?: ReactNode }) {
+  // The browser tab and history entries name the page, not just the app.
+  useEffect(() => {
+    if (!title) return
+    const previous = document.title
+    document.title = `${title} · Asset Tracker`
+    return () => {
+      document.title = previous
+    }
+  }, [title])
+
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">

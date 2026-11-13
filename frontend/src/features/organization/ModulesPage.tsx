@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { QrCode, type LucideIcon } from "lucide-react";
+import { CheckCircle2, PowerOff, QrCode, type LucideIcon } from "lucide-react";
 import { Badge } from "../../components/ui/Badge";
 import { Card, PageHeader } from "../../components/ui/Card";
-import { Alert, ErrorState, Spinner } from "../../components/ui/Feedback";
+import { Alert, ErrorState, FormSkeleton } from "../../components/ui/Feedback";
+import { toast } from "../../components/ui/toast";
 import { api } from "../../lib/api/client";
 import type { ModuleKey, OrganizationModule } from "../../lib/api/types";
 import { ME_KEY } from "../../lib/auth/context";
@@ -27,8 +28,9 @@ export function ModulesPage({ module }: { module: ModuleKey }) {
       api.put<{ data: OrganizationModule[] }>(`/modules/${m.key}`, {
         enabled: !m.enabled,
       }),
-    onSuccess: async (result) => {
+    onSuccess: async (result, m) => {
       queryClient.setQueryData(["/modules"], result);
+      toast.success(m.enabled ? `Modul ${m.name} dinonaktifkan` : `Modul ${m.name} diaktifkan`);
       // The profile carries the switched-on modules; asset lists carry whether each asset has a barcode.
       await Promise.all(
         [ME_KEY, ["/assets"]].map((queryKey) =>
@@ -45,9 +47,9 @@ export function ModulesPage({ module }: { module: ModuleKey }) {
         description="Aktifkan modul sesuai kebutuhan organisasi. Modul yang nonaktif tidak tampil di aplikasi."
       />
       {modules.isLoading ? (
-        <Spinner />
+        <FormSkeleton fields={2} label="Memuat modul…" />
       ) : modules.isError ? (
-        <ErrorState error={modules.error} />
+        <ErrorState error={modules.error} onRetry={() => void modules.refetch()} />
       ) : (
         <div className="grid gap-6">
           {toggle.isError && <Alert tone="error">{toggle.error.message}</Alert>}
@@ -71,7 +73,7 @@ export function ModulesPage({ module }: { module: ModuleKey }) {
                         >
                           Modul {m.name}
                         </h2>
-                        <Badge tone={m.enabled ? "green" : "slate"}>
+                        <Badge tone={m.enabled ? "green" : "slate"} icon={m.enabled ? CheckCircle2 : PowerOff}>
                           {m.enabled ? "Aktif" : "Nonaktif"}
                         </Badge>
                       </div>

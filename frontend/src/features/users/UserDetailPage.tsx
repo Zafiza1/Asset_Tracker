@@ -2,13 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useParams } from 'react-router'
-import { Badge } from '../../components/ui/Badge'
-import { statusTone } from '../../components/ui/badgeTones'
+import { Badge, StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Alert, DetailSkeleton, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
+import { toast } from '../../components/ui/toast'
 import { api } from '../../lib/api/client'
 import type { DataScopeEntry, OrganizationInvitation, Resource, ScopeType, User, UserOrganizationAccess } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
@@ -24,8 +25,8 @@ export function UserDetailPage() {
   const { can, profile } = useAuth()
   const query = useQuery({ queryKey: ['users', id], queryFn: () => api.get<Resource<User>>(`/users/${id}`) })
 
-  if (query.isLoading) return <Spinner />
-  if (query.isError) return <ErrorState error={query.error} />
+  if (query.isLoading) return <DetailSkeleton label="Memuat data pengguna…" />
+  if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />
   const user = query.data!.data
   const isSelf = user.id === profile?.user.id
 
@@ -34,9 +35,9 @@ export function UserDetailPage() {
       <PageHeader
         title={user.name}
         description={user.email}
+        badges={<StatusBadge status={user.status}>{userStatusLabel[user.status]}</StatusBadge>}
         actions={
           <>
-            <Badge tone={statusTone[user.status]}>{userStatusLabel[user.status]}</Badge>
             {can('user.deactivate') && !isSelf && <StatusActions user={user} />}
             {can('user.update') && <ResetPasswordButton user={user} />}
           </>
@@ -80,6 +81,7 @@ function ProfileCard({ user, editable }: { user: User; editable: boolean }) {
       onSuccess: (res) => {
         reset(res.data)
         setEditing(false)
+        toast.success('Profil pengguna disimpan', res.data.name)
       },
       onError: (e) => setFormError(applyApiErrors(e, setError)),
     }),
@@ -182,7 +184,7 @@ function OrganizationsCard({ user, canGrant }: { user: User; canGrant: boolean }
                   <span className="font-medium text-slate-800">{org.name}</span>
                   <span className="text-xs text-slate-500">{org.code}</span>
                   {org.is_current && <Badge tone="blue">Organisasi aktif</Badge>}
-                  <Badge tone={statusTone[org.status]}>{userStatusLabel[org.status]}</Badge>
+                  <StatusBadge status={org.status}>{userStatusLabel[org.status]}</StatusBadge>
                 </div>
                 <p className="text-xs text-slate-500">{org.roles.length ? org.roles.map((r) => r.name).join(', ') : 'Belum memiliki role.'}</p>
               </li>
@@ -299,7 +301,7 @@ function RolesCard({ user, editable }: { user: User; editable: boolean }) {
               <Button variant="secondary" onClick={() => setEditing(false)}>
                 Batal
               </Button>
-              <Button loading={mutation.isPending} onClick={() => mutation.mutate({ role_ids: selected }, { onSuccess: () => setEditing(false) })}>
+              <Button loading={mutation.isPending} onClick={() => mutation.mutate({ role_ids: selected }, { onSuccess: () => (setEditing(false), toast.success('Role pengguna diperbarui', user.name)) })}>
                 Simpan role
               </Button>
             </div>
@@ -326,13 +328,17 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
     const row = lists[s.scope_type]?.find((r) => r.id === s.ref_id)
     return row ? `${row.name} (${row.code})` : s.ref_id.slice(0, 8) + '…'
   }
-  const save = (next: DataScopeEntry[]) => mutation.mutate({ scopes: next })
+  // Removing a scope takes data away from the user at once, so it asks first.
+  const [removing, setRemoving] = useState<DataScopeEntry | null>(null)
+  const scopeLabel = (s: DataScopeEntry) => `${scopeTypeLabel[s.scope_type]}${nameOf(s) ? `: ${nameOf(s)}` : ''}`
+  const save = (next: DataScopeEntry[], message: string, detail: string) =>
+    mutation.mutate({ scopes: next }, { onSuccess: () => (setRemoving(null), toast.success(message, detail)) })
   const choices = type === 'organization' ? [] : toOptions(lists[type])
 
   return (
     <Card title="Cakupan data">
       <div className="space-y-3 p-4 text-sm">
-        {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
+        {mutation.isError && !removing && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
         {scopes.length === 0 ? (
           <p className="text-slate-500">Tidak ada cakupan data: pengguna tidak dapat melihat data aset dan transaksi.</p>
         ) : (
@@ -344,7 +350,7 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
                   {nameOf(s) && <span className="text-slate-500">: {nameOf(s)}</span>}
                 </span>
                 {editable && (
-                  <Button size="sm" variant="ghost" loading={mutation.isPending} onClick={() => save(scopes.filter((x) => x !== s))} aria-label={`Hapus cakupan ${scopeTypeLabel[s.scope_type]}`}>
+                  <Button size="sm" variant="ghost" disabled={mutation.isPending} onClick={() => (mutation.reset(), setRemoving(s))} aria-label={`Hapus cakupan ${scopeTypeLabel[s.scope_type]}`}>
                     Hapus
                   </Button>
                 )}
@@ -375,16 +381,33 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
             )}
             <Button
               variant="secondary"
-              loading={mutation.isPending}
+              loading={mutation.isPending && !removing}
               disabled={type !== 'organization' && !refId}
               title={type !== 'organization' && choices.length === 0 ? `Belum ada data di ${sources[type]}` : undefined}
-              onClick={() => save([...scopes, { scope_type: type, ref_id: type === 'organization' ? null : refId }])}
+              onClick={() => {
+                const added: DataScopeEntry = { scope_type: type, ref_id: type === 'organization' ? null : refId }
+                save([...scopes, added], 'Cakupan data ditambahkan', scopeLabel(added))
+              }}
             >
               Tambah cakupan
             </Button>
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={removing !== null}
+        tone="danger"
+        title="Hapus cakupan data?"
+        confirmLabel="Hapus cakupan"
+        loading={mutation.isPending}
+        error={removing ? mutation.error : null}
+        onConfirm={() => removing && save(scopes.filter((x) => x !== removing), 'Cakupan data dihapus', scopeLabel(removing))}
+        onClose={() => setRemoving(null)}
+      >
+        <p>
+          {user.name} tidak lagi dapat melihat data aset dan transaksi dalam cakupan <span className="font-semibold text-slate-900">{removing ? scopeLabel(removing) : ''}</span>. Cakupan ini dapat ditambahkan lagi kapan saja.
+        </p>
+      </ConfirmDialog>
     </Card>
   )
 }
@@ -409,8 +432,9 @@ export function UserStatusModal({ user, action, onClose }: { user: User; action:
   const queryClient = useQueryClient()
   const mutation = useMutation({
     mutationFn: (a: UserStatusAction) => api.post<Resource<User>>(`/users/${user.id}/${a}`),
-    onSuccess: async () => {
+    onSuccess: async (_, a) => {
       await queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast.success(a === 'deactivate' ? 'Pengguna dinonaktifkan' : 'Pengguna diaktifkan', user.name)
       onClose()
     },
   })
@@ -421,26 +445,18 @@ export function UserStatusModal({ user, action, onClose }: { user: User; action:
   }
 
   return (
-    <Modal
+    <ConfirmDialog
       open={action !== null}
+      tone={action && statusActions[action].variant === 'danger' ? 'danger' : 'primary'}
       title={action ? `${statusActions[action].label} ${user.name}?` : ''}
+      confirmLabel={action ? statusActions[action].label : ''}
+      loading={mutation.isPending}
+      error={mutation.error}
+      onConfirm={() => action && mutation.mutate(action)}
       onClose={onClose}
-      footer={
-        action && (
-          <>
-            <Button variant="secondary" onClick={onClose}>
-              Batal
-            </Button>
-            <Button variant={statusActions[action].variant === 'danger' ? 'danger' : 'primary'} loading={mutation.isPending} onClick={() => mutation.mutate(action)}>
-              {statusActions[action].label}
-            </Button>
-          </>
-        )
-      }
     >
-      {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
-      <p className="text-sm text-slate-700">{action && statusActions[action].confirm}</p>
-    </Modal>
+      <p>{action && statusActions[action].confirm}</p>
+    </ConfirmDialog>
   )
 }
 
@@ -476,25 +492,35 @@ export function ResetPasswordModal({ user, open, onClose }: { user: User; open: 
   }
 
   return (
-    <Modal open={open} title={`Reset password ${user.name}`} onClose={onClose}>
+    <Modal
+      open={open}
+      title={`Reset password ${user.name}`}
+      onClose={onClose}
+      footer={
+        done ? (
+          <Button onClick={onClose}>Tutup</Button>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Batal
+            </Button>
+            <Button type="submit" form={`reset-password-${user.id}`} loading={mutation.isPending}>
+              Simpan
+            </Button>
+          </>
+        )
+      }
+    >
       {done ? (
         <Alert tone="success">Password sementara disimpan. Pengguna wajib menggantinya saat login berikutnya.</Alert>
       ) : (
-        <form onSubmit={handleSubmit((v) => mutation.mutate(v))} noValidate className="space-y-4">
+        <form id={`reset-password-${user.id}`} onSubmit={handleSubmit((v) => mutation.mutate(v))} noValidate className="space-y-4">
           {formError && <Alert tone="error">{formError}</Alert>}
           <Field label="Password sementara" error={formState.errors.password?.message} hint={passwordRule.message} required>
             {(p) => (
               <Input {...p} type="password" autoComplete="new-password" {...register('password', { validate: (v) => passwordRule.test(v) || passwordRule.message })} />
             )}
           </Field>
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={onClose}>
-              Batal
-            </Button>
-            <Button type="submit" loading={mutation.isPending}>
-              Simpan
-            </Button>
-          </div>
         </form>
       )}
     </Modal>

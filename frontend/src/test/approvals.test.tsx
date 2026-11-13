@@ -123,3 +123,24 @@ describe('Pengajuan Saya page (users without approval.manage)', () => {
     expect(within(dialog).queryByRole('button', { name: 'Setujui', hidden: true })).toBeNull()
   })
 })
+
+describe('deciding a request', () => {
+  it('asks once more before approving, then approves and can still be backed out of', async () => {
+    const posts = renderPage()
+    fireEvent.click(await screen.findByText('Perubahan data aset'))
+    const dialog = await screen.findByRole('dialog', { hidden: true })
+
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Setujui', hidden: true }))
+    expect(within(dialog).getByText('Setujui pengajuan ini?')).toBeInTheDocument()
+    expect(posts).toHaveLength(0)
+
+    // "Kembali" returns to the decision without sending anything.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Kembali', hidden: true }))
+    expect(within(dialog).queryByText('Setujui pengajuan ini?')).not.toBeInTheDocument()
+    expect(posts).toHaveLength(0)
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Setujui', hidden: true }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ya, setujui', hidden: true }))
+    await vi.waitFor(() => expect(posts.find((p) => p.url.endsWith('/approvals/a1/approve'))?.body).toEqual({ note: null }))
+  })
+})

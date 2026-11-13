@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { Badge } from '../../components/ui/Badge'
-import { statusTone } from '../../components/ui/badgeTones'
+import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { Alert, DetailSkeleton, ErrorState, FormSkeleton } from '../../components/ui/Feedback'
 import { Field, Input, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { api } from '../../lib/api/client'
@@ -13,6 +12,8 @@ import type { AdminOnboarding, EmailDelivery, Organization, OrganizationInvitati
 import { useAuth } from '../../lib/auth/context'
 import { errorMessage } from '../../lib/forms'
 import { formatDateTime, invitationStatusLabel, orgStatusLabel } from '../../lib/format'
+import { toast } from '../../components/ui/toast'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 
 type WithDelivery<T> = { data: T; meta: { email_delivery: EmailDelivery } }
 
@@ -32,6 +33,7 @@ function AdminOnboardingCard({ organization }: { organization: Organization }) {
   const queryClient = useQueryClient()
   const [notice, setNotice] = useState<string | null>(null)
   const [inviting, setInviting] = useState(false)
+  const [revoking, setRevoking] = useState(false)
   const [email, setEmail] = useState('')
   const base = `/platform/organizations/${organization.id}/admin-invitation`
   const queryKey = ['platform', 'organizations', organization.id, 'admin-invitation']
@@ -42,13 +44,15 @@ function AdminOnboardingCard({ organization }: { organization: Organization }) {
     onSuccess: async (res, action) => {
       await queryClient.invalidateQueries({ queryKey })
       setInviting(false)
+      setRevoking(false)
       setEmail('')
-      setNotice(action === 'revoke' ? `Undangan untuk ${res.data.email} dicabut.` : sentNotice(res.data.email, res.meta.email_delivery))
+      if (action === 'revoke') toast.success('Undangan dicabut', res.data.email)
+      else setNotice(sentNotice(res.data.email, res.meta.email_delivery))
     },
   })
 
-  if (query.isLoading) return <Card title="Administrator pertama"><Spinner /></Card>
-  if (query.isError) return <Card title="Administrator pertama"><ErrorState error={query.error} /></Card>
+  if (query.isLoading) return <Card title="Administrator pertama"><FormSkeleton fields={2} /></Card>
+  if (query.isError) return <Card title="Administrator pertama"><ErrorState error={query.error} onRetry={() => void query.refetch()} /></Card>
   const { data: onboarding, meta } = query.data!
   const invitation = onboarding.invitation
   const manageable = can('platform.organization.manage') && organization.status === 'active' && !onboarding.has_members
@@ -62,7 +66,7 @@ function AdminOnboardingCard({ organization }: { organization: Organization }) {
           <Alert tone="warning">Server belum mengirim email sungguhan: email undangan hanya ditulis ke log server dan tidak sampai ke penerima.</Alert>
         )}
         {notice && <Alert tone="success">{notice}</Alert>}
-        {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
+        {mutation.isError && !revoking && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
         {onboarding.has_members ? (
           <p className="text-slate-700">
             Administrator sudah bergabung{invitation?.status === 'accepted' ? ` (${invitation.email}, ${formatDateTime(invitation.accepted_at)})` : ''}. Pengguna lain diundang oleh
@@ -79,7 +83,7 @@ function AdminOnboardingCard({ organization }: { organization: Organization }) {
                 <div>
                   <dt className="text-slate-500">Status undangan</dt>
                   <dd>
-                    <Badge tone={statusTone[invitation.status]}>{invitationStatusLabel[invitation.status]}</Badge>
+                    <StatusBadge status={invitation.status}>{invitationStatusLabel[invitation.status]}</StatusBadge>
                   </dd>
                 </div>
                 {invitation.status === 'pending' && (
@@ -103,7 +107,7 @@ function AdminOnboardingCard({ organization }: { organization: Organization }) {
                     <Button variant="secondary" loading={mutation.isPending && mutation.variables === 'resend'} onClick={() => run('resend')}>
                       Kirim ulang
                     </Button>
-                    <Button variant="danger" loading={mutation.isPending && mutation.variables === 'revoke'} onClick={() => run('revoke')}>
+                    <Button variant="danger" onClick={() => (mutation.reset(), setNotice(null), setRevoking(true))}>
                       Cabut
                     </Button>
                   </>
@@ -138,6 +142,20 @@ function AdminOnboardingCard({ organization }: { organization: Organization }) {
           </>
         )}
       </div>
+      <ConfirmDialog
+        open={revoking}
+        tone="danger"
+        title="Cabut undangan administrator?"
+        confirmLabel="Cabut undangan"
+        loading={mutation.isPending}
+        error={mutation.error}
+        onConfirm={() => mutation.mutate('revoke')}
+        onClose={() => setRevoking(false)}
+      >
+        <p>
+          Tautan undangan untuk <span className="font-semibold text-slate-900">{invitation?.email}</span> tidak dapat dipakai lagi, dan organisasi ini belum memiliki administrator sampai undangan baru diterima.
+        </p>
+      </ConfirmDialog>
     </Card>
   )
 }
@@ -154,13 +172,14 @@ export function PlatformOrganizationDetailPage() {
     onSuccess: async (res) => {
       queryClient.setQueryData(['platform', 'organizations', id], res)
       await queryClient.invalidateQueries({ queryKey: ['platform', 'organizations'] })
+      toast.success(action === 'suspend' ? 'Organisasi ditangguhkan' : 'Organisasi diaktifkan', res.data.name)
       setAction(null)
       setReason('')
     },
   })
 
-  if (query.isLoading) return <Spinner />
-  if (query.isError) return <ErrorState error={query.error} />
+  if (query.isLoading) return <DetailSkeleton label="Memuat organisasi…" />
+  if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />
   const org = query.data!.data
 
   return (
@@ -168,9 +187,9 @@ export function PlatformOrganizationDetailPage() {
       <PageHeader
         title={org.name}
         description={org.code}
+        badges={<StatusBadge status={org.status}>{orgStatusLabel[org.status]}</StatusBadge>}
         actions={
           <>
-            <Badge tone={statusTone[org.status]}>{orgStatusLabel[org.status]}</Badge>
             {can('platform.organization.manage') && org.status === 'active' && (
               <Button variant="danger" onClick={() => setAction('suspend')}>
                 Tangguhkan
@@ -221,7 +240,7 @@ export function PlatformOrganizationDetailPage() {
               Batal
             </Button>
             <Button variant={action === 'suspend' ? 'danger' : 'primary'} disabled={!reason.trim()} loading={mutation.isPending} onClick={() => mutation.mutate()}>
-              Konfirmasi
+              {action === 'suspend' ? 'Tangguhkan' : 'Aktifkan'}
             </Button>
           </>
         }

@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { Alert, ErrorState, FormSkeleton } from '../../components/ui/Feedback'
 import { Field, Input, Select } from '../../components/ui/Field'
 import { api } from '../../lib/api/client'
 import type { LicenseCode, OrganizationInvitation, UserOrganizationOption } from '../../lib/api/types'
@@ -46,8 +46,8 @@ export interface InvitationSentState {
 export function UserCreatePage() {
   const options = useOrganizationOptions()
 
-  if (options.isLoading) return <Spinner />
-  if (options.isError) return <ErrorState error={options.error} />
+  if (options.isLoading) return <FormSkeleton label="Memuat formulir undangan…" />
+  if (options.isError) return <ErrorState error={options.error} onRetry={() => void options.refetch()} />
 
   return <UserInviteForm organizations={options.data!} />
 }

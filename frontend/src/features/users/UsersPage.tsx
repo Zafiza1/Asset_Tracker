@@ -1,13 +1,12 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Eye, KeyRound, Plus, ShieldCheck, UserX } from 'lucide-react'
+import { Eye, KeyRound, Plus, SearchX, ShieldCheck, Users, UserX } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { Badge } from '../../components/ui/Badge'
-import { statusTone } from '../../components/ui/badgeTones'
-import { Button } from '../../components/ui/Button'
+import { useNavigate } from 'react-router'
+import { StatusBadge } from '../../components/ui/Badge'
+import { Button, ButtonLink } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { ColumnToggle } from '../../components/ui/ColumnToggle'
-import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
 import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
@@ -55,7 +54,7 @@ const columns: Column<User>[] = [
   },
   { key: 'roles', header: 'Role', title: (u) => roleNames(u), cell: (u) => roleNames(u) ?? '—', hideOnMobile: true },
   { key: 'job', header: 'Jabatan', title: (u) => u.job_title, cell: (u) => u.job_title ?? '—', hideOnMobile: true },
-  { key: 'status', header: 'Status', className: 'w-28', cell: (u) => <Badge tone={statusTone[u.status]}>{userStatusLabel[u.status]}</Badge> },
+  { key: 'status', header: 'Status', className: 'w-28', cell: (u) => <StatusBadge status={u.status}>{userStatusLabel[u.status]}</StatusBadge> },
   { key: 'login', header: 'Login terakhir', className: 'w-44', cell: (u) => <LastLogin value={u.last_login_at} />, hideOnMobile: true },
 ]
 
@@ -115,6 +114,8 @@ export function UsersPage() {
     ...(roleId ? [{ key: 'role_id', label: `Role: ${roles.data?.find((r) => r.id === roleId)?.name ?? '…'}`, clear: () => update({ role_id: '', page: '' }) }] : []),
   ]
 
+  const resetAll = () => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))
+
   const rowActions = (u: User): RowMenuItem[] => {
     const isSelf = u.id === profile?.user.id
     const deactivate = can('user.deactivate') && !isSelf ? availableStatusAction(u) : null
@@ -141,11 +142,9 @@ export function UsersPage() {
         actions={
           can('user.create') &&
           can('role.manage') && (
-            <Link to="/pengguna/baru">
-              <Button>
+            <ButtonLink to="/pengguna/baru">
                 <Plus className="size-4" aria-hidden /> Undang pengguna
-              </Button>
-            </Link>
+              </ButtonLink>
           )
         }
       />
@@ -188,14 +187,32 @@ export function UsersPage() {
               </Select>
             )}
           </AdvancedFilters>
-          <ActiveFilters chips={chips} onReset={() => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))} />
+          <ActiveFilters chips={chips} onReset={resetAll} />
         </FilterPanel>
         {query.isLoading ? (
-          <Spinner />
+          <TableSkeleton columns={5} label="Memuat pengguna…" />
         ) : query.isError ? (
-          <ErrorState error={query.error} />
+          <ErrorState error={query.error} onRetry={() => void query.refetch()} />
         ) : query.data!.data.length === 0 ? (
-          <EmptyState title={chips.length > 0 ? 'Tidak ada pengguna yang cocok' : 'Belum ada pengguna'} description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : undefined} />
+          <EmptyState
+            icon={chips.length > 0 ? SearchX : Users}
+            title={chips.length > 0 ? 'Tidak ada pengguna yang cocok' : 'Belum ada pengguna'}
+            description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : 'Undang rekan kerja agar mereka dapat ikut mengelola aset organisasi ini.'}
+            action={
+              chips.length > 0 ? (
+                <Button variant="secondary" onClick={resetAll}>
+                  Hapus pencarian dan filter
+                </Button>
+              ) : (
+                can('user.create') &&
+                can('role.manage') && (
+                  <ButtonLink to="/pengguna/baru">
+                      <Plus className="size-4" aria-hidden /> Undang pengguna
+                    </ButtonLink>
+                )
+              )
+            }
+          />
         ) : (
           <>
             <DataTable

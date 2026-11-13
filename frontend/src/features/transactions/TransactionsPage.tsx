@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { ArrowLeftRight, Plus, SearchX } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { ActiveFilters, AdvancedFilters, DateRangeFilter, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { ColumnToggle } from '../../components/ui/ColumnToggle'
-import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
@@ -20,7 +20,8 @@ import { transactionTypeLabel, type AssetTransaction, type TransactionType } fro
 import { TransactionChanges } from './TransactionChanges'
 import { TransactionFormModal } from './TransactionFormModal'
 
-const FILTERS = ['page', 'search', 'type', 'date_from', 'date_to', 'columns'] as const
+const FILTERS = ['page', 'per_page', 'search', 'type', 'date_from', 'date_to', 'columns'] as const
+const DEFAULT_PER_PAGE = 25
 const ADVANCED = ['type', 'date_from', 'date_to'] as const
 const DEFAULT_COLUMNS = ['number', 'asset', 'type', 'changes', 'by']
 
@@ -35,7 +36,7 @@ export function TransactionsPage() {
   const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters('/transactions')
 
   const filters = Object.fromEntries(FILTERS.map((k) => [k, params.get(k)]))
-  filters.per_page = '10000'
+  filters.per_page ??= String(DEFAULT_PER_PAGE)
   const advanced = useFilterDraft(params, ADVANCED)
   const draft = advanced.draft
 
@@ -81,6 +82,8 @@ export function TransactionsPage() {
     ...(params.get('date_from') ? [{ key: 'from', label: `Dari ${formatDate(params.get('date_from')!)}`, clear: () => update({ date_from: '' }) }] : []),
     ...(params.get('date_to') ? [{ key: 'to', label: `Sampai ${formatDate(params.get('date_to')!)}`, clear: () => update({ date_to: '' }) }] : []),
   ]
+
+  const resetAll = () => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))
 
   const columns: Column<AssetTransaction>[] = [
     {
@@ -152,21 +155,35 @@ export function TransactionsPage() {
             </Select>
             <DateRangeFilter from={draft.date_from} to={draft.date_to} onChange={(from, to) => advanced.set({ date_from: from, date_to: to })} />
           </AdvancedFilters>
-          <ActiveFilters chips={chips} onReset={() => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))} />
+          <ActiveFilters chips={chips} onReset={resetAll} />
         </FilterPanel>
         {query.isLoading ? (
-          <Spinner />
+          <TableSkeleton columns={5} label="Memuat transaksi…" />
         ) : query.isError ? (
-          <ErrorState error={query.error} />
+          <ErrorState error={query.error} onRetry={() => void query.refetch()} />
         ) : query.data!.data.length === 0 ? (
           <EmptyState
+            icon={chips.length > 0 ? SearchX : ArrowLeftRight}
             title={chips.length > 0 ? 'Tidak ada transaksi yang cocok' : 'Belum ada transaksi'}
             description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : 'Transaksi muncul di sini setelah aset ditambahkan atau dicatat aktivitasnya.'}
+            action={
+              chips.length > 0 ? (
+                <Button variant="secondary" onClick={resetAll}>
+                  Hapus pencarian dan filter
+                </Button>
+              ) : (
+                can('transaction.create') && (
+                  <Button onClick={() => setCreating(true)}>
+                    <Plus className="size-4" aria-hidden /> Catat transaksi
+                  </Button>
+                )
+              )
+            }
           />
         ) : (
           <>
             <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} className="min-w-[36rem] md:min-w-[60rem]" />
-            <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} />
+            <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} onPerPage={(n) => update({ per_page: n === DEFAULT_PER_PAGE ? '' : String(n) })} />
           </>
         )}
       </Card>

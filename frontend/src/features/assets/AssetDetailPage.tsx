@@ -1,15 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeftRight, CalendarDays, FolderTree, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
-import clsx from 'clsx'
 import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { Alert, DetailSkeleton, EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { Field, Textarea } from '../../components/ui/Field'
-import { Modal } from '../../components/ui/Modal'
+import { toast } from '../../components/ui/toast'
 import { DataTable, type Column } from '../../components/ui/Table'
+import { SegmentedControl } from '../../components/ui/Tabs'
 import { api } from '../../lib/api/client'
 import type { CategoryAttribute, Paginated, Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
@@ -19,7 +20,8 @@ import { attributeRowsBySection, SECTION_LABELS, useAssetFields } from '../maste
 import { allowedTypes, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
 import { LocationChange, StatusChange } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
-import { assetStatusLabel, assetStatusTone, formatMoney, type Asset } from './api'
+import { formatMoney, type Asset } from './api'
+import { AssetStatusBadge } from './AssetStatusBadge'
 import { AssetBarcodeModal } from './AssetBarcodeModal'
 import { AssetFormModal } from './AssetFormModal'
 import { AssetTimeline, type TimelineEvent } from './AssetTimeline'
@@ -48,8 +50,8 @@ export function AssetDetailPage() {
     enabled: historyView === 'timeline',
   })
 
-  if (asset.isLoading) return <Spinner />
-  if (asset.isError) return <ErrorState error={asset.error} />
+  if (asset.isLoading) return <DetailSkeleton label="Memuat data aset…" />
+  if (asset.isError) return <ErrorState error={asset.error} onRetry={() => void asset.refetch()} />
   const a = asset.data!.data
   const types = allowedTypes(a.status)
   const canRecord = can('transaction.create') && !a.is_archived
@@ -59,12 +61,7 @@ export function AssetDetailPage() {
     <>
       <PageHeader
         title={a.name}
-        badges={
-          <>
-            <Badge tone={assetStatusTone[a.status]}>{assetStatusLabel[a.status]}</Badge>
-            {a.is_archived && <Badge tone="slate">Nonaktif</Badge>}
-          </>
-        }
+        badges={<AssetStatusBadge status={a.status} archived={a.is_archived} />}
         description={
           <span className="font-mono text-sm">
             {a.asset_number}
@@ -184,7 +181,7 @@ export function AssetDetailPage() {
                 status_condition: (
                   <>
                     <Row label="Status">
-                      <Badge tone={assetStatusTone[a.status]}>{assetStatusLabel[a.status]}</Badge>
+                      <AssetStatusBadge status={a.status} />
                     </Row>
                     {a.status === 'on_loan' && <Row label="Peminjam">{`${a.borrower_name}${a.loan_due_date ? ` (kembali ${formatDate(a.loan_due_date)})` : ''}`}</Row>}
                   </>
@@ -217,36 +214,43 @@ export function AssetDetailPage() {
           className="min-w-0 xl:col-span-3"
           actions={
             can('transaction.view') && (
-              <div className="inline-flex rounded-lg bg-slate-100 p-0.5" role="group" aria-label="Tampilan riwayat">
-                {(['timeline', 'table'] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    aria-pressed={historyView === v}
-                    onClick={() => setHistoryView(v)}
-                    className={clsx('rounded-md px-3 py-1 text-xs font-medium', historyView === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900')}
-                  >
-                    {v === 'timeline' ? 'Timeline' : 'Tabel'}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                label="Tampilan riwayat"
+                value={historyView}
+                onChange={setHistoryView}
+                options={[
+                  { value: 'timeline', label: 'Timeline' },
+                  { value: 'table', label: 'Tabel' },
+                ]}
+              />
             )
           }
         >
           {historyView === 'timeline' ? (
             timeline.isLoading ? (
-              <Spinner />
+              <TableSkeleton rows={5} columns={2} label="Memuat timeline…" />
             ) : timeline.isError ? (
-              <ErrorState error={timeline.error} />
+              <ErrorState error={timeline.error} onRetry={() => void timeline.refetch()} />
             ) : (
               <AssetTimeline events={timeline.data!.data} />
             )
           ) : history.isLoading ? (
-            <Spinner />
+            <TableSkeleton rows={5} columns={4} label="Memuat riwayat transaksi…" />
           ) : history.isError ? (
-            <ErrorState error={history.error} />
+            <ErrorState error={history.error} onRetry={() => void history.refetch()} />
           ) : history.data!.data.length === 0 ? (
-            <EmptyState title="Belum ada riwayat" />
+            <EmptyState
+              icon={ArrowLeftRight}
+              title="Belum ada riwayat"
+              description="Perpindahan, peminjaman, dan perubahan status aset ini akan tercatat di sini."
+              action={
+                canRecord && (
+                  <Button variant="secondary" onClick={() => setRecording('any')}>
+                    <Plus className="size-4" aria-hidden /> Catat transaksi
+                  </Button>
+                )
+              }
+            />
           ) : (
             <DataTable columns={historyColumns} rows={withStateAfter(history.data!.data, a)} className="md:min-w-[36rem]" />
           )}
@@ -313,7 +317,13 @@ function useRefreshAsset() {
 
 function RestoreButton({ asset }: { asset: Asset }) {
   const refresh = useRefreshAsset()
-  const restore = useMutation({ mutationFn: () => api.post(`/assets/${asset.id}/restore`), onSuccess: refresh })
+  const restore = useMutation({
+    mutationFn: () => api.post(`/assets/${asset.id}/restore`),
+    onSuccess: async (response) => {
+      await refresh()
+      toast.saved(response, 'Aset diaktifkan kembali', asset.name)
+    },
+  })
   return (
     <>
       {restore.isError && <span className="text-xs text-red-600">{errorMessage(restore.error)}</span>}
@@ -329,33 +339,28 @@ function ArchiveModal({ asset, onClose }: { asset: Asset; onClose: () => void })
   const [reason, setReason] = useState('')
   const archive = useMutation({
     mutationFn: () => api.post(`/assets/${asset.id}/archive`, { reason: reason.trim() || null }),
-    onSuccess: async () => {
+    onSuccess: async (response) => {
       await refresh()
+      toast.saved(response, 'Aset dinonaktifkan', asset.name)
       onClose()
     },
   })
 
   return (
-    <Modal
+    <ConfirmDialog
       open
+      tone="danger"
       title={`Nonaktifkan ${asset.name}?`}
+      confirmLabel="Nonaktifkan"
+      loading={archive.isPending}
+      error={archive.error}
+      onConfirm={() => archive.mutate()}
       onClose={onClose}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Batal
-          </Button>
-          <Button variant="danger" loading={archive.isPending} onClick={() => archive.mutate()}>
-            Nonaktifkan
-          </Button>
-        </>
-      }
     >
-      {archive.isError && <Alert tone="error">{errorMessage(archive.error)}</Alert>}
-      <p className="text-sm text-slate-700">
+      <p>
         Aset tidak lagi dihitung sebagai inventaris aktif dan tidak dapat ditransaksikan. Nomor aset, data, dan seluruh riwayatnya tetap tersimpan, dan aset dapat diaktifkan kembali kapan saja.
       </p>
       <Field label="Alasan">{(p) => <Textarea {...p} rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="mis. rusak total, dijual, hilang" />}</Field>
-    </Modal>
+    </ConfirmDialog>
   )
 }

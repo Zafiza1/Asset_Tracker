@@ -4,6 +4,7 @@ import { CheckCircle2, Download, Upload, X } from 'lucide-react'
 import { Button } from './Button'
 import { Alert } from './Feedback'
 import { Modal } from './Modal'
+import { toast } from './toast'
 import { api, ApiError, downloadFile, isApprovalPending } from '../../lib/api/client'
 
 interface ImportModalProps {
@@ -58,8 +59,13 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
       onSuccess?.()
       // An edit may change nothing; say how many rows were saved instead of closing silently.
       // A file submitted for approval changed nothing yet (the app shows a notice for it).
-      if (editing && !isApprovalPending(result)) setUpdated(result.data.updated ?? 0)
-      else onClose()
+      if (editing && !isApprovalPending(result)) {
+        setUpdated(result.data.updated ?? 0)
+      } else {
+        // A plain import closes the dialog, so the count is reported where the user lands.
+        if (!isApprovalPending(result)) toast.success('Import selesai', `${(result.data.imported ?? 0).toLocaleString('id-ID')} data ditambahkan.`)
+        onClose()
+      }
     },
     onError: (e) => {
       if (!(e instanceof ApiError)) {

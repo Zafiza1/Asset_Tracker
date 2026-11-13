@@ -1,15 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CircleDot, KeyRound, MailCheck, Undo2, UserCheck } from 'lucide-react'
-import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
-import { Alert, Spinner } from '../../../components/ui/Feedback'
+import { Spinner } from '../../../components/ui/Feedback'
 import { Modal } from '../../../components/ui/Modal'
 import { api } from '../../../lib/api/client'
 import type { LicenseCode, LicenseCodeDetail, LicenseCodeHistoryEntry, Resource } from '../../../lib/api/types'
 import { useAuth } from '../../../lib/auth/context'
 import { formatDate, formatDateTime } from '../../../lib/format'
-import { errorMessage } from '../../../lib/forms'
-import { codeStatusHint, codeStatusLabel, codeStatusTone, licenseKindLabel, licenseSourceLabel, licenseStatusLabel, licenseStatusTone } from './labels'
+import { codeStatusHint, codeStatusLabel, licenseKindLabel, licenseSourceLabel, licenseStatusLabel } from './labels'
+import { StatusBadge } from '../../../components/ui/Badge'
+import { toast } from '../../../components/ui/toast'
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 
 export type CodeAction = 'assign' | 'release'
 
@@ -85,7 +86,7 @@ export function LicenseCodeDetailModal({ code, canInvite, onClose, onAction }: {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-sm font-semibold text-slate-900">{c.code}</span>
-            <Badge tone={codeStatusTone[c.status]}>{codeStatusLabel[c.status]}</Badge>
+            <StatusBadge status={c.status}>{codeStatusLabel[c.status]}</StatusBadge>
           </div>
           <p className="mt-0.5 text-xs text-slate-500">{codeStatusHint[c.status]}</p>
         </div>
@@ -116,7 +117,7 @@ export function LicenseCodeDetailModal({ code, canInvite, onClose, onAction }: {
               <span>
                 {licenseKindLabel({ kind: license.kind, reference: c.reference })} · {licenseSourceLabel[license.source] ?? license.source}
               </span>
-              <Badge tone={licenseStatusTone[license.status]}>{licenseStatusLabel[license.status]}</Badge>
+              <StatusBadge status={license.status}>{licenseStatusLabel[license.status]}</StatusBadge>
             </div>
           ) : (
             <span className="text-slate-400">Tidak ditemukan</span>
@@ -170,30 +171,24 @@ export function ReleaseCodeModal({ code, onClose }: { code: LicenseCode; onClose
     mutationFn: () => api.post<Resource<LicenseCode>>(`/license-codes/${code.id}/release`),
     onSuccess: async () => {
       await invalidate()
+      toast.success('Kode lisensi dilepaskan', `${code.code} siap ditugaskan ke pengguna lain.`)
       onClose()
     },
   })
 
   return (
-    <Modal
+    <ConfirmDialog
       open
       title="Lepaskan kode lisensi?"
+      confirmLabel="Lepaskan"
+      loading={mutation.isPending}
+      error={mutation.error}
+      onConfirm={() => mutation.mutate()}
       onClose={onClose}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Batal
-          </Button>
-          <Button loading={mutation.isPending} onClick={() => mutation.mutate()}>
-            Lepaskan
-          </Button>
-        </>
-      }
     >
-      {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
-      <p className="text-sm text-slate-700">
+      <p>
         Kode <span className="font-mono font-semibold text-slate-900">{code.code}</span> dilepas dari {code.assigned_user?.name ?? 'pemegangnya'} dan kembali siap ditugaskan ke pengguna lain. Akun pengguna tetap aktif dan jumlah seat tidak berubah.
       </p>
-    </Modal>
+    </ConfirmDialog>
   )
 }

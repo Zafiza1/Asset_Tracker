@@ -120,10 +120,10 @@ export function DataTable<T extends { id: string }>({
   return (
     <div className="overflow-x-auto">
       <table className={clsx('w-full table-fixed divide-y divide-slate-200 text-sm', className)}>
-        <thead className="bg-slate-50/80">
+        <thead className="bg-slate-100/70">
           <tr>
             {selection && (
-              <th scope="col" className="w-11 px-3 py-2.5 text-left">
+              <th scope="col" className="w-11 px-3 py-3 text-left">
                 <HeaderCheckbox checked={allPicked} indeterminate={pickedOnPage > 0 && !allPicked} onChange={() => selection.onChange(rows, !allPicked)} />
               </th>
             )}
@@ -135,17 +135,17 @@ export function DataTable<T extends { id: string }>({
                   key={c.key}
                   scope="col"
                   aria-sort={state === 'asc' ? 'ascending' : state === 'desc' ? 'descending' : undefined}
-                  className={clsx('whitespace-nowrap px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500', c.hideOnMobile && 'hidden md:table-cell', c.className)}
+                  className={clsx('whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600', c.hideOnMobile && 'hidden md:table-cell', c.className)}
                 >
                   {c.sortKey && onSort ? (
                     <button
                       type="button"
                       onClick={() => onSort(nextSort(c.sortKey!))}
-                      className={clsx('-mx-1 inline-flex items-center gap-1 rounded px-1 uppercase tracking-wide hover:text-slate-800', state && 'text-slate-800')}
+                      className={clsx('-mx-1 inline-flex items-center gap-1 rounded px-1 uppercase tracking-wide hover:text-slate-900', state && 'text-slate-900')}
                       title={state === 'asc' ? 'Urut naik — klik untuk urut turun' : state === 'desc' ? 'Urut turun — klik untuk urutan bawaan' : `Urutkan menurut ${c.header.toLowerCase()}`}
                     >
                       {c.header}
-                      <Icon className={clsx('size-3.5', !state && 'text-slate-300')} aria-hidden />
+                      <Icon className={clsx('size-3.5', !state && 'text-slate-400')} aria-hidden />
                     </button>
                   ) : (
                     c.header
@@ -178,7 +178,7 @@ export function DataTable<T extends { id: string }>({
                 className={clsx(
                   'transition-colors duration-100',
                   picked && 'bg-brand-50/40',
-                  onRowClick && 'cursor-pointer hover:bg-brand-50 focus-visible:bg-brand-50 focus-visible:outline-offset-[-2px]',
+                  onRowClick ? 'cursor-pointer hover:bg-brand-50 focus-visible:bg-brand-50 focus-visible:outline-offset-[-2px]' : !picked && 'hover:bg-slate-50/70',
                 )}
               >
                 {selection && (

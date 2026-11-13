@@ -15,6 +15,7 @@ import type { WidgetKey, WidgetSize } from './layout'
 import { CATEGORICAL, NEUTRAL, STATUS_COLOR } from './palette'
 import { Kpi, Widget } from './widgetParts'
 import { useWidgetSize } from './widgetSize'
+import { SegmentedControl } from '../../components/ui/Tabs'
 
 type AttentionReason = keyof Dashboard['attention']['counts']
 
@@ -449,13 +450,16 @@ function CategoryWidget({ data }: { data: Dashboard }) {
   if (size === 'third' || size === 'half') {
     const limit = size === 'third' ? 5 : 8
     const toggle = (
-      <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium" role="group" aria-label="Ukuran">
-        {(['count', 'value'] as const).map((m) => (
-          <button key={m} type="button" aria-pressed={measure === m} onClick={() => setMeasure(m)} className={clsx('rounded-md px-2.5 py-1 transition-colors', measure === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900')}>
-            {m === 'count' ? 'Jumlah' : 'Nilai'}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        size="sm"
+        label="Ukuran"
+        value={measure}
+        onChange={setMeasure}
+        options={[
+          { value: 'count', label: 'Jumlah' },
+          { value: 'value', label: 'Nilai' },
+        ]}
+      />
     )
     return (
       <Widget title="Per kategori" action={toggle}>

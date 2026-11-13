@@ -26,10 +26,10 @@ export function ColumnToggle({ columns, visibleColumns, onToggle, onReset, label
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
+          <div className="absolute right-0 z-20 mt-2 w-64 animate-fade-in rounded-lg bg-white p-3 shadow-overlay ring-1 ring-slate-900/10">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-700">{title}</span>
-              <button onClick={onReset} className="text-xs text-brand-700 hover:text-brand-800">
+              <span className="text-sm font-semibold text-slate-700">{title}</span>
+              <button type="button" onClick={onReset} className="rounded px-1 text-xs font-semibold text-brand-700 hover:text-brand-800 hover:underline">
                 Reset
               </button>
             </div>
@@ -40,7 +40,7 @@ export function ColumnToggle({ columns, visibleColumns, onToggle, onReset, label
                     type="checkbox"
                     checked={visibleColumns.includes(col.key)}
                     onChange={() => onToggle(col.key)}
-                    className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-700"
+                    className="size-4 rounded border-slate-300 accent-brand-700"
                   />
                   <span className="text-sm text-slate-700">{col.header}</span>
                 </label>

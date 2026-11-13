@@ -1,9 +1,9 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Eye } from 'lucide-react'
+import { Eye, FileClock, SearchX } from 'lucide-react'
 import { useState } from 'react'
 import { Badge } from '../../components/ui/Badge'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
 import { ActiveFilters, AdvancedFilters, DateRangeFilter, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
@@ -15,6 +15,7 @@ import { auditActionLabel, formatDate } from '../../lib/format'
 import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { AuditLogDetail } from './AuditLogDetail'
 import { actorName, auditCategories, auditCategoryOf, auditCodesMatching, auditCodesOf, auditModuleOf, auditModules, entityTypeLabel, type AuditCategory } from './auditMeta'
+import { Button } from '../../components/ui/Button'
 
 const ADVANCED = ['actor_user_id', 'module', 'category', 'from', 'to'] as const
 
@@ -217,11 +218,22 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
           <ActiveFilters chips={chips} onReset={resetAll} />
         </FilterPanel>
         {query.isLoading ? (
-          <Spinner />
+          <TableSkeleton columns={5} label="Memuat audit trail…" />
         ) : query.isError ? (
-          <ErrorState error={query.error} />
+          <ErrorState error={query.error} onRetry={() => void query.refetch()} />
         ) : query.data!.data.length === 0 ? (
-          <EmptyState title={chips.length > 0 ? 'Tidak ada catatan yang cocok' : 'Belum ada catatan'} description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : undefined} />
+          <EmptyState
+            icon={chips.length > 0 ? SearchX : FileClock}
+            title={chips.length > 0 ? 'Tidak ada catatan yang cocok' : 'Belum ada catatan'}
+            description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : 'Setiap perubahan data, siapa yang melakukannya, dan kapan, akan tercatat di sini.'}
+            action={
+              chips.length > 0 && (
+                <Button variant="secondary" onClick={resetAll}>
+                  Hapus pencarian dan filter
+                </Button>
+              )
+            }
+          />
         ) : (
           <>
             <DataTable columns={columns} rows={query.data!.data} onRowClick={setSelected} className="min-w-[44rem]" />

@@ -1,12 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { Boxes, Check, LayoutGrid, Plus, RotateCcw } from 'lucide-react'
+import { Boxes, Check, EyeOff, LayoutGrid, Plus, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { ColumnToggle } from '../../components/ui/ColumnToggle'
-import { Button } from '../../components/ui/Button'
-import { ErrorState, Skeleton } from '../../components/ui/Feedback'
+import { Button, ButtonLink } from '../../components/ui/Button'
+import { EmptyState, ErrorState, Skeleton } from '../../components/ui/Feedback'
 import { api } from '../../lib/api/client'
 import { useAuth } from '../../lib/auth/context'
 import { formatDateTime } from '../../lib/format'
@@ -96,7 +95,7 @@ export function DashboardPage() {
       {query.isLoading ? (
         <DashboardSkeleton items={layout.items} />
       ) : query.isError ? (
-        <ErrorState error={query.error} />
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
       ) : !hasAssets ? (
         <NoAssets />
       ) : (
@@ -156,18 +155,15 @@ function LayoutToolbar({ layout }: { layout: ReturnType<typeof useDashboardLayou
 }
 
 function NoAssets() {
+  const { can } = useAuth()
   return (
     <Card>
-      <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
-        <span className="mb-2 grid size-14 place-items-center rounded-2xl bg-brand-50 text-brand-700 ring-1 ring-brand-100">
-          <Boxes className="size-7" aria-hidden />
-        </span>
-        <p className="font-display text-lg font-semibold text-slate-900">Belum ada aset terdaftar</p>
-        <p className="max-w-md text-sm text-slate-500">Analisis muncul otomatis setelah aset ditambahkan. Mulai dari menu Data Aset.</p>
-        <Link to="/aset" className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-800">
-          Buka Data Aset
-        </Link>
-      </div>
+      <EmptyState
+        icon={Boxes}
+        title="Belum ada aset terdaftar"
+        description="Analisis muncul otomatis setelah aset ditambahkan. Mulai dari menu Data Aset."
+        action={can('asset.view') && <ButtonLink to="/aset">Buka Data Aset</ButtonLink>}
+      />
     </Card>
   )
 }
@@ -175,13 +171,12 @@ function NoAssets() {
 function AllHidden({ onShowAll }: { onShowAll: () => void }) {
   return (
     <Card>
-      <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
-        <p className="font-display text-lg font-semibold text-slate-900">Semua analisis disembunyikan</p>
-        <p className="max-w-md text-sm text-slate-500">Tampilkan kembali lewat Atur tata letak, atau tampilkan semuanya sekaligus.</p>
-        <button type="button" onClick={onShowAll} className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-800">
-          Tampilkan semua
-        </button>
-      </div>
+      <EmptyState
+        icon={EyeOff}
+        title="Semua analisis disembunyikan"
+        description="Tampilkan kembali lewat Atur tata letak, atau tampilkan semuanya sekaligus."
+        action={<Button onClick={onShowAll}>Tampilkan semua</Button>}
+      />
     </Card>
   )
 }

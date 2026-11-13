@@ -3,14 +3,16 @@ import clsx from 'clsx'
 import { BellRing, CheckCircle2, CircleSlash, ExternalLink, FileClock, SearchX, Send, XCircle, type LucideIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { Badge } from '../../components/ui/Badge'
+import { Badge, StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { Alert, EmptyState, ErrorState, Spinner, TableSkeleton } from '../../components/ui/Feedback'
 import { Field, Select, Textarea } from '../../components/ui/Field'
 import { SearchForm } from '../../components/ui/Filters'
 import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
+import { PillTabs } from '../../components/ui/Tabs'
+import { toast } from '../../components/ui/toast'
 import { api, ApiError, qs } from '../../lib/api/client'
 import type { Paginated, Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
@@ -20,7 +22,6 @@ import {
   APPROVALS_KEY,
   approvalCategoryLabel,
   approvalStatusLabel,
-  approvalStatusTone,
   type ApprovalCategory,
   type ApprovalCounts,
   type ApprovalHistoryEntry,
@@ -127,7 +128,7 @@ export function NotificationsPage() {
             hideOnMobile: true,
           },
         ]),
-    { key: 'status', header: 'Status', cell: (r) => <Badge tone={approvalStatusTone[r.status]}>{approvalStatusLabel[r.status]}</Badge> },
+    { key: 'status', header: 'Status', cell: (r) => <StatusBadge status={r.status}>{approvalStatusLabel[r.status]}</StatusBadge> },
   ]
 
   const empty = emptyState(status, canDecide, filtered)
@@ -154,37 +155,12 @@ export function NotificationsPage() {
       )}
       <Card>
         <div className="space-y-3 border-b border-slate-100 p-3">
-          <div role="tablist" aria-label="Status pengajuan" className="flex flex-wrap gap-1">
-            {TABS.map((t) => {
-              const count = counts?.[t.status || 'all']
-              const active = status === t.status
-              return (
-                <button
-                  key={t.label}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => update({ status: t.status })}
-                  className={clsx(
-                    'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                    active ? 'bg-brand-50 text-brand-800 ring-1 ring-inset ring-brand-200' : 'text-slate-600 hover:bg-slate-100',
-                  )}
-                >
-                  {t.label}
-                  {count !== undefined && (
-                    <span
-                      className={clsx(
-                        'min-w-5 rounded-full px-1.5 text-center text-xs font-semibold leading-5',
-                        t.status === 'pending' && count > 0 ? 'bg-amber-100 text-amber-800' : active ? 'bg-brand-100 text-brand-800' : 'bg-slate-100 text-slate-600',
-                      )}
-                    >
-                      {count > 999 ? '999+' : count}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
+          <PillTabs
+            label="Status pengajuan"
+            value={status}
+            onChange={(next) => update({ status: next })}
+            tabs={TABS.map((t) => ({ value: t.status, label: t.label, count: counts?.[t.status || 'all'], attention: t.status === 'pending' }))}
+          />
           <SearchForm
             value={searchDraft}
             onChange={setSearchDraft}
@@ -209,9 +185,9 @@ export function NotificationsPage() {
           />
         </div>
         {query.isPending ? (
-          <Spinner />
+          <TableSkeleton columns={4} label="Memuat pengajuan…" />
         ) : query.isError ? (
-          <ErrorState error={query.error} />
+          <ErrorState error={query.error} onRetry={() => void query.refetch()} />
         ) : query.data.data.length === 0 ? (
           <EmptyState
             icon={empty.icon}
@@ -269,6 +245,8 @@ function ApprovalDetailModal({ id, canDecide, onClose }: { id: string; canDecide
   const [note, setNote] = useState('')
   // Rejecting is a second step: the approver has to write down why before confirming.
   const [rejecting, setRejecting] = useState(false)
+  // Approving applies the change at once, and cancelling withdraws it for good: both ask once more.
+  const [confirming, setConfirming] = useState<'approve' | 'cancel' | null>(null)
   const [noteError, setNoteError] = useState<string | null>(null)
   const noteRef = useRef<HTMLTextAreaElement>(null)
   const query = useQuery({
@@ -278,9 +256,13 @@ function ApprovalDetailModal({ id, canDecide, onClose }: { id: string; canDecide
 
   const decide = useMutation({
     mutationFn: (action: 'approve' | 'reject' | 'cancel') => api.post<Resource<ApprovalRequest>>(`/approvals/${id}/${action}`, action === 'cancel' ? {} : { note: note.trim() || null }),
-    onSuccess: async (_, action) => {
+    onSuccess: async (res, action) => {
       // An approved change touches assets or master data: refresh everything.
       await (action === 'approve' ? queryClient.invalidateQueries() : queryClient.invalidateQueries({ queryKey: APPROVALS_KEY }))
+      const what = `${res.data.action_label}: ${res.data.summary}`
+      if (action === 'approve') toast.success('Pengajuan disetujui', `${what}. Perubahan sudah diterapkan.`)
+      else if (action === 'reject') toast.info('Pengajuan ditolak', `${what}. Pengaju melihat alasan Anda.`)
+      else toast.info('Pengajuan dibatalkan', what)
       onClose()
     },
     onError: (error) => {
@@ -321,10 +303,19 @@ function ApprovalDetailModal({ id, canDecide, onClose }: { id: string; canDecide
             Tolak pengajuan
           </Button>
         </>
+      ) : confirming ? (
+        <>
+          <Button variant="secondary" onClick={() => setConfirming(null)} disabled={busy}>
+            Kembali
+          </Button>
+          <Button variant={confirming === 'cancel' ? 'danger' : 'primary'} onClick={() => decide.mutate(confirming)} loading={busy}>
+            {confirming === 'approve' ? 'Ya, setujui' : 'Ya, batalkan pengajuan'}
+          </Button>
+        </>
       ) : (
         <>
           {own && (
-            <Button variant="secondary" onClick={() => decide.mutate('cancel')} loading={busy && decide.variables === 'cancel'} disabled={busy}>
+            <Button variant="secondary" onClick={() => setConfirming('cancel')} disabled={busy}>
               Batalkan pengajuan
             </Button>
           )}
@@ -340,7 +331,7 @@ function ApprovalDetailModal({ id, canDecide, onClose }: { id: string; canDecide
               >
                 Tolak…
               </Button>
-              <Button onClick={() => decide.mutate('approve')} loading={busy && decide.variables === 'approve'} disabled={busy}>
+              <Button onClick={() => setConfirming('approve')} disabled={busy}>
                 Setujui
               </Button>
             </>
@@ -358,14 +349,24 @@ function ApprovalDetailModal({ id, canDecide, onClose }: { id: string; canDecide
       {query.isPending ? (
         <Spinner />
       ) : query.isError ? (
-        <ErrorState error={query.error} />
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
       ) : (
         approval && (
           <>
             {decide.isError && !noteError && <Alert tone="error">{errorMessage(decide.error)}</Alert>}
+            {confirming === 'approve' && (
+              <Alert tone={approval.impact?.destructive ? 'warning' : 'info'} title="Setujui pengajuan ini?">
+                Perubahan langsung diterapkan ke data dan tercatat atas nama Anda di Audit Trail. Keputusan tidak dapat ditarik kembali.
+              </Alert>
+            )}
+            {confirming === 'cancel' && (
+              <Alert tone="warning" title="Batalkan pengajuan ini?">
+                Pengajuan ditarik dan tidak akan diproses. Untuk mengajukannya lagi, perubahan harus disimpan ulang.
+              </Alert>
+            )}
             <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
               <Info label="Status">
-                <Badge tone={approvalStatusTone[approval.status]}>{approvalStatusLabel[approval.status]}</Badge>
+                <StatusBadge status={approval.status}>{approvalStatusLabel[approval.status]}</StatusBadge>
               </Info>
               <Info label="Jenis">{approval.category_label}</Info>
               <Info label="Data">

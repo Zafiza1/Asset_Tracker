@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
-import { Badge } from '../../components/ui/Badge'
+import { toast } from '../../components/ui/toast'
 import { DataTable, Pagination } from '../../components/ui/Table'
 import { AdvancedFilters, FilterPanel, SearchForm } from '../../components/ui/Filters'
 import { ColumnToggle } from '../../components/ui/ColumnToggle'
@@ -14,7 +14,8 @@ import type { Paginated } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { errorMessage } from '../../lib/forms'
 import { toOptions, useOptions } from '../master/options'
-import { assetStatusLabel, assetStatusTone, type Asset, type AssetStatus } from '../assets/api'
+import { assetStatusLabel, type Asset, type AssetStatus } from '../assets/api'
+import { AssetStatusBadge } from '../assets/AssetStatusBadge'
 import { CategoryFilter } from '../assets/CategoryFilter'
 import { allowedTypes, ineligibleReason, manualTypes, transactionTypeLabel, typePermission, type ManualTransactionType } from './api'
 
@@ -90,7 +91,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
       header: 'Status',
       cell: (a: Asset) => (
         <div>
-          <Badge tone={assetStatusTone[a.status]}>{assetStatusLabel[a.status]}</Badge>
+          <AssetStatusBadge status={a.status} />
           {reason(a) && <p className="mt-1 text-xs text-slate-500">Tidak dapat dipilih</p>}
         </div>
       ),
@@ -136,8 +137,9 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
       for (const [k, v] of Object.entries(values)) payload[k] = v.trim() === '' ? null : v.trim()
       return api.post('/transactions', payload)
     },
-    onSuccess: async () => {
+    onSuccess: async (response) => {
       await Promise.all(['/transactions', '/assets', '/dashboard'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
+      if (type) toast.saved(response, 'Transaksi dicatat', `${transactionTypeLabel[type]} · ${assets.length === 1 ? assets[0].name : `${assets.length} aset`}`)
       onClose()
     },
     onError: (e) => setFieldErrors(e instanceof ApiError ? e.fields : {}),

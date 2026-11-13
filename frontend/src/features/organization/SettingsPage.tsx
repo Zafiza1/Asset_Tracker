@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { PageHeader } from '../../components/ui/Card'
-import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { Alert, DetailSkeleton, ErrorState } from '../../components/ui/Feedback'
 import { api } from '../../lib/api/client'
 import type { License, Resource } from '../../lib/api/types'
 import { formatDate } from '../../lib/format'
@@ -14,8 +15,8 @@ import { SeatUsage } from './license/SeatUsage'
 export function SettingsPage() {
   const query = useQuery({ queryKey: ['license'], queryFn: () => api.get<Resource<License>>('/license') })
 
-  if (query.isLoading) return <Spinner />
-  if (query.isError) return <ErrorState error={query.error} />
+  if (query.isLoading) return <DetailSkeleton label="Memuat lisensi…" />
+  if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />
   const license = query.data!.data
 
   // The organization works until its last base license in force ends.
@@ -30,7 +31,7 @@ export function SettingsPage() {
     <>
       <PageHeader
         title="Lisensi"
-        badges={<Badge tone={license.active ? 'green' : 'red'}>{license.active ? 'Lisensi aktif' : 'Lisensi tidak aktif'}</Badge>}
+        badges={<Badge tone={license.active ? 'green' : 'red'} icon={license.active ? CheckCircle2 : XCircle}>{license.active ? 'Lisensi aktif' : 'Lisensi tidak aktif'}</Badge>}
         description="Pantau pemakaian seat dan kelola kode lisensi yang dipegang pengguna."
         meta={validUntil && <span>Berlaku sampai {formatDate(validUntil)}{days !== null && days <= 60 && ` · ${days <= 0 ? 'berakhir hari ini' : `${days} hari lagi`}`}</span>}
       />

@@ -13,6 +13,7 @@ import { dataTypeLabel } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
 import { AttributeValueInput } from './attributes'
 import { SECTION_LABELS, useCategoryAttributes } from './categoryAttributeData'
+import { toast } from '../../components/ui/toast'
 
 /** Data types offered for category fields (mirrors CategoryAttributeService::TYPES). */
 const TYPES: CategoryAttributeType[] = ['string', 'text', 'integer', 'decimal', 'date', 'boolean', 'enum']
@@ -275,11 +276,12 @@ function AttributeListForm({ category, inherited, own, onClose }: { category: Te
           section: r.section || null,
         })),
       }),
-    onSuccess: async () => {
+    onSuccess: async (response) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['category-attributes'] }),
         queryClient.invalidateQueries({ queryKey: ['/tenant-masters/categories'] }),
       ])
+      toast.saved(response, 'Atribut kategori disimpan', category.name)
       onClose()
     },
     onError: (e) => {

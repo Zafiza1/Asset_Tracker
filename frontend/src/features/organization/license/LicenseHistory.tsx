@@ -1,9 +1,9 @@
-import { Badge } from '../../../components/ui/Badge'
 import { Card } from '../../../components/ui/Card'
 import { EmptyState } from '../../../components/ui/Feedback'
 import type { LicenseEntry } from '../../../lib/api/types'
 import { formatDate } from '../../../lib/format'
-import { daysUntil, groupLicenses, licenseSourceLabel, licenseStatusLabel, licenseStatusTone, type Batch } from './labels'
+import { daysUntil, groupLicenses, licenseSourceLabel, licenseStatusLabel, type Batch } from './labels'
+import { StatusBadge } from '../../../components/ui/Badge'
 
 function referenceRange(refs: string[]): string | null {
   if (refs.length === 0) return null
@@ -35,7 +35,7 @@ export function LicenseHistory({ licenses }: { licenses: LicenseEntry[] }) {
                     {b.kind}
                     {b.references.length > 1 && <span className="font-normal text-slate-500"> · {b.references.length} lisensi</span>}
                   </p>
-                  <Badge tone={licenseStatusTone[b.status]}>{licenseStatusLabel[b.status]}</Badge>
+                  <StatusBadge status={b.status}>{licenseStatusLabel[b.status]}</StatusBadge>
                 </div>
                 <p className="mt-0.5 truncate text-xs text-slate-500" title={b.references.join(', ')}>
                   {licenseSourceLabel[b.source] ?? b.source}

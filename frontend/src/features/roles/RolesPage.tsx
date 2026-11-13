@@ -1,8 +1,8 @@
-import { Lock, Plus } from 'lucide-react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router'
-import { Button } from '../../components/ui/Button'
+import { Lock, Plus, ShieldCheck } from 'lucide-react'
+import { Navigate, useNavigate, useParams } from 'react-router'
+import { ButtonLink } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { DataTable, type Column } from '../../components/ui/Table'
 import type { Role } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
@@ -39,22 +39,31 @@ export function RolesPage() {
         title="Pengguna"
         actions={
           can('role.manage') && (
-            <Link to="/pengguna/role/baru">
-              <Button>
+            <ButtonLink to="/pengguna/role/baru">
                 <Plus className="size-4" aria-hidden /> Tambah role
-              </Button>
-            </Link>
+              </ButtonLink>
           )
         }
       />
       <UserAdminTabs />
       <Card>
         {roles.isLoading ? (
-          <Spinner />
+          <TableSkeleton rows={5} columns={4} label="Memuat role…" />
         ) : roles.isError ? (
-          <ErrorState error={roles.error} />
+          <ErrorState error={roles.error} onRetry={() => void roles.refetch()} />
         ) : roles.data!.length === 0 ? (
-          <EmptyState title="Belum ada role" />
+          <EmptyState
+            icon={ShieldCheck}
+            title="Belum ada role"
+            description="Role menentukan apa yang boleh dilihat dan dilakukan pengguna."
+            action={
+              can('role.manage') && (
+                <ButtonLink to="/pengguna/role/baru">
+                    <Plus className="size-4" aria-hidden /> Tambah role
+                  </ButtonLink>
+              )
+            }
+          />
         ) : (
           <DataTable columns={columns} rows={roles.data!} onRowClick={(r) => navigate(`/pengguna/role/${r.id}`)} />
         )}

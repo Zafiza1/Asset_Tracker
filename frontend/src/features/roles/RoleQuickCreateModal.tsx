@@ -10,6 +10,7 @@ import type { Resource, Role } from '../../lib/api/types'
 import { applyApiErrors } from '../../lib/forms'
 import { usePermissionCatalog } from './api'
 import { PermissionPicker } from './PermissionPicker'
+import { toast } from '../../components/ui/toast'
 
 interface FormValues {
   name: string
@@ -36,6 +37,7 @@ export function RoleQuickCreateModal({ open, onClose, onCreated }: { open: boole
       api.post<Resource<Role>>('/roles', { name: v.name, description: v.description || null, permissions: [...selected] }),
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: ['roles'] })
+      toast.success('Role ditambahkan', res.data.name)
       onCreated(res.data)
       close()
     },
@@ -79,7 +81,7 @@ export function RoleQuickCreateModal({ open, onClose, onCreated }: { open: boole
         {catalog.isLoading ? (
           <Spinner />
         ) : catalog.isError ? (
-          <ErrorState error={catalog.error} />
+          <ErrorState error={catalog.error} onRetry={() => void catalog.refetch()} />
         ) : (
           <div className="max-h-[50vh] overflow-y-auto pr-1">
             <PermissionPicker catalog={catalog.data!} selected={selected} onChange={setSelected} editable className="grid gap-3 md:grid-cols-2 lg:grid-cols-3" />

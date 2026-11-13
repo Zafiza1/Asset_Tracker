@@ -6,8 +6,9 @@ import { Badge } from '../../components/ui/Badge'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert } from '../../components/ui/Feedback'
 import { useAuth } from '../../lib/auth/context'
-import { assetStatusLabel, assetStatusTone, type AssetStatus } from '../assets/api'
+import { assetStatusLabel, type AssetStatus } from '../assets/api'
 import { allowedTypes, manualTypes, transactionTypeLabel } from '../transactions/api'
+import { AssetStatusBadge } from '../assets/AssetStatusBadge'
 
 /** The numbered steps of the main flow; the flow diagram and the step sections both read from here. */
 const STEPS = [
@@ -443,7 +444,7 @@ function Step7() {
             {statuses.map((s) => (
               <tr key={s}>
                 <th scope="row" className="px-3 py-2 text-left font-normal">
-                  <Badge tone={assetStatusTone[s]}>{assetStatusLabel[s]}</Badge>
+                  <AssetStatusBadge status={s} />
                 </th>
                 {manualTypes.map((t) => (
                   <YesNo key={t} value={allowedTypes(s).includes(t)} />

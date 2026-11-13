@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
+import { toast } from '../../components/ui/toast'
 import { api, ApiError, isApprovalPending } from '../../lib/api/client'
 import type { AttributeValue, CategoryAttribute, Resource } from '../../lib/api/types'
 import { applyApiErrors, errorMessage } from '../../lib/forms'
@@ -143,6 +144,8 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
     },
     onSuccess: async (result) => {
       await refresh()
+      // null: submitted for approval, which the app announces on its own.
+      if (result) toast.success(asset ? 'Perubahan aset disimpan' : 'Aset ditambahkan', `${result.asset_number} · ${result.name}`)
       if (result) onSaved?.(result)
       onClose()
     },

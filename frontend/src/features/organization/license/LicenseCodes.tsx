@@ -1,22 +1,24 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { Check, Copy, Eye, Undo2, UserCheck } from 'lucide-react'
+import { Check, Copy, Eye, KeyRound, SearchX, Undo2, UserCheck } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Badge } from '../../../components/ui/Badge'
+import { Button } from '../../../components/ui/Button'
 import { Card } from '../../../components/ui/Card'
-import { EmptyState, ErrorState, Spinner } from '../../../components/ui/Feedback'
+import { EmptyState, ErrorState, TableSkeleton } from '../../../components/ui/Feedback'
 import { ActiveFilters, FilterPanel, SearchForm } from '../../../components/ui/Filters'
 import { searchChip } from '../../../components/ui/filterChips'
 import { IconButton } from '../../../components/ui/IconButton'
 import { RowMenu, type RowMenuItem } from '../../../components/ui/RowMenu'
 import { DataTable, Pagination, type Column } from '../../../components/ui/Table'
+import { PillTabs } from '../../../components/ui/Tabs'
 import { api, qs } from '../../../lib/api/client'
 import type { LicenseCode, LicenseCodeList, LicenseCodeStatus } from '../../../lib/api/types'
 import { useAuth } from '../../../lib/auth/context'
 import { formatDate, formatDateTime } from '../../../lib/format'
 import { LicenseCodeDetailModal, ReleaseCodeModal, type CodeAction } from './LicenseCodeModals'
-import { codeStatusLabel, codeStatusTone, daysUntil, inviteWithCodeHref, licenseStatusLabel } from './labels'
+import { codeStatusLabel, daysUntil, inviteWithCodeHref, licenseStatusLabel } from './labels'
+import { StatusBadge } from '../../../components/ui/Badge'
 
 const TABS: { value: '' | LicenseCodeStatus; label: string }[] = [
   { value: '', label: 'Semua' },
@@ -68,7 +70,7 @@ const columns: Column<LicenseCode>[] = [
       </div>
     ),
   },
-  { key: 'status', header: 'Status', className: 'w-36', cell: (c) => <Badge tone={codeStatusTone[c.status]}>{codeStatusLabel[c.status]}</Badge> },
+  { key: 'status', header: 'Status', className: 'w-36', cell: (c) => <StatusBadge status={c.status}>{codeStatusLabel[c.status]}</StatusBadge> },
   {
     key: 'holder',
     header: 'Pemegang',
@@ -146,28 +148,12 @@ export function LicenseCodes() {
   return (
     <Card title="Kode lisensi">
       <FilterPanel>
-        <div role="tablist" aria-label="Status kode" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5">
-          {TABS.map((t) => {
-            const n = t.value === '' ? total : counts?.[t.value]
-            const selected = status === t.value
-            return (
-              <button
-                key={t.value || 'all'}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => update({ status: t.value, page: '' })}
-                className={clsx(
-                  'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                  selected ? 'bg-brand-700 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-                )}
-              >
-                {t.label}
-                {n !== undefined && <span className={clsx('rounded-full px-1.5 text-xs tabular-nums', selected ? 'bg-white/20' : 'bg-slate-100 text-slate-600')}>{n}</span>}
-              </button>
-            )
-          })}
-        </div>
+        <PillTabs
+          label="Status kode"
+          value={status}
+          onChange={(next) => update({ status: next, page: '' })}
+          tabs={TABS.map((t) => ({ ...t, count: t.value === '' ? total : counts?.[t.value] }))}
+        />
         <SearchForm
           value={search}
           onChange={setSearch}
@@ -179,13 +165,21 @@ export function LicenseCodes() {
         <ActiveFilters chips={chips} onReset={() => (setSearch(''), update({ search: '', status: '', page: '' }))} />
       </FilterPanel>
       {query.isLoading ? (
-        <Spinner />
+        <TableSkeleton rows={5} columns={5} label="Memuat kode lisensi…" />
       ) : query.isError ? (
-        <ErrorState error={query.error} />
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
       ) : query.data!.data.length === 0 ? (
         <EmptyState
+          icon={applied || status ? SearchX : KeyRound}
           title={applied || status ? 'Tidak ada kode yang cocok' : 'Belum ada kode lisensi'}
           description={applied || status ? 'Ubah kata kunci atau pilih status lain.' : 'Kode lisensi dibuat otomatis untuk setiap lisensi yang dibeli.'}
+          action={
+            (applied || status) && (
+              <Button variant="secondary" onClick={() => (setSearch(''), update({ search: '', status: '', page: '' }))}>
+                Hapus pencarian dan filter
+              </Button>
+            )
+          }
         />
       ) : (
         <>

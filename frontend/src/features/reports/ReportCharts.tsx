@@ -3,6 +3,7 @@ import { BarChart3, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import { Card } from '../../components/ui/Card'
 import { formatMoney } from '../assets/api'
+import { SegmentedControl } from '../../components/ui/Tabs'
 
 /** One bar of a breakdown; `onSelect` makes the row a filter shortcut. */
 export interface BarRow {
@@ -93,19 +94,16 @@ function BarPanel({ title, description, rows, withValue = false }: { title: stri
           <p className="text-xs text-slate-500">{description}</p>
         </div>
         {withValue && (
-          <div role="group" aria-label={`Ukuran ${title.toLowerCase()}`} className="flex shrink-0 rounded-md bg-slate-100 p-0.5 text-xs">
-            {(['count', 'value'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={metric === m}
-                onClick={() => setMetric(m)}
-                className={clsx('rounded px-2 py-1 font-medium', metric === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
-              >
-                {m === 'count' ? 'Jumlah' : 'Nilai'}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            size="sm"
+            label={`Ukuran ${title.toLowerCase()}`}
+            value={metric}
+            onChange={setMetric}
+            options={[
+              { value: 'count', label: 'Jumlah' },
+              { value: 'value', label: 'Nilai' },
+            ]}
+          />
         )}
       </div>
       {bars.length === 0 ? (

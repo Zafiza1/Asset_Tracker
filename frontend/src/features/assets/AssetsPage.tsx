@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ImageOff, Printer } from "lucide-react";
+import { ArrowLeftRight, Boxes, Eye, ImageOff, Plus, Printer, SearchX } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -11,11 +11,11 @@ import {
   useFilterDraft,
 } from "../../components/ui/Filters";
 import { searchChip, type FilterChip } from "../../components/ui/filterChips";
-import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card, PageHeader } from "../../components/ui/Card";
 import { ColumnToggle } from "../../components/ui/ColumnToggle";
-import { EmptyState, ErrorState, Spinner } from "../../components/ui/Feedback";
+import { EmptyState, ErrorState, TableSkeleton } from "../../components/ui/Feedback";
+import { RowMenu, type RowMenuItem } from "../../components/ui/RowMenu";
 import { ImportModal } from "../../components/ui/ImportModal";
 import { Select } from "../../components/ui/Field";
 import { DataTable, Pagination, type Column, type RowSelection } from "../../components/ui/Table";
@@ -27,12 +27,9 @@ import {
   usePersistedSearchParams,
 } from "../../lib/usePersistedFilters";
 import { toOptions, useOptions } from "../master/options";
-import {
-  assetStatusLabel,
-  assetStatusTone,
-  type Asset,
-  type AssetStatus,
-} from "./api";
+import { assetStatusLabel, type Asset, type AssetStatus } from "./api";
+import { TransactionFormModal } from "../transactions/TransactionFormModal";
+import { AssetStatusBadge } from "./AssetStatusBadge";
 import { AddMenu } from "../../components/ui/AddMenu";
 import { AssetBarcodeModal } from "./AssetBarcodeModal";
 import { AssetBulkActions } from "./AssetBulkActions";
@@ -143,6 +140,14 @@ export function AssetsPage() {
   // Checked rows of the list; kept across pages so a selection can span several pages.
   const [selected, setSelected] = useState<Map<string, Asset>>(new Map());
   const [printing, setPrinting] = useState<Asset | null>(null);
+  const [recording, setRecording] = useState<Asset | null>(null);
+  // The search field follows the applied search when it changes elsewhere (global search, Back).
+  const appliedSearch = params.get("search") ?? "";
+  const [syncedSearch, setSyncedSearch] = useState(appliedSearch);
+  if (syncedSearch !== appliedSearch) {
+    setSyncedSearch(appliedSearch);
+    setSearch(appliedSearch);
+  }
 
   // Persisted filters from localStorage
   const {
@@ -360,10 +365,7 @@ export function AssetsPage() {
       sortKey: "status",
       cell: (a) => (
         <div className="flex flex-wrap gap-1">
-          <Badge tone={assetStatusTone[a.status]}>
-            {assetStatusLabel[a.status]}
-          </Badge>
-          {a.is_archived && <Badge tone="slate">Nonaktif</Badge>}
+          <AssetStatusBadge status={a.status} archived={a.is_archived} />
         </div>
       ),
     },
@@ -397,6 +399,28 @@ export function AssetsPage() {
         ]
       : []),
   ];
+
+  // The everyday actions on one asset, without opening its page first.
+  const rowActions = (a: Asset): RowMenuItem[] => [
+    { label: "Lihat detail", icon: <Eye aria-hidden />, onSelect: () => navigate(`/aset/${a.id}`) },
+    ...(can("transaction.create") && !a.is_archived
+      ? [{ label: "Catat transaksi", icon: <ArrowLeftRight aria-hidden />, onSelect: () => setRecording(a) }]
+      : []),
+    ...(barcodeModule && a.barcode_enabled
+      ? [{ label: "Cetak barcode", icon: <Printer aria-hidden />, onSelect: () => setPrinting(a) }]
+      : []),
+  ];
+  const actionsColumn: Column<Asset> = {
+    key: "actions",
+    header: "Aksi",
+    className: "w-16 text-right! pr-2!",
+    cell: (a) => <RowMenu label={`Tindakan untuk ${a.name}`} items={rowActions(a)} />,
+  };
+  const resetAll = () => (
+    setSearch(""),
+    resetFilters(),
+    setParams(new URLSearchParams())
+  );
 
   return (
     <>
@@ -509,24 +533,34 @@ export function AssetsPage() {
           </AdvancedFilters>
           <ActiveFilters
             chips={chips}
-            onReset={() => (
-              setSearch(""),
-              resetFilters(),
-              setParams(new URLSearchParams())
-            )}
+            onReset={resetAll}
           />
         </FilterPanel>
         {query.isLoading ? (
-          <Spinner />
+          <TableSkeleton columns={6} label="Memuat data aset…" />
         ) : query.isError ? (
-          <ErrorState error={query.error} />
+          <ErrorState error={query.error} onRetry={() => void query.refetch()} />
         ) : query.data!.data.length === 0 ? (
           <EmptyState
+            icon={hasFilters ? SearchX : Boxes}
             title={hasFilters ? "Tidak ada aset yang cocok" : "Belum ada aset"}
             description={
               hasFilters
                 ? "Ubah kata kunci atau filter pencarian."
                 : "Tambahkan aset pertama Anda. Pastikan kategori dan lokasi sudah dibuat di Master Data."
+            }
+            action={
+              hasFilters ? (
+                <Button variant="secondary" onClick={resetAll}>
+                  Hapus pencarian dan filter
+                </Button>
+              ) : (
+                can("asset.create") && (
+                  <Button onClick={() => setCreating(true)}>
+                    <Plus className="size-4" aria-hidden /> Tambah aset
+                  </Button>
+                )
+              )
             }
           />
         ) : (
@@ -549,15 +583,15 @@ export function AssetsPage() {
               }
             />
             <DataTable
-              columns={columns}
+              columns={[...columns, actionsColumn]}
               rows={query.data!.data}
-              visibleColumns={visibleColumns}
+              visibleColumns={[...visibleColumns, "actions"]}
               selection={selection}
               sort={sort}
               onSort={(next) => update({ sort: next })}
               onRowClick={(a) => navigate(`/aset/${a.id}`)}
               rowHref={(a) => `/aset/${a.id}`}
-              className="md:min-w-[64rem]"
+              className="md:min-w-[68rem]"
             />
             <Pagination
               meta={query.data!.meta}
@@ -582,6 +616,9 @@ export function AssetsPage() {
       )}
       {printing && (
         <AssetBarcodeModal asset={printing} onClose={() => setPrinting(null)} />
+      )}
+      {recording && (
+        <TransactionFormModal asset={recording} onClose={() => setRecording(null)} />
       )}
       {creating && (
         <AssetFormModal

@@ -33,6 +33,7 @@ import { InvitationsPage } from '../features/users/InvitationsPage'
 import { UsersPage } from '../features/users/UsersPage'
 import { AppLayout } from './AppLayout'
 import { Landing } from './Landing'
+import { RootLayout } from './RootLayout'
 import { NotFound, RequireAuth, RequirePermission, RequireUserType, RouteError } from './guards'
 
 const tenant = (permission: string | null, element: React.ReactNode) => (
@@ -47,6 +48,7 @@ const platform = (permission: string, element: React.ReactNode) => (
 export const router = createBrowserRouter([
   {
     // Last-resort boundary: an error outside the app layout shows a message instead of a blank page.
+    element: <RootLayout />,
     errorElement: <RouteError />,
     children: [
       { path: '/login', element: <LoginPage /> },

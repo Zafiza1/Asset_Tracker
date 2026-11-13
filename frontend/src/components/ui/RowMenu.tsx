@@ -91,7 +91,7 @@ export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] 
               aria-label={label}
               onKeyDown={onMenuKey}
               style={{ top: pos.top, right: pos.right }}
-              className={clsx('fixed z-[60] w-52 rounded-lg border border-slate-200 bg-white p-1 shadow-lg', pos.up && '-translate-y-full')}
+              className={clsx('fixed z-[60] w-52 rounded-lg bg-white p-1 shadow-overlay ring-1 ring-slate-900/10', pos.up && '-translate-y-full')}
             >
               {items.map((item) => (
                 <button

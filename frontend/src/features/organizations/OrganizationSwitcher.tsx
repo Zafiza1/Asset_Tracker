@@ -1,6 +1,7 @@
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { toast } from '../../components/ui/toast'
 import { useAuth } from '../../lib/auth/context'
 
 /** Header control: shows the active organization and switches to another one of the same account. */
@@ -33,6 +34,8 @@ export function OrganizationSwitcher() {
     setPending(true)
     try {
       await switchOrganization(id)
+      const next = profile.organizations.find((o) => o.id === id)
+      toast.info('Organisasi aktif diganti', next ? `Anda sekarang bekerja di ${next.name}.` : undefined)
       navigate('/', { replace: true })
     } finally {
       setPending(false)
@@ -47,7 +50,7 @@ export function OrganizationSwitcher() {
         disabled={pending}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex max-w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-slate-100 disabled:opacity-60"
+        className="flex max-w-full items-center gap-2 rounded-lg px-2 py-1 text-left transition-colors hover:bg-slate-100 disabled:opacity-60"
       >
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold text-slate-900">{active?.name ?? 'Pilih organisasi'}</span>
@@ -56,7 +59,7 @@ export function OrganizationSwitcher() {
         <ChevronsUpDown className="size-4 shrink-0 text-slate-400" aria-hidden />
       </button>
       {open && (
-        <div className="absolute left-0 z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-md bg-white py-1 shadow-lg ring-1 ring-slate-200">
+        <div className="absolute left-0 z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] animate-fade-in rounded-lg bg-white py-1 shadow-overlay ring-1 ring-slate-900/10">
           <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Organisasi Anda</p>
           <ul role="listbox" aria-label="Organisasi Anda" className="max-h-72 overflow-y-auto">
             {profile.organizations.map((o) => (

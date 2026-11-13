@@ -1,13 +1,12 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Building2, Plus, SearchX } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Badge } from '../../components/ui/Badge'
-import { statusTone } from '../../components/ui/badgeTones'
+import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { Alert, EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
 import { ActiveFilters, FilterPanel, SearchForm } from '../../components/ui/Filters'
 import { searchChip } from '../../components/ui/filterChips'
@@ -18,11 +17,12 @@ import type { Organization, Paginated, Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { applyApiErrors } from '../../lib/forms'
 import { formatDate, orgStatusLabel } from '../../lib/format'
+import { toast } from '../../components/ui/toast'
 
 const columns: Column<Organization>[] = [
   { key: 'code', header: 'Kode', cell: (o) => <span className="font-mono text-xs">{o.code}</span> },
   { key: 'name', header: 'Nama', cell: (o) => o.name },
-  { key: 'status', header: 'Status', cell: (o) => <Badge tone={statusTone[o.status]}>{orgStatusLabel[o.status]}</Badge> },
+  { key: 'status', header: 'Status', cell: (o) => <StatusBadge status={o.status}>{orgStatusLabel[o.status]}</StatusBadge> },
   { key: 'created', header: 'Dibuat', cell: (o) => formatDate(o.created_at), hideOnMobile: true },
 ]
 
@@ -58,11 +58,28 @@ export function PlatformOrganizationsPage() {
           <ActiveFilters chips={searchChip(params.get('search'), () => (setSearch(''), setParams({})))} onReset={() => (setSearch(''), setParams({}))} />
         </FilterPanel>
         {query.isLoading ? (
-          <Spinner />
+          <TableSkeleton columns={4} label="Memuat organisasi…" />
         ) : query.isError ? (
-          <ErrorState error={query.error} />
+          <ErrorState error={query.error} onRetry={() => void query.refetch()} />
         ) : query.data!.data.length === 0 ? (
-          <EmptyState title="Belum ada organisasi" />
+          <EmptyState
+            icon={params.get('search') ? SearchX : Building2}
+            title={params.get('search') ? 'Tidak ada organisasi yang cocok' : 'Belum ada organisasi'}
+            description={params.get('search') ? 'Ubah kata kunci pencarian.' : 'Buat organisasi pertama dan undang administratornya.'}
+            action={
+              params.get('search') ? (
+                <Button variant="secondary" onClick={() => (setSearch(''), setParams({}))}>
+                  Hapus pencarian
+                </Button>
+              ) : (
+                can('platform.organization.manage') && (
+                  <Button onClick={() => setCreating(true)}>
+                    <Plus className="size-4" aria-hidden /> Organisasi baru
+                  </Button>
+                )
+              )
+            }
+          />
         ) : (
           <>
             <DataTable columns={columns} rows={query.data!.data} onRowClick={(o) => navigate(`/platform/organisasi/${o.id}`)} />
@@ -99,14 +116,30 @@ function CreateOrganizationModal({ open, onClose }: { open: boolean; onClose: ()
       await queryClient.invalidateQueries({ queryKey: ['platform', 'organizations'] })
       reset()
       onClose()
+      toast.success('Organisasi dibuat', `${res.data.name} · undangan administrator dikirim.`)
       navigate(`/platform/organisasi/${res.data.id}`)
     },
     onError: (e) => setFormError(applyApiErrors(e, setError)),
   })
 
   return (
-    <Modal open={open} size="full" title="Organisasi baru" onClose={onClose}>
-      <form onSubmit={handleSubmit((v) => (setFormError(null), mutation.mutate(v)))} noValidate className="space-y-4">
+    <Modal
+      open={open}
+      size="full"
+      title="Organisasi baru"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Batal
+          </Button>
+          <Button type="submit" form="platform-organization-form" loading={mutation.isPending}>
+            Buat & kirim undangan
+          </Button>
+        </>
+      }
+    >
+      <form id="platform-organization-form" onSubmit={handleSubmit((v) => (setFormError(null), mutation.mutate(v)))} noValidate className="space-y-4">
         {formError && <Alert tone="error">{formError}</Alert>}
         <Field label="Kode" error={formState.errors.code?.message} hint="Huruf kapital/angka, unik, tidak dapat diubah." required>
           {(p) => <Input {...p} {...register('code', { required: 'Kode wajib diisi.' })} />}
@@ -124,14 +157,6 @@ function CreateOrganizationModal({ open, onClose }: { open: boolean; onClose: ()
             {(p) => <Input {...p} type="email" autoComplete="off" {...register('admin.email', { required: 'Email wajib diisi.' })} />}
           </Field>
         </fieldset>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Batal
-          </Button>
-          <Button type="submit" loading={mutation.isPending}>
-            Buat & kirim undangan
-          </Button>
-        </div>
       </form>
     </Modal>
   )

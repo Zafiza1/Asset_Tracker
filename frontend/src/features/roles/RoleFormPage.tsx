@@ -4,15 +4,16 @@ import { useForm } from 'react-hook-form'
 import { useNavigate, useParams } from 'react-router'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Alert, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { Alert, ErrorState, FormSkeleton } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
-import { Modal } from '../../components/ui/Modal'
 import { api } from '../../lib/api/client'
 import type { Permission, Resource, Role } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
-import { applyApiErrors, errorMessage } from '../../lib/forms'
+import { applyApiErrors } from '../../lib/forms'
 import { APPROVAL_TEMPLATES, usePermissionCatalog } from './api'
 import { PermissionPicker } from './PermissionPicker'
+import { toast } from '../../components/ui/toast'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 
 interface FormValues {
   name: string
@@ -26,9 +27,9 @@ export function RoleFormPage() {
   const role = useQuery({ queryKey: ['roles', id], queryFn: () => api.get<Resource<Role>>(`/roles/${id}`), enabled: !isNew })
   const permissions = usePermissionCatalog()
 
-  if (role.isLoading || permissions.isLoading) return <Spinner />
-  if (role.isError) return <ErrorState error={role.error} />
-  if (permissions.isError) return <ErrorState error={permissions.error} />
+  if (role.isLoading || permissions.isLoading) return <FormSkeleton fields={5} label="Memuat role…" />
+  if (role.isError) return <ErrorState error={role.error} onRetry={() => void role.refetch()} />
+  if (permissions.isError) return <ErrorState error={permissions.error} onRetry={() => void permissions.refetch()} />
 
   return <RoleForm role={role.data?.data} catalog={permissions.data!} />
 }
@@ -52,8 +53,9 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
       const body = { name: v.name, description: v.description || null, ...(permissionsEditable ? { permissions: [...selected] } : {}) }
       return role ? api.patch<Resource<Role>>(`/roles/${role.id}`, body) : api.post<Resource<Role>>('/roles', body)
     },
-    onSuccess: async () => {
+    onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: ['roles'] })
+      toast.success(role ? 'Role disimpan' : 'Role ditambahkan', res.data.name)
       navigate('/pengguna/role')
     },
     onError: (e) => setFormError(applyApiErrors(e, setError)),
@@ -62,6 +64,7 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
     mutationFn: () => api.delete(`/roles/${role!.id}`),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['roles'] })
+      toast.success('Role dihapus', role?.name)
       navigate('/pengguna/role')
     },
   })
@@ -81,7 +84,7 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
           role &&
           editable &&
           !role.is_locked && (
-            <Button variant="danger" onClick={() => setConfirmDelete(true)} disabled={(role.users_count ?? 0) > 0} title={(role.users_count ?? 0) > 0 ? 'Role masih digunakan pengguna' : undefined}>
+            <Button variant="danger" onClick={() => (remove.reset(), setConfirmDelete(true))} disabled={(role.users_count ?? 0) > 0} title={(role.users_count ?? 0) > 0 ? 'Role masih digunakan pengguna' : undefined}>
               Hapus role
             </Button>
           )
@@ -115,24 +118,18 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
           </div>
         )}
       </form>
-      <Modal
+      <ConfirmDialog
         open={confirmDelete}
+        tone="danger"
         title="Hapus role?"
+        confirmLabel="Hapus role"
+        loading={remove.isPending}
+        error={remove.error}
+        onConfirm={() => remove.mutate()}
         onClose={() => setConfirmDelete(false)}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setConfirmDelete(false)}>
-              Batal
-            </Button>
-            <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>
-              Hapus
-            </Button>
-          </>
-        }
       >
-        {remove.isError && <Alert tone="error">{errorMessage(remove.error)}</Alert>}
-        <p className="text-sm text-slate-700">Role “{role?.name}” akan dihapus. Tindakan ini tercatat di audit trail.</p>
-      </Modal>
+        <p>Role “{role?.name}” akan dihapus dan tidak dapat dikembalikan. Tindakan ini tercatat di audit trail.</p>
+      </ConfirmDialog>
     </>
   )
 }

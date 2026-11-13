@@ -36,7 +36,7 @@ export function AddMenu({ label, noun, onForm, onImport }: AddMenuProps) {
           <div
             role="menu"
             aria-label={`Cara menambah ${noun}`}
-            className="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
+            className="absolute right-0 z-20 mt-2 w-72 animate-fade-in rounded-lg bg-white p-1.5 shadow-overlay ring-1 ring-slate-900/10"
           >
             <MenuItem icon={<FilePlus2 className="size-4" aria-hidden />} title="Isi formulir" hint={`Tambah satu ${noun}`} onClick={choose(onForm)} />
             <MenuItem

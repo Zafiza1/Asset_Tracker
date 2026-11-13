@@ -1,12 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { Bell, Boxes, CheckCircle2, ChevronDown, ChevronRight, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
+import { Bell, Boxes, ChevronDown, ChevronRight, KeyRound, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { APPROVALS_KEY, useApprovalSummary } from '../features/approvals/api'
-import { onApprovalPending, type ApprovalPendingResponse } from '../lib/api/client'
+import { toast } from '../components/ui/toast'
+import { onApprovalPending } from '../lib/api/client'
 import { OrganizationSwitcher } from '../features/organizations/OrganizationSwitcher'
 import { useAuth } from '../lib/auth/context'
+import { GlobalSearch } from './GlobalSearch'
 import { ModuleBoundary } from './ModuleBoundary'
 import { breadcrumbLabels, breadcrumbTextOnly, platformNavigation, tenantNavigation, type NavSection } from './navigation'
 
@@ -103,6 +105,7 @@ export function AppLayout() {
           <div className="min-w-0 flex-1">
             {isPlatform ? <p className="truncate font-display text-sm font-semibold text-slate-900">Administrasi Platform</p> : <OrganizationSwitcher />}
           </div>
+          <GlobalSearch sections={sections} searchAssets={!isPlatform && can('asset.view')} />
           {!isPlatform && <NotificationBell approver={can('approval.manage')} />}
           <UserMenu name={profile.user.name} email={profile.user.email} onLogout={handleLogout} />
         </header>
@@ -118,7 +121,7 @@ export function AppLayout() {
           </div>
         </main>
       </div>
-      {!isPlatform && <ApprovalToast />}
+      {!isPlatform && <ApprovalNotifier />}
     </div>
   )
 }
@@ -148,49 +151,29 @@ function NotificationBell({ approver }: { approver: boolean }) {
 }
 
 /**
- * Shown when a change was submitted for approval instead of being applied (API 202), wherever
- * it was made; also refreshes the notification badge.
+ * Announces a change that was submitted for approval instead of being applied (API 202),
+ * wherever it was made, and refreshes the notification badge. Renders nothing itself: the
+ * message goes through the app's toasts.
  */
-function ApprovalToast() {
+function ApprovalNotifier() {
   const { can } = useAuth()
   const queryClient = useQueryClient()
-  const [submitted, setSubmitted] = useState<ApprovalPendingResponse | null>(null)
+  const approver = can('approval.manage')
 
   useEffect(
     () =>
       onApprovalPending((response) => {
-        setSubmitted(response)
+        toast.show({
+          tone: 'pending',
+          title: 'Menunggu persetujuan',
+          description: `${response.meta.message} ${response.data.action_label}: ${response.data.summary}`,
+          action: { label: approver ? 'Lihat persetujuan' : 'Lihat pengajuan saya', to: '/notifikasi' },
+        })
         void queryClient.invalidateQueries({ queryKey: APPROVALS_KEY })
       }),
-    [queryClient],
+    [queryClient, approver],
   )
-  useEffect(() => {
-    if (!submitted) return
-    const timer = setTimeout(() => setSubmitted(null), 8000)
-    return () => clearTimeout(timer)
-  }, [submitted])
-
-  if (!submitted) return null
-  return (
-    <div role="status" className="fixed inset-x-4 bottom-4 z-50 animate-fade-in sm:left-auto sm:right-6 sm:w-96">
-      <div className="flex gap-3 rounded-xl bg-white p-4 text-sm shadow-overlay ring-1 ring-slate-900/10">
-        <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-amber-500" aria-hidden />
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-slate-900">Menunggu persetujuan</p>
-          <p className="mt-0.5 text-slate-600">{submitted.meta.message}</p>
-          <p className="mt-1 truncate text-xs text-slate-500">
-            {submitted.data.action_label}: {submitted.data.summary}
-          </p>
-          <Link to="/notifikasi" onClick={() => setSubmitted(null)} className="mt-2 inline-block font-semibold text-brand-700 hover:text-brand-800">
-            {can('approval.manage') ? 'Lihat persetujuan' : 'Lihat pengajuan saya'}
-          </Link>
-        </div>
-        <button type="button" onClick={() => setSubmitted(null)} className="-mr-1 -mt-1 grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Tutup">
-          <X className="size-4" aria-hidden />
-        </button>
-      </div>
-    </div>
-  )
+  return null
 }
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar.collapsed'
@@ -328,12 +311,16 @@ function UserMenu({ name, email, onLogout }: { name: string; email: string; onLo
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden />
-          <div className="absolute right-0 z-20 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg">
+          <div className="absolute right-0 z-20 mt-2 w-64 animate-fade-in rounded-lg bg-white p-1.5 shadow-overlay ring-1 ring-slate-900/10">
             <div className="border-b border-slate-100 px-2.5 py-2">
               <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
               <p className="truncate text-xs text-slate-500">{email}</p>
             </div>
-            <button type="button" onClick={onLogout} className="mt-1 flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900">
+            <Link to="/ubah-password" onClick={() => setOpen(false)} className="mt-1 flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900">
+              <KeyRound className="size-4" aria-hidden />
+              Ubah password
+            </Link>
+            <button type="button" onClick={onLogout} className="flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900">
               <LogOut className="size-4" aria-hidden />
               Keluar
             </button>

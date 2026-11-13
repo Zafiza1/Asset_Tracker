@@ -81,7 +81,7 @@ export function AssetBarcodeModal({ asset, onClose }: { asset: Asset; onClose: (
       {svgs.isLoading ? (
         <Spinner />
       ) : svgs.isError ? (
-        <ErrorState error={svgs.error} />
+        <ErrorState error={svgs.error} onRetry={() => void svgs.refetch()} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {(['linear', 'qr'] as const).map((k) => (

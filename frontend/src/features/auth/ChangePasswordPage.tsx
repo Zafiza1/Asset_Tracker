@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert } from '../../components/ui/Feedback'
 import { Field, Input } from '../../components/ui/Field'
+import { toast } from '../../components/ui/toast'
 import { api } from '../../lib/api/client'
 import type { Profile, Resource } from '../../lib/api/types'
 import { landingPath, useAuth } from '../../lib/auth/context'
@@ -34,6 +35,7 @@ export function ChangePasswordPage() {
     try {
       const updated = (await api.put<Resource<Profile>>('/auth/password', values)).data
       setProfile(updated)
+      toast.success('Password diubah', 'Gunakan password baru saat login berikutnya.')
       // A forced change is still part of signing in, so it continues to the organization picker.
       navigate(forced ? landingPath(updated) : updated.user.user_type === 'platform' ? '/platform/organisasi' : '/', { replace: true })
     } catch (e) {
@@ -63,8 +65,8 @@ export function ChangePasswordPage() {
   )
 
   return (
-    <div>
-      <PageHeader title="Ubah Password" />
+    <div className="max-w-xl">
+      <PageHeader title="Ubah Password" description="Password baru berlaku untuk login berikutnya di semua perangkat." />
       <Card>{form}</Card>
     </div>
   )

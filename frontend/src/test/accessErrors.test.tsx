@@ -129,6 +129,34 @@ describe('UserDetailPage: rejected access changes', () => {
   })
 })
 
+describe('UserDetailPage: removing a data scope', () => {
+  beforeEach(() => (vi.clearAllMocks(), mockReads()))
+
+  it('asks before taking the scope away and only then saves', async () => {
+    vi.mocked(api.put).mockResolvedValue({ data: { ...user, data_scopes: [] } })
+    renderAt('/pengguna/u-1')
+    await screen.findByText('Cakupan data')
+    click('Hapus cakupan Lokasi')
+
+    expect(screen.getByText('Hapus cakupan data?')).toBeInTheDocument()
+    expect(api.put).not.toHaveBeenCalled()
+
+    click('Hapus cakupan')
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith('/users/u-1/scopes', { scopes: [] }))
+  })
+
+  it('keeps the confirmation open with the error when the removal is refused', async () => {
+    vi.mocked(api.put).mockRejectedValue(SCOPE_ESCALATION)
+    renderAt('/pengguna/u-1')
+    await screen.findByText('Cakupan data')
+    click('Hapus cakupan Lokasi')
+    click('Hapus cakupan')
+
+    expect(await screen.findByText(SCOPE_ESCALATION.message)).toBeInTheDocument()
+    expect(screen.getByText('Hapus cakupan data?')).toBeInTheDocument()
+  })
+})
+
 describe('RoleFormPage: rejected permission change', () => {
   beforeEach(() => (vi.clearAllMocks(), mockReads()))
 

@@ -1,21 +1,20 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { MailPlus, Plus } from 'lucide-react'
+import { MailPlus, Plus, SearchX } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router'
-import { Badge } from '../../components/ui/Badge'
-import { statusTone } from '../../components/ui/badgeTones'
-import { Button } from '../../components/ui/Button'
+import { useLocation, useSearchParams } from 'react-router'
+import { StatusBadge } from '../../components/ui/Badge'
+import { Button, ButtonLink } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Alert, EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
 import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
-import { Modal } from '../../components/ui/Modal'
+import { toast } from '../../components/ui/toast'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { OrganizationInvitation, Paginated, Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
-import { errorMessage } from '../../lib/forms'
 import { formatDateTime, invitationStatusLabel } from '../../lib/format'
 import { UserAdminTabs } from './UserAdminTabs'
 import type { InvitationSentState } from './UserCreatePage'
@@ -49,7 +48,9 @@ export function InvitationsPage() {
     mutationFn: ({ kind, invitation }: Action) => api.post<Resource<OrganizationInvitation>>(`/invitations/${invitation.id}/${kind}`),
     onSuccess: async (res, { kind }) => {
       await queryClient.invalidateQueries({ queryKey: ['invitations'] })
-      setNotice(kind === 'resend' ? `Undangan baru dikirim ke ${res.data.email}. Tautan sebelumnya tidak berlaku lagi.` : `Undangan untuk ${res.data.email} dicabut.`)
+      setNotice(null)
+      if (kind === 'resend') toast.success('Undangan dikirim ulang', `Email baru dikirim ke ${res.data.email}. Tautan sebelumnya tidak berlaku lagi.`)
+      else toast.success('Undangan dicabut', res.data.email)
       setAction(null)
     },
   })
@@ -63,6 +64,7 @@ export function InvitationsPage() {
     }
     setParams(merged, { replace: true })
   }
+  const resetAll = () => (setSearch(''), setParams(new URLSearchParams(), { replace: true }))
   const chips: FilterChip[] = [
     ...searchChip(params.get('search'), () => (setSearch(''), update({ search: '', page: '' }))),
     ...(status ? [{ key: 'status', label: `Status: ${invitationStatusLabel[status] ?? status}`, clear: () => update({ status: '', page: '' }) }] : []),
@@ -80,7 +82,7 @@ export function InvitationsPage() {
       ),
     },
     { key: 'roles', header: 'Role', cell: (i) => i.roles?.map((r) => r.name).join(', ') || '—', hideOnMobile: true },
-    { key: 'status', header: 'Status', cell: (i) => <Badge tone={statusTone[i.status]}>{invitationStatusLabel[i.status]}</Badge> },
+    { key: 'status', header: 'Status', cell: (i) => <StatusBadge status={i.status}>{invitationStatusLabel[i.status]}</StatusBadge> },
     { key: 'invited_by', header: 'Diundang oleh', cell: (i) => i.invited_by?.name ?? '—', hideOnMobile: true },
     {
       key: 'expires',
@@ -99,7 +101,7 @@ export function InvitationsPage() {
                   <Button variant="secondary" size="sm" onClick={() => confirm({ kind: 'resend', invitation: i })}>
                     Kirim ulang
                   </Button>
-                  <Button variant="secondary" size="sm" onClick={() => confirm({ kind: 'revoke', invitation: i })}>
+                  <Button variant="ghost" size="sm" className="text-red-700 hover:bg-red-50 hover:text-red-800" onClick={() => confirm({ kind: 'revoke', invitation: i })}>
                     Cabut
                   </Button>
                 </div>
@@ -115,11 +117,9 @@ export function InvitationsPage() {
         title="Pengguna"
         actions={
           canManage && (
-            <Link to="/pengguna/baru">
-              <Button>
+            <ButtonLink to="/pengguna/baru">
                 <Plus className="size-4" aria-hidden /> Undang pengguna
-              </Button>
-            </Link>
+              </ButtonLink>
           )
         }
       />
@@ -142,17 +142,30 @@ export function InvitationsPage() {
               ))}
             </Select>
           </AdvancedFilters>
-          <ActiveFilters chips={chips} onReset={() => (setSearch(''), setParams(new URLSearchParams(), { replace: true }))} />
+          <ActiveFilters chips={chips} onReset={resetAll} />
         </FilterPanel>
         {query.isLoading ? (
-          <Spinner />
+          <TableSkeleton columns={5} label="Memuat undangan…" />
         ) : query.isError ? (
-          <ErrorState error={query.error} />
+          <ErrorState error={query.error} onRetry={() => void query.refetch()} />
         ) : query.data!.data.length === 0 ? (
           <EmptyState
-            icon={MailPlus}
+            icon={chips.length > 0 ? SearchX : MailPlus}
             title={chips.length > 0 ? 'Tidak ada undangan yang cocok' : 'Belum ada undangan'}
             description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : 'Undang pengguna untuk memberi mereka akses ke organisasi ini.'}
+            action={
+              chips.length > 0 ? (
+                <Button variant="secondary" onClick={resetAll}>
+                  Hapus pencarian dan filter
+                </Button>
+              ) : (
+                canManage && (
+                  <ButtonLink to="/pengguna/baru">
+                      <Plus className="size-4" aria-hidden /> Undang pengguna
+                    </ButtonLink>
+                )
+              )
+            }
           />
         ) : (
           <>
@@ -161,28 +174,22 @@ export function InvitationsPage() {
           </>
         )}
       </Card>
-      <Modal
+      <ConfirmDialog
         open={action !== null}
+        tone={action?.kind === 'revoke' ? 'danger' : 'primary'}
         title={action?.kind === 'revoke' ? 'Cabut undangan' : 'Kirim ulang undangan'}
+        confirmLabel={action?.kind === 'revoke' ? 'Cabut undangan' : 'Kirim ulang'}
+        loading={mutation.isPending}
+        error={mutation.error}
+        onConfirm={() => action && mutation.mutate(action)}
         onClose={() => setAction(null)}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setAction(null)}>
-              Batal
-            </Button>
-            <Button variant={action?.kind === 'revoke' ? 'danger' : 'primary'} loading={mutation.isPending} onClick={() => action && mutation.mutate(action)}>
-              {action?.kind === 'revoke' ? 'Cabut undangan' : 'Kirim ulang'}
-            </Button>
-          </>
-        }
       >
-        {mutation.isError && <Alert tone="error">{errorMessage(mutation.error)}</Alert>}
-        <p className="text-sm text-slate-700">
+        <p>
           {action?.kind === 'revoke'
             ? `Tautan undangan untuk ${action.invitation.email} tidak dapat dipakai lagi. Anda dapat mengundang email ini kembali kapan saja.`
             : `Email undangan baru dikirim ke ${action?.invitation.email} dan masa berlakunya dimulai ulang. Tautan yang dikirim sebelumnya tidak berlaku lagi.`}
         </p>
-      </Modal>
+      </ConfirmDialog>
     </>
   )
 }

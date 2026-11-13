@@ -1,18 +1,19 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Layers, Pencil, Plus, SearchX, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { Badge } from '../../components/ui/Badge'
-import { statusTone } from '../../components/ui/badgeTones'
-import { Button } from '../../components/ui/Button'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { StatusBadge } from '../../components/ui/Badge'
+import { Button, ButtonLink } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Alert, DetailSkeleton, EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { ActiveFilters, FilterPanel, SearchForm } from '../../components/ui/Filters'
 import { searchChip } from '../../components/ui/filterChips'
 import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
+import { toast } from '../../components/ui/toast'
 import { api, ApiError, qs } from '../../lib/api/client'
 import type { AttributeDefinition, GenericCategory, GenericDefinition, GenericVersion, Paginated, ReferenceItem, Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
@@ -118,7 +119,7 @@ const definitionColumns: Column<GenericDefinition>[] = [
   },
   { key: 'category', header: 'Kategori', cell: (d) => d.category?.name ?? '—', hideOnMobile: true },
   { key: 'version', header: 'Versi rilis', cell: (d) => (d.current_version ? `v${d.current_version.version_number}` : 'Belum dirilis') },
-  { key: 'status', header: 'Status', cell: (d) => <Badge tone={statusTone[d.status]}>{masterStatusLabel[d.status]}</Badge> },
+  { key: 'status', header: 'Status', cell: (d) => <StatusBadge status={d.status}>{masterStatusLabel[d.status]}</StatusBadge> },
 ]
 
 export function PlatformDefinitionsPage() {
@@ -153,11 +154,28 @@ export function PlatformDefinitionsPage() {
           <ActiveFilters chips={searchChip(params.get('search'), () => (setSearch(''), setParams({})))} onReset={() => (setSearch(''), setParams({}))} />
         </FilterPanel>
         {query.isLoading ? (
-          <Spinner />
+          <TableSkeleton columns={4} label="Memuat definisi…" />
         ) : query.isError ? (
-          <ErrorState error={query.error} />
+          <ErrorState error={query.error} onRetry={() => void query.refetch()} />
         ) : query.data!.data.length === 0 ? (
-          <EmptyState title="Belum ada definisi" />
+          <EmptyState
+            icon={params.get('search') ? SearchX : Layers}
+            title={params.get('search') ? 'Tidak ada definisi yang cocok' : 'Belum ada definisi'}
+            description={params.get('search') ? 'Ubah kata kunci pencarian.' : 'Definisi generik menjadi standar atribut yang dapat diadopsi setiap organisasi.'}
+            action={
+              params.get('search') ? (
+                <Button variant="secondary" onClick={() => (setSearch(''), setParams({}))}>
+                  Hapus pencarian
+                </Button>
+              ) : (
+                can('master.generic.manage') && (
+                  <Button onClick={() => setCreating(true)}>
+                    <Plus className="size-4" aria-hidden /> Definisi baru
+                  </Button>
+                )
+              )
+            }
+          />
         ) : (
           <>
             <DataTable columns={definitionColumns} rows={query.data!.data} onRowClick={(d) => navigate(`/platform/master/definisi/${d.id}`)} />
@@ -206,6 +224,7 @@ function DefinitionFormModal({ definition, onClose }: { definition?: GenericDefi
         : api.post<Resource<GenericDefinition>>(`${BASE}/definitions`, { code: v.code, name: v.name, category_id: v.category_id, description: v.description || null }),
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: [`${BASE}/definitions`] })
+      toast.success(definition ? 'Definisi disimpan' : 'Definisi dibuat', res.data.name)
       if (definition) onClose()
       else navigate(`/platform/master/definisi/${res.data.id}`)
     },
@@ -274,17 +293,20 @@ export function PlatformDefinitionDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
+  const [archiving, setArchiving] = useState(false)
   const query = useQuery({ queryKey: [`${BASE}/definitions`, id], queryFn: () => api.get<Resource<GenericDefinition>>(`${BASE}/definitions/${id}`) })
   const action = useMutation({
     mutationFn: (a: 'versions' | 'archive' | 'restore') => api.post<Resource<GenericVersion>>(`${BASE}/definitions/${id}/${a}`),
     onSuccess: async (res, a) => {
       await queryClient.invalidateQueries({ queryKey: [`${BASE}/definitions`] })
+      setArchiving(false)
+      toast.success(a === 'versions' ? 'Draft versi baru dibuat' : a === 'archive' ? 'Definisi diarsipkan' : 'Definisi dipulihkan', query.data?.data.name)
       if (a === 'versions') navigate(`/platform/master/versi/${res.data.id}`)
     },
   })
 
-  if (query.isLoading) return <Spinner />
-  if (query.isError) return <ErrorState error={query.error} />
+  if (query.isLoading) return <DetailSkeleton />
+  if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />
   const d = query.data!.data
   const manage = can('master.generic.manage')
   const hasDraft = d.versions?.some((v) => v.status === 'draft')
@@ -307,14 +329,20 @@ export function PlatformDefinitionDetailPage() {
                   Buat draft versi baru
                 </Button>
               )}
-              <Button variant="secondary" onClick={() => action.mutate(d.status === 'archived' ? 'restore' : 'archive')}>
-                {d.status === 'archived' ? 'Pulihkan' : 'Arsipkan'}
-              </Button>
+              {d.status === 'archived' ? (
+                <Button variant="secondary" loading={action.isPending && action.variables === 'restore'} onClick={() => action.mutate('restore')}>
+                  Pulihkan
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={() => (action.reset(), setArchiving(true))}>
+                  Arsipkan
+                </Button>
+              )}
             </>
           )
         }
       />
-      {action.isError && (
+      {action.isError && !archiving && (
         <div className="mb-4">
           <Alert tone="error">{errorMessage(action.error)}</Alert>
         </div>
@@ -323,7 +351,7 @@ export function PlatformDefinitionDetailPage() {
         <DataTable
           columns={[
             { key: 'v', header: 'Versi', cell: (v: GenericVersion) => <span className="font-medium">v{v.version_number}</span> },
-            { key: 'status', header: 'Status', cell: (v: GenericVersion) => <Badge tone={statusTone[v.status]}>{versionStatusLabel[v.status]}</Badge> },
+            { key: 'status', header: 'Status', cell: (v: GenericVersion) => <StatusBadge status={v.status}>{versionStatusLabel[v.status]}</StatusBadge> },
             { key: 'attributes', header: 'Atribut', cell: (v: GenericVersion) => v.attributes_count ?? '—' },
             { key: 'released', header: 'Dirilis', cell: (v: GenericVersion) => formatDateTime(v.released_at), hideOnMobile: true },
             { key: 'changelog', header: 'Catatan', cell: (v: GenericVersion) => v.changelog ?? '—', hideOnMobile: true },
@@ -333,6 +361,18 @@ export function PlatformDefinitionDetailPage() {
         />
       </Card>
       {editing && <DefinitionFormModal definition={d} onClose={() => setEditing(false)} />}
+      <ConfirmDialog
+        open={archiving}
+        tone="danger"
+        title={`Arsipkan ${d.name}?`}
+        confirmLabel="Arsipkan"
+        loading={action.isPending}
+        error={action.error}
+        onConfirm={() => action.mutate('archive')}
+        onClose={() => setArchiving(false)}
+      >
+        <p>Definisi tidak dapat diadopsi organisasi baru dan tidak dapat dibuatkan versi baru. Organisasi yang sudah memakainya tidak terpengaruh, dan definisi dapat dipulihkan kapan saja.</p>
+      </ConfirmDialog>
     </>
   )
 }
@@ -344,20 +384,29 @@ export function PlatformVersionPage() {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<AttributeDefinition | 'new' | null>(null)
   const [confirm, setConfirm] = useState<'release' | 'deprecate' | 'discard' | null>(null)
+  const [removing, setRemoving] = useState<AttributeDefinition | null>(null)
   const query = useQuery({ queryKey: [`${BASE}/versions`, id], queryFn: () => api.get<Resource<GenericVersion>>(`${BASE}/versions/${id}`) })
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: [`${BASE}/versions`, id] }), queryClient.invalidateQueries({ queryKey: [`${BASE}/definitions`] })])
   const lifecycle = useMutation({
     mutationFn: (a: 'release' | 'deprecate' | 'discard') => (a === 'discard' ? api.delete(`${BASE}/versions/${id}`) : api.post(`${BASE}/versions/${id}/${a}`)),
     onSuccess: async (_, a) => {
       setConfirm(null)
+      toast.success(a === 'release' ? 'Versi dirilis' : a === 'deprecate' ? 'Versi di-deprecate' : 'Draft dibuang')
       if (a === 'discard') navigate(`/platform/master/definisi/${query.data!.data.definition_id}`)
       else await refresh()
     },
   })
-  const removeAttribute = useMutation({ mutationFn: (a: AttributeDefinition) => api.delete(`${BASE}/attributes/${a.id}`), onSuccess: refresh })
+  const removeAttribute = useMutation({
+    mutationFn: (a: AttributeDefinition) => api.delete(`${BASE}/attributes/${a.id}`),
+    onSuccess: async (_, a) => {
+      await refresh()
+      setRemoving(null)
+      toast.success('Atribut dihapus', a.label)
+    },
+  })
 
-  if (query.isLoading) return <Spinner />
-  if (query.isError) return <ErrorState error={query.error} />
+  if (query.isLoading) return <DetailSkeleton />
+  if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />
   const v = query.data!.data
   const draft = v.status === 'draft'
   const manage = can('master.generic.manage') && draft
@@ -368,12 +417,10 @@ export function PlatformVersionPage() {
       <PageHeader
         title={`${v.definition?.name ?? 'Definisi'} — versi ${v.version_number}`}
         description={draft ? 'Draft: atribut dapat diubah sampai versi dirilis.' : `Dirilis ${formatDateTime(v.released_at)} · immutable.`}
+        badges={<StatusBadge status={v.status}>{versionStatusLabel[v.status]}</StatusBadge>}
         actions={
           <>
-            <Badge tone={statusTone[v.status]}>{versionStatusLabel[v.status]}</Badge>
-            <Link to={`/platform/master/definisi/${v.definition_id}`}>
-              <Button variant="secondary">Kembali</Button>
-            </Link>
+            <ButtonLink to={`/platform/master/definisi/${v.definition_id}`} variant="secondary">Kembali</ButtonLink>
             {manage && (
               <Button variant="secondary" onClick={() => (lifecycle.reset(), setConfirm('discard'))}>
                 Buang draft
@@ -400,11 +447,6 @@ export function PlatformVersionPage() {
             )
           }
         >
-          {removeAttribute.isError && (
-            <div className="p-3">
-              <Alert tone="error">{errorMessage(removeAttribute.error)}</Alert>
-            </div>
-          )}
           <AttributeTable
             attributes={v.attributes ?? []}
             actions={
@@ -414,7 +456,7 @@ export function PlatformVersionPage() {
                       <Button size="sm" variant="ghost" onClick={() => setEditing(a)} aria-label={`Ubah ${a.label}`} title="Ubah">
                         <Pencil className="size-4" aria-hidden />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => removeAttribute.mutate(a)} aria-label={`Hapus ${a.label}`} title="Hapus">
+                      <Button size="sm" variant="ghost" onClick={() => (removeAttribute.reset(), setRemoving(a))} aria-label={`Hapus ${a.label}`} title="Hapus">
                         <Trash2 className="size-4" aria-hidden />
                       </Button>
                     </div>
@@ -434,33 +476,40 @@ export function PlatformVersionPage() {
             if (editing === 'new') await api.post(`${BASE}/versions/${v.id}/attributes`, payload)
             else await api.patch(`${BASE}/attributes/${editing.id}`, payload)
             await refresh()
+            toast.success(editing === 'new' ? 'Atribut ditambahkan' : 'Atribut disimpan')
           }}
         />
       )}
-      <Modal
+      <ConfirmDialog
+        open={removing !== null}
+        tone="danger"
+        title={`Hapus atribut ${removing?.label ?? ''}?`}
+        confirmLabel="Hapus atribut"
+        loading={removeAttribute.isPending}
+        error={removeAttribute.error}
+        onConfirm={() => removing && removeAttribute.mutate(removing)}
+        onClose={() => setRemoving(null)}
+      >
+        <p>Atribut dihapus dari draft versi ini. Versi yang sudah dirilis tidak terpengaruh.</p>
+      </ConfirmDialog>
+      <ConfirmDialog
         open={confirm !== null}
+        tone={confirm === 'discard' ? 'danger' : 'primary'}
         title={confirm === 'release' ? `Rilis versi ${v.version_number}?` : confirm === 'deprecate' ? 'Deprecate versi ini?' : 'Buang draft?'}
+        confirmLabel={confirm === 'release' ? 'Rilis versi' : confirm === 'deprecate' ? 'Deprecate' : 'Buang draft'}
+        loading={lifecycle.isPending}
+        onConfirm={() => confirm && lifecycle.mutate(confirm)}
         onClose={() => setConfirm(null)}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setConfirm(null)}>
-              Batal
-            </Button>
-            <Button variant={confirm === 'discard' ? 'danger' : 'primary'} loading={lifecycle.isPending} onClick={() => confirm && lifecycle.mutate(confirm)}>
-              Lanjutkan
-            </Button>
-          </>
-        }
       >
         {lifecycle.isError && <Alert tone="error" title={errorMessage(lifecycle.error)}>{fieldErrors.length > 0 && <p>{fieldErrors.join(' ')}</p>}</Alert>}
-        <p className="text-sm text-slate-700">
+        <p>
           {confirm === 'release'
             ? 'Versi dan atributnya menjadi immutable. Organisasi tidak terpengaruh sampai mereka meng-upgrade definisinya secara eksplisit.'
             : confirm === 'deprecate'
               ? 'Organisasi tidak dapat mengadopsi atau upgrade ke versi ini lagi. Aset dan versi perusahaan yang sudah memakainya tetap valid.'
               : 'Draft beserta atributnya dihapus. Versi yang dirilis tidak terpengaruh.'}
         </p>
-      </Modal>
+      </ConfirmDialog>
     </>
   )
 }
@@ -470,7 +519,10 @@ function VersionNotesCard({ version, editable, onSaved }: { version: GenericVers
   const [migrationNotes, setMigrationNotes] = useState(version.migration_notes ?? '')
   const save = useMutation({
     mutationFn: () => api.patch(`${BASE}/versions/${version.id}`, { changelog: changelog || null, migration_notes: migrationNotes || null }),
-    onSuccess: onSaved,
+    onSuccess: async () => {
+      await onSaved()
+      toast.success('Catatan rilis disimpan')
+    },
   })
   return (
     <Card title="Catatan rilis">

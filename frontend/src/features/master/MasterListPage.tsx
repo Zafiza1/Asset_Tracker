@@ -1,14 +1,14 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, FileSpreadsheet, Pencil, Plus, Power, PowerOff, RotateCcw, Trash2 } from 'lucide-react'
+import { Archive, FileSpreadsheet, Pencil, Plus, Power, PowerOff, RotateCcw, SearchX, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
-import { Badge } from '../../components/ui/Badge'
-import { statusTone } from '../../components/ui/badgeTones'
+import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { ColumnToggle } from '../../components/ui/ColumnToggle'
-import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Alert, EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
@@ -16,6 +16,7 @@ import { IconButton } from '../../components/ui/IconButton'
 import { ImportModal } from '../../components/ui/ImportModal'
 import { Modal } from '../../components/ui/Modal'
 import { DataTable, Pagination, type Column, type RowSelection } from '../../components/ui/Table'
+import { toast } from '../../components/ui/toast'
 import { api, qs } from '../../lib/api/client'
 import type { MasterRecord, Paginated } from '../../lib/api/types'
 import { applyApiErrors, errorMessage } from '../../lib/forms'
@@ -184,7 +185,10 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const statusChange = useMutation({
     mutationFn: ({ row, action }: { row: T; action: 'activate' | 'restore' }) =>
       action === 'restore' ? api.post(`${config.endpoint}/${row.id}/restore`) : api.patch(`${config.endpoint}/${row.id}`, { status: 'active' }),
-    onSuccess: refresh,
+    onSuccess: async (response, { row, action }) => {
+      await refresh()
+      toast.saved(response, action === 'restore' ? 'Data dipulihkan dari arsip' : 'Data diaktifkan', row.name)
+    },
   })
   const busyRow = statusChange.isPending ? statusChange.variables?.row.id : undefined
 
@@ -251,7 +255,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
     key: 'status',
     header: 'Status',
     className: 'w-28',
-    cell: (r) => <Badge tone={statusTone[r.status]}>{masterStatusLabel[r.status]}</Badge>,
+    cell: (r) => <StatusBadge status={r.status}>{masterStatusLabel[r.status]}</StatusBadge>,
   }
   const ownColumns = typeof config.columns === 'function' ? config.columns({ filtered }) : config.columns
   const hasActions = config.canUpdate || config.canArchive || !!config.canDelete
@@ -287,6 +291,8 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const skippedArchived = selected.size - editIds.length
   const pageIds = new Set(query.data?.data.map((r) => r.id) ?? [])
   const offPage = [...selected.keys()].filter((id) => !pageIds.has(id)).length
+
+  const resetAll = () => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))
 
   const body = (
     <Card>
@@ -328,7 +334,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
             ))}
           </Select>
         </AdvancedFilters>
-        <ActiveFilters chips={chips} onReset={() => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))} />
+        <ActiveFilters chips={chips} onReset={resetAll} />
       </FilterPanel>
       {statusChange.isError && (
         <div className="p-3">
@@ -354,11 +360,28 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
         </div>
       )}
       {query.isLoading ? (
-        <Spinner />
+        <TableSkeleton columns={Math.min(ownColumns.length + 1, 6)} />
       ) : query.isError ? (
-        <ErrorState error={query.error} />
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
       ) : query.data!.data.length === 0 ? (
-        <EmptyState title={chips.length > 0 ? 'Tidak ada data yang cocok' : 'Belum ada data'} description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : config.emptyHint} />
+        <EmptyState
+          icon={chips.length > 0 ? SearchX : undefined}
+          title={chips.length > 0 ? 'Tidak ada data yang cocok' : 'Belum ada data'}
+          description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : config.emptyHint}
+          action={
+            chips.length > 0 ? (
+              <Button variant="secondary" onClick={resetAll}>
+                Hapus pencarian dan filter
+              </Button>
+            ) : (
+              config.canCreate && (
+                <Button onClick={() => setEditing('new')}>
+                  <Plus className="size-4" aria-hidden /> Tambah {config.title.toLowerCase()}
+                </Button>
+              )
+            )
+          }
+        />
       ) : (
         <>
           <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} selection={selection} className="min-w-[36rem]" />
@@ -460,8 +483,9 @@ function MasterFormModal<T extends MasterRecord>({ config, record, onClose, onSa
       }
       return record ? api.patch(`${config.endpoint}/${record.id}`, payload) : api.post(config.endpoint, payload)
     },
-    onSuccess: async () => {
+    onSuccess: async (response, values) => {
       await onSaved()
+      toast.saved(response, record ? 'Perubahan disimpan' : `${config.title} ditambahkan`, values.name?.trim() || record?.name)
       onClose()
     },
     onError: (e) => setFormError(applyApiErrors(e, setError)),
@@ -518,37 +542,31 @@ function MasterFormModal<T extends MasterRecord>({ config, record, onClose, onSa
 function DeactivateModal({ endpoint, record, effects, onClose, onDone }: { endpoint: string; record: MasterRecord; effects?: string[]; onClose: () => void; onDone: () => Promise<void> }) {
   const deactivate = useMutation({
     mutationFn: () => api.patch(`${endpoint}/${record.id}`, { status: 'inactive' }),
-    onSuccess: async () => {
+    onSuccess: async (response) => {
       await onDone()
+      toast.saved(response, 'Data dinonaktifkan', record.name)
       onClose()
     },
   })
 
   return (
-    <Modal
+    <ConfirmDialog
       open
       title={`Nonaktifkan ${record.name}?`}
+      confirmLabel="Nonaktifkan"
+      loading={deactivate.isPending}
+      error={deactivate.error}
+      onConfirm={() => deactivate.mutate()}
       onClose={onClose}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Batal
-          </Button>
-          <Button loading={deactivate.isPending} onClick={() => deactivate.mutate()}>
-            Nonaktifkan
-          </Button>
-        </>
-      }
     >
-      {deactivate.isError && <Alert tone="error">{errorMessage(deactivate.error)}</Alert>}
-      <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+      <ul className="list-disc space-y-1 pl-5">
         <li>Data nonaktif tidak dapat dipilih untuk data baru.</li>
         {(effects ?? ['Data yang sudah memakainya tidak berubah.']).map((e) => (
           <li key={e}>{e}</li>
         ))}
         <li>Dapat diaktifkan kembali kapan saja.</li>
       </ul>
-    </Modal>
+    </ConfirmDialog>
   )
 }
 
@@ -556,8 +574,9 @@ function ArchiveModal({ endpoint, record, blocked, onClose, onDone }: { endpoint
   const [reason, setReason] = useState('')
   const archive = useMutation({
     mutationFn: () => api.post(`${endpoint}/${record.id}/archive`, { reason: reason || null }),
-    onSuccess: async () => {
+    onSuccess: async (response) => {
       await onDone()
+      toast.saved(response, 'Data diarsipkan', record.name)
       onClose()
     },
   })
@@ -593,30 +612,25 @@ function ArchiveModal({ endpoint, record, blocked, onClose, onDone }: { endpoint
 function DeleteModal({ endpoint, record, onClose, onDone }: { endpoint: string; record: MasterRecord; onClose: () => void; onDone: () => Promise<void> }) {
   const deleteMutation = useMutation({
     mutationFn: () => api.delete(`${endpoint}/${record.id}`),
-    onSuccess: async () => {
+    onSuccess: async (response) => {
       await onDone()
+      toast.saved(response, 'Data dihapus permanen', record.name)
       onClose()
     },
   })
 
   return (
-    <Modal
+    <ConfirmDialog
       open
+      tone="danger"
       title={`Hapus permanen ${record.name}?`}
+      confirmLabel="Hapus permanen"
+      loading={deleteMutation.isPending}
+      error={deleteMutation.error}
+      onConfirm={() => deleteMutation.mutate()}
       onClose={onClose}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Batal
-          </Button>
-          <Button variant="danger" loading={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
-            Hapus permanen
-          </Button>
-        </>
-      }
     >
-      {deleteMutation.isError && <Alert tone="error">{errorMessage(deleteMutation.error)}</Alert>}
-      <p className="text-sm text-slate-700">Tindakan ini tidak dapat dibatalkan. Data akan dihapus permanen dari sistem.</p>
-    </Modal>
+      <p>Tindakan ini tidak dapat dibatalkan. Data akan dihapus permanen dari sistem.</p>
+    </ConfirmDialog>
   )
 }

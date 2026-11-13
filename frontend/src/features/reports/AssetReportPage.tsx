@@ -1,13 +1,13 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { FileSpreadsheet, FileText, Info } from 'lucide-react'
+import { FileBarChart, FileSpreadsheet, FileText, Info, SearchX } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { ActiveFilters, AdvancedFilters, DateRangeFilter, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { Badge } from '../../components/ui/Badge'
-import { Button } from '../../components/ui/Button'
+import { Button, ButtonLink } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
-import { Alert, EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { Alert, EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { Input, Select } from '../../components/ui/Field'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, downloadFile, qs } from '../../lib/api/client'
@@ -17,9 +17,10 @@ import { formatDate } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
 import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { toOptions, useOptions } from '../master/options'
-import { assetStatusLabel, assetStatusTone, formatMoney, type Asset, type AssetStatus } from '../assets/api'
+import { assetStatusLabel, formatMoney, type Asset, type AssetStatus } from '../assets/api'
 import { CategoryFilter } from '../assets/CategoryFilter'
 import { ReportCharts, type BarRow } from './ReportCharts'
+import { AssetStatusBadge } from '../assets/AssetStatusBadge'
 
 interface Breakdown {
   id: string | null
@@ -155,6 +156,7 @@ export function AssetReportPage() {
     ...(costMin || costMax ? [{ key: 'cost', label: `Nilai: ${costMin ? formatMoney(costMin) : '…'} – ${costMax ? formatMoney(costMax) : '…'}`, clear: () => update({ cost_min: '', cost_max: '' }) }] : []),
   ]
   const hasFilters = FILTERS.some((k) => !VIEW_KEYS.has(k) && params.get(k))
+  const resetAll = () => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))
   const sort = params.get('sort') ?? ''
   const sortOptions = SORT_OPTIONS.includes(sort) ? SORT_OPTIONS : [...SORT_OPTIONS, sort]
 
@@ -201,7 +203,7 @@ export function AssetReportPage() {
       sortKey: 'status',
       cell: (a) => (
         <div className="flex flex-wrap gap-1">
-          <Badge tone={assetStatusTone[a.status]}>{assetStatusLabel[a.status]}</Badge>
+          <AssetStatusBadge status={a.status} />
           {a.is_archived && <Badge tone="slate">Nonaktif</Badge>}
         </div>
       ),
@@ -340,7 +342,7 @@ export function AssetReportPage() {
             <CostField label="Nilai min" value={draft.cost_min} onChange={(cost_min) => advanced.set({ cost_min })} />
             <CostField label="Nilai maks" value={draft.cost_max} onChange={(cost_max) => advanced.set({ cost_max })} />
           </AdvancedFilters>
-          <ActiveFilters chips={chips} onReset={() => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))} />
+          <ActiveFilters chips={chips} onReset={resetAll} />
           {hasFilters && summary && (
             <p className="text-xs text-slate-500" aria-live="polite">
               <span className="font-semibold text-slate-700">{summary.total.toLocaleString('id-ID')}</span> aset cocok dengan filter.
@@ -348,13 +350,23 @@ export function AssetReportPage() {
           )}
         </FilterPanel>
         {query.isLoading ? (
-          <Spinner />
+          <TableSkeleton columns={6} label="Memuat laporan…" />
         ) : query.isError ? (
-          <ErrorState error={query.error} />
+          <ErrorState error={query.error} onRetry={() => void query.refetch()} />
         ) : rows.length === 0 ? (
           <EmptyState
+            icon={hasFilters ? SearchX : FileBarChart}
             title={hasFilters ? 'Tidak ada aset yang cocok' : 'Belum ada aset'}
             description={hasFilters ? 'Ubah kata kunci atau filter laporan.' : 'Laporan akan terisi setelah aset didaftarkan.'}
+            action={
+              hasFilters ? (
+                <Button variant="secondary" onClick={resetAll}>
+                  Hapus pencarian dan filter
+                </Button>
+              ) : (
+                <ButtonLink to="/aset" variant="secondary">Buka Data Aset</ButtonLink>
+              )
+            }
           />
         ) : (
           <>

@@ -1,6 +1,7 @@
-import { AlertTriangle, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, FileQuestion, Home, RotateCw, ShieldAlert, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { isRouteErrorResponse, Navigate, Outlet, useLocation, useRouteError } from 'react-router'
+import { isRouteErrorResponse, Link, Navigate, Outlet, useLocation, useRouteError } from 'react-router'
+import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Feedback'
 import { ApiError } from '../lib/api/client'
 import { useAuth } from '../lib/auth/context'
@@ -42,13 +43,34 @@ export function RequirePermission({ permission, children }: { permission: string
   return children
 }
 
+/** Full-area message for a page that cannot be shown, always with a way out. */
+function PageMessage({ icon: Icon, title, children, actions }: { icon: LucideIcon; title: string; children: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
+      <span className="mb-2 grid size-16 place-items-center rounded-full bg-slate-100 text-slate-500" aria-hidden>
+        <Icon className="size-8" />
+      </span>
+      <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+      <div className="max-w-md space-y-1 text-sm text-slate-600">{children}</div>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        {actions}
+        <Link to="/" className={linkButton}>
+          <Home className="size-4" aria-hidden /> Ke halaman utama
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+const linkButton =
+  'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-card ring-1 ring-inset ring-slate-300 transition-colors hover:bg-slate-50 hover:text-slate-900'
+
 export function Forbidden() {
   return (
-    <div className="flex flex-col items-center gap-2 py-16 text-center">
-      <ShieldAlert className="size-10 text-slate-400" aria-hidden />
-      <h1 className="text-lg font-semibold text-slate-800">Akses ditolak</h1>
-      <p className="text-sm text-slate-500">Anda tidak memiliki izin untuk membuka halaman ini.</p>
-    </div>
+    <PageMessage icon={ShieldAlert} title="Akses ditolak">
+      <p>Anda tidak memiliki izin untuk membuka halaman ini.</p>
+      <p>Bila Anda memerlukannya, minta Admin organisasi menambahkan izin pada role Anda.</p>
+    </PageMessage>
   )
 }
 
@@ -58,23 +80,25 @@ export function RouteError() {
   if (isRouteErrorResponse(error) && error.status === 404) return <NotFound />
   console.error(error)
   return (
-    <div className="flex flex-col items-center gap-2 py-16 text-center">
-      <AlertTriangle className="size-10 text-slate-400" aria-hidden />
-      <h1 className="text-lg font-semibold text-slate-800">Terjadi kesalahan</h1>
-      <p className="text-sm text-slate-500">Halaman ini gagal ditampilkan. Muat ulang halaman, atau hubungi admin jika masalah berlanjut.</p>
+    <PageMessage
+      icon={AlertTriangle}
+      title="Terjadi kesalahan"
+      actions={
+        <Button onClick={() => window.location.reload()}>
+          <RotateCw className="size-4" aria-hidden /> Muat ulang
+        </Button>
+      }
+    >
+      <p>Halaman ini gagal ditampilkan. Muat ulang halaman, atau hubungi admin jika masalah berlanjut.</p>
       {error instanceof ApiError && error.requestId && <p className="text-xs text-slate-400">ID permintaan: {error.requestId}</p>}
-      <button type="button" onClick={() => window.location.reload()} className="mt-2 text-sm font-medium text-brand-600 hover:underline">
-        Muat ulang
-      </button>
-    </div>
+    </PageMessage>
   )
 }
 
 export function NotFound() {
   return (
-    <div className="flex flex-col items-center gap-2 py-16 text-center">
-      <h1 className="text-lg font-semibold text-slate-800">Halaman tidak ditemukan</h1>
-      <p className="text-sm text-slate-500">Periksa kembali alamat yang Anda buka.</p>
-    </div>
+    <PageMessage icon={FileQuestion} title="Halaman tidak ditemukan">
+      <p>Alamat yang Anda buka tidak ada atau sudah dipindahkan. Periksa kembali alamatnya, atau cari lewat menu.</p>
+    </PageMessage>
   )
 }
