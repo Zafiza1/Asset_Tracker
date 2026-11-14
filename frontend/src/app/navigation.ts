@@ -68,7 +68,6 @@ export const tenantNavigation: NavSection[] = [
     ],
   },
   { items: [{ to: '/panduan', label: 'Panduan', icon: BookOpen }] },
-  { title: 'Akun', items: [{ to: '/ubah-password', label: 'Ubah Password', icon: KeyRound }] },
 ]
 
 export const platformNavigation: NavSection[] = [
@@ -87,7 +86,6 @@ export const platformNavigation: NavSection[] = [
       { to: '/platform/master/referensi', label: 'Referensi', icon: BookOpen, permission: 'master.generic.view' },
     ],
   },
-  { title: 'Akun', items: [{ to: '/ubah-password', label: 'Ubah Password', icon: KeyRound }] },
 ]
 
 /** Breadcrumb labels per first path segment. */

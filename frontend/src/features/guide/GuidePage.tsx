@@ -224,7 +224,7 @@ function Step1() {
           ]} />
         </PathCard>
       </div>
-      <Tip>Nama organisasi yang aktif tampil di bagian atas halaman. Klik nama itu untuk berpindah organisasi. Password dapat diganti di menu <MenuLink to="/ubah-password">Ubah Password</MenuLink>.</Tip>
+      <Tip>Nama organisasi yang aktif tampil di bagian atas halaman. Klik nama itu untuk berpindah organisasi. Password dapat diganti lewat menu pengguna di pojok kanan atas, pilih <MenuLink to="/ubah-password">Ubah password</MenuLink>.</Tip>
     </StepSection>
   )
 }
