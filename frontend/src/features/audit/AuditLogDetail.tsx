@@ -95,7 +95,7 @@ function Changes({ log }: { log: AuditLog }) {
 
 function Table({ head, children }: { head: string[]; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-lg ring-1 ring-slate-200">
+    <div className="overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
       <table className="w-full table-fixed divide-y divide-slate-200 text-sm">
         <thead className="bg-slate-50">
           <tr>

@@ -61,7 +61,7 @@ export function OrganizationSwitcher() {
       {open && (
         <div className="absolute left-0 z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] animate-fade-in rounded-lg bg-white py-1 shadow-overlay ring-1 ring-slate-900/10">
           <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Organisasi Anda</p>
-          <ul role="listbox" aria-label="Organisasi Anda" className="max-h-72 overflow-y-auto">
+          <ul role="listbox" aria-label="Organisasi Anda" className="max-h-72 overflow-y-auto overscroll-contain">
             {profile.organizations.map((o) => (
               <li key={o.id} role="option" aria-selected={o.id === active?.id}>
                 <button type="button" onClick={() => void choose(o.id)} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50">

@@ -93,7 +93,7 @@ export function AttributeValueInput({ spec, value, onChange, id, disabled }: { s
 export function AttributeTable({ attributes, actions }: { attributes: AttributeDefinition[]; actions?: (a: AttributeDefinition) => React.ReactNode }) {
   if (attributes.length === 0) return <p className="p-4 text-sm text-slate-500">Belum ada atribut.</p>
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto overscroll-x-contain">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
         <thead className="bg-slate-50 text-left text-slate-600">
           <tr>

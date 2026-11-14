@@ -49,7 +49,7 @@ export function Modal({
               <X className="size-4" aria-hidden />
             </button>
           </header>
-          <div className={clsx('space-y-4 overflow-y-auto px-5 py-4', size === 'full' && 'flex-1 sm:px-8 sm:py-6')}>{children}</div>
+          <div className={clsx('space-y-4 overflow-y-auto overscroll-contain px-5 py-4', size === 'full' && 'flex-1 sm:px-8 sm:py-6')}>{children}</div>
           {footer && <footer className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-3">{footer}</footer>}
         </div>
       )}

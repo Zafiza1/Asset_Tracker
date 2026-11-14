@@ -48,6 +48,13 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* Reserve the scrollbar's width so locking scroll (below) never shifts the page sideways. */
+    scrollbar-gutter: stable;
+  }
+  /* While a modal <dialog> is open the page behind it must not scroll: scrolling inside a form
+     would otherwise carry on into the page, and the blurred backdrop repaints on every frame. */
+  html:has(dialog[open]) {
+    overflow: hidden;
   }
   body {
     @apply bg-slate-50 text-slate-900 antialiased;

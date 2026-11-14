@@ -179,7 +179,7 @@ export function ImportModal({ open, onClose, title, endpoint, templateEndpoint, 
           <Alert tone="error">
             <div className={importErrors.length > 0 ? 'mb-2 font-medium' : undefined}>{error}</div>
             {importErrors.length > 0 && (
-              <ul className="max-h-48 list-inside list-disc space-y-1 overflow-y-auto text-sm">
+              <ul className="max-h-48 list-inside list-disc space-y-1 overflow-y-auto overscroll-contain text-sm">
                 {importErrors.map((err, idx) => (
                   <li key={idx}>{err}</li>
                 ))}

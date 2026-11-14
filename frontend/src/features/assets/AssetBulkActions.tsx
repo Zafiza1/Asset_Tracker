@@ -199,7 +199,7 @@ function BulkArchiveModal({ assets, onClose, onDone }: { assets: Asset[]; onClos
           <p className="text-sm text-slate-700">
             Aset tidak lagi dihitung sebagai inventaris aktif dan tidak dapat ditransaksikan. Data dan seluruh riwayatnya tetap tersimpan, dan aset dapat diaktifkan kembali kapan saja dari halaman detailnya.
           </p>
-          <ul className="max-h-40 divide-y divide-slate-100 overflow-y-auto rounded-md text-sm ring-1 ring-slate-200">
+          <ul className="max-h-40 divide-y divide-slate-100 overflow-y-auto overscroll-contain rounded-md text-sm ring-1 ring-slate-200">
             {assets.map((a) => (
               <li key={a.id} className="flex gap-2 px-3 py-1.5">
                 <span className="truncate text-slate-900" title={a.name}>{a.name}</span>

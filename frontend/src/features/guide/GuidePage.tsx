@@ -164,7 +164,7 @@ function RolesSection() {
       <Card title="Siapa mengerjakan apa">
         <div className="space-y-3 p-5">
           <p className="text-sm text-slate-600">Menu yang tampil di sidebar mengikuti role Anda. Tabel ini menunjukkan hak role bawaan; organisasi dapat menguranginya atau membuat role sendiri.</p>
-          <div className="overflow-x-auto rounded-lg ring-1 ring-slate-200">
+          <div className="overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
             <table className="w-full min-w-[34rem] text-sm">
               <thead className="bg-slate-50 text-left text-slate-700">
                 <tr>
@@ -405,7 +405,7 @@ function Step7() {
       ]} />
 
       <h3 className="pt-1 text-sm font-semibold text-slate-900">Jenis transaksi yang dipilih</h3>
-      <div className="overflow-x-auto rounded-lg ring-1 ring-slate-200">
+      <div className="overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
         <table className="w-full min-w-[40rem] text-sm">
           <thead className="bg-slate-50 text-left text-slate-700">
             <tr>
@@ -430,7 +430,7 @@ function Step7() {
 
       <h3 className="pt-1 text-sm font-semibold text-slate-900">Transaksi yang dapat dipilih menurut status aset</h3>
       {/* Read from the same rules as the transaction form, so this table cannot drift from it. */}
-      <div className="overflow-x-auto rounded-lg ring-1 ring-slate-200">
+      <div className="overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
         <table className="w-full min-w-[40rem] text-sm">
           <thead className="bg-slate-50 text-slate-700">
             <tr>

@@ -83,7 +83,7 @@ export function RoleQuickCreateModal({ open, onClose, onCreated }: { open: boole
         ) : catalog.isError ? (
           <ErrorState error={catalog.error} onRetry={() => void catalog.refetch()} />
         ) : (
-          <div className="max-h-[50vh] overflow-y-auto pr-1">
+          <div className="max-h-[50vh] overflow-y-auto overscroll-contain pr-1">
             <PermissionPicker catalog={catalog.data!} selected={selected} onChange={setSelected} editable className="grid gap-3 md:grid-cols-2 lg:grid-cols-3" />
           </div>
         )}

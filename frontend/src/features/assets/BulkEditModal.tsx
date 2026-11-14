@@ -101,7 +101,7 @@ export function BulkEditModal({ assets, onClose, onDone }: { assets: Asset[]; on
 
         <section>
           <h3 className="mb-1.5 text-sm font-semibold text-slate-700">Aset yang diubah</h3>
-          <ul className="max-h-40 divide-y divide-slate-100 overflow-y-auto rounded-md text-sm ring-1 ring-slate-200">
+          <ul className="max-h-40 divide-y divide-slate-100 overflow-y-auto overscroll-contain rounded-md text-sm ring-1 ring-slate-200">
             {assets.map((a) => (
               <li key={a.id} className="flex gap-2 px-3 py-1.5">
                 <span className="truncate text-slate-900" title={a.name}>{a.name}</span>

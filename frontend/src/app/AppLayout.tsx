@@ -212,7 +212,7 @@ function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate:
   }, [open])
 
   return (
-    <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-6 pt-2">
+    <nav className="flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 pb-6 pt-2">
       {sections.map((section, i) => {
         const hasActive = section.items.some((item) => isItemActive(item.to, pathname))
         const expanded = !section.title || (open[section.title] ?? hasActive)

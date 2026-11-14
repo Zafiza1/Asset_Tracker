@@ -15,7 +15,7 @@ export function CategoryFilter({ options, selected, onChange }: { options: Selec
         <span className="truncate">Kategori{selected.length > 0 ? ` (${selected.length})` : ': semua'}</span>
         <ChevronDown className="size-4 shrink-0 text-slate-400" aria-hidden />
       </summary>
-      <fieldset className="absolute z-10 mt-1 max-h-72 w-72 overflow-y-auto rounded-md bg-white p-2 shadow-lg ring-1 ring-slate-200">
+      <fieldset className="absolute z-10 mt-1 max-h-72 w-72 overflow-y-auto overscroll-contain rounded-md bg-white p-2 shadow-lg ring-1 ring-slate-200">
         <legend className="sr-only">Filter kategori</legend>
         {options.length === 0 && <p className="p-2 text-sm text-slate-500">Belum ada kategori.</p>}
         {options.map((o) => (

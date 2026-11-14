@@ -118,7 +118,7 @@ export function DataTable<T extends { id: string }>({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto overscroll-x-contain">
       <table className={clsx('w-full table-fixed divide-y divide-slate-200 text-sm', className)}>
         <thead className="bg-slate-100/70">
           <tr>

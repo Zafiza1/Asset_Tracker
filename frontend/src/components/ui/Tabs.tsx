@@ -16,7 +16,7 @@ export interface PillTab<T extends string> {
  */
 export function PillTabs<T extends string>({ label, tabs, value, onChange }: { label: string; tabs: PillTab<T>[]; value: T; onChange: (value: T) => void }) {
   return (
-    <div role="tablist" aria-label={label} className="-mx-1 flex gap-1 overflow-x-auto px-1 py-0.5">
+    <div role="tablist" aria-label={label} className="-mx-1 flex gap-1 overflow-x-auto overscroll-x-contain px-1 py-0.5">
       {tabs.map((t) => {
         const active = value === t.value
         return (

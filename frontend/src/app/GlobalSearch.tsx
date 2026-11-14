@@ -172,7 +172,7 @@ function SearchDialog({ sections, searchAssets, label, onClose }: { sections: Na
           <kbd className="hidden rounded border border-slate-300 px-1.5 py-0.5 font-sans text-[0.6875rem] font-semibold text-slate-500 sm:block">Esc</kbd>
         </div>
 
-        <ul ref={list} id={listId} role="listbox" aria-label="Hasil pencarian" className="flex-1 overflow-y-auto p-2">
+        <ul ref={list} id={listId} role="listbox" aria-label="Hasil pencarian" className="flex-1 overflow-y-auto overscroll-contain p-2">
           {assets.isError && <li className="px-3 py-2 text-sm text-red-700">Pencarian aset gagal. Coba lagi sebentar lagi.</li>}
           {noAssets && <li className="px-3 py-2 text-sm text-slate-500">Tidak ada aset yang cocok dengan “{term}”.</li>}
           {entries.map((entry, i) => (

@@ -243,7 +243,7 @@ function UtilizationWidget({ data }: { data: Dashboard }) {
           {overdue.length === 0 ? (
             <p className="text-sm text-slate-500">Tidak ada pinjaman yang terlambat.</p>
           ) : (
-            <ul className="max-h-44 divide-y divide-slate-100 overflow-y-auto">
+            <ul className="max-h-44 divide-y divide-slate-100 overflow-y-auto overscroll-contain">
               {overdue.map((item) => (
                 <li key={item.asset.id} className="py-1.5 text-sm">
                   <Link to={`/aset/${item.asset.id}`} className="block truncate font-medium text-slate-900 hover:text-brand-700">
@@ -487,7 +487,7 @@ function CategoryWidget({ data }: { data: Dashboard }) {
   const values = new Map(data.value_by_category.map((c) => [c.id, c]))
   return (
     <Widget title="Per kategori">
-      <div className="max-h-96 overflow-y-auto px-4 pb-2">
+      <div className="max-h-96 overflow-y-auto overscroll-contain px-4 pb-2">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-white">
             <tr className="text-left text-xs text-slate-500">
@@ -547,7 +547,7 @@ function LocationWidget({ locations }: { locations: Dashboard['by_location'] }) 
       {total === 0 ? (
         <p className="p-4 text-sm text-slate-500">Belum ada data.</p>
       ) : (
-        <ul className="grid max-h-96 grid-cols-4 gap-3 overflow-y-auto p-4">
+        <ul className="grid max-h-96 grid-cols-4 gap-3 overflow-y-auto overscroll-contain p-4">
           {rows.map((r) => (
             <li key={r.key} className="min-w-0 rounded-lg bg-slate-50 px-3 py-2.5">
               {r.to ? (
@@ -603,7 +603,7 @@ function TransactionTypesWidget({ transactions }: { transactions: Dashboard['tra
         <div className="min-w-0">
           <BarList unit="transaksi" emptyText={emptyText} data={rows} />
         </div>
-        <div className="max-h-80 min-w-0 overflow-y-auto">
+        <div className="max-h-80 min-w-0 overflow-y-auto overscroll-contain">
           <h3 className="px-5 pt-3 text-sm font-medium text-slate-700">Transaksi terbaru</h3>
           <RecentList recent={transactions.recent} />
         </div>
@@ -638,7 +638,7 @@ function ActivityWidget({ data }: { data: Dashboard }) {
                 {t.label}
                 <CountBadge count={t.count} />
               </h3>
-              <div className="max-h-80 overflow-y-auto">
+              <div className="max-h-80 overflow-y-auto overscroll-contain">
                 <ModuleBoundary name={t.label} compact>
                   {panel(t.key)}
                 </ModuleBoundary>
@@ -676,7 +676,7 @@ function ActivityWidget({ data }: { data: Dashboard }) {
           </Link>
         )}
       </div>
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="max-h-80 overflow-y-auto">
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="max-h-80 overflow-y-auto overscroll-contain">
         <ModuleBoundary name={tabs.find((t) => t.key === tab)!.label} compact>
           {panel(tab)}
         </ModuleBoundary>

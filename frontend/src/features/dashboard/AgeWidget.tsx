@@ -206,7 +206,7 @@ function AgeFull({ age, known }: { age: Age; known: number }) {
         </div>
         <div className="col-span-5 min-w-0">
           <h3 className="mb-2 text-sm font-medium text-slate-700">Umur per kategori</h3>
-          <div className="max-h-64 overflow-y-auto">
+          <div className="max-h-64 overflow-y-auto overscroll-contain">
             <table className="w-full border-separate border-spacing-0.5 text-xs">
               <caption className="sr-only">Jumlah aset per kategori dan kelompok umur, dalam tahun</caption>
               <thead className="sticky top-0 bg-white">
