@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { ModuleBoundary } from '../app/ModuleBoundary'
 import { tenantNavigation } from '../app/navigation'
+import { AssetCategoryPicker } from '../features/assets/AssetCategoryPicker'
 import { AssetImagePicker } from '../features/assets/AssetImagePicker'
 import { CategoryFilter } from '../features/assets/CategoryFilter'
 import { BarList, ColumnChart, DonutChart, Gauge, MeterList, StackedBar, TrendChart } from '../features/dashboard/charts'
@@ -214,5 +215,32 @@ describe('AssetImagePicker', () => {
     rerender(<AssetImagePicker currentUrl="/api/assets/1/image?v=x" value={null} onChange={onChange} />)
     expect(screen.queryByAltText('Gambar aset')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Unggah gambar/ })).toBeInTheDocument()
+  })
+})
+
+describe('asset category picker', () => {
+  const rows = [
+    { id: 'it', code: 'IT', name: 'Perangkat IT', depth: 0 },
+    { id: 'laptop', code: 'LPT', name: 'Laptop', depth: 1 },
+    { id: 'car', code: 'KND', name: 'Kendaraan', depth: 0 },
+  ]
+
+  it('shows each category as a card with its parent path and reports the pick', () => {
+    const onPick = vi.fn()
+    render(<AssetCategoryPicker rows={rows} loading={false} value="" changing={false} onPick={onPick} />)
+    expect(screen.getAllByRole('button')).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: /Laptop/ }))
+    expect(onPick).toHaveBeenCalledWith('laptop')
+    expect(screen.getByRole('button', { name: /Laptop/ })).toHaveTextContent('Perangkat IT')
+  })
+
+  it('filters by name, code or parent and marks the current category', () => {
+    render(<AssetCategoryPicker rows={rows} loading={false} value="car" changing onPick={() => {}} />)
+    expect(screen.getByRole('button', { name: /Kendaraan/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/tetap tersimpan/)).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Cari kategori' }), { target: { value: 'lpt' } })
+    expect(screen.getAllByRole('button')).toHaveLength(1)
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Cari kategori' }), { target: { value: 'zzz' } })
+    expect(screen.getByText('Kategori tidak ditemukan')).toBeInTheDocument()
   })
 })

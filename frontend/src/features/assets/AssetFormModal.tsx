@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import clsx from 'clsx'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Button } from '../../components/ui/Button'
@@ -13,6 +14,7 @@ import { AttributeFields } from '../master/CategoryAttributes'
 import { useAssetFields, useCategoryAttributes } from '../master/categoryAttributeData'
 import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, initialStatuses, type Asset } from './api'
+import { AssetCategoryPicker } from './AssetCategoryPicker'
 import { AssetDocumentPicker, type DocumentChange } from './AssetDocumentPicker'
 import { AssetImagePicker, type ImageChange } from './AssetImagePicker'
 
@@ -61,13 +63,18 @@ const EDITABLE: (keyof Values)[] = ['name', 'serial_number', 'category_id', 'acq
 export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onClose: () => void; onSaved?: (asset: Asset) => void }) {
   const queryClient = useQueryClient()
   const [formError, setFormError] = useState<string | null>(null)
-  const categories = toOptions(useOptions('/tenant-masters/categories').data)
+  const categoryQuery = useOptions('/tenant-masters/categories')
+  const categories = toOptions(categoryQuery.data)
   const locations = toOptions(useOptions('/locations').data)
 
   const [attributes, setAttributes] = useState<Record<string, AttributeValue>>(asset?.attributes ?? {})
   const [attributeErrors, setAttributeErrors] = useState<Record<string, string>>({})
 
-  const { register, handleSubmit, setError, formState, control } = useForm<Values>({
+  // A new asset starts by choosing its category in a step of its own, so entered data is never
+  // laid out for the wrong category. Going back to change it keeps everything already filled in.
+  const [step, setStep] = useState<'category' | 'details'>(asset ? 'details' : 'category')
+
+  const { register, handleSubmit, setError, setValue, formState, control } = useForm<Values>({
     defaultValues: {
       name: asset?.name ?? '',
       serial_number: asset?.serial_number ?? '',
@@ -81,7 +88,9 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
   })
 
   // The category decides which extra fields the asset has.
-  const fields = useAssetFields(useCategoryAttributes(useWatch({ control, name: 'category_id' })).data ?? [])
+  const categoryId = useWatch({ control, name: 'category_id' })
+  const fields = useAssetFields(useCategoryAttributes(categoryId).data ?? [])
+  const categoryLabel = categories.find((o) => o.value === categoryId)?.label.trim() ?? asset?.category?.name ?? ''
 
   const [image, setImage] = useState<ImageChange>(undefined)
   const [imageError, setImageError] = useState<string | null>(null)
@@ -179,17 +188,43 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
       title={asset ? `Ubah ${asset.name}` : 'Tambah aset'}
       onClose={onClose}
       footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Batal
-          </Button>
-          <Button type="submit" form="asset-form" loading={save.isPending}>
-            Simpan
-          </Button>
-        </>
+        step === 'category' ? (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Batal
+            </Button>
+            {categoryId && (
+              <Button variant="secondary" onClick={() => setStep('details')}>
+                Kembali ke formulir
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Batal
+            </Button>
+            <Button type="submit" form="asset-form" loading={save.isPending}>
+              Simpan
+            </Button>
+          </>
+        )
       }
     >
-      <form id="asset-form" noValidate className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), setAttributeErrors({}), setImageError(null), setDocumentError(null), save.mutate(v)))}>
+      {step === 'category' && (
+        <AssetCategoryPicker
+          rows={categoryQuery.data}
+          loading={categoryQuery.isPending}
+          value={categoryId}
+          changing={!!categoryId}
+          onPick={(id) => {
+            setValue('category_id', id, { shouldDirty: true, shouldValidate: true })
+            setStep('details')
+          }}
+        />
+      )}
+      {/* Kept mounted (only hidden) while the category is chosen, so nothing entered is lost. */}
+      <form id="asset-form" noValidate hidden={step !== 'details'} className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), setAttributeErrors({}), setImageError(null), setDocumentError(null), save.mutate(v)))}>
         {formError && <Alert tone="error">{formError}</Alert>}
         {asset && <p className="text-sm text-slate-600">Lokasi dan status diubah lewat transaksi agar riwayatnya tercatat.</p>}
 
@@ -204,14 +239,15 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
           </Field>
           <Field label="Kategori" required error={err('category_id')}>
             {(p) => (
-              <Select {...p} {...register('category_id', { required: 'Kategori wajib dipilih.' })}>
-                <option value="">— Pilih —</option>
-                {categories.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </Select>
+              <div className="flex items-center gap-2">
+                <input type="hidden" {...register('category_id', { required: 'Kategori wajib dipilih.' })} />
+                <output id={p.id} aria-describedby={p['aria-describedby']} className={clsx(p.className, 'flex items-center truncate bg-slate-50')}>
+                  {categoryLabel || '—'}
+                </output>
+                <Button variant="secondary" onClick={() => setStep('category')}>
+                  Ganti
+                </Button>
+              </div>
             )}
           </Field>
         </div>
