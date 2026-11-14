@@ -168,8 +168,8 @@ final class ApprovalDetails
     private static function assets(array $ids): string
     {
         $ids = array_values(array_filter($ids, 'is_string'));
-        $assets = Asset::query()->whereIn('id', array_slice($ids, 0, 20))->orderBy('asset_number')->get(['id', 'asset_number', 'name']);
-        $list = $assets->map(fn (Asset $a) => "{$a->asset_number} {$a->name}")->implode(', ');
+        $assets = Asset::query()->whereIn('id', array_slice($ids, 0, 20))->orderBy('asset_number')->get(['id', 'name']);
+        $list = $assets->map(fn (Asset $a) => $a->name)->implode(', ');
         $more = count($ids) - $assets->count();
 
         return $list.($more > 0 ? " dan {$more} aset lain" : '');

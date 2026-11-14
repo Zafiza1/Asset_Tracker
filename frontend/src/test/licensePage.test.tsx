@@ -115,8 +115,10 @@ describe('License page', () => {
 
   it('sends "Tugaskan ke pengguna" to the invitation form with the code picked', async () => {
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Tindakan untuk LIC-AAAA-1111-0001' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Tugaskan ke pengguna' }))
+    fireEvent.click(await screen.findByText('LIC-AAAA-1111-0001'))
+    expect(screen.queryByRole('columnheader', { name: 'Aksi' })).not.toBeInTheDocument()
+    const dialog = await dialogTitled('Kode lisensi LIC-AAAA-1111-0001')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Tugaskan ke pengguna', hidden: true }))
     expect(await screen.findByText('form undangan: ?license_code=c-1')).toBeInTheDocument()
   })
 
@@ -124,16 +126,18 @@ describe('License page', () => {
     renderPage({ codes: [code('c-3', 'LIC-CCCC-3333-0003', { pending_invitation: { id: 'inv-1', email: 'rudi@contoh.id', expires_at: '2026-11-20T00:00:00Z' } })] })
     expect(await screen.findByText('rudi@contoh.id')).toBeInTheDocument()
     expect(screen.getByText('Menunggu undangan diterima')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Tindakan untuk LIC-CCCC-3333-0003' }))
-    expect(screen.queryByRole('menuitem', { name: 'Tugaskan ke pengguna' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('LIC-CCCC-3333-0003'))
+    const dialog = await dialogTitled('Kode lisensi LIC-CCCC-3333-0003')
+    expect(within(dialog).queryByRole('button', { name: 'Tugaskan ke pengguna', hidden: true })).not.toBeInTheDocument()
   })
 
   it('releases a held code and offers no way to revoke one', async () => {
     const { fetchMock } = renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Tindakan untuk LIC-BBBB-2222-0002' }))
-    expect(screen.queryByRole('menuitem', { name: /Cabut/ })).not.toBeInTheDocument()
+    fireEvent.click(await screen.findByText('LIC-BBBB-2222-0002'))
     expect(screen.queryByRole('tab', { name: /Dicabut/ })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Lepaskan dari pengguna' }))
+    const detail = await dialogTitled('Kode lisensi LIC-BBBB-2222-0002')
+    expect(within(detail).queryByRole('button', { name: /Cabut/, hidden: true })).not.toBeInTheDocument()
+    fireEvent.click(within(detail).getByRole('button', { name: 'Lepaskan', hidden: true }))
 
     const dialog = await dialogTitled('Lepaskan kode lisensi?')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Lepaskan', hidden: true }))

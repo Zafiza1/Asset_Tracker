@@ -86,7 +86,7 @@ final class AssetTransactionService
         $transaction = $this->log->record($asset, $type, $logChanges, $data['transaction_date'] ?? null, $data['notes'] ?? null, $number);
         $this->audit->record('asset_transaction.created', $transaction, after: [
             'transaction_number' => $transaction->transaction_number,
-            'asset_number' => $asset->asset_number,
+            'asset_name' => $asset->name,
             'type' => $type,
             ...$logChanges,
         ]);
@@ -110,7 +110,7 @@ final class AssetTransactionService
             if (! $many) {
                 throw $e;
             }
-            $prefix = "{$asset->asset_number} ({$asset->name}): ";
+            $prefix = "{$asset->name}: ";
             $details = $e->details;
             foreach ($details['fields'] ?? [] as $field => $messages) {
                 $details['fields'][$field] = array_map(fn ($m) => $prefix.$m, $messages);

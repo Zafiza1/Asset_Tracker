@@ -57,7 +57,9 @@ class AuditLogFilterTest extends TestCase
     public function test_search_matches_actor_snapshot_and_readable_label_codes(): void
     {
         $this->assertSame(['asset.image_updated', 'location.archived'], $this->actions('search=budi@audit'));
-        $this->assertSame(['asset.image_updated'], $this->actions('search=AST-0099'));
+        $this->assertSame(['asset.image_updated'], $this->actions('search=Laptop%20Kantor'));
+        // Older entries still hold the internal asset number; it is neither searchable nor shown.
+        $this->assertSame([], $this->actions('search=AST-0099'));
         $this->assertSame(['location.archived'], $this->actions('search=arsip&search_actions=location.archived'));
     }
 
@@ -82,7 +84,8 @@ class AuditLogFilterTest extends TestCase
 
         $row = collect($this->getJson('/api/audit-logs?action=asset.image_updated')->assertOk()->json('data'))->first();
 
-        $this->assertSame(['code' => 'AST-0099', 'name' => 'Laptop Kantor'], $row['entity_label']);
+        $this->assertSame(['code' => null, 'name' => 'Laptop Kantor'], $row['entity_label']);
+        $this->assertSame(['name' => 'Laptop Kantor'], $row['after']);
         $this->assertSame('budi@audit.test', $row['actor']['email']);
 
         $user = collect($this->getJson('/api/audit-logs?action=user.updated')->json('data'))->first();

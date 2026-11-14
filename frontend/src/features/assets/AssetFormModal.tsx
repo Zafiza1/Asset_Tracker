@@ -145,7 +145,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
     onSuccess: async (result) => {
       await refresh()
       // null: submitted for approval, which the app announces on its own.
-      if (result) toast.success(asset ? 'Perubahan aset disimpan' : 'Aset ditambahkan', `${result.asset_number} · ${result.name}`)
+      if (result) toast.success(asset ? 'Perubahan aset disimpan' : 'Aset ditambahkan', result.name)
       if (result) onSaved?.(result)
       onClose()
     },
@@ -191,13 +191,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
     >
       <form id="asset-form" noValidate className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), setAttributeErrors({}), setImageError(null), setDocumentError(null), save.mutate(v)))}>
         {formError && <Alert tone="error">{formError}</Alert>}
-        {asset ? (
-          <p className="text-sm text-slate-600">
-            No Aset <span className="font-mono">{asset.asset_number}</span> dibuat sistem dan tidak dapat diubah. Lokasi dan status diubah lewat transaksi agar riwayatnya tercatat.
-          </p>
-        ) : (
-          <p className="text-sm text-slate-600">No Aset dibuat otomatis oleh sistem setelah disimpan.</p>
-        )}
+        {asset && <p className="text-sm text-slate-600">Lokasi dan status diubah lewat transaksi agar riwayatnya tercatat.</p>}
 
         <AssetImagePicker currentUrl={saved?.image_url ?? null} value={image} onChange={(v) => (setImageError(null), setImage(v))} error={imageError} />
 

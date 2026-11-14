@@ -15,7 +15,7 @@ const sections: NavSection[] = [
   { title: 'Administrasi', items: [{ to: '/audit', label: 'Audit Trail', icon: FileClock }] },
 ]
 
-const laptop = { id: 'asset-1', asset_number: 'AST-0001', name: 'Laptop Dell', status: 'in_use', is_archived: false, category: { name: 'IT' }, location: { name: 'Gedung A' } }
+const laptop = { id: 'asset-1', serial_number: 'SN-0001', name: 'Laptop Dell', status: 'in_use', is_archived: false, category: { name: 'IT' }, location: { name: 'Gedung A' } }
 
 function Where() {
   const { pathname, search } = useLocation()
@@ -78,7 +78,7 @@ describe('GlobalSearch', () => {
     fireEvent.change(within(palette()).getByRole('combobox', { hidden: true }), { target: { value: 'laptop' } })
 
     const found = await within(palette()).findByRole('option', { name: /Laptop Dell/, hidden: true })
-    expect(found).toHaveTextContent('AST-0001 · IT · Gedung A')
+    expect(found).toHaveTextContent('SN-0001 · IT · Gedung A')
     expect(requests.at(-1)).toContain('/api/assets?search=laptop&per_page=6')
 
     fireEvent.click(found)

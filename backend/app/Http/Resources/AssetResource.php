@@ -14,12 +14,11 @@ class AssetResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'asset_number' => $this->asset_number,
             'serial_number' => $this->serial_number,
             'name' => $this->name,
             'category_id' => $this->category_id,
             'category' => $this->whenLoaded('category', fn () => Ref::of($this->category)),
-            // The asset's "Barcode" field is on; the barcodes encode the asset number.
+            // The asset's "Barcode" field is on; the barcodes encode the asset id.
             'barcode_enabled' => in_array(true, array_intersect_key($this->attribute_values, array_flip(self::barcodeKeys($request))), true),
             'location_id' => $this->location_id,
             'location' => $this->whenLoaded('location', fn () => Ref::of($this->location)),

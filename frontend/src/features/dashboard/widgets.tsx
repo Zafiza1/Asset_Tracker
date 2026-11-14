@@ -747,14 +747,11 @@ function AttentionList({ attention, dense = false }: { attention: Dashboard['att
 }
 
 function attentionDetail(item: Dashboard['attention']['items'][number]): ReactNode {
-  return (
-    <>
-      {item.asset.asset_number}
-      {item.reason === 'overdue_loan' && item.borrower_name && ` · ${item.borrower_name}`}
-      {item.reason === 'overdue_loan' && item.loan_due_date && ` · jatuh tempo ${formatDate(item.loan_due_date)}`}
-      {item.reason !== 'overdue_loan' && item.location && ` · ${item.location}`}
-    </>
-  )
+  const parts =
+    item.reason === 'overdue_loan'
+      ? [item.borrower_name, item.loan_due_date && `jatuh tempo ${formatDate(item.loan_due_date)}`]
+      : [item.location]
+  return parts.filter(Boolean).join(' · ')
 }
 
 function IdleList({ idle, dense = false }: { idle: Dashboard['idle']; dense?: boolean }) {
@@ -775,8 +772,7 @@ function IdleList({ idle, dense = false }: { idle: Dashboard['idle']; dense?: bo
               </Link>
               {!dense && (
                 <p className="text-xs text-slate-500">
-                  {item.asset.asset_number}
-                  {item.location && ` · ${item.location}`} · aktivitas terakhir {formatDate(item.last_activity)}
+                  {[item.location, `aktivitas terakhir ${formatDate(item.last_activity)}`].filter(Boolean).join(' · ')}
                 </p>
               )}
             </div>

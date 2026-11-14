@@ -18,7 +18,7 @@ final readonly class ImportColumn
      * @param  bool  $hidden  technical column of an edit sheet (e.g. a version); read back when present, never required
      * @param  bool  $readBack  with $readOnly: still greyed out and never saved, but read back on upload so it can be
      *                          checked (e.g. an asset's last-changed time, to reject rows edited by someone else)
-     * @param  bool  $identifier  visible key of an edit sheet (e.g. the asset number): greyed out like a read-only
+     * @param  bool  $identifier  visible key of an edit sheet (e.g. a record code): greyed out like a read-only
      *                            column, but read back to find each row's record (see SpreadsheetImport::existing())
      */
     public function __construct(

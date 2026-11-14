@@ -166,7 +166,7 @@ export function NotificationsPage() {
             onChange={setSearchDraft}
             onSubmit={() => update({ search: searchDraft.trim() })}
             label="Cari pengajuan"
-            placeholder={canDecide ? 'Cari no aset, nama data, pengaju, atau jenis perubahan' : 'Cari no aset, nama data, atau jenis perubahan'}
+            placeholder={canDecide ? 'Cari nama data, pengaju, atau jenis perubahan' : 'Cari nama data atau jenis perubahan'}
             aside={
               <div className="flex flex-wrap items-center gap-3">
                 <Select aria-label="Jenis pengajuan" value={params.get('category') ?? ''} onChange={(e) => update({ category: e.target.value })} className="w-auto">

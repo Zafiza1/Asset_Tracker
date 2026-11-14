@@ -52,6 +52,7 @@ Jaminan identitas:
 
 - `assets.id` dan `asset_number` tidak pernah berubah (trigger DB); aset tidak pernah dihapus (trigger DB). "Hapus" = **nonaktifkan** (arsip): keluar dari inventaris aktif, riwayat tetap, bisa diaktifkan kembali.
 - Nomor aset/transaksi dibangkitkan dari `number_sequences` (row-locked, tanpa duplikat) mengikuti format di Pengaturan (`AST-{YYYY}-{SEQ:6}`, `{TYPE}-{YYYY}-{SEQ:6}`).
+- No Aset (`asset_number`) adalah ID unik internal: diisi trigger DB `assets_assign_number` (BEFORE INSERT, nilai dari aplikasi selalu ditimpa), unik per organisasi, dan **tidak ditampilkan** di frontend, API, laporan, maupun file Multiple Edit. Barcode/QR berisi `assets.id` (UUID); pencarian manual di mobile memakai No Seri.
 - `asset_transactions` append-only (trigger DB). Semua referensi memakai composite FK per organisasi + RLS.
 
 Alat developer (hanya dari server, tidak ada endpoint HTTP):

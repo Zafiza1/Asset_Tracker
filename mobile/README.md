@@ -9,7 +9,7 @@ Aplikasi Android/iOS untuk memindai barcode aset dan menampilkan detailnya, sama
 | Barcode 2D | QR Code (label cetak), Data Matrix, PDF417, Aztec |
 | Akses | Membaca, menambah aset/kategori/lokasi, dan menindaklanjuti approval, sesuai role. Token login terikat ke satu organisasi dan berlaku 30 hari |
 
-Setelah login, aplikasi membuka halaman **beranda** (nama akun dan organisasi, tombol **Scan Aset**, pencarian nomor aset manual, menu, dan tombol **Keluar**). Kamera baru aktif setelah tombol Scan Aset ditekan.
+Setelah login, aplikasi membuka halaman **beranda** (nama akun dan organisasi, tombol **Scan Aset**, pencarian manual berdasarkan nomor seri, menu, dan tombol **Keluar**). Kamera baru aktif setelah tombol Scan Aset ditekan.
 
 ## Menu sesuai role
 
@@ -17,7 +17,7 @@ Menu beranda mengikuti izin akun di organisasi token (sama dengan web):
 
 | Menu | Muncul bila | Keterangan |
 |---|---|---|
-| Tambah Aset | `asset.create` | Nama, No Seri, kategori, lokasi, status awal, atribut kategori (termasuk yang wajib, mis. *Kondisi Aset*), tanggal/harga perolehan, deskripsi. No Aset dibuat sistem. Form juga punya pintasan *Tambah kategori/lokasi baru* |
+| Tambah Aset | `asset.create` | Nama, No Seri, kategori, lokasi, status awal, atribut kategori (termasuk yang wajib, mis. *Kondisi Aset*), tanggal/harga perolehan, deskripsi. No Aset dibuat sistem (trigger database) dan tidak ditampilkan. Form juga punya pintasan *Tambah kategori/lokasi baru* |
 | Tambah Kategori / Tambah Lokasi | `master.tenant.create` | Nama, kode (opsional, otomatis dari nama), induk, deskripsi/alamat |
 | Persetujuan | `approval.manage` (Super Admin, Supervisor) | Semua pengajuan organisasi; setujui (catatan opsional) atau tolak (alasan wajib, min. 5 karakter). Tab *Pengajuan saya* untuk pengajuan sendiri |
 | Pengajuan Saya | role lain (mis. Admin) | Pengajuan milik sendiri dan statusnya; pengajuan yang masih menunggu dapat dibatalkan |
@@ -26,7 +26,7 @@ Alur approval sama dengan web: penambahan oleh Super Admin/Supervisor langsung t
 
 Foto dan dokumen aset, perubahan data, arsip, impor Excel, dan transaksi tetap lewat aplikasi web.
 
-Isi barcode adalah **nomor aset** (seperti label dari tombol *Print barcode* di web). Aplikasi mencarinya lewat `GET /api/assets/lookup?code=…`, dengan cakupan data dan izin akun yang sama seperti di web. Nomor aset juga bisa diketik manual bila label rusak.
+Isi barcode adalah **ID internal aset** (UUID, seperti label dari tombol *Print barcode* di web); No Aset tidak dipakai dan tidak ditampilkan. Aplikasi mencarinya lewat `GET /api/assets/lookup?code=…`, dengan cakupan data dan izin akun yang sama seperti di web. Bila label rusak, ketik **nomor seri** aset.
 
 ## Backend
 
@@ -37,7 +37,7 @@ Aplikasi memakai endpoint berikut (sudah ada di `backend/`):
 | `POST /api/auth/mobile/login` | `email`, `password`, `device_name`, `organization_id` (opsional). Akun dengan beberapa organisasi mendapat `409 ORGANIZATION_SELECTION_REQUIRED` beserta daftar organisasinya |
 | `GET /api/auth/mobile/me` | Profil dan izin akun di organisasi token |
 | `POST /api/auth/mobile/logout` | Mencabut token |
-| `GET /api/assets/lookup?code=` | Detail aset berdasarkan nomor aset (`404 ASSET_NOT_FOUND` bila tidak ada) |
+| `GET /api/assets/lookup?code=` | Detail aset berdasarkan ID aset (isi barcode) atau nomor seri (`404 ASSET_NOT_FOUND` bila tidak ada) |
 
 Selain itu aplikasi memakai endpoint tenant yang sama dengan web: `GET /locations`, `GET /tenant-masters/categories`, `GET /tenant-masters/categories/{id}/attributes`, `POST /assets`, `POST /locations`, `POST /tenant-masters/categories`, dan `GET /approvals`, `/approvals/counts`, `/approvals/summary`, `/approvals/{id}`, `POST /approvals/{id}/approve|reject|cancel`.
 

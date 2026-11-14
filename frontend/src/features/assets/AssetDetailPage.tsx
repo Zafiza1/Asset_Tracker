@@ -62,12 +62,7 @@ export function AssetDetailPage() {
       <PageHeader
         title={a.name}
         badges={<AssetStatusBadge status={a.status} archived={a.is_archived} />}
-        description={
-          <span className="font-mono text-sm">
-            {a.asset_number}
-            {a.serial_number && <span className="font-sans text-slate-500"> · No Seri {a.serial_number}</span>}
-          </span>
-        }
+        description={a.serial_number ? <span className="text-sm text-slate-500">No Seri {a.serial_number}</span> : undefined}
         actions={
           <>
             {a.barcode_enabled && (
@@ -358,7 +353,7 @@ function ArchiveModal({ asset, onClose }: { asset: Asset; onClose: () => void })
       onClose={onClose}
     >
       <p>
-        Aset tidak lagi dihitung sebagai inventaris aktif dan tidak dapat ditransaksikan. Nomor aset, data, dan seluruh riwayatnya tetap tersimpan, dan aset dapat diaktifkan kembali kapan saja.
+        Aset tidak lagi dihitung sebagai inventaris aktif dan tidak dapat ditransaksikan. Data dan seluruh riwayatnya tetap tersimpan, dan aset dapat diaktifkan kembali kapan saja.
       </p>
       <Field label="Alasan">{(p) => <Textarea {...p} rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="mis. rusak total, dijual, hilang" />}</Field>
     </ConfirmDialog>

@@ -60,8 +60,9 @@ final class AuditLogFilters
             $q->whereHas('actor', fn ($a) => $a->where('name', 'ilike', $like)->orWhere('email', 'ilike', $like))
                 ->orWhere('action', 'ilike', $like)
                 ->orWhere('entity_id', $term)
-                ->orWhereRaw('"before"::text ilike ?', [$like])
-                ->orWhereRaw('"after"::text ilike ?', [$like])
+                // Internal asset numbers in older snapshots are not shown, so they are not searchable either.
+                ->orWhereRaw('("before" - \'asset_number\')::text ilike ?', [$like])
+                ->orWhereRaw('("after" - \'asset_number\')::text ilike ?', [$like])
                 ->orWhereRaw('"metadata"::text ilike ?', [$like])
                 ->orWhere(fn ($e) => AuditEntityLabels::whereMatches($e, $term));
             if ($labelMatches !== '') {

@@ -12,7 +12,6 @@ export interface Ref {
 
 export interface Asset {
   id: string
-  asset_number: string
   serial_number: string | null
   name: string
   category_id: string

@@ -104,7 +104,6 @@ export function BulkEditModal({ assets, onClose, onDone }: { assets: Asset[]; on
           <ul className="max-h-40 divide-y divide-slate-100 overflow-y-auto rounded-md text-sm ring-1 ring-slate-200">
             {assets.map((a) => (
               <li key={a.id} className="flex gap-2 px-3 py-1.5">
-                <span className="shrink-0 font-mono text-xs leading-5 text-slate-500">{a.asset_number}</span>
                 <span className="truncate text-slate-900" title={a.name}>{a.name}</span>
                 <span className="ml-auto shrink-0 text-xs leading-5 text-slate-500">{a.category?.name}</span>
               </li>

@@ -141,7 +141,7 @@ final class AssetAnalytics
      *     unknown: int,
      *     average_years: float|null,
      *     by_category: list<array{id: string, name: string, total: int, average_years: float, buckets: array<string, int>}>,
-     *     oldest: list<array{asset: array{id: string, asset_number: string, name: string}, location: string|null, acquisition_date: string, age_years: float}>,
+     *     oldest: list<array{asset: array{id: string, name: string}, location: string|null, acquisition_date: string, age_years: float}>,
      * }
      */
     private function age(CarbonImmutable $today): array
@@ -225,7 +225,7 @@ final class AssetAnalytics
     /**
      * The longest-held assets, oldest acquisition first: candidates for replacement.
      *
-     * @return list<array{asset: array{id: string, asset_number: string, name: string}, location: string|null, acquisition_date: string, age_years: float}>
+     * @return list<array{asset: array{id: string, name: string}, location: string|null, acquisition_date: string, age_years: float}>
      */
     private function oldestAssets(Builder $assets, CarbonImmutable $today): array
     {
@@ -234,7 +234,7 @@ final class AssetAnalytics
             ->orderBy('assets.acquisition_date')->orderBy('assets.asset_number')
             ->limit(self::OLDEST_LIMIT)->get()
             ->map(fn (Asset $asset): array => [
-                'asset' => ['id' => $asset->id, 'asset_number' => $asset->asset_number, 'name' => $asset->name],
+                'asset' => ['id' => $asset->id, 'name' => $asset->name],
                 'location' => $asset->location?->name,
                 'acquisition_date' => $asset->acquisition_date->toDateString(),
                 'age_years' => round(max(0, $asset->acquisition_date->diffInDays($today)) / 365.25, 1),
@@ -317,7 +317,7 @@ final class AssetAnalytics
             ->select('assets.*', 'act.last_activity')
             ->orderBy('act.last_activity')->orderBy('assets.asset_number')->limit(self::IDLE_LIMIT)->get()
             ->map(fn (Asset $a) => [
-                'asset' => ['id' => $a->id, 'asset_number' => $a->asset_number, 'name' => $a->name],
+                'asset' => ['id' => $a->id, 'name' => $a->name],
                 'location' => $a->location?->name,
                 'last_activity' => CarbonImmutable::parse($a->getAttribute('last_activity'))->toDateString(),
                 'idle_days' => (int) CarbonImmutable::parse($a->getAttribute('last_activity'))->diffInDays($today),
@@ -384,14 +384,14 @@ final class AssetAnalytics
         $counts = $this->transactions()->toBase()->where('transaction_date', '>=', $since)
             ->select('type', DB::raw('count(*) AS count'))->groupBy('type')->pluck('count', 'type');
 
-        $recent = $this->transactions()->with(['asset:id,asset_number,name', 'creator:id,name'])
+        $recent = $this->transactions()->with(['asset:id,name', 'creator:id,name'])
             ->orderByDesc('seq')->limit(8)->get()
             ->map(fn (AssetTransaction $t) => [
                 'id' => $t->id,
                 'transaction_number' => $t->transaction_number,
                 'type' => $t->type,
                 'transaction_date' => $t->transaction_date->toDateString(),
-                'asset' => ['id' => $t->asset->id, 'asset_number' => $t->asset->asset_number, 'name' => $t->asset->name],
+                'asset' => ['id' => $t->asset->id, 'name' => $t->asset->name],
                 'created_by' => $t->creator?->name,
             ])->all();
 
@@ -459,7 +459,7 @@ final class AssetAnalytics
                 $seen[$asset->id] = true;
                 $items[] = [
                     'reason' => $reason,
-                    'asset' => ['id' => $asset->id, 'asset_number' => $asset->asset_number, 'name' => $asset->name],
+                    'asset' => ['id' => $asset->id, 'name' => $asset->name],
                     'status' => $asset->status,
                     'location' => $asset->location?->name,
                     'borrower_name' => $asset->borrower_name,

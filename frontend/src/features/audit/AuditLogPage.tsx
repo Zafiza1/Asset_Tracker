@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Eye, FileClock, SearchX } from 'lucide-react'
+import { FileClock, SearchX } from 'lucide-react'
 import { useState } from 'react'
 import { Badge } from '../../components/ui/Badge'
 import { Card, PageHeader } from '../../components/ui/Card'
@@ -7,7 +7,6 @@ import { EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedb
 import { Select } from '../../components/ui/Field'
 import { ActiveFilters, AdvancedFilters, DateRangeFilter, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
-import { IconButton } from '../../components/ui/IconButton'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { AuditActor, AuditLog, Paginated } from '../../lib/api/types'
@@ -154,16 +153,6 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
         ) : (
           <span className="text-slate-400">{entityTypeLabel(l.entity_type) ?? '—'}</span>
         ),
-    },
-    {
-      key: 'detail',
-      header: 'Detail',
-      className: 'w-20 text-right! pr-3!',
-      cell: (l) => (
-        <IconButton label={`Lihat detail: ${auditActionLabel(l.action)}`} tooltip="Lihat detail" onClick={() => setSelected(l)}>
-          <Eye className="size-4" aria-hidden />
-        </IconButton>
-      ),
     },
   ]
 

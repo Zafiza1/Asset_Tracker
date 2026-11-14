@@ -99,25 +99,16 @@ describe('Users page', () => {
     expect((await screen.findAllByText('Belum pernah login')).length).toBeGreaterThan(0)
   })
 
-  it('offers row actions, but no deactivation of the own account', async () => {
+  it('has no actions column; a row opens the user detail', async () => {
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Tindakan untuk Saya Sendiri' }))
-    let menu = screen.getByRole('menu')
-    expect(within(menu).getByRole('menuitem', { name: 'Reset password' })).toBeInTheDocument()
-    expect(within(menu).queryByRole('menuitem', { name: 'Nonaktifkan' })).not.toBeInTheDocument()
-    fireEvent.keyDown(menu, { key: 'Escape' })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Tindakan untuk Budi Santoso' }))
-    menu = screen.getByRole('menu')
-    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Nonaktifkan' }))
-    expect(screen.getByText('Nonaktifkan Budi Santoso?', { selector: 'h2' })).toBeInTheDocument()
+    expect(await screen.findByText('Budi Santoso')).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Aksi' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Tindakan untuk/ })).not.toBeInTheDocument()
   })
 
-  it('shows only the actions the viewer may take', async () => {
+  it('hides the role filter from viewers who cannot manage roles', async () => {
     renderPage({ permissions: ['user.view'] })
-    fireEvent.click(await screen.findByRole('button', { name: 'Tindakan untuk Budi Santoso' }))
-    const items = within(screen.getByRole('menu')).getAllByRole('menuitem').map((i) => i.textContent)
-    expect(items).toEqual(['Lihat detail'])
+    expect(await screen.findByText('Budi Santoso')).toBeInTheDocument()
     expect(screen.queryByLabelText('Filter role')).not.toBeInTheDocument()
   })
 })

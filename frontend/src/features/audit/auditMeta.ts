@@ -106,7 +106,6 @@ const fieldLabels: Record<string, string> = {
   description: 'Deskripsi',
   notes: 'Catatan',
   reason: 'Alasan',
-  asset_number: 'Nomor aset',
   serial_number: 'Nomor seri',
   category_id: 'Kategori',
   location_id: 'Lokasi',

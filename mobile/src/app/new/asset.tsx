@@ -103,10 +103,10 @@ export default function NewAssetScreen() {
       })
       announce(response, {
         title: 'Aset ditambahkan',
-        message: 'No Aset dibuat oleh sistem.',
+        message: 'Aset dan riwayat penambahannya sudah tersimpan.',
         done: (asset) =>
-          // The detail screen looks assets up by number, which needs the Barcode module.
-          hasModule('barcode') ? router.replace({ pathname: '/asset/[code]', params: { code: asset.data.asset_number } }) : router.back(),
+          // The detail screen looks assets up by id (as a scanned label does), which needs the Barcode module.
+          hasModule('barcode') ? router.replace({ pathname: '/asset/[code]', params: { code: asset.data.id } }) : router.back(),
       })
     } catch (e) {
       setErrors(fieldErrors(e))
@@ -126,7 +126,6 @@ export default function NewAssetScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <Text style={styles.muted}>No Aset dibuat otomatis oleh sistem setelah disimpan.</Text>
           {error && <Alert>{error}</Alert>}
 
           <Field label="Nama aset" required error={errors.name}>

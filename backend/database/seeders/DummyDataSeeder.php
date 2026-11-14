@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Domain\Assets\Models\Asset;
+use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
@@ -12,6 +13,7 @@ use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class DummyDataSeeder extends Seeder
@@ -27,6 +29,7 @@ class DummyDataSeeder extends Seeder
 
             if ($organizations->isEmpty()) {
                 $this->command?->warn('No organizations found. Please run DemoSeeder first.');
+
                 return;
             }
 
@@ -34,19 +37,21 @@ class DummyDataSeeder extends Seeder
                 $this->command?->info("Seeding dummy data for organization: {$organization->name}");
 
                 // Get admin user for this organization by checking organization members
-                $member = \App\Domain\Identity\Models\OrganizationMember::where('organization_id', $organization->id)
+                $member = OrganizationMember::where('organization_id', $organization->id)
                     ->where('status', 'active')
                     ->first();
 
-                if (!$member) {
+                if (! $member) {
                     $this->command?->warn("No active member found for {$organization->code}, skipping.");
+
                     continue;
                 }
 
                 $admin = $member->user;
 
-                if (!$admin) {
+                if (! $admin) {
                     $this->command?->warn("No user found for member in {$organization->code}, skipping.");
+
                     continue;
                 }
 
@@ -63,6 +68,7 @@ class DummyDataSeeder extends Seeder
         $existingCount = Location::where('organization_id', $organization->id)->count();
         if ($existingCount >= 100) {
             $this->command?->info("Organization already has {$existingCount} locations, skipping.");
+
             return;
         }
 
@@ -78,11 +84,11 @@ class DummyDataSeeder extends Seeder
             $nameIndex = array_rand($names);
             $cityIndex = array_rand($cities);
 
-            $code = $prefixes[$prefixIndex] . '-' . strtoupper(substr($cities[$cityIndex], 0, 3)) . sprintf('%03d', $i + 1);
-            $name = $names[$nameIndex] . ' ' . $cities[$cityIndex] . ' ' . ($i + 1);
+            $code = $prefixes[$prefixIndex].'-'.strtoupper(substr($cities[$cityIndex], 0, 3)).sprintf('%03d', $i + 1);
+            $name = $names[$nameIndex].' '.$cities[$cityIndex].' '.($i + 1);
 
             $locations[] = [
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'organization_id' => $organization->id,
                 'code' => $code,
                 'name' => $name,
@@ -103,7 +109,7 @@ class DummyDataSeeder extends Seeder
             ->get();
 
         foreach ($insertedLocations as $location) {
-            $location->path = '/' . $location->id . '/';
+            $location->path = '/'.$location->id.'/';
             $location->save();
         }
 
@@ -117,11 +123,13 @@ class DummyDataSeeder extends Seeder
 
         if ($categories->isEmpty()) {
             $this->command?->warn('No categories found. Skipping asset seeding.');
+
             return;
         }
 
         if ($locations->isEmpty()) {
             $this->command?->warn('No locations found. Skipping asset seeding.');
+
             return;
         }
 
@@ -139,6 +147,7 @@ class DummyDataSeeder extends Seeder
         if ($existingCount >= 200) {
             $this->command?->info("Updating all {$existingCount} existing assets with attribute values...");
             $this->updateExistingAssets($organization, $categoryAttributes);
+
             return;
         }
 
@@ -167,7 +176,7 @@ class DummyDataSeeder extends Seeder
             $category = $categories->random();
             $location = $locations->random();
             $status = $statuses[array_rand($statuses)];
-            $name = $assetNames[array_rand($assetNames)] . ' ' . sprintf('%04d', $i + 1);
+            $name = $assetNames[array_rand($assetNames)].' '.sprintf('%04d', $i + 1);
 
             $acquisitionCost = rand(1000000, 50000000);
             $monthsAgo = rand(1, 36);
@@ -181,10 +190,9 @@ class DummyDataSeeder extends Seeder
             }
 
             $assets[] = [
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'organization_id' => $organization->id,
-                'asset_number' => 'AST-' . strtoupper(substr($organization->code, 0, 3)) . '-' . sprintf('%06d', $i + 1),
-                'serial_number' => 'SN-' . date('Y') . '-' . sprintf('%06d', $i + 1),
+                'serial_number' => 'SN-'.date('Y').'-'.sprintf('%06d', $i + 1),
                 'name' => $name,
                 'category_id' => $category->id,
                 'location_id' => $location->id,
@@ -222,7 +230,7 @@ class DummyDataSeeder extends Seeder
             }
 
             // Update if there are attributes to set
-            if (!empty($attributeValues)) {
+            if (! empty($attributeValues)) {
                 $asset->attribute_values = $attributeValues;
                 $asset->save();
                 $updatedCount++;
@@ -238,13 +246,13 @@ class DummyDataSeeder extends Seeder
     private function generateAttributeValue(string $dataType, ?array $options): mixed
     {
         return match ($dataType) {
-            'string' => 'Sample value ' . rand(1, 100),
-            'text' => 'Sample text value ' . rand(1, 100),
+            'string' => 'Sample value '.rand(1, 100),
+            'text' => 'Sample text value '.rand(1, 100),
             'integer' => rand(1, 1000),
             'decimal' => rand(1, 1000) / 10,
             'boolean' => (bool) rand(0, 1),
             'date' => now()->subDays(rand(1, 365))->toDateString(),
-            'enum' => $options && !empty($options) ? ($options[array_rand($options)]['value'] ?? null) : null,
+            'enum' => $options && ! empty($options) ? ($options[array_rand($options)]['value'] ?? null) : null,
             default => null,
         };
     }

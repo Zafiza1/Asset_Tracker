@@ -21,7 +21,6 @@ class AssetTransactionResource extends JsonResource
             'asset_id' => $this->asset_id,
             'asset' => $this->whenLoaded('asset', fn () => [
                 'id' => $this->asset->id,
-                'asset_number' => $this->asset->asset_number,
                 'name' => $this->asset->name,
             ]),
             'from_location' => $this->whenLoaded('fromLocation', fn () => Ref::of($this->fromLocation)),

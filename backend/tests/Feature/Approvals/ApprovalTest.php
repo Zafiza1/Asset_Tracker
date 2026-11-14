@@ -97,7 +97,7 @@ class ApprovalTest extends TestCase
         $asset = $this->createAsset();
         $this->loginAs($this->admin);
         $id = $this->postJson("/api/assets/{$asset->id}/archive", ['reason' => 'Rusak'])->assertStatus(202)->json('data.id');
-        $this->assertSame("{$asset->asset_number} · {$asset->name}", ApprovalRequest::query()->findOrFail($id)->summary);
+        $this->assertSame($asset->name, ApprovalRequest::query()->findOrFail($id)->summary);
 
         // Meanwhile the asset is lent out: archiving is no longer allowed.
         $this->loginAs($this->supervisor);

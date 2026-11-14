@@ -55,7 +55,7 @@ export default function AssetDetailScreen() {
       <SafeAreaView style={styles.center} edges={['bottom']}>
         <Text style={styles.title}>{notFound ? 'Aset tidak ditemukan' : 'Gagal memuat aset'}</Text>
         <Text style={styles.code}>{code}</Text>
-        <Text style={styles.muted}>{notFound ? 'Kode yang dipindai tidak cocok dengan nomor aset mana pun di organisasi atau cakupan data Anda.' : errorMessage(error)}</Text>
+        <Text style={styles.muted}>{notFound ? 'Kode yang dipindai atau nomor seri yang diketik tidak cocok dengan aset mana pun di organisasi atau cakupan data Anda.' : errorMessage(error)}</Text>
         <View style={{ gap: 8, alignSelf: 'stretch' }}>
           <Button title="Pindai lagi" onPress={() => router.replace('/scan')} />
           {!notFound && <Button title="Coba lagi" variant="secondary" onPress={load} />}
@@ -95,7 +95,7 @@ export default function AssetDetailScreen() {
 
       <View style={{ gap: 2 }}>
         <Text style={styles.name}>{a.name}</Text>
-        <Text style={styles.code}>{`${a.asset_number}${a.serial_number ? ` · No Seri ${a.serial_number}` : ''}`}</Text>
+        {a.serial_number && <Text style={styles.code}>{`No Seri ${a.serial_number}`}</Text>}
       </View>
 
       {a.is_archived && (

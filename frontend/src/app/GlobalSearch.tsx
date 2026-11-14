@@ -104,7 +104,7 @@ function SearchDialog({ sections, searchAssets, label, onClose }: { sections: Na
       key: `asset:${a.id}`,
       to: `/aset/${a.id}`,
       title: a.name,
-      subtitle: [a.asset_number, a.category?.name, a.location?.name].filter(Boolean).join(' · '),
+      subtitle: [a.serial_number, a.category?.name, a.location?.name].filter(Boolean).join(' · '),
       icon: Boxes,
       asset: a,
     }))
@@ -166,7 +166,7 @@ function SearchDialog({ sections, searchAssets, label, onClose }: { sections: Na
             aria-label={label}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={searchAssets ? 'Nama aset, no aset, no seri, atau nama menu' : 'Nama menu'}
+            placeholder={searchAssets ? 'Nama aset, no seri, atau nama menu' : 'Nama menu'}
             className="h-14 min-w-0 flex-1 border-0 bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400 focus:outline-none focus:ring-0 [&::-webkit-search-cancel-button]:appearance-none"
           />
           <kbd className="hidden rounded border border-slate-300 px-1.5 py-0.5 font-sans text-[0.6875rem] font-semibold text-slate-500 sm:block">Esc</kbd>

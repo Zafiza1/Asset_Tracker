@@ -31,7 +31,9 @@ use App\Domain\Shared\Tenancy\TenancyState;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantAssetDefinition;
 use App\Domain\TenantMaster\Models\TenantAttributeDefinition;
+use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use App\Domain\TenantMaster\Models\TenantDefinitionVersion;
+use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -115,8 +117,8 @@ abstract class TestCase extends BaseTestCase
     /** For tests about other things: assets may then be registered without the required default Kondisi Aset. */
     protected function relaxDefaultCondition(): void
     {
-        \App\Domain\TenantMaster\Models\TenantCategoryAttribute::query()
-            ->where('label', \App\Domain\TenantMaster\Services\CategoryAttributeService::CONDITION_LABEL)
+        TenantCategoryAttribute::query()
+            ->where('label', CategoryAttributeService::CONDITION_LABEL)
             ->update(['is_required' => false]);
     }
 
@@ -286,7 +288,7 @@ abstract class TestCase extends BaseTestCase
     protected function createAssetFixture(Organization $organization, array $masters, string $suffix = '1'): array
     {
         $asset = (new Asset)->forceFill([
-            'organization_id' => $organization->id, 'asset_number' => "FIX-{$suffix}", 'serial_number' => "SN-FIX-{$suffix}", 'name' => "Aset {$suffix}",
+            'organization_id' => $organization->id, 'serial_number' => "SN-FIX-{$suffix}", 'name' => "Aset {$suffix}",
             'category_id' => $masters['category']->id, 'location_id' => $masters['location']->id, 'status' => 'available',
         ]);
         $asset->save();

@@ -59,12 +59,10 @@ const MISSING_LABEL: Record<string, string> = {
   serial_number: 'No seri',
   image_path: 'Foto aset',
 }
-/** '' is the server default (no aset, ascending); the column headers set the same keys. */
-const SORT_OPTIONS = ['', '-asset_number', 'name', '-name', '-acquisition_date', 'acquisition_date', '-acquisition_cost', 'acquisition_cost', 'status']
+/** '' is the server default (registration order, oldest first); the column headers set the same keys. */
+const SORT_OPTIONS = ['', 'name', '-name', '-acquisition_date', 'acquisition_date', '-acquisition_cost', 'acquisition_cost', 'status']
 const SORT_LABEL: Record<string, string> = {
-  '': 'no aset (naik)',
-  asset_number: 'no aset (naik)',
-  '-asset_number': 'no aset (turun)',
+  '': 'urutan pendaftaran',
   name: 'nama (A–Z)',
   '-name': 'nama (Z–A)',
   '-acquisition_date': 'tanggal perolehan terbaru',
@@ -167,15 +165,6 @@ export function AssetReportPage() {
   )
   const columns: Column<Asset>[] = [
     {
-      key: 'code',
-      header: 'No Aset',
-      className: 'w-36',
-      sortKey: 'asset_number',
-      // On phones the number moves under the asset name, so the table fits without scrolling.
-      hideOnMobile: true,
-      cell: (a) => assetLink(a, a.asset_number, 'font-mono text-xs text-brand-700 hover:text-brand-900 hover:underline'),
-    },
-    {
       key: 'name',
       header: 'Aset',
       sortKey: 'name',
@@ -186,7 +175,6 @@ export function AssetReportPage() {
           <>
             {/* Long names stop after two lines; the link's tooltip has the full name. */}
             <span className="line-clamp-2 break-words font-medium text-slate-900 group-hover:text-brand-700 group-hover:underline">{a.name}</span>
-            <span className="block truncate font-mono text-xs text-slate-500 md:hidden">{a.asset_number}</span>
             <span className="block truncate text-xs text-slate-500 md:hidden">{[a.category?.name, a.location?.name ?? 'Tanpa lokasi'].filter(Boolean).join(' · ')}</span>
             <span className="block text-xs tabular-nums text-slate-500 md:hidden">{formatMoney(a.acquisition_cost)}</span>
           </>,
@@ -295,7 +283,7 @@ export function AssetReportPage() {
             value={search}
             onChange={setSearch}
             onSubmit={() => update({ search })}
-            placeholder="Cari nama, no aset, atau no seri"
+            placeholder="Cari nama atau no seri"
             label="Cari aset"
             aside={
               <Select value={sort} onChange={(e) => update({ sort: e.target.value })} className="sm:w-64" aria-label="Urutkan">
@@ -373,8 +361,8 @@ export function AssetReportPage() {
             <DataTable
               columns={columns}
               rows={rows}
-              sort={sort || 'asset_number'}
-              onSort={(next) => update({ sort: next === 'asset_number' ? '' : next })}
+              sort={sort}
+              onSort={(next) => update({ sort: next })}
               onRowClick={(a) => navigate(`/aset/${a.id}`)}
               rowHref={(a) => `/aset/${a.id}`}
               className="md:min-w-[80rem]"

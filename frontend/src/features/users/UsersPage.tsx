@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Eye, KeyRound, Plus, SearchX, ShieldCheck, Users, UserX } from 'lucide-react'
+import { Plus, SearchX, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { StatusBadge } from '../../components/ui/Badge'
@@ -10,7 +10,6 @@ import { EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedb
 import { Select } from '../../components/ui/Field'
 import { ActiveFilters, AdvancedFilters, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
 import { searchChip, type FilterChip } from '../../components/ui/filterChips'
-import { RowMenu, type RowMenuItem } from '../../components/ui/RowMenu'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { Paginated, User } from '../../lib/api/types'
@@ -19,8 +18,6 @@ import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePers
 import { formatDateTime, userStatusLabel } from '../../lib/format'
 import { useRoles } from './api'
 import { UserAdminTabs } from './UserAdminTabs'
-import { availableStatusAction, type UserStatusAction } from './statusActions'
-import { ResetPasswordModal, UserStatusModal } from './UserDetailPage'
 
 const DEFAULT_COLUMNS = ['name', 'roles', 'job', 'status', 'login']
 
@@ -59,7 +56,7 @@ const columns: Column<User>[] = [
 ]
 
 export function UsersPage() {
-  const { can, profile } = useAuth()
+  const { can } = useAuth()
   const navigate = useNavigate()
   const [params, setParams] = usePersistedSearchParams('/users')
   const [search, setSearch] = useState(params.get('search') ?? '')
@@ -68,8 +65,6 @@ export function UsersPage() {
   const roleId = params.get('role_id') ?? ''
   const canFilterRole = can('role.view')
   const roles = useRoles(canFilterRole)
-  const [statusChange, setStatusChange] = useState<{ user: User; action: UserStatusAction } | null>(null)
-  const [resetting, setResetting] = useState<User | null>(null)
 
   // Persisted filters from localStorage
   const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters('/users')
@@ -116,23 +111,6 @@ export function UsersPage() {
 
   const resetAll = () => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))
 
-  const rowActions = (u: User): RowMenuItem[] => {
-    const isSelf = u.id === profile?.user.id
-    const deactivate = can('user.deactivate') && !isSelf ? availableStatusAction(u) : null
-    const open = () => navigate(`/pengguna/${u.id}`)
-    return [
-      { label: 'Lihat detail', icon: <Eye aria-hidden />, onSelect: open },
-      ...(can('role.manage') ? [{ label: 'Kelola role & akses', icon: <ShieldCheck aria-hidden />, onSelect: open }] : []),
-      ...(can('user.update') ? [{ label: 'Reset password', icon: <KeyRound aria-hidden />, onSelect: () => setResetting(u) }] : []),
-      ...(deactivate ? [{ label: 'Nonaktifkan', icon: <UserX aria-hidden />, tone: 'danger' as const, onSelect: () => setStatusChange({ user: u, action: deactivate }) }] : []),
-    ]
-  }
-  const actionsColumn: Column<User> = {
-    key: 'actions',
-    header: 'Aksi',
-    className: 'w-16 text-right! pr-2!',
-    cell: (u) => <RowMenu label={`Tindakan untuk ${u.name}`} items={rowActions(u)} />,
-  }
   const meta = query.data?.meta
 
   return (
@@ -216,7 +194,7 @@ export function UsersPage() {
         ) : (
           <>
             <DataTable
-              columns={[...columns, actionsColumn]}
+              columns={columns}
               rows={query.data!.data}
               visibleColumns={[...visibleColumns, 'actions']}
               onRowClick={(u) => navigate(`/pengguna/${u.id}`)}
@@ -231,8 +209,6 @@ export function UsersPage() {
           </>
         )}
       </Card>
-      {statusChange && <UserStatusModal user={statusChange.user} action={statusChange.action} onClose={() => setStatusChange(null)} />}
-      {resetting && <ResetPasswordModal user={resetting} open onClose={() => setResetting(null)} />}
     </>
   )
 }

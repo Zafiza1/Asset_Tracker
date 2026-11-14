@@ -128,7 +128,7 @@ Pembagian tanggung jawab **container vs asset**:
 - `asset_attribute_values` = nilai atribut dinamis bertipe (satu kolom nilai terisi sesuai `data_type`), `UNIQUE (asset_id, attribute_key)`; index `(organization_id, attribute_key, value_string)`, `(organization_id, attribute_key, value_number)`, `(organization_id, attribute_key, value_date)` untuk filter. Atribut yang dihapus pada versi baru tidak dihapus nilainya — ditandai `retired_at` agar migrasi dapat dibalik.
 
 Constraint kunci:
-- `UNIQUE (organization_id, asset_number)` **termasuk aset yang diarsipkan** → nomor tidak pernah dipakai ulang; sequence hanya bertambah (`UPDATE number_sequences SET next_value = next_value + 1 ... RETURNING` di dalam transaksi, row-locked).
+- `UNIQUE (organization_id, asset_number)` **termasuk aset yang diarsipkan** → nomor tidak pernah dipakai ulang; sequence hanya bertambah (`UPDATE number_sequences SET next_value = next_value + 1 ... RETURNING` di dalam transaksi, row-locked). `asset_number` diisi trigger `assets_assign_number` (fungsi `ate_assign_asset_number()`, BEFORE INSERT) dan hanya dipakai internal, tidak diekspos API.
 - Composite FK `(organization_id, location_id) → locations(organization_id, id)`, sama untuk branch, department, condition, custodian user, container, tenant category, tenant definition version.
 - `assets.status ∈ {active, inactive, under_maintenance, on_loan, disposed}` (CHECK). Arsip direpresentasikan oleh `archived_at`, terpisah dari status bisnis.
 - Dokumen: path penyimpanan `org/{org_id}/assets/{asset_id}/{uuid}`; nama asli hanya metadata. Download via endpoint terotorisasi (stream), tidak ada URL publik.

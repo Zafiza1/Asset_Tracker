@@ -272,7 +272,7 @@ function Step4() {
         <>Buka <MenuLink to="/aset" permission="asset.view">Data Aset</MenuLink>, lalu klik <Label>Tambah aset</Label> → <Label>Isi formulir</Label>.</>,
         <>Isi <Label>Nama aset</Label> dan <Label>Kategori</Label>. <Label>No Seri</Label> boleh dikosongkan, tetapi harus unik bila diisi. Isian atribut tampil sesuai kategori yang dipilih.</>,
         <>Pilih <Label>Lokasi</Label>, <Label>Status</Label> awal, dan <Label>Kondisi Aset</Label>, lalu lengkapi tanggal dan harga perolehan bila ada.</>,
-        <>Klik <Label>Simpan</Label>. No Aset dibuat otomatis dan riwayat <Label>Penambahan aset</Label> tercatat dengan sendirinya.</>,
+        <>Klik <Label>Simpan</Label>. Riwayat <Label>Penambahan aset</Label> tercatat dengan sendirinya.</>,
       ]} />
       <div className="grid gap-3 md:grid-cols-2">
         <PathCard title="Mendaftarkan banyak aset">
@@ -376,7 +376,7 @@ function Step6() {
         'Tempel label pada aset fisik.',
       ]} />
       <PathCard title="Memindai dengan aplikasi mobile">
-        <p>Masuk ke aplikasi Asset Tracker Scanner dengan email dan password yang sama, lalu tekan <Label>Scan Aset</Label> dan arahkan kamera ke label. Detail dan riwayat aset langsung tampil. Bila label rusak, ketik nomor asetnya. Aplikasi ini hanya untuk melihat data; pencatatan tetap dilakukan di web.</p>
+        <p>Masuk ke aplikasi Asset Tracker Scanner dengan email dan password yang sama, lalu tekan <Label>Scan Aset</Label> dan arahkan kamera ke label. Detail dan riwayat aset langsung tampil. Aplikasi ini hanya untuk melihat data; pencatatan tetap dilakukan di web.</p>
       </PathCard>
     </StepSection>
   )

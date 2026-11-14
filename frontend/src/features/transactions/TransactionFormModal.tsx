@@ -81,7 +81,6 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
         />
       ),
     },
-    { key: 'code', header: 'No Aset', cell: (a: Asset) => <span className="font-mono text-xs">{a.asset_number}</span> },
     { key: 'name', header: 'Aset', cell: (a: Asset) => <span className="font-medium text-slate-900">{a.name}</span> },
     { key: 'serial_number', header: 'No Seri', cell: (a: Asset) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>) },
     { key: 'category', header: 'Kategori', cell: (a: Asset) => a.category?.name ?? '—' },
@@ -272,7 +271,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
           <div className="rounded-md bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
             <p className="font-medium text-slate-900">{fixedAsset.name}</p>
             <p className="text-slate-600">
-              {fixedAsset.asset_number} · {assetStatusLabel[fixedAsset.status]}
+              {assetStatusLabel[fixedAsset.status]}
               {fixedAsset.location ? ` · ${fixedAsset.location.name}` : ''}
             </p>
           </div>
@@ -290,7 +289,6 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
               <ul className="flex flex-wrap gap-2" aria-label="Aset dipilih">
                 {picked.map((a) => (
                   <li key={a.id} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ring-1 ${reason(a) ? 'bg-red-50 text-red-800 ring-red-200' : 'bg-brand-50 text-brand-800 ring-brand-200'}`}>
-                    <span className="font-mono">{a.asset_number}</span>
                     <span>{a.name}</span>
                     {reason(a) && <span>· {reason(a)}</span>}
                     <button type="button" className="rounded-full p-0.5 hover:bg-black/10" onClick={() => toggle(a)} aria-label={`Hapus ${a.name}`}>
@@ -307,7 +305,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
             )}
             {blocked.length > 0 && <Alert tone="error">Hapus aset yang ditandai merah, aset tersebut tidak dapat ikut transaksi ini.</Alert>}
 
-            <p className="mt-1.5 text-xs text-slate-500">Cari berdasarkan nama, nomor aset, atau nomor seri. Centang semua aset yang ikut dalam transaksi ini.</p>
+            <p className="mt-1.5 text-xs text-slate-500">Cari berdasarkan nama atau nomor seri. Centang semua aset yang ikut dalam transaksi ini.</p>
             <FilterPanel>
               <SearchForm
                 value={search}

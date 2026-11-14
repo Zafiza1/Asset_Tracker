@@ -59,7 +59,6 @@ final class AssetReport
         $query = $this->scope->apply(Asset::query())->with(['category', 'location'])
             ->when($filters['search'] ?? null, fn ($q, $term) => $q->where(fn ($w) => $w
                 ->where('assets.name', 'ilike', ListQuery::like($term))
-                ->orWhere('assets.asset_number', 'ilike', ListQuery::like($term))
                 ->orWhere('assets.serial_number', 'ilike', ListQuery::like($term))))
             ->when($categoryIds, fn ($q) => $q->whereIn('assets.category_id', $this->subtree(TenantAssetCategory::query(), $categoryIds)))
             ->when($filters['location_id'] ?? null, fn ($q, $id) => $q->whereIn('assets.location_id', $this->subtree(Location::query(), [$id])))

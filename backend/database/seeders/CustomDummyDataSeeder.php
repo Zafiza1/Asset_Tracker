@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use App\Domain\Assets\Models\Asset;
 use App\Domain\GenericMaster\Models\GenericAssetCategory;
-use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\Tenancy;
@@ -13,6 +13,7 @@ use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class CustomDummyDataSeeder extends Seeder
@@ -28,25 +29,28 @@ class CustomDummyDataSeeder extends Seeder
 
             if ($organizations->isEmpty()) {
                 $this->command?->warn('No organizations found. Please run DemoSeeder first.');
+
                 return;
             }
 
             foreach ($organizations as $organization) {
                 $this->command?->info("Seeding custom dummy data for organization: {$organization->name}");
 
-                $member = \App\Domain\Identity\Models\OrganizationMember::where('organization_id', $organization->id)
+                $member = OrganizationMember::where('organization_id', $organization->id)
                     ->where('status', 'active')
                     ->first();
 
-                if (!$member) {
+                if (! $member) {
                     $this->command?->warn("No active member found for {$organization->code}, skipping.");
+
                     continue;
                 }
 
                 $admin = $member->user;
 
-                if (!$admin) {
+                if (! $admin) {
                     $this->command?->warn("No user found for member in {$organization->code}, skipping.");
+
                     continue;
                 }
 
@@ -65,6 +69,7 @@ class CustomDummyDataSeeder extends Seeder
 
         if ($existingCount >= 20) {
             $this->command?->info("Organization already has {$existingCount} categories, skipping category seeding.");
+
             return;
         }
 
@@ -74,6 +79,7 @@ class CustomDummyDataSeeder extends Seeder
 
         if ($genericCategories->isEmpty()) {
             $this->command?->warn('No generic categories found. Please run GenericCatalogSeeder first.');
+
             return;
         }
 
@@ -103,12 +109,12 @@ class CustomDummyDataSeeder extends Seeder
         $categories = [];
         foreach ($categorySpecs as $spec) {
             $genericCategory = $genericCategories->firstWhere('code', $spec['generic']);
-            if (!$genericCategory) {
+            if (! $genericCategory) {
                 continue;
             }
 
             $categories[] = [
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'organization_id' => $organization->id,
                 'generic_category_id' => $genericCategory->id,
                 'code' => $spec['code'],
@@ -128,7 +134,7 @@ class CustomDummyDataSeeder extends Seeder
             ->get();
 
         foreach ($insertedCategories as $category) {
-            $category->path = '/' . $category->id . '/';
+            $category->path = '/'.$category->id.'/';
             $category->save();
         }
 
@@ -141,6 +147,7 @@ class CustomDummyDataSeeder extends Seeder
 
         if ($existingCount >= 30) {
             $this->command?->info("Organization already has {$existingCount} locations, skipping location seeding.");
+
             return;
         }
 
@@ -156,11 +163,11 @@ class CustomDummyDataSeeder extends Seeder
             $nameIndex = array_rand($names);
             $cityIndex = array_rand($cities);
 
-            $code = $prefixes[$prefixIndex] . '-' . strtoupper(substr($cities[$cityIndex], 0, 3)) . sprintf('%03d', $i + 1);
-            $name = $names[$nameIndex] . ' ' . $cities[$cityIndex] . ' ' . ($i + 1);
+            $code = $prefixes[$prefixIndex].'-'.strtoupper(substr($cities[$cityIndex], 0, 3)).sprintf('%03d', $i + 1);
+            $name = $names[$nameIndex].' '.$cities[$cityIndex].' '.($i + 1);
 
             $locations[] = [
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'organization_id' => $organization->id,
                 'code' => $code,
                 'name' => $name,
@@ -179,7 +186,7 @@ class CustomDummyDataSeeder extends Seeder
             ->get();
 
         foreach ($insertedLocations as $location) {
-            $location->path = '/' . $location->id . '/';
+            $location->path = '/'.$location->id.'/';
             $location->save();
         }
 
@@ -193,11 +200,13 @@ class CustomDummyDataSeeder extends Seeder
 
         if ($categories->isEmpty()) {
             $this->command?->warn('No categories found. Skipping asset seeding.');
+
             return;
         }
 
         if ($locations->isEmpty()) {
             $this->command?->warn('No locations found. Skipping asset seeding.');
+
             return;
         }
 
@@ -213,6 +222,7 @@ class CustomDummyDataSeeder extends Seeder
 
         if ($existingCount >= 500) {
             $this->command?->info("Organization already has {$existingCount} assets, skipping asset seeding.");
+
             return;
         }
 
@@ -250,7 +260,7 @@ class CustomDummyDataSeeder extends Seeder
             $category = $categories->random();
             $location = $locations->random();
             $status = $statuses[array_rand($statuses)];
-            $name = $assetNames[array_rand($assetNames)] . ' ' . sprintf('%04d', $i + 1);
+            $name = $assetNames[array_rand($assetNames)].' '.sprintf('%04d', $i + 1);
 
             $acquisitionCost = rand(1000000, 50000000);
             $monthsAgo = rand(1, 36);
@@ -263,10 +273,9 @@ class CustomDummyDataSeeder extends Seeder
             }
 
             $assets[] = [
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'organization_id' => $organization->id,
-                'asset_number' => 'AST-' . strtoupper(substr($organization->code, 0, 3)) . '-' . sprintf('%06d', $i + 1),
-                'serial_number' => 'SN-' . date('Y') . '-' . sprintf('%06d', $i + 1),
+                'serial_number' => 'SN-'.date('Y').'-'.sprintf('%06d', $i + 1),
                 'name' => $name,
                 'category_id' => $category->id,
                 'location_id' => $location->id,
@@ -289,13 +298,13 @@ class CustomDummyDataSeeder extends Seeder
     private function generateAttributeValue(string $dataType, ?array $options): mixed
     {
         return match ($dataType) {
-            'string' => 'Sample value ' . rand(1, 100),
-            'text' => 'Sample text value ' . rand(1, 100),
+            'string' => 'Sample value '.rand(1, 100),
+            'text' => 'Sample text value '.rand(1, 100),
             'integer' => rand(1, 1000),
             'decimal' => rand(1, 1000) / 10,
             'boolean' => (bool) rand(0, 1),
             'date' => now()->subDays(rand(1, 365))->toDateString(),
-            'enum' => $options && !empty($options) ? ($options[array_rand($options)]['value'] ?? null) : null,
+            'enum' => $options && ! empty($options) ? ($options[array_rand($options)]['value'] ?? null) : null,
             default => null,
         };
     }

@@ -105,7 +105,6 @@ export function TransactionsPage() {
         t.asset && (
           <Link to={`/aset/${t.asset.id}`} className="hover:text-brand-700">
             <span className="font-medium text-slate-900">{t.asset.name}</span>
-            <span className="block font-mono text-xs text-slate-500">{t.asset.asset_number}</span>
           </Link>
         ),
     },

@@ -46,8 +46,10 @@ class AssetManagementTest extends TestCase
             ->json('data');
         $second = $this->register(['name' => 'Printer'])->assertCreated()->json('data');
 
-        $this->assertMatchesRegularExpression('/^AST-\d{4}-000001$/', $first['asset_number']);
-        $this->assertMatchesRegularExpression('/^AST-\d{4}-000002$/', $second['asset_number']);
+        // Assigned by the database trigger and kept internal: the API never exposes it.
+        $this->assertArrayNotHasKey('asset_number', $first);
+        $this->assertMatchesRegularExpression('/^AST-\d{4}-000001$/', DB::table('assets')->where('id', $first['id'])->value('asset_number'));
+        $this->assertMatchesRegularExpression('/^AST-\d{4}-000002$/', DB::table('assets')->where('id', $second['id'])->value('asset_number'));
 
         $history = $this->getJson("/api/assets/{$first['id']}/transactions")->assertOk()->json('data');
         $this->assertCount(1, $history);
@@ -88,7 +90,27 @@ class AssetManagementTest extends TestCase
                 $this->assertStringContainsString($expected, $e->getMessage());
             }
         }
-        $this->getJson("/api/assets/{$id}")->assertOk()->assertJsonPath('data.asset_number', fn ($n) => str_starts_with($n, 'AST-'));
+        $this->assertStringStartsWith('AST-', DB::table('assets')->where('id', $id)->value('asset_number'));
+    }
+
+    public function test_database_trigger_assigns_the_asset_number_whatever_the_insert_sends(): void
+    {
+        DB::table('organization_settings')->where('organization_id', $this->org->id)->update(['asset_number_format' => 'INV/{YY}{MM}/{SEQ:3}']);
+        $first = $this->register(['name' => 'Kursi'])->json('data.id');
+        $second = $this->register(['name' => 'Meja'])->json('data.id');
+
+        // A row written straight to the table cannot pick its own number either.
+        $direct = (string) Str::uuid();
+        DB::table('assets')->insert([
+            'id' => $direct, 'organization_id' => $this->org->id, 'asset_number' => 'MANUAL-1', 'name' => 'Lemari',
+            'category_id' => $this->masters['category']->id, 'status' => 'available', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $period = now($this->org->timezone)->format('ym');
+        $numbers = DB::table('assets')->whereIn('id', [$first, $second, $direct])->pluck('asset_number', 'id');
+        $this->assertSame("INV/{$period}/001", $numbers[$first]);
+        $this->assertSame("INV/{$period}/002", $numbers[$second]);
+        $this->assertSame("INV/{$period}/003", $numbers[$direct]);
     }
 
     public function test_list_filters_by_several_categories_including_subcategories_with_search_and_status(): void
@@ -212,7 +234,7 @@ class AssetManagementTest extends TestCase
         $this->assertErrorCode($this->postJson("/api/assets/{$asset['id']}/archive"), 409, 'ASSET_ARCHIVED');
 
         $this->postJson("/api/assets/{$asset['id']}/restore")->assertOk()->assertJsonPath('data.is_archived', false)
-            ->assertJsonPath('data.asset_number', $asset['asset_number']);
+            ->assertJsonPath('data.id', $asset['id']);
 
         $history = collect($this->getJson("/api/assets/{$asset['id']}/transactions")->json('data'));
         $this->assertSame(['restore', 'archive', 'registration'], $history->pluck('type')->all());

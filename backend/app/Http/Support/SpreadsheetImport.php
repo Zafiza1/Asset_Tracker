@@ -36,7 +36,7 @@ use Throwable;
  *
  * Bulk editing uses the same format: editSheet() exports the existing records, the user edits
  * them in Excel and uploads the file back; each row is matched to its record by a hidden id
- * (or by a visible identifier column, such as the asset number).
+ * (or by a visible identifier column).
  */
 final class SpreadsheetImport
 {
@@ -193,7 +193,7 @@ final class SpreadsheetImport
     /**
      * Existing records in the template format, for editing in Excel and uploading back. Each
      * row carries its record's id in a hidden column (see idColumn()), so codes need not be shown,
-     * or a visible identifier column (ImportColumn::$identifier) such as the asset number.
+     * or a visible identifier column (ImportColumn::$identifier).
      *
      * @param  list<ImportColumn>  $columns  including idColumn() or an identifier column
      * @param  iterable<array<string, mixed>>  $rows  column key => value (string, number, date or null)
@@ -345,7 +345,7 @@ final class SpreadsheetImport
 
     /**
      * The record an edit row refers to by its hidden id, or by `$column` when the sheet uses a
-     * visible identifier (e.g. the asset number). `$seen` collects the keys of earlier rows, so a
+     * visible identifier. `$seen` collects the keys of earlier rows, so a
      * copied row is reported instead of silently editing the record twice.
      *
      * @template T of Model

@@ -28,7 +28,6 @@ final class AssetReportExport
     /** Column key => [header, Excel width]. */
     private const COLUMNS = [
         'no' => ['No', 6],
-        'asset_number' => ['No Aset', 18],
         'name' => ['Nama Aset', 34],
         'serial_number' => ['No Seri', 20],
         'category' => ['Kategori', 24],
@@ -88,7 +87,6 @@ final class AssetReportExport
             $row++;
             $sheet->fromArray([
                 $i + 1,
-                $asset->asset_number,
                 $asset->name,
                 $asset->serial_number,
                 $asset->category?->name,
@@ -98,17 +96,16 @@ final class AssetReportExport
                 $asset->acquisition_cost === null ? null : (float) $asset->acquisition_cost,
                 $asset->description,
             ], null, "A{$row}", true);
-            // Asset numbers and serials are text, never numbers (keeps leading zeros).
-            $sheet->setCellValueExplicit("B{$row}", $asset->asset_number, DataType::TYPE_STRING);
+            // Serials are text, never numbers (keeps leading zeros).
             if ($asset->serial_number !== null) {
-                $sheet->setCellValueExplicit("D{$row}", $asset->serial_number, DataType::TYPE_STRING);
+                $sheet->setCellValueExplicit("C{$row}", $asset->serial_number, DataType::TYPE_STRING);
             }
         }
 
         $totalRow = $row + 1;
         $sheet->setCellValue("A{$totalRow}", 'Total: '.$this->summary['total'].' aset');
-        $sheet->mergeCells("A{$totalRow}:H{$totalRow}");
-        $sheet->setCellValue("I{$totalRow}", (float) $this->summary['total_value']);
+        $sheet->mergeCells("A{$totalRow}:G{$totalRow}");
+        $sheet->setCellValue("H{$totalRow}", (float) $this->summary['total_value']);
         $sheet->getStyle("A{$totalRow}:{$lastCol}{$totalRow}")->applyFromArray([
             'font' => ['bold' => true],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E2E8F0']],
@@ -116,8 +113,8 @@ final class AssetReportExport
 
         $sheet->getStyle("A{$headerRow}:{$lastCol}{$totalRow}")->getBorders()->getAllBorders()
             ->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('CBD5E1');
-        $sheet->getStyle('I'.($headerRow + 1).":I{$totalRow}")->getNumberFormat()->setFormatCode('#,##0');
-        $sheet->getStyle('H'.($headerRow + 1).":H{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('H'.($headerRow + 1).":H{$totalRow}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('G'.($headerRow + 1).":G{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('A'.($headerRow + 1).":{$lastCol}{$totalRow}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
         $sheet->freezePane('A'.($headerRow + 1));
         $sheet->setAutoFilter("A{$headerRow}:{$lastCol}{$row}");
@@ -142,7 +139,6 @@ final class AssetReportExport
         foreach ($this->rows() as $i => $asset) {
             $pdf->row([
                 (string) ($i + 1),
-                $asset->asset_number,
                 $asset->name,
                 $asset->serial_number,
                 $asset->category?->name,

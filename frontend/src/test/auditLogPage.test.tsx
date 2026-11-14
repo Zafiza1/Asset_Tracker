@@ -80,7 +80,9 @@ describe('Audit trail page', () => {
 
   it('opens a detail with before/after values, full time and IP address', async () => {
     renderPage()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Lihat detail: Mengubah data aset' }))[0])
+    // The whole row opens the detail; there is no separate detail column.
+    fireEvent.click((await screen.findAllByText('Mengubah data aset'))[0])
+    expect(screen.queryByRole('columnheader', { name: 'Detail' })).not.toBeInTheDocument()
     const dialog = await dialogTitled('Detail aktivitas')
     expect(within(dialog).getByText('budi@contoh.id')).toBeInTheDocument()
     expect(within(dialog).getByText('10.10.20.7')).toBeInTheDocument()

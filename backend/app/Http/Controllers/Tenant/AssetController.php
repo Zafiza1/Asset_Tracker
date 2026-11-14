@@ -28,6 +28,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -92,7 +93,6 @@ class AssetController extends Controller
         $query = $this->scope->apply(Asset::query())->with(self::RELATIONS)
             ->when($request->query('search'), fn ($q, $term) => $q->where(fn ($w) => $w
                 ->where('name', 'ilike', ListQuery::like($term))
-                ->orWhere('asset_number', 'ilike', ListQuery::like($term))
                 ->orWhere('serial_number', 'ilike', ListQuery::like($term))))
             ->when($categoryIds, fn ($q) => $q->whereIn('category_id', $this->subtree(TenantAssetCategory::query(), $categoryIds)))
             ->when($request->query('location_id'), fn ($q, $id) => $q->whereIn('location_id', $this->subtree(Location::query(), [$id])))
@@ -117,14 +117,17 @@ class AssetController extends Controller
             ->additional(['attribute_fields' => CategoryAttributeResource::collection($this->attributes->effective($asset->category_id))]);
     }
 
-    /** The asset a scanned barcode encodes (its asset number), as show(); archived ones too. */
+    /** The asset a scanned barcode encodes (its id) or a typed serial number names, as show(); archived ones too. */
     public function lookup(Request $request): AssetResource
     {
         if (! OrganizationModule::isEnabled(OrganizationModule::BARCODE)) {
             throw ApiException::forbidden('MODULE_DISABLED', 'Modul Barcode belum diaktifkan oleh administrator organisasi.');
         }
         $code = trim($request->validate(['code' => ['required', 'string', 'max:200']])['code']);
-        $asset = $this->scope->apply(Asset::query())->where('asset_number', $code)->first()
+        $query = $this->scope->apply(Asset::query());
+        // Labels encode the id; a person typing a code in uses the serial number (unique per organization).
+        $asset = (Str::isUuid($code) ? (clone $query)->whereKey(strtolower($code))->first() : null)
+            ?? $query->whereRaw('lower(serial_number) = ?', [mb_strtolower($code)])->first()
             ?? throw new ApiException('ASSET_NOT_FOUND', 'Aset dengan kode tersebut tidak ditemukan atau di luar cakupan data Anda.', 404);
 
         return $this->show($asset);
@@ -307,7 +310,7 @@ class AssetController extends Controller
         SpreadsheetImport::assertExportable($query->count());
 
         $rows = $query->orderBy('asset_number')->get()->map(fn (Asset $a) => [
-            'asset_number' => $a->asset_number,
+            'id' => $a->id,
             'name' => $a->name,
             'category_code' => SpreadsheetImport::codeItem($a->category),
             'serial_number' => $a->serial_number,
@@ -327,7 +330,7 @@ class AssetController extends Controller
         ]);
     }
 
-    /** Applies an edited sheet from downloadEditSheet(): rows are matched by asset number, unchanged ones skipped. */
+    /** Applies an edited sheet from downloadEditSheet(): rows are matched by the hidden asset id, unchanged ones skipped. */
     public function importEdits(Request $request): JsonResponse
     {
         $columns = $this->editColumns();
@@ -341,7 +344,7 @@ class AssetController extends Controller
                 'category_code' => ['required', 'string'],
             ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
 
-            $asset = SpreadsheetImport::existing($this->scope->apply(Asset::query())->whereNull('archived_at'), $row['asset_number'], $seen, 'asset_number');
+            $asset = SpreadsheetImport::existing($this->scope->apply(Asset::query())->whereNull('archived_at'), $row['id'], $seen);
             $changes = SpreadsheetImport::changes($asset, [
                 ...Arr::only($data, ['name', 'serial_number', 'acquisition_date', 'acquisition_cost', 'description']),
                 'category_id' => SpreadsheetImport::idByCode(TenantAssetCategory::query(), $data['category_code'], 'Kategori'),
@@ -358,11 +361,10 @@ class AssetController extends Controller
         return response()->json(['data' => ['updated' => $updated]]);
     }
 
-    /** @return list<ImportColumn> rows are matched by the asset number, which cannot be changed */
+    /** @return list<ImportColumn> rows are matched by the hidden asset id, which cannot be changed */
     private function editColumns(): array
     {
         return [
-            new ImportColumn('asset_number', 'No Aset', required: true, hint: 'Penanda baris aset, dibuat oleh sistem. Jangan diubah.', width: 20, identifier: true),
             new ImportColumn('name', 'Nama Aset', required: true, hint: 'Nama aset, maksimal 150 karakter.', width: 32),
             new ImportColumn('category_code', 'Kategori', required: true, hint: 'Pilih kategori aset dari daftar.', list: 'Kategori', width: 34),
             new ImportColumn('serial_number', 'No Seri', hint: 'Nomor seri aset yang dipakai sebagai nomor alias (misalnya nomor seri pabrik), harus unik bila diisi.', width: 22),
@@ -372,6 +374,7 @@ class AssetController extends Controller
             new ImportColumn('location', 'Lokasi (info)', hint: 'Lokasi saat ini; diubah lewat transaksi mutasi.', width: 30, readOnly: true),
             new ImportColumn('status', 'Status (info)', hint: 'Status saat ini; diubah lewat transaksi.', width: 18, readOnly: true),
             new ImportColumn('updated_at', 'Terakhir Diubah (info)', hint: 'Waktu aset terakhir disimpan. Dipakai untuk memeriksa apakah aset diubah orang lain setelah file diunduh; jangan diubah.', width: 22, readOnly: true, readBack: true),
+            SpreadsheetImport::idColumn(),
         ];
     }
 

@@ -169,7 +169,7 @@ describe('DashboardPage widgets', () => {
       unknown: 1,
       average_years: 3.5,
       by_category: [{ id: 'c1', name: 'Perangkat IT', total: 4, average_years: 3.5, buckets: { lt1: 2, '5_10': 2 } }],
-      oldest: [{ asset: { id: 'a1', asset_number: 'A-1', name: 'Proyektor lama' }, location: null, acquisition_date: '2020-01-01', age_years: 6.8 }],
+      oldest: [{ asset: { id: 'a1', name: 'Proyektor lama' }, location: null, acquisition_date: '2020-01-01', age_years: 6.8 }],
     }
 
     async function renderAgeAt(size: string) {

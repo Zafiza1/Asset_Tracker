@@ -26,12 +26,14 @@ class MobileAccessTest extends TestCase
     /** @var array<string, mixed> */
     private array $masters;
 
+    private Asset $asset;
+
     protected function setUp(): void
     {
         parent::setUp();
         ['organization' => $this->alpha, 'admin' => $this->admin] = $this->createOrganization('ALPHA');
         $this->masters = $this->createMasterFixtures($this->alpha);
-        $this->tenancy()->runAsTenant(new TenantContext($this->alpha, $this->admin), fn () => $this->createAssetFixture($this->alpha, $this->masters));
+        $this->asset = $this->tenancy()->runAsTenant(new TenantContext($this->alpha, $this->admin), fn () => $this->createAssetFixture($this->alpha, $this->masters))['asset'];
         $this->enableModule($this->alpha, OrganizationModule::BARCODE);
     }
 
@@ -40,11 +42,11 @@ class MobileAccessTest extends TestCase
         ['organization' => $beta, 'admin' => $admin] = $this->createOrganization('BETA');
         $token = $this->login(['email' => $admin->email])->assertOk()->assertJsonPath('data.modules', [])->json('data.token');
 
-        $this->assertErrorCode($this->bearer($token)->getJson('/api/assets/lookup?code=FIX-1'), 403, 'MODULE_DISABLED');
+        $this->assertErrorCode($this->bearer($token)->getJson("/api/assets/lookup?code={$this->asset->id}"), 403, 'MODULE_DISABLED');
 
         $this->enableModule($beta, OrganizationModule::BARCODE);
         $this->bearer($token)->getJson('/api/auth/mobile/me')->assertOk()->assertJsonPath('data.modules', ['barcode']);
-        $this->assertErrorCode($this->bearer($token)->getJson('/api/assets/lookup?code=FIX-1'), 404, 'ASSET_NOT_FOUND');
+        $this->assertErrorCode($this->bearer($token)->getJson("/api/assets/lookup?code={$this->asset->id}"), 404, 'ASSET_NOT_FOUND');
     }
 
     public function test_login_issues_token_that_looks_up_scanned_assets(): void
@@ -55,11 +57,17 @@ class MobileAccessTest extends TestCase
         $this->assertContains('asset.view', $login->json('data.permissions'));
         $token = $login->json('data.token');
 
-        $this->bearer($token)->getJson('/api/assets/lookup?code=FIX-1')->assertOk()
-            ->assertJsonPath('data.asset_number', 'FIX-1')
+        $this->bearer($token)->getJson("/api/assets/lookup?code={$this->asset->id}")->assertOk()
+            ->assertJsonPath('data.id', $this->asset->id)
+            ->assertJsonMissingPath('data.asset_number')
             ->assertJsonPath('data.category.code', 'CAT1')
             ->assertJsonStructure(['data' => ['attributes', 'barcode_enabled'], 'attribute_fields']);
         $this->assertErrorCode($this->bearer($token)->getJson('/api/assets/lookup?code=NOPE-9'), 404, 'ASSET_NOT_FOUND');
+        $this->assertErrorCode($this->bearer($token)->getJson('/api/assets/lookup?code=00000000-0000-4000-8000-000000000000'), 404, 'ASSET_NOT_FOUND');
+        // Typed in by hand: the serial number (any case) finds the asset, the internal asset number does not.
+        $this->bearer($token)->getJson('/api/assets/lookup?code=sn-fix-1')->assertOk()->assertJsonPath('data.id', $this->asset->id);
+        $number = $this->tenancy()->runAsTenant(new TenantContext($this->alpha, $this->admin), fn () => $this->asset->refresh()->asset_number);
+        $this->assertErrorCode($this->bearer($token)->getJson('/api/assets/lookup?code='.urlencode($number)), 404, 'ASSET_NOT_FOUND');
         $this->bearer($token)->getJson('/api/auth/mobile/me')->assertOk()->assertJsonPath('data.organization.id', $this->alpha->id);
 
         $this->assertTrue(AuditLog::query()->where('action', 'auth.mobile_login')->where('organization_id', $this->alpha->id)->exists());
@@ -73,7 +81,7 @@ class MobileAccessTest extends TestCase
     public function test_token_writes_only_the_listed_routes(): void
     {
         $token = $this->login()->json('data.token');
-        $asset = $this->tenancy()->runAsTenant(new TenantContext($this->alpha, $this->admin), fn () => Asset::query()->where('asset_number', 'FIX-1')->sole());
+        $asset = $this->asset;
 
         $this->assertErrorCode($this->bearer($token)->patchJson("/api/assets/{$asset->id}", ['name' => 'X']), 403, 'MOBILE_TOKEN_READ_ONLY');
         $this->assertErrorCode($this->bearer($token)->postJson("/api/assets/{$asset->id}/archive"), 403, 'MOBILE_TOKEN_READ_ONLY');
@@ -126,7 +134,7 @@ class MobileAccessTest extends TestCase
         $this->bearer($approverToken)->getJson("/api/approvals/{$pending['data']['id']}")->assertOk()->assertJsonStructure(['data' => ['details', 'impact', 'history']]);
         $this->bearer($approverToken)->postJson("/api/approvals/{$pending['data']['id']}/approve", ['note' => 'OK'])->assertOk()->assertJsonPath('data.status', 'approved');
         $this->assertTrue($this->tenancy()->runAsTenant(new TenantContext($this->alpha, $this->admin),
-            fn () => \App\Domain\Assets\Models\Asset::query()->where('name', 'Proyektor')->exists()));
+            fn () => Asset::query()->where('name', 'Proyektor')->exists()));
 
         $categoryRequest = $this->bearer($approverToken)->getJson('/api/approvals?status=pending')->assertJsonCount(1, 'data')->json('data.0.id');
         $this->assertErrorCode($this->bearer($approverToken)->postJson("/api/approvals/{$categoryRequest}/reject", ['note' => '']), 422, 'VALIDATION_FAILED');
@@ -145,7 +153,7 @@ class MobileAccessTest extends TestCase
         $this->enableModule($beta, OrganizationModule::BARCODE);
         $token = $this->login(['organization_id' => $beta->id])->assertOk()->assertJsonPath('data.organization.code', 'BETA')->json('data.token');
         // ALPHA's asset is not visible through a BETA token.
-        $this->assertErrorCode($this->bearer($token)->getJson('/api/assets/lookup?code=FIX-1'), 404, 'ASSET_NOT_FOUND');
+        $this->assertErrorCode($this->bearer($token)->getJson("/api/assets/lookup?code={$this->asset->id}"), 404, 'ASSET_NOT_FOUND');
 
         ['organization' => $gamma] = $this->createOrganization('GAMMA');
         $this->assertErrorCode($this->login(['organization_id' => $gamma->id]), 403, 'ORGANIZATION_ACCESS_DENIED');
@@ -156,12 +164,12 @@ class MobileAccessTest extends TestCase
         $token = $this->login()->json('data.token');
         OrganizationMember::query()->where('organization_id', $this->alpha->id)->where('user_id', $this->admin->id)->sole()
             ->forceFill(['status' => User::STATUS_DEACTIVATED])->save();
-        $this->assertErrorCode($this->bearer($token)->getJson('/api/assets/lookup?code=FIX-1'), 403, 'ORGANIZATION_INACTIVE');
+        $this->assertErrorCode($this->bearer($token)->getJson("/api/assets/lookup?code={$this->asset->id}"), 403, 'ORGANIZATION_INACTIVE');
 
         OrganizationMember::query()->where('organization_id', $this->alpha->id)->where('user_id', $this->admin->id)->sole()
             ->forceFill(['status' => User::STATUS_ACTIVE])->save();
         $this->bearer($token)->postJson('/api/auth/mobile/logout')->assertNoContent();
-        $this->bearer($token)->getJson('/api/assets/lookup?code=FIX-1')->assertUnauthorized();
+        $this->bearer($token)->getJson("/api/assets/lookup?code={$this->asset->id}")->assertUnauthorized();
         $this->bearer('not-a-token')->getJson('/api/auth/mobile/me')->assertUnauthorized();
     }
 

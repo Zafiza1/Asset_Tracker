@@ -82,14 +82,14 @@ export default function HomeScreen() {
           </View>
         </Pressable>
 
-        <Card title="Cari nomor aset">
+        <Card title="Cari nomor seri">
           <View style={styles.search}>
-            <Text style={styles.muted}>Ketik nomor aset bila label rusak atau tidak terbaca.</Text>
+            <Text style={styles.muted}>Ketik nomor seri aset bila label rusak atau tidak terbaca.</Text>
             <TextInput
               style={styles.input}
               value={manual}
               onChangeText={setManual}
-              placeholder="mis. AST-0001"
+              placeholder="mis. SN-2024-0001"
               placeholderTextColor={colors.muted}
               autoCapitalize="characters"
               autoCorrect={false}

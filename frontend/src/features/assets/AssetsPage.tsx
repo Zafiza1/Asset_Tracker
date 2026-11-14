@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ArrowLeftRight, Boxes, Eye, ImageOff, Plus, Printer, SearchX } from "lucide-react";
+import { Boxes, ImageOff, Plus, Printer, SearchX } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -15,7 +15,6 @@ import { Button } from "../../components/ui/Button";
 import { Card, PageHeader } from "../../components/ui/Card";
 import { ColumnToggle } from "../../components/ui/ColumnToggle";
 import { EmptyState, ErrorState, TableSkeleton } from "../../components/ui/Feedback";
-import { RowMenu, type RowMenuItem } from "../../components/ui/RowMenu";
 import { ImportModal } from "../../components/ui/ImportModal";
 import { Select } from "../../components/ui/Field";
 import { DataTable, Pagination, type Column, type RowSelection } from "../../components/ui/Table";
@@ -28,7 +27,6 @@ import {
 } from "../../lib/usePersistedFilters";
 import { toOptions, useOptions } from "../master/options";
 import { assetStatusLabel, type Asset, type AssetStatus } from "./api";
-import { TransactionFormModal } from "../transactions/TransactionFormModal";
 import { AssetStatusBadge } from "./AssetStatusBadge";
 import { AddMenu } from "../../components/ui/AddMenu";
 import { AssetBarcodeModal } from "./AssetBarcodeModal";
@@ -71,13 +69,11 @@ const ADVANCED = [
   "acquired_to",
 ] as const;
 /** Sort options of the dropdown; the column headers can set the other directions too. */
-const SORT_OPTIONS = ["", "asset_number", "name", "-name", "-acquisition_date", "acquisition_date", "status"];
+const SORT_OPTIONS = ["", "name", "-name", "-acquisition_date", "acquisition_date", "status"];
 const SORT_LABEL: Record<string, string> = {
   "": "terbaru ditambahkan",
   "-created_at": "terbaru ditambahkan",
   created_at: "terlama ditambahkan",
-  asset_number: "no aset (naik)",
-  "-asset_number": "no aset (turun)",
   name: "nama (A–Z)",
   "-name": "nama (Z–A)",
   "-acquisition_date": "tanggal perolehan terbaru",
@@ -141,7 +137,6 @@ export function AssetsPage() {
   // Checked rows of the list; kept across pages so a selection can span several pages.
   const [selected, setSelected] = useState<Map<string, Asset>>(new Map());
   const [printing, setPrinting] = useState<Asset | null>(null);
-  const [recording, setRecording] = useState<Asset | null>(null);
   // The search field follows the applied search when it changes elsewhere (global search, Back).
   const appliedSearch = params.get("search") ?? "";
   const [syncedSearch, setSyncedSearch] = useState(appliedSearch);
@@ -211,7 +206,7 @@ export function AssetsPage() {
   const selectedIds = useMemo(() => new Set(selected.keys()), [selected]);
   const selection: RowSelection<Asset> = {
     selected: selectedIds,
-    rowLabel: (a) => `${a.asset_number} ${a.name}`,
+    rowLabel: (a) => a.name,
     onChange: (rows, pick) =>
       setSelected((prev) => {
         const next = new Map(prev);
@@ -295,16 +290,6 @@ export function AssetsPage() {
 
   const columns: Column<Asset>[] = [
     {
-      key: "code",
-      header: "No Aset",
-      className: "w-40",
-      sortKey: "asset_number",
-      // On phones the number moves under the asset name, so the table fits without scrolling.
-      hideOnMobile: true,
-      title: (a) => a.asset_number,
-      cell: (a) => <span className="font-mono text-xs">{a.asset_number}</span>,
-    },
-    {
       key: "name",
       header: "Aset",
       sortKey: "name",
@@ -318,7 +303,6 @@ export function AssetsPage() {
           <span className="min-w-0">
             {/* Long names stop after two lines; the full name is the cell's tooltip. */}
             <span className="line-clamp-2 whitespace-normal break-words">{a.name}</span>
-            <span className="block truncate font-mono text-xs font-normal text-slate-500 md:hidden">{a.asset_number}</span>
             <span className="block truncate text-xs font-normal text-slate-500 md:hidden">
               {[a.category?.name, a.location?.name ?? "Tanpa lokasi"].filter(Boolean).join(" · ")}
             </span>
@@ -400,22 +384,6 @@ export function AssetsPage() {
       : []),
   ];
 
-  // The everyday actions on one asset, without opening its page first.
-  const rowActions = (a: Asset): RowMenuItem[] => [
-    { label: "Lihat detail", icon: <Eye aria-hidden />, onSelect: () => navigate(`/aset/${a.id}`) },
-    ...(can("transaction.create") && !a.is_archived
-      ? [{ label: "Catat transaksi", icon: <ArrowLeftRight aria-hidden />, onSelect: () => setRecording(a) }]
-      : []),
-    ...(barcodeModule && a.barcode_enabled
-      ? [{ label: "Cetak barcode", icon: <Printer aria-hidden />, onSelect: () => setPrinting(a) }]
-      : []),
-  ];
-  const actionsColumn: Column<Asset> = {
-    key: "actions",
-    header: "Aksi",
-    className: "w-16 text-right! pr-2!",
-    cell: (a) => <RowMenu label={`Tindakan untuk ${a.name}`} items={rowActions(a)} />,
-  };
   const resetAll = () => (
     setSearch(""),
     resetFilters(),
@@ -444,7 +412,7 @@ export function AssetsPage() {
             value={search}
             onChange={setSearch}
             onSubmit={() => update({ search })}
-            placeholder="Cari nama, no aset, atau no seri"
+            placeholder="Cari nama atau no seri"
             label="Cari aset"
             aside={
               <div className="flex gap-2">
@@ -583,7 +551,7 @@ export function AssetsPage() {
               }
             />
             <DataTable
-              columns={[...columns, actionsColumn]}
+              columns={columns}
               rows={query.data!.data}
               visibleColumns={[...visibleColumns, "actions"]}
               selection={selection}
@@ -611,9 +579,6 @@ export function AssetsPage() {
       )}
       {printing && (
         <AssetBarcodeModal asset={printing} onClose={() => setPrinting(null)} />
-      )}
-      {recording && (
-        <TransactionFormModal asset={recording} onClose={() => setRecording(null)} />
       )}
       {creating && (
         <AssetFormModal

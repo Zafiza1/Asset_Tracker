@@ -16,7 +16,6 @@ afterEach(() => {
 describe('AssetReportPage', () => {
   const asset = {
     id: '01900000-0000-7000-8000-000000000001',
-    asset_number: 'AST-2026-000001',
     serial_number: 'SN-1',
     name: 'Laptop Dell',
     category_id: 'c1',
@@ -82,11 +81,13 @@ describe('AssetReportPage', () => {
     expect(screen.queryByRole('button', { name: /Export/ })).not.toBeInTheDocument()
   })
 
-  it('links both the asset number and the name to the asset detail', async () => {
+  it('links the asset name to the asset detail, without the internal asset number', async () => {
     renderPage(['report.view'])
     await screen.findByText('Laptop Dell')
     const links = screen.getAllByRole('link').filter((l) => l.getAttribute('href') === `/aset/${asset.id}`)
-    expect(links.map((l) => l.textContent)).toEqual(expect.arrayContaining(['AST-2026-000001', expect.stringContaining('Laptop Dell')]))
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveTextContent('Laptop Dell')
+    expect(screen.queryByRole('columnheader', { name: /No Aset/ })).not.toBeInTheDocument()
   })
 
   it('explains how the total acquisition value is computed', async () => {

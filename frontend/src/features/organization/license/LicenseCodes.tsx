@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { Check, Copy, Eye, KeyRound, SearchX, Undo2, UserCheck } from 'lucide-react'
+import { Check, Copy, KeyRound, SearchX } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { Button } from '../../../components/ui/Button'
@@ -9,7 +9,6 @@ import { EmptyState, ErrorState, TableSkeleton } from '../../../components/ui/Fe
 import { ActiveFilters, FilterPanel, SearchForm } from '../../../components/ui/Filters'
 import { searchChip } from '../../../components/ui/filterChips'
 import { IconButton } from '../../../components/ui/IconButton'
-import { RowMenu, type RowMenuItem } from '../../../components/ui/RowMenu'
 import { DataTable, Pagination, type Column } from '../../../components/ui/Table'
 import { PillTabs } from '../../../components/ui/Tabs'
 import { api, qs } from '../../../lib/api/client'
@@ -131,17 +130,6 @@ export function LicenseCodes() {
     if (a === 'assign') navigate(inviteWithCodeHref(c))
     else setAction({ action: a, code: c })
   }
-  const rowActions = (c: LicenseCode): RowMenuItem[] => [
-    { label: 'Lihat detail & riwayat', icon: <Eye aria-hidden />, onSelect: () => setOpened(c) },
-    ...(canInvite && c.status === 'available' && !c.pending_invitation ? [{ label: 'Tugaskan ke pengguna', icon: <UserCheck aria-hidden />, onSelect: () => act('assign', c) }] : []),
-    ...(manage && c.status === 'assigned' ? [{ label: 'Lepaskan dari pengguna', icon: <Undo2 aria-hidden />, onSelect: () => act('release', c) }] : []),
-  ]
-  const actionsColumn: Column<LicenseCode> = {
-    key: 'actions',
-    header: 'Aksi',
-    className: 'w-16 text-right! pr-2!',
-    cell: (c) => <RowMenu label={`Tindakan untuk ${c.code}`} items={rowActions(c)} />,
-  }
   const chips = searchChip(applied || null, () => (setSearch(''), update({ search: '', page: '' })))
   const meta = query.data?.meta
 
@@ -183,7 +171,7 @@ export function LicenseCodes() {
         />
       ) : (
         <>
-          <DataTable columns={[...columns, actionsColumn]} rows={query.data!.data} onRowClick={setOpened} />
+          <DataTable columns={columns} rows={query.data!.data} onRowClick={setOpened} />
           {meta && meta.last_page > 1 ? (
             <Pagination meta={meta} onPage={(p) => update({ page: String(p) })} />
           ) : (

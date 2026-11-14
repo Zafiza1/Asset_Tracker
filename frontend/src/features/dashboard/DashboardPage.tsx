@@ -26,7 +26,7 @@ export interface Dashboard {
     days: number
     total: number
     by_type: { type: TransactionType; label: string; count: number }[]
-    recent: { id: string; transaction_number: string; type: TransactionType; transaction_date: string; asset: { id: string; asset_number: string; name: string }; created_by: string | null }[]
+    recent: { id: string; transaction_number: string; type: TransactionType; transaction_date: string; asset: { id: string; name: string }; created_by: string | null }[]
   }
   trend: TrendPoint[]
   attention: { counts: Record<AttentionReason, number>; items: { reason: AttentionReason; asset: AssetRef; status: AssetStatus; location: string | null; borrower_name: string | null; loan_due_date: string | null }[] }
@@ -46,7 +46,7 @@ export interface Dashboard {
   idle: { days: number; count: number; items: { asset: AssetRef; location: string | null; last_activity: string; idle_days: number }[] }
 }
 
-type AssetRef = { id: string; asset_number: string; name: string }
+type AssetRef = { id: string; name: string }
 type AttentionReason = 'overdue_loan' | 'under_maintenance' | 'no_location'
 
 /**

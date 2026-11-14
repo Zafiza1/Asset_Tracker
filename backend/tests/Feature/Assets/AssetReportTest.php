@@ -120,7 +120,7 @@ class AssetReportTest extends TestCase
     {
         $base = Asset::query()->findOrFail($this->asset(['name' => 'Laptop', 'acquisition_cost' => 1000]));
         for ($i = 2; $i <= 300; $i++) {
-            $base->replicate()->forceFill(['asset_number' => sprintf('AST-T-%06d', $i), 'serial_number' => "SN-{$i}", 'name' => "Laptop Dell Latitude 5440 Unit Kantor Pusat {$i}"])->save();
+            $base->replicate()->forceFill(['serial_number' => "SN-{$i}", 'name' => "Laptop Dell Latitude 5440 Unit Kantor Pusat {$i}"])->save();
         }
 
         $before = memory_get_usage(true);

@@ -236,7 +236,6 @@ final class ApprovalService
         $a = $model->getAttributes();
 
         return match (true) {
-            isset($a['asset_number']) => "{$a['asset_number']} · {$a['name']}",
             isset($a['code'], $a['name']) => "{$a['name']} ({$a['code']})",
             default => (string) ($a['name'] ?? $a['label'] ?? $model->getKey()),
         };
@@ -245,10 +244,10 @@ final class ApprovalService
     /** @param list<string> $ids */
     private function assetList(array $ids): string
     {
-        $numbers = Asset::query()->whereIn('id', array_slice($ids, 0, 3))->orderBy('asset_number')->pluck('asset_number')->all();
-        $more = count($ids) - count($numbers);
+        $names = Asset::query()->whereIn('id', array_slice($ids, 0, 3))->orderBy('asset_number')->pluck('name')->all();
+        $more = count($ids) - count($names);
 
-        return implode(', ', $numbers).($more > 0 ? " dan {$more} aset lain" : '');
+        return implode(', ', $names).($more > 0 ? " dan {$more} aset lain" : '');
     }
 
     /** @return array<string, mixed> */

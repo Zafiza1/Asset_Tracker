@@ -87,10 +87,10 @@ class AssetTransactionTest extends TestCase
 
         // One asset breaks a rule: nothing is recorded and the error names that asset.
         $this->record($printer, 'loan', ['borrower_name' => 'Budi'])->assertCreated();
-        $number = $this->getJson("/api/assets/{$printer}")->json('data.asset_number');
+        $name = $this->getJson("/api/assets/{$printer}")->json('data.name');
         $response = $this->recordMany([$truck, $printer], 'loan', ['borrower_name' => 'Ani']);
         $this->assertErrorCode($response, 409, 'INVALID_ASSET_STATUS');
-        $this->assertStringContainsString($number, $response->json('error.message'));
+        $this->assertStringContainsString($name, $response->json('error.message'));
         $this->getJson("/api/assets/{$truck}")->assertJsonPath('data.status', 'available');
         $this->assertSame(1, count($this->getJson("/api/transactions?asset_id={$truck}")->json('data')));
 

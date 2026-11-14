@@ -33,7 +33,7 @@ final class AuditEntityLabels
 {
     /** entity_type (class basename) => [model, code column|null, name column|null] */
     private const TYPES = [
-        'Asset' => [Asset::class, 'asset_number', 'name'],
+        'Asset' => [Asset::class, null, 'name'],
         'AssetTransaction' => [AssetTransaction::class, 'transaction_number', null],
         'ApprovalRequest' => [ApprovalRequest::class, null, 'summary'],
         'User' => [User::class, 'email', 'name'],
@@ -55,7 +55,7 @@ final class AuditEntityLabels
     /** Tenant objects searched by their current code/name (users are searched as actors). */
     private const SEARCHABLE = ['Asset', 'AssetTransaction', 'Department', 'Location', 'TenantAssetCategory', 'LicenseCode'];
 
-    private const SNAPSHOT_CODE = ['asset_number', 'code', 'transaction_number', 'key', 'email'];
+    private const SNAPSHOT_CODE = ['code', 'transaction_number', 'key', 'email'];
 
     private const SNAPSHOT_NAME = ['name', 'label', 'summary', 'title'];
 

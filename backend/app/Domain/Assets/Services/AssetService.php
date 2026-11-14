@@ -9,10 +9,8 @@ use App\Domain\AssetTransactions\TransactionLog;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Organization\Models\Location;
-use App\Domain\Organization\Models\OrganizationSetting;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
-use App\Domain\Shared\Numbering\NumberSequence;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Services\CategoryAttributeService;
@@ -29,7 +27,7 @@ use Illuminate\Validation\ValidationException;
  */
 final class AssetService
 {
-    private const AUDIT = ['asset_number', 'serial_number', 'name', 'category_id', 'location_id', 'status',
+    private const AUDIT = ['serial_number', 'name', 'category_id', 'location_id', 'status',
         'acquisition_date', 'acquisition_cost', 'description'];
 
     /** Private disk: asset photos are served only through the (scoped) asset route. */
@@ -38,7 +36,6 @@ final class AssetService
     public function __construct(
         private readonly AssetScope $scope,
         private readonly TransactionLog $log,
-        private readonly NumberSequence $numbers,
         private readonly AuditLogger $audit,
         private readonly Tenancy $tenancy,
         private readonly CategoryAttributeService $attributes,
@@ -60,13 +57,11 @@ final class AssetService
         $values = $this->attributes->resolveValues($data['category_id'], [], $data['attributes'] ?? []);
 
         return DB::transaction(function () use ($data, $locationId, $status, $values) {
-            $format = OrganizationSetting::query()->value('asset_number_format') ?: 'AST-{YYYY}-{SEQ:6}';
             $userId = $this->tenancy->tenant()->userId();
 
             $asset = new Asset;
             $asset->forceFill([
                 ...array_intersect_key($data, array_flip(Asset::EDITABLE)),
-                'asset_number' => $this->numbers->next('asset', $format),
                 'location_id' => $locationId,
                 'status' => $status,
                 'attribute_values' => $values,
@@ -141,7 +136,7 @@ final class AssetService
                     $updated += $this->update($asset, $changes)->lock_version !== $before ? 1 : 0;
                 } catch (ApiException|ValidationException $e) {
                     $message = $e instanceof ValidationException ? collect($e->errors())->flatten()->first() : $e->getMessage();
-                    throw ApiException::unprocessable('BULK_UPDATE_FAILED', "Aset {$asset->asset_number}: {$message}");
+                    throw ApiException::unprocessable('BULK_UPDATE_FAILED', "Aset {$asset->name}: {$message}");
                 }
             }
 
