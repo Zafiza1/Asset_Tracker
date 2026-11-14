@@ -166,7 +166,7 @@ class LocationController extends Controller
             'status' => SpreadsheetImport::MASTER_STATUS_LABELS[$l->status] ?? $l->status,
         ]);
 
-        return SpreadsheetImport::editSheet('edit_lokasi.xlsx', 'Edit Massal Lokasi', $this->editColumns(), $rows, [
+        return SpreadsheetImport::editSheet('edit_lokasi.xlsx', 'Multiple Edit Lokasi', $this->editColumns(), $rows, [
             'Lokasi Induk' => SpreadsheetImport::codeList(Location::query()),
             'Status' => array_values(SpreadsheetImport::MASTER_STATUS_LABELS),
         ], [

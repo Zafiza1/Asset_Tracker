@@ -349,7 +349,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
           </span>
           {editIds.length > 0 ? (
             <Button size="sm" variant="secondary" onClick={() => setBulkEditing(true)}>
-              <FileSpreadsheet className="size-4" aria-hidden /> Multiple Edit yang dipilih
+              <FileSpreadsheet className="size-4" aria-hidden /> Multiple Edit
             </Button>
           ) : (
             <span className="text-brand-800">Data arsip tidak dapat diubah lewat Multiple Edit.</span>

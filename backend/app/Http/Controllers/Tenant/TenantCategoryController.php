@@ -187,7 +187,7 @@ class TenantCategoryController extends Controller
             'status' => SpreadsheetImport::MASTER_STATUS_LABELS[$c->status] ?? $c->status,
         ]);
 
-        return SpreadsheetImport::editSheet('edit_kategori_aset.xlsx', 'Edit Massal Kategori Aset', $this->editColumns(), $rows, [
+        return SpreadsheetImport::editSheet('edit_kategori_aset.xlsx', 'Multiple Edit Kategori Aset', $this->editColumns(), $rows, [
             'Kategori Induk' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
             'Status' => array_values(SpreadsheetImport::MASTER_STATUS_LABELS),
         ], [

@@ -33,6 +33,7 @@ import { AssetStatusBadge } from "./AssetStatusBadge";
 import { AddMenu } from "../../components/ui/AddMenu";
 import { AssetBarcodeModal } from "./AssetBarcodeModal";
 import { AssetBulkActions } from "./AssetBulkActions";
+import { BulkEditModal } from "./BulkEditModal";
 import { AssetFormModal } from "./AssetFormModal";
 import { CategoryFilter } from "./CategoryFilter";
 
@@ -223,9 +224,8 @@ export function AssetsPage() {
   };
   const pageIds = new Set(query.data?.data.map((a) => a.id) ?? []);
   const offPage = [...selected.keys()].filter((id) => !pageIds.has(id)).length;
-  // Multiple Edit takes the checked rows; the sheet only holds active assets.
-  const editIds = [...selected.values()].filter((a) => !a.is_archived).map((a) => a.id);
-  const skippedArchived = selected.size - editIds.length;
+  // Multiple Edit takes the checked rows; archived assets cannot be edited.
+  const editAssets = [...selected.values()].filter((a) => !a.is_archived);
 
   // Every applied filter as a removable chip, so the filter controls stay one tidy row.
   const nameOf = (
@@ -571,7 +571,7 @@ export function AssetsPage() {
               canEdit={can("asset.update")}
               canArchive={can("asset.archive")}
               barcode={barcodeModule}
-              editable={editIds.length}
+              editable={editAssets.length}
               onEdit={() => setBulkEditing(true)}
               onClear={() => setSelected(new Map())}
               onDone={(ids) =>
@@ -602,16 +602,11 @@ export function AssetsPage() {
         )}
       </Card>
       {/* Multiple Edit starts from the bulk action bar, so it always has checked assets. */}
-      {bulkEditing && editIds.length > 0 && (
-        <ImportModal
-          open
-          mode="edit"
+      {bulkEditing && editAssets.length > 0 && (
+        <BulkEditModal
+          assets={editAssets}
           onClose={() => setBulkEditing(false)}
-          title="Multiple Edit Aset (Excel)"
-          endpoint="/assets/edit-sheet"
-          templateEndpoint={`/assets/edit-sheet${qs({ ids: editIds.join(",") })}`}
-          templateFilename="edit_aset.xlsx"
-          scopeNote={`${editIds.length} aset yang dicentang${skippedArchived > 0 ? `; ${skippedArchived} aset nonaktif tidak ikut` : ""}`}
+          onDone={() => setSelected(new Map())}
         />
       )}
       {printing && (

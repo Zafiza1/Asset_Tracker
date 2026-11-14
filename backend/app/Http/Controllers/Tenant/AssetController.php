@@ -319,7 +319,7 @@ class AssetController extends Controller
             'updated_at' => $this->lastChanged($a),
         ]);
 
-        return SpreadsheetImport::editSheet('edit_aset.xlsx', 'Edit Massal Pendataan Aset', $this->editColumns(), $rows, [
+        return SpreadsheetImport::editSheet('edit_aset.xlsx', 'Multiple Edit Aset', $this->editColumns(), $rows, [
             'Kategori' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
         ], [
             'Lokasi dan status tidak dapat diubah di sini; gunakan transaksi (mutasi, peminjaman, perbaikan). Atribut kategori diubah dari halaman detail aset.',
