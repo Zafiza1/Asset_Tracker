@@ -20,8 +20,23 @@ use Illuminate\Validation\Rule;
  */
 final class AssetReport
 {
-    public const SORTS = ['asset_number' => 'asset_number', 'name' => 'name', 'acquisition_date' => 'acquisition_date',
-        'acquisition_cost' => 'acquisition_cost', 'status' => 'status', 'created_at' => 'created_at'];
+    /**
+     * Sort keys of asset lists (Aset, Laporan Aset, asset picker): one per table column.
+     *
+     * @return array<string, mixed>
+     */
+    public static function sorts(): array
+    {
+        $asset = new Asset;
+
+        return [
+            'asset_number' => 'assets.asset_number', 'name' => 'assets.name', 'serial_number' => 'assets.serial_number',
+            'category' => ListQuery::related($asset, 'category', 'name'),
+            'location' => ListQuery::related($asset, 'location', 'name'),
+            'acquisition_date' => 'assets.acquisition_date', 'acquisition_cost' => 'assets.acquisition_cost',
+            'status' => 'assets.status', 'created_at' => 'assets.created_at',
+        ];
+    }
 
     public const DEFAULT_SORT = 'asset_number';
 

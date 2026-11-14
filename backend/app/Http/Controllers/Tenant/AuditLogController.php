@@ -20,6 +20,11 @@ class AuditLogController extends Controller
     {
         $query = AuditLog::query()->forOrganization($tenancy->organizationId())->with('actor');
         AuditLogFilters::apply($query, $request);
+        // The module is the first part of the action code, so it sorts with the action.
+        ListQuery::sort($query, $request, [
+            'time' => 'created_at', 'action' => 'action', 'module' => 'action', 'object' => 'entity_type',
+            'actor' => ListQuery::related(new AuditLog, 'actor', 'name'),
+        ], '-time');
 
         $page = $query->paginate(min(100, ListQuery::perPage($request, 10)))->withQueryString();
         AuditEntityLabels::attach($page->getCollection());

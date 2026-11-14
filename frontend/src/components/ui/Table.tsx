@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import type { Paginated } from '../../lib/api/types'
 import { Button } from './Button'
 
@@ -17,6 +17,22 @@ export interface Column<T> {
   title?: (row: T) => string | null | undefined
   /** API sort key; with `onSort` on the table the header becomes a sort button. */
   sortKey?: string
+  /**
+   * Value to sort by in the browser, for tables that hold all their rows (no `onSort`):
+   * the header then sorts the rows itself. Empty values come last in both directions.
+   */
+  sortValue?: (row: T) => SortValue
+}
+
+const collator = new Intl.Collator('id', { numeric: true, sensitivity: 'base' })
+
+type SortValue = string | number | null | undefined
+
+/** `direction` 1 = ascending, -1 = descending; empty values stay last either way. */
+function compareValues(a: SortValue, b: SortValue, direction: 1 | -1): number {
+  const empty = (v: SortValue) => v === null || v === undefined || v === ''
+  if (empty(a) || empty(b)) return empty(a) === empty(b) ? 0 : empty(a) ? 1 : -1
+  return direction * (typeof a === 'number' && typeof b === 'number' ? a - b : collator.compare(String(a), String(b)))
 }
 
 /** Row checkboxes: which ids are picked, and a callback to pick or drop several rows at once. */
@@ -53,12 +69,13 @@ function HeaderCheckbox({ checked, indeterminate, onChange }: { checked: boolean
  * scrolls sideways instead of squeezing them.
  *
  * Optional extras: row checkboxes (`selection`, Shift+click picks a range), sortable headers
- * (`sort` + `onSort`, cycling ascending → descending → default) and `rowHref`, which lets
+ * cycling ascending → descending → default (by the API with `sort` + `onSort` and the columns'
+ * `sortKey`; otherwise in the browser by the columns' `sortValue`) and `rowHref`, which lets
  * Ctrl/⌘+click and middle-click open a row in a new tab.
  */
 export function DataTable<T extends { id: string }>({
   columns,
-  rows,
+  rows: givenRows,
   onRowClick,
   rowHref,
   visibleColumns,
@@ -78,6 +95,20 @@ export function DataTable<T extends { id: string }>({
   onSort?: (sort: string) => void
 }) {
   const displayedColumns = visibleColumns ? columns.filter((c) => visibleColumns.includes(c.key)) : columns
+  // Without `onSort` the table sorts the rows it was given, by the columns' `sortValue`.
+  const [localSort, setLocalSort] = useState('')
+  const serverSort = onSort !== undefined
+  const activeSort = serverSort ? sort : localSort
+  const sortKeyOf = (c: Column<T>) => (serverSort ? c.sortKey : c.sortValue ? c.key : undefined)
+  const rows = useMemo(() => {
+    if (serverSort || !localSort) return givenRows
+    const key = localSort.replace(/^-/, '')
+    const column = columns.find((c) => c.key === key)
+    if (!column?.sortValue) return givenRows
+    const value = column.sortValue
+    const direction = localSort.startsWith('-') ? -1 : 1
+    return [...givenRows].sort((a, b) => compareValues(value(a), value(b), direction))
+  }, [givenRows, columns, localSort, serverSort])
   const lastPicked = useRef<number | null>(null)
   const shiftHeld = useRef(false)
 
@@ -111,7 +142,8 @@ export function DataTable<T extends { id: string }>({
     }
   }
 
-  const sortState = (key?: string): 'asc' | 'desc' | null => (!key || !sort ? null : sort === key ? 'asc' : sort === `-${key}` ? 'desc' : null)
+  const sortState = (key?: string): 'asc' | 'desc' | null =>
+    !key || !activeSort ? null : activeSort === key ? 'asc' : activeSort === `-${key}` ? 'desc' : null
   const nextSort = (key: string) => {
     const state = sortState(key)
     return state === null ? key : state === 'asc' ? `-${key}` : ''
@@ -128,7 +160,8 @@ export function DataTable<T extends { id: string }>({
               </th>
             )}
             {displayedColumns.map((c) => {
-              const state = sortState(c.sortKey)
+              const sortKey = sortKeyOf(c)
+              const state = sortState(sortKey)
               const Icon = state === 'asc' ? ArrowUp : state === 'desc' ? ArrowDown : ArrowUpDown
               return (
                 <th
@@ -137,10 +170,10 @@ export function DataTable<T extends { id: string }>({
                   aria-sort={state === 'asc' ? 'ascending' : state === 'desc' ? 'descending' : undefined}
                   className={clsx('whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600', c.hideOnMobile && 'hidden md:table-cell', c.className)}
                 >
-                  {c.sortKey && onSort ? (
+                  {sortKey ? (
                     <button
                       type="button"
-                      onClick={() => onSort(nextSort(c.sortKey!))}
+                      onClick={() => (serverSort ? onSort : setLocalSort)(nextSort(sortKey))}
                       className={clsx('-mx-1 inline-flex items-center gap-1 rounded px-1 uppercase tracking-wide hover:text-slate-900', state && 'text-slate-900')}
                       title={state === 'asc' ? 'Urut naik — klik untuk urut turun' : state === 'desc' ? 'Urut turun — klik untuk urutan bawaan' : `Urutkan menurut ${c.header.toLowerCase()}`}
                     >

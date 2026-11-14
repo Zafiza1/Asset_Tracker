@@ -13,6 +13,7 @@ const columns: Column<Role>[] = [
   {
     key: 'name',
     header: 'Role',
+    sortValue: (r) => r.name,
     cell: (r) => (
       <div>
         <p className="flex items-center gap-1.5 font-medium text-slate-900">
@@ -23,9 +24,9 @@ const columns: Column<Role>[] = [
       </div>
     ),
   },
-  { key: 'description', header: 'Deskripsi', cell: (r) => r.description ?? '—', hideOnMobile: true },
-  { key: 'permissions', header: 'Permission', cell: (r) => r.permissions?.length ?? 0 },
-  { key: 'users', header: 'Pengguna', cell: (r) => r.users_count ?? 0 },
+  { key: 'description', header: 'Deskripsi', sortValue: (r) => r.description, cell: (r) => r.description ?? '—', hideOnMobile: true },
+  { key: 'permissions', header: 'Permission', sortValue: (r) => r.permissions?.length ?? 0, cell: (r) => r.permissions?.length ?? 0 },
+  { key: 'users', header: 'Pengguna', sortValue: (r) => r.users_count ?? 0, cell: (r) => r.users_count ?? 0 },
 ]
 
 export function RolesPage() {

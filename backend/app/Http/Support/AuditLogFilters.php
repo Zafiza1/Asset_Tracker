@@ -46,9 +46,7 @@ final class AuditLogFilters
             ->when($request->query('from'), fn ($q, $v) => $q->where('created_at', '>=', self::isDate($v) ? "{$v} 00:00:00" : $v))
             ->when($request->query('to'), fn ($q, $v) => self::isDate($v)
                 ? $q->where('created_at', '<', date('Y-m-d', strtotime("{$v} +1 day")))
-                : $q->where('created_at', '<=', $v))
-            ->orderByDesc('created_at')
-            ->orderByDesc('id');
+                : $q->where('created_at', '<=', $v));
     }
 
     /** Actor name or email, action, object id/code/name (anything in the recorded snapshots). */

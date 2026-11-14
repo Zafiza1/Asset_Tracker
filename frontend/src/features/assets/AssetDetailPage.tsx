@@ -20,7 +20,7 @@ import { attributeRowsBySection, SECTION_LABELS, useAssetFields } from '../maste
 import { allowedTypes, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
 import { LocationChange, StatusChange } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
-import { formatMoney, type Asset } from './api'
+import { assetStatusLabel, formatMoney, type Asset } from './api'
 import { AssetStatusBadge } from './AssetStatusBadge'
 import { AssetBarcodeModal } from './AssetBarcodeModal'
 import { AssetFormModal } from './AssetFormModal'
@@ -267,6 +267,8 @@ const historyColumns: Column<TransactionWithState>[] = [
     key: 'number',
     header: 'Transaksi',
     className: 'w-48 whitespace-normal',
+    // Oldest to newest; same-day transactions keep their numbering order.
+    sortValue: (t) => `${t.transaction_date} ${t.transaction_number}`,
     cell: (t) => (
       <div>
         <p className="font-mono text-xs text-slate-900">{t.transaction_number}</p>
@@ -277,9 +279,9 @@ const historyColumns: Column<TransactionWithState>[] = [
       </div>
     ),
   },
-  { key: 'type', header: 'Jenis', cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge>, className: 'w-40' },
-  { key: 'location', header: 'Lokasi', cell: (t) => <LocationChange trx={t} />, className: 'whitespace-normal', hideOnMobile: true },
-  { key: 'status', header: 'Status', cell: (t) => <StatusChange trx={t} />, className: 'whitespace-normal', hideOnMobile: true },
+  { key: 'type', header: 'Jenis', sortValue: (t) => t.type_label, cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge>, className: 'w-40' },
+  { key: 'location', header: 'Lokasi', sortValue: (t) => t.location_after, cell: (t) => <LocationChange trx={t} />, className: 'whitespace-normal', hideOnMobile: true },
+  { key: 'status', header: 'Status', sortValue: (t) => assetStatusLabel[t.status_after], cell: (t) => <StatusChange trx={t} />, className: 'whitespace-normal', hideOnMobile: true },
 ]
 
 function Fact({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {

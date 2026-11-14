@@ -50,8 +50,17 @@ class AssetTransactionController extends Controller
             ->when($request->query('type'), fn ($q, $type) => $q->where('type', $type))
             ->when($request->query('asset_id'), fn ($q, $id) => $q->where('asset_id', $id))
             ->when($request->query('date_from'), fn ($q, $d) => $q->where('transaction_date', '>=', $d))
-            ->when($request->query('date_to'), fn ($q, $d) => $q->where('transaction_date', '<=', $d))
-            ->orderByDesc('transaction_date')->orderByDesc('seq');
+            ->when($request->query('date_to'), fn ($q, $d) => $q->where('transaction_date', '<=', $d));
+
+        // Newest first by default; a column header asks for another order.
+        $request->filled('sort')
+            ? ListQuery::sort($query, $request, [
+                'number' => 'transaction_number', 'date' => 'transaction_date',
+                'asset' => ListQuery::related(new AssetTransaction, 'asset', 'name'),
+                'type' => 'type',
+                'by' => ListQuery::related(new AssetTransaction, 'creator', 'name'),
+            ], '-date')
+            : $query->orderByDesc('transaction_date')->orderByDesc('seq');
 
         return AssetTransactionResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());
     }

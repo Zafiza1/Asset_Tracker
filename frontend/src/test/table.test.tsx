@@ -89,6 +89,45 @@ describe('DataTable', () => {
     fireEvent.click(screen.getByRole('button', { name: /Nama/ }))
     expect(onSort).toHaveBeenLastCalledWith('')
   })
+
+  it('sorts the rows itself by sortValue when the table has no onSort, empty values last', () => {
+    interface Item {
+      id: string
+      name: string
+      count: number | null
+    }
+    const items: Item[] = [
+      { id: 'a', name: 'Printer', count: 10 },
+      { id: 'b', name: 'laptop', count: null },
+      { id: 'c', name: 'Meja', count: 2 },
+    ]
+    const itemColumns: Column<Item>[] = [
+      { key: 'name', header: 'Nama', sortValue: (r) => r.name, cell: (r) => r.name },
+      { key: 'count', header: 'Jumlah', sortValue: (r) => r.count, cell: (r) => r.count ?? '—' },
+      { key: 'note', header: 'Catatan', cell: () => 'x' },
+    ]
+    render(<DataTable columns={itemColumns} rows={items} />)
+    const names = () => screen.getAllByRole('row').slice(1).map((r) => r.querySelector('td')!.textContent)
+
+    expect(names()).toEqual(['Printer', 'laptop', 'Meja'])
+    // Case does not matter: "laptop" sorts before "Meja".
+    fireEvent.click(screen.getByRole('button', { name: /Nama/ }))
+    expect(names()).toEqual(['laptop', 'Meja', 'Printer'])
+    expect(screen.getByRole('columnheader', { name: /Nama/ })).toHaveAttribute('aria-sort', 'ascending')
+    fireEvent.click(screen.getByRole('button', { name: /Nama/ }))
+    expect(names()).toEqual(['Printer', 'Meja', 'laptop'])
+    fireEvent.click(screen.getByRole('button', { name: /Nama/ }))
+    expect(names()).toEqual(['Printer', 'laptop', 'Meja'])
+
+    // Numbers compare as numbers (2 before 10), and the empty count stays last both ways.
+    fireEvent.click(screen.getByRole('button', { name: /Jumlah/ }))
+    expect(names()).toEqual(['Meja', 'Printer', 'laptop'])
+    fireEvent.click(screen.getByRole('button', { name: /Jumlah/ }))
+    expect(names()).toEqual(['Printer', 'Meja', 'laptop'])
+
+    // A column without a sort value is a plain header.
+    expect(screen.queryByRole('button', { name: /Catatan/ })).toBeNull()
+  })
 })
 
 describe('Pagination', () => {

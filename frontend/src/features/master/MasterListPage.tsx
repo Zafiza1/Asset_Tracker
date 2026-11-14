@@ -130,9 +130,11 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const filterValues = Object.fromEntries((config.filters ?? []).map((f) => [f.name, params.get(f.name) ?? '']))
   const advanced = useFilterDraft(params, [...(config.filters ?? []).map((f) => f.name), 'status'])
   const draft = advanced.draft
-  const listParams = { page: params.get('page'), per_page: params.get('per_page'), search: params.get('search'), status: params.get('status'), ...filterValues }
+  const sort = params.get('sort') ?? ''
+  const listParams = { page: params.get('page'), per_page: params.get('per_page'), search: params.get('search'), status: params.get('status'), sort, ...filterValues }
   const status = params.get('status')
-  const filtered = !!params.get('search') || !!status || Object.values(filterValues).some(Boolean)
+  // A tree list sorted by a column no longer shows parents above their children, so it is shown flat too.
+  const filtered = !!params.get('search') || !!status || !!sort || Object.values(filterValues).some(Boolean)
 
   const update = (next: Record<string, string>) => {
     const merged = new URLSearchParams(params)
@@ -255,6 +257,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
     key: 'status',
     header: 'Status',
     className: 'w-28',
+    sortKey: 'status',
     cell: (r) => <StatusBadge status={r.status}>{masterStatusLabel[r.status]}</StatusBadge>,
   }
   const ownColumns = typeof config.columns === 'function' ? config.columns({ filtered }) : config.columns
@@ -384,7 +387,15 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
         />
       ) : (
         <>
-          <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} selection={selection} className="min-w-[36rem]" />
+          <DataTable
+            columns={columns}
+            rows={query.data!.data}
+            visibleColumns={visibleColumns}
+            selection={selection}
+            className="min-w-[36rem]"
+            sort={sort}
+            onSort={(next) => update({ sort: next, page: '' })}
+          />
           <Pagination
             meta={query.data!.meta}
             onPage={(p) => update({ page: String(p) })}

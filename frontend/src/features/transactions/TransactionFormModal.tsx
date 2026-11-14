@@ -81,13 +81,14 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
         />
       ),
     },
-    { key: 'name', header: 'Aset', cell: (a: Asset) => <span className="font-medium text-slate-900">{a.name}</span> },
-    { key: 'serial_number', header: 'No Seri', cell: (a: Asset) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>) },
-    { key: 'category', header: 'Kategori', cell: (a: Asset) => a.category?.name ?? '—' },
-    { key: 'location', header: 'Lokasi', cell: (a: Asset) => a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span> },
+    { key: 'name', header: 'Aset', sortKey: 'name', cell: (a: Asset) => <span className="font-medium text-slate-900">{a.name}</span> },
+    { key: 'serial_number', header: 'No Seri', sortKey: 'serial_number', cell: (a: Asset) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : <span className="text-slate-400">—</span>) },
+    { key: 'category', header: 'Kategori', sortKey: 'category', cell: (a: Asset) => a.category?.name ?? '—' },
+    { key: 'location', header: 'Lokasi', sortKey: 'location', cell: (a: Asset) => a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span> },
     {
       key: 'status',
       header: 'Status',
+      sortKey: 'status',
       cell: (a: Asset) => (
         <div>
           <AssetStatusBadge status={a.status} />
@@ -97,6 +98,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
     },
   ]
 
+  const [sort, setSort] = useState('')
   const toggleColumn = (key: string) => {
     setVisibleColumns((prev) => (prev.includes(key) ? prev.filter((c) => c !== key) : [...prev, key]))
   }
@@ -106,8 +108,8 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   }
 
   const candidates = useQuery({
-    queryKey: ['/assets', 'picker', search, currentPage, filters],
-    queryFn: () => api.get<Paginated<Asset>>(`/assets${qs({ search, per_page: 10, page: currentPage, ...filters })}`),
+    queryKey: ['/assets', 'picker', search, currentPage, filters, sort],
+    queryFn: () => api.get<Paginated<Asset>>(`/assets${qs({ search, per_page: 10, page: currentPage, sort, ...filters })}`),
     enabled: !fixedAsset && !!type,
   })
   const pickable = (candidates.data?.data ?? []).filter((a) => !reason(a) && !isPicked(a))
@@ -360,7 +362,14 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
                     Pilih semua yang bisa dipilih di halaman ini ({pickable.length})
                   </button>
                 )}
-                <DataTable columns={columns} rows={candidates.data?.data ?? []} visibleColumns={visibleColumns} onRowClick={toggle} />
+                <DataTable
+                  columns={columns}
+                  rows={candidates.data?.data ?? []}
+                  visibleColumns={visibleColumns}
+                  onRowClick={toggle}
+                  sort={sort}
+                  onSort={(next) => (setSort(next), setCurrentPage(1))}
+                />
                 {candidates.data?.meta && <Pagination meta={candidates.data.meta} onPage={setCurrentPage} />}
               </>
             )}

@@ -15,6 +15,7 @@ use App\Http\Resources\UserResource;
 use App\Http\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
@@ -50,7 +51,10 @@ class UserController extends Controller
         ListQuery::sort($query, $request, [
             'name' => 'name', 'email' => 'email',
             'status' => OrganizationMember::query()->select('status')->whereColumn('organization_members.user_id', 'users.id'),
-            'created_at' => 'created_at', 'last_login_at' => 'last_login_at',
+            'job' => OrganizationMember::query()->select('job_title')->whereColumn('organization_members.user_id', 'users.id'),
+            'roles' => DB::table('user_roles')->join('roles', 'roles.id', '=', 'user_roles.role_id')
+                ->selectRaw("string_agg(roles.name, ', ' order by roles.name)")->whereColumn('user_roles.user_id', 'users.id'),
+            'created_at' => 'created_at', 'last_login_at' => 'last_login_at', 'login' => 'last_login_at',
         ], 'name');
 
         return UserResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());

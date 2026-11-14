@@ -79,6 +79,12 @@ const SORT_LABEL: Record<string, string> = {
   "-acquisition_date": "tanggal perolehan terbaru",
   acquisition_date: "tanggal perolehan terlama",
   status: "status (A–Z)",
+  serial_number: "no seri (A–Z)",
+  "-serial_number": "no seri (Z–A)",
+  category: "kategori (A–Z)",
+  "-category": "kategori (Z–A)",
+  location: "lokasi (A–Z)",
+  "-location": "lokasi (Z–A)",
   "-status": "status (Z–A)",
 };
 const dateLabel = (d: string) =>
@@ -313,6 +319,7 @@ export function AssetsPage() {
     {
       key: "serial_number",
       header: "No Seri",
+      sortKey: "serial_number",
       className: "w-36",
       title: (a) => a.serial_number,
       cell: (a) =>
@@ -326,6 +333,7 @@ export function AssetsPage() {
     {
       key: "category",
       header: "Kategori",
+      sortKey: "category",
       className: "w-40",
       title: (a) => a.category?.name,
       cell: (a) => a.category?.name ?? <span className="text-slate-400">—</span>,
@@ -334,6 +342,7 @@ export function AssetsPage() {
     {
       key: "location",
       header: "Lokasi",
+      sortKey: "location",
       className: "w-40",
       title: (a) => a.location?.name ?? "Tanpa lokasi",
       cell: (a) =>

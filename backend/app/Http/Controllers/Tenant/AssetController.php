@@ -10,6 +10,7 @@ use App\Domain\Assets\Models\Asset;
 use App\Domain\Assets\Services\AssetService;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\OrganizationModule;
+use App\Domain\Reports\AssetReport;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
@@ -41,9 +42,6 @@ class AssetController extends Controller
     /** Most assets the Multiple Edit dialog can pick; the ids travel in the download URL. */
     private const MAX_EDIT_SELECTION = 100;
 
-    private const SORTS = ['asset_number' => 'asset_number', 'name' => 'name', 'created_at' => 'created_at',
-        'acquisition_date' => 'acquisition_date', 'status' => 'status'];
-
     /**
      * Fields that may be set on many assets at once (name and serial number are per asset).
      * Category fields ({key: value}) only touch the keys sent; a key is ignored on assets whose
@@ -61,9 +59,8 @@ class AssetController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = $this->filtered($request);
-        ListQuery::sort($query, $request, self::SORTS, '-created_at');
-        // Ties (same status, same date) keep one order, so no asset repeats or vanishes between pages.
-        $query->orderBy('id');
+        // Ties (same status, same date) are broken by id, so no asset repeats or vanishes between pages.
+        ListQuery::sort($query, $request, AssetReport::sorts(), '-created_at');
 
         return AssetResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());
     }

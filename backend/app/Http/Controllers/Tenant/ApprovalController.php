@@ -37,8 +37,14 @@ class ApprovalController extends Controller
         ]);
 
         $query = $this->filtered($request)->with(self::RELATIONS)
-            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
-            ->orderByDesc('created_at');
+            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status));
+        $approval = new ApprovalRequest;
+        ListQuery::sort($query, $request, [
+            'action' => 'action', 'category' => 'category', 'status' => 'status',
+            'requester' => ListQuery::related($approval, 'requester', 'name'),
+            'decider' => ListQuery::related($approval, 'decider', 'name'),
+            'created_at' => 'created_at', 'decided_at' => 'decided_at',
+        ], '-created_at');
 
         return ApprovalRequestResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());
     }

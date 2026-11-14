@@ -61,6 +61,7 @@ const columns: Column<LicenseCode>[] = [
   {
     key: 'code',
     header: 'Kode',
+    sortKey: 'code',
     className: 'w-60',
     cell: (c) => (
       <div className="flex items-center gap-1">
@@ -69,10 +70,11 @@ const columns: Column<LicenseCode>[] = [
       </div>
     ),
   },
-  { key: 'status', header: 'Status', className: 'w-36', cell: (c) => <StatusBadge status={c.status}>{codeStatusLabel[c.status]}</StatusBadge> },
+  { key: 'status', header: 'Status', className: 'w-36', sortKey: 'status', cell: (c) => <StatusBadge status={c.status}>{codeStatusLabel[c.status]}</StatusBadge> },
   {
     key: 'holder',
     header: 'Pemegang',
+    sortKey: 'holder',
     title: (c) => (c.assigned_user ? `${c.assigned_user.name} · ${c.assigned_user.email}` : c.pending_invitation ? `Diundang: ${c.pending_invitation.email}` : null),
     cell: (c) =>
       c.assigned_user ? (
@@ -90,8 +92,8 @@ const columns: Column<LicenseCode>[] = [
         <span className="text-slate-400">—</span>
       ),
   },
-  { key: 'validity', header: 'Berlaku sampai', className: 'w-36', cell: (c) => <Validity code={c} />, hideOnMobile: true },
-  { key: 'assigned_at', header: 'Ditugaskan', className: 'w-40', cell: (c) => (c.assigned_at ? <span className="tabular-nums">{formatDateTime(c.assigned_at)}</span> : <span className="text-slate-400">—</span>), hideOnMobile: true },
+  { key: 'validity', header: 'Berlaku sampai', className: 'w-36', sortKey: 'validity', cell: (c) => <Validity code={c} />, hideOnMobile: true },
+  { key: 'assigned_at', header: 'Ditugaskan', className: 'w-40', sortKey: 'assigned_at', cell: (c) => (c.assigned_at ? <span className="tabular-nums">{formatDateTime(c.assigned_at)}</span> : <span className="text-slate-400">—</span>), hideOnMobile: true },
 ]
 
 export function LicenseCodes() {
@@ -104,6 +106,7 @@ export function LicenseCodes() {
   const status = (params.get('status') ?? '') as '' | LicenseCodeStatus
   const applied = params.get('search') ?? ''
   const page = Number(params.get('page') ?? 1)
+  const sort = params.get('sort') ?? ''
   const [search, setSearch] = useState(applied)
   const [opened, setOpened] = useState<LicenseCode | null>(null)
   const [action, setAction] = useState<{ action: CodeAction; code: LicenseCode } | null>(null)
@@ -118,8 +121,8 @@ export function LicenseCodes() {
   }
 
   const query = useQuery({
-    queryKey: ['license-codes', { status, search: applied, page }],
-    queryFn: () => api.get<LicenseCodeList>(`/license-codes${qs({ status, search: applied, page, per_page: 10 })}`),
+    queryKey: ['license-codes', { status, search: applied, page, sort }],
+    queryFn: () => api.get<LicenseCodeList>(`/license-codes${qs({ status, search: applied, page, per_page: 10, sort })}`),
     placeholderData: keepPreviousData,
   })
   const counts = query.data?.counts
@@ -171,7 +174,7 @@ export function LicenseCodes() {
         />
       ) : (
         <>
-          <DataTable columns={columns} rows={query.data!.data} onRowClick={setOpened} />
+          <DataTable columns={columns} rows={query.data!.data} onRowClick={setOpened} sort={sort} onSort={(next) => update({ sort: next, page: '' })} />
           {meta && meta.last_page > 1 ? (
             <Pagination meta={meta} onPage={(p) => update({ page: String(p) })} />
           ) : (

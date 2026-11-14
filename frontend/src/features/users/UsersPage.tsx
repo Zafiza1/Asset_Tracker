@@ -37,6 +37,7 @@ const columns: Column<User>[] = [
   {
     key: 'name',
     header: 'Nama',
+    sortKey: 'name',
     title: (u) => `${u.name} · ${u.email}`,
     cell: (u) => (
       <div className="min-w-0">
@@ -49,10 +50,10 @@ const columns: Column<User>[] = [
       </div>
     ),
   },
-  { key: 'roles', header: 'Role', title: (u) => roleNames(u), cell: (u) => roleNames(u) ?? '—', hideOnMobile: true },
-  { key: 'job', header: 'Jabatan', title: (u) => u.job_title, cell: (u) => u.job_title ?? '—', hideOnMobile: true },
-  { key: 'status', header: 'Status', className: 'w-28', cell: (u) => <StatusBadge status={u.status}>{userStatusLabel[u.status]}</StatusBadge> },
-  { key: 'login', header: 'Login terakhir', className: 'w-44', cell: (u) => <LastLogin value={u.last_login_at} />, hideOnMobile: true },
+  { key: 'roles', header: 'Role', sortKey: 'roles', title: (u) => roleNames(u), cell: (u) => roleNames(u) ?? '—', hideOnMobile: true },
+  { key: 'job', header: 'Jabatan', sortKey: 'job', title: (u) => u.job_title, cell: (u) => u.job_title ?? '—', hideOnMobile: true },
+  { key: 'status', header: 'Status', className: 'w-28', sortKey: 'status', cell: (u) => <StatusBadge status={u.status}>{userStatusLabel[u.status]}</StatusBadge> },
+  { key: 'login', header: 'Login terakhir', className: 'w-44', sortKey: 'login', cell: (u) => <LastLogin value={u.last_login_at} />, hideOnMobile: true },
 ]
 
 export function UsersPage() {
@@ -63,6 +64,7 @@ export function UsersPage() {
   const page = Number(params.get('page') ?? 1)
   const status = params.get('status') ?? ''
   const roleId = params.get('role_id') ?? ''
+  const sort = params.get('sort') ?? ''
   const canFilterRole = can('role.view')
   const roles = useRoles(canFilterRole)
 
@@ -85,8 +87,8 @@ export function UsersPage() {
   }
 
   const query = useQuery({
-    queryKey: ['users', { page, status, roleId, search: params.get('search') }],
-    queryFn: () => api.get<Paginated<User>>(`/users${qs({ page, status, role_id: roleId, search: params.get('search') })}`),
+    queryKey: ['users', { page, status, roleId, sort, search: params.get('search') }],
+    queryFn: () => api.get<Paginated<User>>(`/users${qs({ page, status, role_id: roleId, sort, search: params.get('search') })}`),
     placeholderData: keepPreviousData,
   })
 
@@ -199,6 +201,8 @@ export function UsersPage() {
               visibleColumns={[...visibleColumns, 'actions']}
               onRowClick={(u) => navigate(`/pengguna/${u.id}`)}
               rowHref={(u) => `/pengguna/${u.id}`}
+              sort={sort}
+              onSort={(next) => update({ sort: next, page: '' })}
             />
             {/* One page needs no paging controls; the count alone is enough. */}
             {meta && meta.last_page > 1 ? (

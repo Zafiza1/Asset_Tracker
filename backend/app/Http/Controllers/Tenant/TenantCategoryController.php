@@ -68,7 +68,7 @@ class TenantCategoryController extends Controller
             ->when($request->query('level') === 'sub', fn ($q) => $q->whereNotNull('parent_id'));
 
         return TenantCategoryResource::collection(MasterRequests::list($query, $request,
-            ['tree' => 'path', 'code' => 'code', 'name' => 'name', 'status' => 'status'], 'tree', ['code', 'name', 'description']));
+            ['tree' => 'path', 'code' => 'code', 'name' => 'name', 'description' => 'description', 'attributes' => 'attributes_count', 'status' => 'status'], 'tree', ['code', 'name', 'description']));
     }
 
     public function store(Request $request, Tenancy $tenancy): TenantCategoryResource

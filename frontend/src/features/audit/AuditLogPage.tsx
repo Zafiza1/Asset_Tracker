@@ -35,7 +35,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
   const draft = advanced.draft
   const draftError = rangeError(draft.from, draft.to)
 
-  const applied = Object.fromEntries(['page', 'per_page', 'search', 'action', 'organization_id', ...ADVANCED].map((k) => [k, params.get(k) ?? ''])) as Record<string, string>
+  const applied = Object.fromEntries(['page', 'per_page', 'search', 'action', 'organization_id', 'sort', ...ADVANCED].map((k) => [k, params.get(k) ?? ''])) as Record<string, string>
   const category = (applied.category in auditCategories ? applied.category : '') as AuditCategory | ''
 
   const query = useQuery({
@@ -54,6 +54,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
           from: applied.from,
           to: applied.to,
           organization_id: applied.organization_id,
+          sort: applied.sort,
         })}`,
       ),
     placeholderData: keepPreviousData,
@@ -105,6 +106,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
     {
       key: 'time',
       header: 'Waktu',
+      sortKey: 'time',
       className: 'w-36',
       cell: (l) => (
         <div className="leading-tight">
@@ -116,6 +118,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
     {
       key: 'actor',
       header: 'Pelaku',
+      sortKey: 'actor',
       title: (l) => [actorName(l), l.actor?.email].filter(Boolean).join(' · '),
       cell: (l) => (
         <div className="min-w-0 leading-tight">
@@ -127,6 +130,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
     {
       key: 'action',
       header: 'Aktivitas',
+      sortKey: 'action',
       title: (l) => auditActionLabel(l.action),
       cell: (l) => {
         const c = auditCategories[auditCategoryOf(l.action)]
@@ -138,10 +142,11 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
         )
       },
     },
-    { key: 'module', header: 'Modul', className: 'w-36', hideOnMobile: true, cell: (l) => <span className="text-slate-600">{auditModuleOf(l.action)?.label ?? '—'}</span> },
+    { key: 'module', header: 'Modul', className: 'w-36', sortKey: 'module', hideOnMobile: true, cell: (l) => <span className="text-slate-600">{auditModuleOf(l.action)?.label ?? '—'}</span> },
     {
       key: 'object',
       header: 'Objek',
+      sortKey: 'object',
       hideOnMobile: true,
       title: (l) => [l.entity_label?.code, l.entity_label?.name].filter(Boolean).join(' — ') || null,
       cell: (l) =>
@@ -225,7 +230,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
           />
         ) : (
           <>
-            <DataTable columns={columns} rows={query.data!.data} onRowClick={setSelected} className="min-w-[44rem]" />
+            <DataTable columns={columns} rows={query.data!.data} onRowClick={setSelected} className="min-w-[44rem]" sort={applied.sort} onSort={(next) => update({ sort: next, page: '' })} />
             <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} onPerPage={(n) => update({ per_page: String(n), page: '' })} />
           </>
         )}

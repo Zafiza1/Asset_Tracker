@@ -55,7 +55,7 @@ class LocationController extends Controller
             ->when($request->query('level') === 'sub', fn ($q) => $q->whereNotNull('parent_id'));
 
         return LocationResource::collection(MasterRequests::list($query, $request,
-            ['tree' => 'path', 'code' => 'code', 'name' => 'name', 'status' => 'status', 'created_at' => 'created_at'], 'tree', ['code', 'name', 'address']));
+            ['tree' => 'path', 'code' => 'code', 'name' => 'name', 'address' => 'address', 'usage' => 'assets_count', 'status' => 'status', 'created_at' => 'created_at'], 'tree', ['code', 'name', 'address']));
     }
 
     public function store(Request $request, Tenancy $tenancy): LocationResource

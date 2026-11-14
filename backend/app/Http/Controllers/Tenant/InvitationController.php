@@ -12,6 +12,7 @@ use App\Http\Resources\OrganizationInvitationResource;
 use App\Http\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
 
@@ -38,7 +39,14 @@ class InvitationController extends Controller
         $query = OrganizationInvitation::query()->with('inviter')
             ->when($request->query('search'), fn ($q, $term) => $q->where('email', 'ilike', ListQuery::like($term)))
             ->when($request->query('status'), fn ($q, $status) => $q->withEffectiveStatus($status));
-        ListQuery::sort($query, $request, ['email' => 'email', 'created_at' => 'created_at', 'expires_at' => 'expires_at'], '-created_at');
+        ListQuery::sort($query, $request, [
+            'email' => 'email', 'created_at' => 'created_at', 'expires_at' => 'expires_at', 'expires' => 'expires_at',
+            // Effective status: a pending invitation past its expiry counts as expired.
+            'status' => DB::raw("case when status = 'pending' and expires_at <= now() then 'expired' else status end"),
+            'invited_by' => ListQuery::related(new OrganizationInvitation, 'inviter', 'name'),
+            'roles' => DB::table('roles')->selectRaw("string_agg(roles.name, ', ' order by roles.name)")
+                ->whereRaw('roles.id::text in (select jsonb_array_elements_text(organization_invitations.role_ids))'),
+        ], '-created_at');
 
         $page = $query->paginate(ListQuery::perPage($request))->withQueryString();
         $this->invitations->withRoles($page->items());

@@ -18,7 +18,7 @@ function CodeChip({ code }: { code: string }) {
   )
 }
 
-const code = <T extends { code: string }>(): Column<T> => ({ key: 'code', header: 'Kode', className: 'w-44', hideOnMobile: true, cell: (r) => <CodeChip code={r.code} /> })
+const code = <T extends { code: string }>(): Column<T> => ({ key: 'code', header: 'Kode', className: 'w-44', hideOnMobile: true, sortKey: 'code', cell: (r) => <CodeChip code={r.code} /> })
 
 function useMasterPermissions() {
   const { can } = useAuth()
@@ -34,7 +34,7 @@ export function DepartmentsPage() {
       {...useMasterPermissions()}
       columns={[
         code<Department>(),
-        { key: 'name', header: 'Nama', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
+        { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
       ]}
       fields={[{ name: 'name', label: 'Nama', required: true }]}
     />
@@ -126,10 +126,10 @@ export function LocationsPage() {
           { name: 'level', label: 'Tingkat', options: LOCATION_LEVEL_OPTIONS },
         ]}
         columns={({ filtered }) => [
-          { key: 'name', header: 'Nama', cell: (r) => treeNameCell(r, filtered, r.address) },
+          { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => treeNameCell(r, filtered, r.address) },
           code<Location>(),
-          { key: 'address', header: 'Alamat', hideOnMobile: true, className: 'max-w-xs truncate', cell: (r) => r.address ?? <span className="text-slate-400">—</span>, title: (r) => r.address },
-          { key: 'usage', header: 'Pemakaian', className: 'w-36', hideOnMobile: true, cell: (r) => <LocationUsage row={r} /> },
+          { key: 'address', header: 'Alamat', sortKey: 'address', hideOnMobile: true, className: 'max-w-xs truncate', cell: (r) => r.address ?? <span className="text-slate-400">—</span>, title: (r) => r.address },
+          { key: 'usage', header: 'Pemakaian', className: 'w-36', sortKey: 'usage', hideOnMobile: true, cell: (r) => <LocationUsage row={r} /> },
         ]}
         fields={[
           { name: 'name', label: 'Nama', required: true, placeholder: 'mis. Gudang Utama' },
@@ -228,15 +228,16 @@ export function TenantCategoriesPage() {
           { name: 'level', label: 'Tingkat', options: LEVEL_OPTIONS },
         ]}
         columns={({ filtered }) => [
-          { key: 'name', header: 'Nama', cell: (r) => treeNameCell(r, filtered) },
+          { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => treeNameCell(r, filtered) },
           code<TenantCategory>(),
           {
             key: 'attributes',
             header: 'Atribut',
+            sortKey: 'attributes',
             className: 'w-48',
             cell: (r) => <AttributeCount row={r} canEdit={permissions.canUpdate && r.status !== 'archived'} onOpen={() => setAttributesOf(r)} />,
           },
-          { key: 'description', header: 'Deskripsi', cell: (r) => r.description ?? '—', title: (r) => r.description, hideOnMobile: true },
+          { key: 'description', header: 'Deskripsi', sortKey: 'description', cell: (r) => r.description ?? '—', title: (r) => r.description, hideOnMobile: true },
         ]}
         fields={[
           { name: 'name', label: 'Nama', required: true, placeholder: 'mis. Laptop Kantor' },

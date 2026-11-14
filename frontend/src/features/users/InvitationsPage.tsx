@@ -35,12 +35,13 @@ export function InvitationsPage() {
   })
   const page = Number(params.get('page') ?? 1)
   const status = params.get('status') ?? ''
+  const sort = params.get('sort') ?? ''
   const advanced = useFilterDraft(params, ['status'])
   const canManage = can('user.create') && can('role.manage')
 
   const query = useQuery({
-    queryKey: ['invitations', { page, status, search: params.get('search') }],
-    queryFn: () => api.get<Paginated<OrganizationInvitation>>(`/invitations${qs({ page, status, search: params.get('search') })}`),
+    queryKey: ['invitations', { page, status, sort, search: params.get('search') }],
+    queryFn: () => api.get<Paginated<OrganizationInvitation>>(`/invitations${qs({ page, status, sort, search: params.get('search') })}`),
     placeholderData: keepPreviousData,
   })
 
@@ -74,6 +75,7 @@ export function InvitationsPage() {
     {
       key: 'email',
       header: 'Email',
+      sortKey: 'email',
       cell: (i) => (
         <div>
           <p className="font-medium text-slate-900">{i.email}</p>
@@ -81,12 +83,13 @@ export function InvitationsPage() {
         </div>
       ),
     },
-    { key: 'roles', header: 'Role', cell: (i) => i.roles?.map((r) => r.name).join(', ') || '—', hideOnMobile: true },
-    { key: 'status', header: 'Status', cell: (i) => <StatusBadge status={i.status}>{invitationStatusLabel[i.status]}</StatusBadge> },
-    { key: 'invited_by', header: 'Diundang oleh', cell: (i) => i.invited_by?.name ?? '—', hideOnMobile: true },
+    { key: 'roles', header: 'Role', sortKey: 'roles', cell: (i) => i.roles?.map((r) => r.name).join(', ') || '—', hideOnMobile: true },
+    { key: 'status', header: 'Status', sortKey: 'status', cell: (i) => <StatusBadge status={i.status}>{invitationStatusLabel[i.status]}</StatusBadge> },
+    { key: 'invited_by', header: 'Diundang oleh', sortKey: 'invited_by', cell: (i) => i.invited_by?.name ?? '—', hideOnMobile: true },
     {
       key: 'expires',
       header: 'Berlaku sampai',
+      sortKey: 'expires',
       cell: (i) => (i.status === 'accepted' ? `Diterima ${formatDateTime(i.accepted_at)}` : i.status === 'revoked' ? `Dicabut ${formatDateTime(i.revoked_at)}` : formatDateTime(i.expires_at)),
       hideOnMobile: true,
     },
@@ -169,7 +172,7 @@ export function InvitationsPage() {
           />
         ) : (
           <>
-            <DataTable columns={columns} rows={query.data!.data} />
+            <DataTable columns={columns} rows={query.data!.data} sort={sort} onSort={(next) => update({ sort: next, page: '' })} />
             <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} />
           </>
         )}

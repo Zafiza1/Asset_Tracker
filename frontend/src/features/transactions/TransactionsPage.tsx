@@ -20,7 +20,7 @@ import { transactionTypeLabel, type AssetTransaction, type TransactionType } fro
 import { TransactionChanges } from './TransactionChanges'
 import { TransactionFormModal } from './TransactionFormModal'
 
-const FILTERS = ['page', 'per_page', 'search', 'type', 'date_from', 'date_to', 'columns'] as const
+const FILTERS = ['page', 'per_page', 'search', 'type', 'date_from', 'date_to', 'sort', 'columns'] as const
 const DEFAULT_PER_PAGE = 25
 const ADVANCED = ['type', 'date_from', 'date_to'] as const
 const DEFAULT_COLUMNS = ['number', 'asset', 'type', 'changes', 'by']
@@ -89,6 +89,7 @@ export function TransactionsPage() {
     {
       key: 'number',
       header: 'Transaksi',
+      sortKey: 'number',
       className: 'w-48',
       cell: (t) => (
         <div>
@@ -100,6 +101,7 @@ export function TransactionsPage() {
     {
       key: 'asset',
       header: 'Aset',
+      sortKey: 'asset',
       className: 'w-[28%]',
       cell: (t) =>
         t.asset && (
@@ -108,9 +110,9 @@ export function TransactionsPage() {
           </Link>
         ),
     },
-    { key: 'type', header: 'Jenis', className: 'w-36', cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge> },
+    { key: 'type', header: 'Jenis', className: 'w-36', sortKey: 'type', cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge> },
     { key: 'changes', header: 'Rincian', className: 'whitespace-normal', cell: (t) => <TransactionChanges trx={t} />, hideOnMobile: true },
-    { key: 'by', header: 'Dicatat oleh', className: 'w-40', cell: (t) => t.created_by ?? '—', hideOnMobile: true },
+    { key: 'by', header: 'Dicatat oleh', className: 'w-40', sortKey: 'by', cell: (t) => t.created_by ?? '—', hideOnMobile: true },
   ]
 
   return (
@@ -181,7 +183,14 @@ export function TransactionsPage() {
           />
         ) : (
           <>
-            <DataTable columns={columns} rows={query.data!.data} visibleColumns={visibleColumns} className="min-w-[36rem] md:min-w-[60rem]" />
+            <DataTable
+              columns={columns}
+              rows={query.data!.data}
+              visibleColumns={visibleColumns}
+              className="min-w-[36rem] md:min-w-[60rem]"
+              sort={params.get('sort') ?? ''}
+              onSort={(next) => update({ sort: next })}
+            />
             <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} onPerPage={(n) => update({ per_page: n === DEFAULT_PER_PAGE ? '' : String(n) })} />
           </>
         )}

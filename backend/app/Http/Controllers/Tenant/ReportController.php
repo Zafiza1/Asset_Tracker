@@ -27,7 +27,7 @@ class ReportController extends Controller
     public function assets(Request $request): AnonymousResourceCollection
     {
         $filters = $this->filters($request);
-        $query = ListQuery::sort($this->report->query($filters), $request, AssetReport::SORTS, AssetReport::DEFAULT_SORT);
+        $query = ListQuery::sort($this->report->query($filters), $request, AssetReport::sorts(), AssetReport::DEFAULT_SORT);
 
         return AssetResource::collection($query->paginate(ListQuery::perPage($request, 25))->withQueryString())
             ->additional(['summary' => $this->report->summary($filters)]);
@@ -50,7 +50,7 @@ class ReportController extends Controller
         }
 
         $organization = $this->tenancy->tenant()->organization;
-        $query = ListQuery::sort($this->report->query($filters), $request, AssetReport::SORTS, AssetReport::DEFAULT_SORT);
+        $query = ListQuery::sort($this->report->query($filters), $request, AssetReport::sorts(), AssetReport::DEFAULT_SORT);
         $export = new AssetReportExport($organization, $query, $this->report->describe($filters), $summary);
         $filename = 'laporan_aset_'.now($organization->timezone ?: 'UTC')->format('Ymd_His').'.'.$format;
 

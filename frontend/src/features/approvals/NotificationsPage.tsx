@@ -65,7 +65,8 @@ export function NotificationsPage() {
   }
 
   const listFilters = { category: params.get('category'), search: search || null }
-  const filters = { status, ...listFilters, page: params.get('page') }
+  const sort = params.get('sort') ?? ''
+  const filters = { status, ...listFilters, page: params.get('page'), sort: sort || null }
   const query = useQuery({
     queryKey: [...APPROVALS_KEY, filters],
     queryFn: () => api.get<Paginated<ApprovalRequest>>(`/approvals${qs(filters)}`),
@@ -91,6 +92,7 @@ export function NotificationsPage() {
     {
       key: 'action',
       header: 'Pengajuan',
+      sortKey: 'action',
       cell: (r) => (
         <div className="min-w-0">
           <p className="font-medium text-slate-900">{r.action_label}</p>
@@ -98,10 +100,11 @@ export function NotificationsPage() {
         </div>
       ),
     },
-    { key: 'category', header: 'Jenis', cell: (r) => <Badge tone="blue">{approvalCategoryLabel[r.category] ?? r.category_label}</Badge>, hideOnMobile: true },
+    { key: 'category', header: 'Jenis', sortKey: 'category', cell: (r) => <Badge tone="blue">{approvalCategoryLabel[r.category] ?? r.category_label}</Badge>, hideOnMobile: true },
     {
       key: 'requester',
       header: 'Diajukan oleh',
+      sortKey: 'requester',
       cell: (r) => (
         <div>
           <p className="text-slate-900">{r.requester?.name ?? '—'}</p>
@@ -116,6 +119,7 @@ export function NotificationsPage() {
           {
             key: 'decider',
             header: 'Diputuskan oleh',
+            sortKey: 'decider',
             cell: (r: ApprovalRequest) =>
               r.decided_at ? (
                 <div>
@@ -128,7 +132,7 @@ export function NotificationsPage() {
             hideOnMobile: true,
           },
         ]),
-    { key: 'status', header: 'Status', cell: (r) => <StatusBadge status={r.status}>{approvalStatusLabel[r.status]}</StatusBadge> },
+    { key: 'status', header: 'Status', sortKey: 'status', cell: (r) => <StatusBadge status={r.status}>{approvalStatusLabel[r.status]}</StatusBadge> },
   ]
 
   const empty = emptyState(status, canDecide, filtered)
@@ -203,7 +207,7 @@ export function NotificationsPage() {
           />
         ) : (
           <>
-            <DataTable columns={columns} rows={query.data.data} onRowClick={(r) => setOpenId(r.id)} />
+            <DataTable columns={columns} rows={query.data.data} onRowClick={(r) => setOpenId(r.id)} sort={sort} onSort={(next) => update({ sort: next })} />
             <Pagination meta={query.data.meta} onPage={(page) => update({ page: String(page) })} />
           </>
         )}

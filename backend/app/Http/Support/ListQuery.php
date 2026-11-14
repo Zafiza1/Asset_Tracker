@@ -3,6 +3,11 @@
 namespace App\Http\Support;
 
 use Illuminate\Contracts\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Http\Request;
 
 /**
@@ -19,7 +24,11 @@ final class ListQuery
     }
 
     /**
-     * @param  array<string, string>  $allowed  public sort key => column
+     * Order by `?sort=key` (ascending) or `?sort=-key` (descending); an unknown key falls back to
+     * `$default`. Empty values come last in both directions, and the primary key breaks ties so
+     * rows never repeat or vanish between pages.
+     *
+     * @param  array<string, string|Expression|EloquentBuilder<Model>|QueryBuilder>  $allowed  public sort key => column or scalar subquery
      */
     public static function sort(Builder $query, Request $request, array $allowed, string $default): Builder
     {
@@ -32,7 +41,41 @@ final class ListQuery
             $key = ltrim($default, '-');
         }
 
-        return $query->orderBy($allowed[$key], $direction);
+        $column = $allowed[$key];
+        $base = $query instanceof EloquentBuilder ? $query->getQuery() : $query;
+        if ($column instanceof EloquentBuilder || $column instanceof QueryBuilder) {
+            $sub = $column instanceof EloquentBuilder ? $column->toBase() : $column;
+            $query->orderByRaw("({$sub->toSql()}) {$direction} nulls last", $sub->getBindings());
+        } else {
+            $sql = $column instanceof Expression ? (string) $column->getValue($base->getGrammar()) : $base->getGrammar()->wrap($column);
+            $query->orderByRaw("{$sql} {$direction} nulls last");
+        }
+
+        if ($query instanceof EloquentBuilder) {
+            $query->orderBy($query->getModel()->getQualifiedKeyName());
+        }
+
+        return $query;
+    }
+
+    /**
+     * Scalar subquery reading `$column` of a belongs-to relation, to sort by e.g. the category
+     * name of an asset without joining (and without changing the selected columns).
+     *
+     * @return EloquentBuilder<Model>
+     */
+    public static function related(Model $model, string $relation, string $column): EloquentBuilder
+    {
+        /** @var BelongsTo<Model, Model> $belongsTo */
+        $belongsTo = $model->{$relation}();
+        $related = $belongsTo->getRelated();
+        $alias = 'sort_'.$relation;
+
+        return $related->newQueryWithoutScopes()
+            ->from($related->getTable(), $alias)
+            ->select("{$alias}.{$column}")
+            ->whereColumn("{$alias}.{$belongsTo->getOwnerKeyName()}", $belongsTo->getQualifiedForeignKeyName())
+            ->limit(1);
     }
 
     /** Escape LIKE wildcards in user search input. */

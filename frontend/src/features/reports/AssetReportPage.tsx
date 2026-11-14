@@ -71,6 +71,12 @@ const SORT_LABEL: Record<string, string> = {
   acquisition_cost: 'nilai perolehan terendah',
   status: 'status (A–Z)',
   '-status': 'status (Z–A)',
+  serial_number: 'no seri (A–Z)',
+  '-serial_number': 'no seri (Z–A)',
+  category: 'kategori (A–Z)',
+  '-category': 'kategori (Z–A)',
+  location: 'lokasi (A–Z)',
+  '-location': 'lokasi (Z–A)',
 }
 
 const muted = (text = '—') => <span className="text-slate-400">{text}</span>
@@ -181,9 +187,9 @@ export function AssetReportPage() {
           'group block min-w-0',
         ),
     },
-    { key: 'serial_number', header: 'No Seri', className: 'w-32', title: (a) => a.serial_number, cell: (a) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : muted()), hideOnMobile: true },
-    { key: 'category', header: 'Kategori', className: 'w-36', title: (a) => a.category?.name, cell: (a) => a.category?.name ?? muted(), hideOnMobile: true },
-    { key: 'location', header: 'Lokasi', className: 'w-36', title: (a) => a.location?.name ?? 'Tanpa lokasi', cell: (a) => a.location?.name ?? muted('Tanpa lokasi'), hideOnMobile: true },
+    { key: 'serial_number', header: 'No Seri', className: 'w-32', sortKey: 'serial_number', title: (a) => a.serial_number, cell: (a) => (a.serial_number ? <span className="font-mono text-xs">{a.serial_number}</span> : muted()), hideOnMobile: true },
+    { key: 'category', header: 'Kategori', className: 'w-36', sortKey: 'category', title: (a) => a.category?.name, cell: (a) => a.category?.name ?? muted(), hideOnMobile: true },
+    { key: 'location', header: 'Lokasi', className: 'w-36', sortKey: 'location', title: (a) => a.location?.name ?? 'Tanpa lokasi', cell: (a) => a.location?.name ?? muted('Tanpa lokasi'), hideOnMobile: true },
     {
       key: 'status',
       header: 'Status',

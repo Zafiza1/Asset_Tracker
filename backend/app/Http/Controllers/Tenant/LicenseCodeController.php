@@ -61,7 +61,13 @@ class LicenseCodeController extends Controller
                 LicenseCode::STATUS_ASSIGNED => $q->assigned(),
             });
 
-        ListQuery::sort($query, $request, ['code' => 'code', 'created_at' => 'created_at', 'assigned_at' => 'assigned_at'], '-created_at');
+        ListQuery::sort($query, $request, [
+            'code' => 'code', 'status' => 'status', 'created_at' => 'created_at', 'assigned_at' => 'assigned_at',
+            'holder' => ListQuery::related(new LicenseCode, 'assignedUser', 'name'),
+            'validity' => OrganizationLicense::query()->select('expires_at')
+                ->whereColumn('organization_licenses.reference', 'license_codes.reference')
+                ->where('organization_licenses.organization_id', $this->tenancy->organizationId())->limit(1),
+        ], '-created_at');
 
         $result = $query->paginate(ListQuery::perPage($request))->withQueryString();
         $this->attachLicenses($result->getCollection());
