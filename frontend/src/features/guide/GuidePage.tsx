@@ -371,7 +371,7 @@ function Step6() {
     <StepSection n={6} goal="Aset dapat dikenali cepat dengan memindai label. Lewati langkah ini bila organisasi tidak memakai barcode." next={[{ n: 7 }]}>
       <NumberedList items={[
         <>Super Admin atau Supervisor mengaktifkan <MenuLink to="/modul/barcode" permission="settings.manage">Modul Barcode</MenuLink>. Cukup sekali.</>,
-        <>Pada setiap aset yang perlu label, klik <Label>Ubah</Label> lalu atur isian <Label>Barcode</Label> menjadi <Label>Ya</Label>.</>,
+        <>Di halaman yang sama, centang kategori aset yang perlu label pada daftar <Label>Kategori aset yang memakai Modul Barcode</Label>; subkategorinya ikut. Modul yang dipakai aset tampil sebagai <Label>Modul</Label> di bagian Informasi Dasar detail aset.</>,
         <>Di <MenuLink to="/aset" permission="asset.view">Data Aset</MenuLink>, klik <Label>Print</Label> pada aset tersebut, lalu cetak Barcode 1D, QR Code, atau keduanya.</>,
         'Tempel label pada aset fisik.',
       ]} />
@@ -491,7 +491,7 @@ const PROBLEMS: { q: string; a: ReactNode }[] = [
   { q: 'Saya tidak menemukan aset tertentu.', a: 'Aset itu mungkin berada di luar cakupan data Anda, atau sudah nonaktif. Untuk melihat aset nonaktif, ubah filter di Data Aset menjadi "Aset nonaktif".' },
   { q: 'Aset tidak dapat dicentang saat mencatat transaksi.', a: 'Status aset tidak mengizinkan jenis transaksi itu, misalnya aset yang sedang dipinjam tidak dapat dipindahkan. Lihat tabel status pada langkah 7.' },
   { q: 'Saya salah mencatat transaksi.', a: 'Transaksi tidak dapat diubah atau dihapus. Catat transaksi baru untuk mengembalikan data ke keadaan yang benar.' },
-  { q: 'Tombol cetak barcode tidak muncul.', a: 'Pastikan Modul Barcode sudah aktif dan isian Barcode pada aset itu bernilai Ya.' },
+  { q: 'Tombol cetak barcode tidak muncul.', a: 'Pastikan Modul Barcode sudah aktif dan kategori aset itu (atau kategori induknya) sudah dicentang pada halaman Modul Barcode.' },
   { q: 'Kategori atau lokasi tidak dapat diarsipkan.', a: 'Kategori atau lokasi itu masih dipakai aset aktif. Pindahkan atau ubah asetnya terlebih dahulu.' },
   { q: 'Import Excel gagal.', a: 'Baca daftar baris yang salah pada pesan error, perbaiki file, lalu unggah ulang. Selama masih ada baris yang salah, tidak ada data yang disimpan.' },
   { q: 'Saya lupa password.', a: 'Minta Super Admin atau Supervisor mengatur password sementara dari halaman detail pengguna. Anda akan diminta menggantinya saat masuk.' },

@@ -28,7 +28,7 @@ class StandardCategoriesTest extends TestCase
             $this->assertEqualsCanonicalizing(array_keys(StandardCategories::all()), $categories->keys()->all());
 
             $labels = fn (string $code) => TenantCategoryAttribute::query()->where('category_id', $categories[$code]->id)->where('is_default', true)->pluck('label')->all();
-            foreach (['Merek', 'Model / Tipe', 'Catatan', 'Kondisi Aset', 'Satuan', 'Barcode', 'Pemilik', 'Penanggung Jawab', 'Jam Operasi'] as $general) {
+            foreach (['Merek', 'Model / Tipe', 'Catatan', 'Kondisi Aset', 'Satuan', 'Pemilik', 'Penanggung Jawab', 'Jam Operasi'] as $general) {
                 $this->assertContains($general, $labels('AST_INVENTARIS'));
             }
             // Category-specific fields are ordinary (editable, removable) fields, not defaults.

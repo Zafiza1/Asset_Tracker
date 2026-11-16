@@ -3,7 +3,9 @@
 namespace App\Http\Resources;
 
 use App\Domain\Assets\Models\Asset;
-use App\Domain\TenantMaster\Services\CategoryAttributeService;
+use App\Domain\Organization\Models\OrganizationModule;
+use App\Domain\TenantMaster\Models\CategoryModule;
+use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,8 +20,10 @@ class AssetResource extends JsonResource
             'name' => $this->name,
             'category_id' => $this->category_id,
             'category' => $this->whenLoaded('category', fn () => Ref::of($this->category)),
-            // The asset's "Barcode" field is on; the barcodes encode the asset id.
-            'barcode_enabled' => in_array(true, array_intersect_key($this->attribute_values, array_flip(self::barcodeKeys($request))), true),
+            // Switched-on modules picked in Menu Modul for the asset's category (or a parent category).
+            'modules' => $modules = self::modules($request, $this->resource),
+            // Uses the Barcode module: the printable barcodes encode the asset id.
+            'barcode_enabled' => in_array(OrganizationModule::BARCODE, $modules, true),
             'location_id' => $this->location_id,
             'location' => $this->whenLoaded('location', fn () => Ref::of($this->location)),
             'status' => $this->status,
@@ -45,16 +49,23 @@ class AssetResource extends JsonResource
     }
 
     /**
-     * Looked up once per request (a list renders many assets).
+     * The asset's modules, in catalog order. The picked categories are looked up once per
+     * request (a list renders many assets).
      *
      * @return list<string>
      */
-    private static function barcodeKeys(Request $request): array
+    private static function modules(Request $request, Asset $asset): array
     {
-        if (! $request->attributes->has('barcode_keys')) {
-            $request->attributes->set('barcode_keys', CategoryAttributeService::barcodeKeys());
+        if (! $request->attributes->has('category_modules')) {
+            $request->attributes->set('category_modules', CategoryModule::activeByModule());
         }
+        $active = $request->attributes->get('category_modules');
+        if ($active === []) {
+            return [];
+        }
+        $path = $asset->relationLoaded('category') ? $asset->category?->path
+            : TenantAssetCategory::query()->whereKey($asset->category_id)->value('path');
 
-        return $request->attributes->get('barcode_keys');
+        return CategoryModule::modulesForPath((string) $path, $active);
     }
 }

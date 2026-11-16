@@ -109,6 +109,8 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
       'organization.status_changed': 'Mengubah status organisasi',
       'settings.updated': 'Mengubah pengaturan organisasi',
       'module.enabled': 'Mengaktifkan modul',
+      'module.categories_added': 'Memasang modul pada kategori aset',
+      'module.categories_removed': 'Melepas modul dari kategori aset',
       'module.disabled': 'Menonaktifkan modul',
     },
   },

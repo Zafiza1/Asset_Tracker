@@ -260,29 +260,51 @@ class AssetManagementTest extends TestCase
         $this->assertSame(GenericAssetCategory::query()->where('code', 'UMUM')->value('id'), $category['generic_category_id']);
     }
 
-    public function test_barcode_is_a_default_yes_no_field_switched_per_asset(): void
+    public function test_modules_are_picked_per_category_in_menu_modul(): void
     {
         $it = $this->category('IT', 'Perangkat IT');
         $laptops = $this->category('LAPTOP', 'Laptop', $it);
-        $field = collect($this->getJson("/api/tenant-masters/categories/{$laptops->id}/attributes")->assertOk()->json('data'))->firstWhere('label', 'Barcode');
-        $this->assertSame(['boolean', 'basic_information', true], [$field['data_type'], $field['section'], $field['is_default']]);
+        $furniture = $this->category('MEBEL', 'Mebel');
+        // Barcode is no longer a category field.
+        $labels = collect($this->getJson("/api/tenant-masters/categories/{$laptops->id}/attributes")->assertOk()->json('data'))->pluck('label');
+        $this->assertNotContains('Barcode', $labels);
 
-        // Barcode module off (the default): the field is kept, but no asset has a barcode.
-        $with = $this->register(['name' => 'ThinkPad', 'category_id' => $laptops->id, 'attributes' => [$field['key'] => true]])
-            ->assertCreated()->assertJsonPath('data.barcode_enabled', false)->json('data');
-        $this->getJson("/api/assets/{$with['id']}")->assertOk()->assertJsonPath("data.attributes.{$field['key']}", true);
+        $laptop = $this->register(['name' => 'ThinkPad', 'category_id' => $laptops->id])->assertCreated()
+            ->assertJsonPath('data.modules', [])->assertJsonPath('data.barcode_enabled', false)->json('data');
+        $chair = $this->register(['name' => 'Kursi', 'category_id' => $furniture->id])->assertCreated()->json('data');
 
+        // Picked while the module is off: kept, but not in effect.
+        $this->putJson('/api/modules/barcode/categories', ['category_ids' => [$it->id], 'assigned' => true])->assertOk()->assertJsonPath('data.changed', 1);
+        $this->getJson("/api/assets/{$laptop['id']}")->assertOk()->assertJsonPath('data.modules', []);
+
+        // A parent category's module also applies to the assets of its subcategories.
         $this->putJson('/api/modules/barcode', ['enabled' => true])->assertOk();
-        $this->getJson("/api/assets/{$with['id']}")->assertOk()->assertJsonPath('data.barcode_enabled', true);
-        $without = $this->register(['name' => 'MacBook', 'category_id' => $laptops->id])->assertCreated()->assertJsonPath('data.barcode_enabled', false)->json('data');
-
+        $this->getJson("/api/assets/{$laptop['id']}")->assertOk()->assertJsonPath('data.modules', ['barcode'])->assertJsonPath('data.barcode_enabled', true);
         $listed = collect($this->getJson('/api/assets')->assertOk()->json('data'))->keyBy('id');
-        $this->assertTrue($listed[$with['id']]['barcode_enabled']);
-        $this->assertFalse($listed[$without['id']]['barcode_enabled']);
+        $this->assertSame(['barcode'], $listed[$laptop['id']]['modules']);
+        $this->assertSame([], $listed[$chair['id']]['modules']);
+        // New assets of the category get it right away.
+        $this->register(['name' => 'MacBook', 'category_id' => $laptops->id])->assertCreated()->assertJsonPath('data.barcode_enabled', true);
 
-        $this->patchJson("/api/assets/{$with['id']}", ['attributes' => [$field['key'] => false], 'lock_version' => $with['lock_version']])
-            ->assertOk()->assertJsonPath('data.barcode_enabled', false);
-        $this->assertErrorCode($this->patchJson("/api/assets/{$without['id']}", ['attributes' => [$field['key'] => 'ya']]), 422, 'VALIDATION_FAILED');
+        $checklist = $this->getJson('/api/modules/barcode/categories')->assertOk()->assertJsonPath('assigned_assets', 2);
+        $rows = collect($checklist->json('data'))->keyBy('id');
+        $this->assertSame([true, false, 0, 2], [$rows[$it->id]['assigned'], $rows[$it->id]['inherited'], $rows[$it->id]['depth'], $rows[$it->id]['asset_count']]);
+        $this->assertSame([false, true, 1], [$rows[$laptops->id]['assigned'], $rows[$laptops->id]['inherited'], $rows[$laptops->id]['depth']]);
+        $this->assertFalse($rows[$furniture->id]['assigned']);
+        // Parents come right before their children.
+        $order = collect($checklist->json('data'))->pluck('id')->all();
+        $this->assertSame(array_search($it->id, $order) + 1, array_search($laptops->id, $order));
+
+        // Already picked ones are not counted again.
+        $this->putJson('/api/modules/barcode/categories', ['category_ids' => [$it->id, $furniture->id], 'assigned' => true])->assertJsonPath('data.changed', 1);
+        $this->putJson('/api/modules/barcode/categories', ['category_ids' => [$it->id], 'assigned' => false])->assertJsonPath('data.changed', 1);
+        $this->getJson("/api/assets/{$laptop['id']}")->assertOk()->assertJsonPath('data.barcode_enabled', false);
+        $this->getJson("/api/assets/{$chair['id']}")->assertOk()->assertJsonPath('data.modules', ['barcode']);
+        $this->assertSame(['module.categories_added' => 2, 'module.categories_removed' => 1], AuditLog::query()
+            ->whereIn('action', ['module.categories_added', 'module.categories_removed'])->pluck('action')->countBy()->sortKeys()->all());
+
+        $this->assertErrorCode($this->putJson('/api/modules/barcode/categories', ['category_ids' => [(string) Str::uuid()], 'assigned' => true]), 422, 'INVALID_REFERENCE');
+        $this->assertErrorCode($this->putJson('/api/modules/nope/categories', ['category_ids' => [$it->id], 'assigned' => true]), 404, 'MODULE_NOT_FOUND');
     }
 
     public function test_timeline_merges_transactions_and_data_edits_newest_first(): void

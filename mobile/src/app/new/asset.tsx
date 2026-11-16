@@ -11,8 +11,6 @@ import { assetStatusLabel, INITIAL_STATUSES, type Asset, type AssetStatus, type 
 
 export { ErrorBoundary } from '@/components/ErrorBoundary'
 
-/** Default yes/no field of every category; only meaningful with the Barcode module on (as useAssetFields on the web). */
-const BARCODE_FIELD = 'Barcode'
 
 /**
  * Register an asset, as "Tambah aset" in Pendataan Aset on the web. The asset number is
@@ -56,13 +54,13 @@ export default function NewAssetScreen() {
     setFieldsState({ loading: true, error: null })
     try {
       const rows = (await get<{ data: CategoryAttribute[] }>(`/tenant-masters/categories/${categoryId}/attributes`)).data
-      setFields(hasModule('barcode') ? rows : rows.filter((f) => !(f.is_default && f.label === BARCODE_FIELD)))
+      setFields(rows)
       setFieldsState({ loading: false, error: null })
     } catch (e) {
       setFields([])
       setFieldsState({ loading: false, error: errorMessage(e) })
     }
-  }, [categoryId, get, hasModule])
+  }, [categoryId, get])
 
   useEffect(() => {
     loadFields()

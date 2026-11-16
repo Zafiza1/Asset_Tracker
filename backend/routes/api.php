@@ -84,6 +84,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     // Optional modules (e.g. Barcode); which ones are on is also in the profile for every member.
     Route::get('/modules', [OrganizationModuleController::class, 'index'])->middleware('permission:settings.manage');
     Route::put('/modules/{module}', [OrganizationModuleController::class, 'update'])->middleware('permission:settings.manage');
+    // Which asset categories use a module (checklist in Menu Modul); the asset detail lists an asset's modules under Informasi Dasar.
+    Route::get('/modules/{module}/categories', [OrganizationModuleController::class, 'categories'])->middleware('permission:settings.manage');
+    Route::put('/modules/{module}/categories', [OrganizationModuleController::class, 'updateCategories'])->middleware('permission:settings.manage');
 
     Route::get('/users', [UserController::class, 'index'])->middleware('permission:user.view');
     Route::get('/users/organization-options', [UserController::class, 'organizationOptions'])->middleware('permission:user.create,role.manage');

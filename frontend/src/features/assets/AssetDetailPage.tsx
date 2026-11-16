@@ -12,11 +12,11 @@ import { toast } from '../../components/ui/toast'
 import { DataTable, type Column } from '../../components/ui/Table'
 import { SegmentedControl } from '../../components/ui/Tabs'
 import { api } from '../../lib/api/client'
-import type { CategoryAttribute, Paginated, Resource } from '../../lib/api/types'
+import { MODULE_NAMES, type CategoryAttribute, type Paginated, type Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { formatDate, formatDateTime } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
-import { attributeRowsBySection, SECTION_LABELS, useAssetFields } from '../master/categoryAttributeData'
+import { attributeRowsBySection, SECTION_LABELS } from '../master/categoryAttributeData'
 import { allowedTypes, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
 import { LocationChange, StatusChange } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
@@ -38,7 +38,7 @@ export function AssetDetailPage() {
   const [historyView, setHistoryView] = useState<'timeline' | 'table'>('timeline')
 
   const asset = useQuery({ queryKey: ['/assets', id], queryFn: () => api.get<Resource<Asset> & { attribute_fields: CategoryAttribute[] }>(`/assets/${id}`) })
-  const attributeFields = useAssetFields(asset.data?.attribute_fields ?? [])
+  const attributeFields = asset.data?.attribute_fields ?? []
   const history = useQuery({
     queryKey: ['/assets', id, 'transactions'],
     queryFn: () => api.get<Paginated<AssetTransaction>>(`/assets/${id}/transactions?per_page=100`),
@@ -161,6 +161,20 @@ export function AssetDetailPage() {
                     <Row label="Kategori">{a.category?.name}</Row>
                     <Row label="Tanggal perolehan">{formatDate(a.acquisition_date)}</Row>
                     <Row label="Harga perolehan">{formatMoney(a.acquisition_cost)}</Row>
+                    {/* Modules picked for this asset in Menu Modul (only those switched on). */}
+                    <Row label="Modul">
+                      {a.modules.length > 0 ? (
+                        <span className="flex flex-wrap gap-1">
+                          {a.modules.map((m) => (
+                            <Badge key={m} tone="blue">
+                              {MODULE_NAMES[m] ?? m}
+                            </Badge>
+                          ))}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </Row>
                     <Row label="Dokumen aset">
                       {a.document_url ? (
                         <a href={a.document_url} className="text-brand-700 underline" download={a.document_name ?? undefined}>

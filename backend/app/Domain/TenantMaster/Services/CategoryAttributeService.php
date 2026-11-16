@@ -5,7 +5,6 @@ namespace App\Domain\TenantMaster\Services;
 use App\Domain\GenericMaster\Attributes\AttributeDefinitionRules;
 use App\Domain\GenericMaster\Attributes\AttributeType;
 use App\Domain\GenericMaster\Attributes\AttributeValueValidator;
-use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
 use App\Domain\Shared\Masters\MasterWriter;
@@ -30,9 +29,6 @@ final class CategoryAttributeService
         AttributeType::BOOLEAN, AttributeType::DATE, AttributeType::ENUM];
 
     private const AUDIT = ['category_id', 'key', 'label', 'data_type', 'is_required', 'options', 'status', 'is_default', 'section'];
-
-    /** Label of the default yes/no field that gives an asset a barcode (default labels never change). */
-    public const BARCODE_LABEL = 'Barcode';
 
     /** Label of the default (required) condition field of every top-level category. */
     public const CONDITION_LABEL = 'Kondisi Aset';
@@ -68,8 +64,7 @@ final class CategoryAttributeService
                 ['value' => 'PCK', 'label' => 'PCK'],
                 ['value' => 'SCK', 'label' => 'SCK'],
             ]],
-            // Yes/no per asset: only assets switched on get a printable 1D/2D barcode.
-            ['label' => self::BARCODE_LABEL, 'data_type' => AttributeType::BOOLEAN, 'is_required' => false],
+            // No "Barcode" here: the modules an asset uses are picked in Menu Modul per category (category_modules).
             ['label' => 'Catatan', 'data_type' => AttributeType::TEXT, 'is_required' => false],
         ],
         // No "Location" here: assets already have the built-in location (Lokasi) field.
@@ -115,23 +110,6 @@ final class CategoryAttributeService
             ->get()
             ->sortBy([fn ($a, $b) => $depth[$a->category_id] <=> $depth[$b->category_id], ['sort_order', 'asc'], ['created_at', 'asc']])
             ->values();
-    }
-
-    /**
-     * Keys of the organization's barcode fields (one per top-level category). An asset only
-     * holds values of fields that apply to its category, so any of these set to true means
-     * the asset has a barcode. Empty while the organization's Barcode module is off.
-     *
-     * @return list<string>
-     */
-    public static function barcodeKeys(): array
-    {
-        if (! OrganizationModule::isEnabled(OrganizationModule::BARCODE)) {
-            return [];
-        }
-
-        return TenantCategoryAttribute::query()->where('is_default', true)->where('label', self::BARCODE_LABEL)
-            ->where('status', MasterStatus::ACTIVE)->pluck('key')->all();
     }
 
     /** @param array<string, mixed> $data label, data_type, is_required, options, section? */

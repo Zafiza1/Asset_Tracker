@@ -1,18 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, renderHook, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useAssetFields } from '../features/master/categoryAttributeData'
 import { ModulesPage } from '../features/organization/ModulesPage'
-import type { CategoryAttribute, ModuleKey, OrganizationModule, Profile } from '../lib/api/types'
+import type { ModuleCategory, ModuleKey, OrganizationModule, Profile } from '../lib/api/types'
 import { AuthContext, type AuthState } from '../lib/auth/context'
 
 afterEach(() => vi.unstubAllGlobals())
 
 function wrapper(modules: ModuleKey[]) {
   const auth: AuthState = { profile: { user: { id: 'u1' }, permissions: [], modules } as unknown as Profile, isLoading: false, can: () => true, login: vi.fn(), signUp: vi.fn(), logout: vi.fn(), setProfile: vi.fn(), switchOrganization: vi.fn(), createOrganization: vi.fn() }
-  const client = new QueryClient()
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>
       <AuthContext.Provider value={auth}>
@@ -22,13 +21,32 @@ function wrapper(modules: ModuleKey[]) {
   )
 }
 
+const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 })
+
+/** Fake API: the module list and its category checklist (checked ids kept in `assigned`). */
+function fakeApi(enabled: boolean, categories: Omit<ModuleCategory, 'assigned' | 'inherited'>[] = []) {
+  const state = { enabled, assigned: new Set<string>() }
+  const barcode: OrganizationModule = { key: 'barcode', name: 'Barcode', description: 'Label aset', enabled }
+  const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.includes('/modules/barcode/categories')) {
+      if (init?.method === 'PUT') {
+        const body = JSON.parse(init.body as string) as { category_ids: string[]; assigned: boolean }
+        body.category_ids.forEach((id) => (body.assigned ? state.assigned.add(id) : state.assigned.delete(id)))
+        return json({ data: { changed: body.category_ids.length } })
+      }
+      const rows = categories.map((c) => ({ ...c, assigned: state.assigned.has(c.id), inherited: c.parent_id !== null && state.assigned.has(c.parent_id) }))
+      return json({ data: rows, assigned_assets: rows.filter((r) => r.assigned).reduce((n, r) => n + r.asset_count, 0) })
+    }
+    if (init?.method === 'PUT') state.enabled = !state.enabled
+    return json({ data: [{ ...barcode, enabled: state.enabled }] })
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return { fetchMock, state }
+}
+
 describe('ModulesPage', () => {
   it('switches the Barcode module on', async () => {
-    const barcode: OrganizationModule = { key: 'barcode', name: 'Barcode', description: 'Label aset', enabled: false }
-    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
-      new Response(JSON.stringify({ data: [{ ...barcode, enabled: init?.method === 'PUT' }] }), { status: 200 }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
+    const { fetchMock } = fakeApi(false)
     render(<ModulesPage module="barcode" />, { wrapper: wrapper([]) })
 
     const toggle = await screen.findByRole('switch', { name: 'Modul Barcode' })
@@ -38,27 +56,32 @@ describe('ModulesPage', () => {
     fireEvent.click(toggle)
     expect(await screen.findByText('Aktif')).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: 'Modul Barcode' })).toHaveAttribute('aria-checked', 'true')
-    const put = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT')!
-    expect(put[0]).toContain('/modules/barcode')
+    const put = fetchMock.mock.calls.find(([url, init]) => init?.method === 'PUT' && url.endsWith('/modules/barcode'))!
     expect(JSON.parse(put[1]!.body as string)).toEqual({ enabled: true })
   })
-})
 
-describe('useAssetFields', () => {
-  const fields = [
-    { key: 'merek', label: 'Merek', is_default: true },
-    { key: 'barcode', label: 'Barcode', is_default: true },
-    // A custom field that happens to be called Barcode is not the module's field.
-    { key: 'barcode_2', label: 'Barcode', is_default: false },
-  ] as CategoryAttribute[]
+  it('checks a category; its subcategories follow', async () => {
+    const { fetchMock, state } = fakeApi(true, [
+      { id: 'c1', code: 'IT', name: 'Perangkat IT', parent_id: null, depth: 0, asset_count: 3 },
+      { id: 'c2', code: 'LAPTOP', name: 'Laptop', parent_id: 'c1', depth: 1, asset_count: 2 },
+      { id: 'c3', code: 'MEBEL', name: 'Mebel', parent_id: null, depth: 0, asset_count: 5 },
+    ])
+    render(<ModulesPage module="barcode" />, { wrapper: wrapper(['barcode']) })
 
-  it('hides the default Barcode field while the module is off', () => {
-    const { result } = renderHook(() => useAssetFields(fields), { wrapper: wrapper([]) })
-    expect(result.current.map((f) => f.key)).toEqual(['merek', 'barcode_2'])
-  })
+    const checklist = (await screen.findByRole('heading', { name: 'Kategori aset yang memakai Modul Barcode' })).closest('section')!
+    const it = await within(checklist).findByRole('checkbox', { name: 'Perangkat IT' })
+    expect(it).not.toBeChecked()
 
-  it('shows it once the module is on', () => {
-    const { result } = renderHook(() => useAssetFields(fields), { wrapper: wrapper(['barcode']) })
-    expect(result.current.map((f) => f.key)).toEqual(['merek', 'barcode', 'barcode_2'])
+    fireEvent.click(it)
+    expect(await within(checklist).findByText('3 aset memakai modul ini')).toBeInTheDocument()
+    expect(within(checklist).getByRole('checkbox', { name: 'Perangkat IT' })).toBeChecked()
+    // The subcategory is checked through its parent and cannot be unchecked on its own.
+    const laptop = within(checklist).getByRole('checkbox', { name: 'Laptop' })
+    expect(laptop).toBeChecked()
+    expect(laptop).toBeDisabled()
+    expect(within(checklist).getByRole('checkbox', { name: 'Mebel' })).not.toBeChecked()
+    const put = fetchMock.mock.calls.find(([url, init]) => init?.method === 'PUT' && url.includes('/categories'))!
+    expect(JSON.parse(put[1]!.body as string)).toEqual({ category_ids: ['c1'], assigned: true })
+    expect([...state.assigned]).toEqual(['c1'])
   })
 })

@@ -1,5 +1,5 @@
 import type { BadgeTone } from '../../components/ui/badgeTones'
-import type { AttributeValue } from '../../lib/api/types'
+import type { AttributeValue, ModuleKey } from '../../lib/api/types'
 
 /** Asset Management module: API shapes and labels. Statuses mirror App\Domain\Assets\AssetStatus. */
 
@@ -17,7 +17,9 @@ export interface Asset {
   name: string
   category_id: string
   category?: Ref | null
-  /** The asset's default "Barcode" field is set to yes: it has printable 1D/2D barcodes. */
+  /** Modules picked for the asset in Menu Modul that the organization has switched on. */
+  modules: ModuleKey[]
+  /** Uses the Barcode module: it has printable 1D/2D barcodes. */
   barcode_enabled: boolean
   location_id: string | null
   location?: Ref | null

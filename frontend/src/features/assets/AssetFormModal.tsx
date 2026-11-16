@@ -11,7 +11,7 @@ import { api, ApiError, isApprovalPending } from '../../lib/api/client'
 import type { AttributeValue, CategoryAttribute, Resource } from '../../lib/api/types'
 import { applyApiErrors, errorMessage } from '../../lib/forms'
 import { AttributeFields } from '../master/CategoryAttributes'
-import { useAssetFields, useCategoryAttributes } from '../master/categoryAttributeData'
+import { useCategoryAttributes } from '../master/categoryAttributeData'
 import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, initialStatuses, type Asset } from './api'
 import { AssetCategoryPicker } from './AssetCategoryPicker'
@@ -89,7 +89,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
 
   // The category decides which extra fields the asset has.
   const categoryId = useWatch({ control, name: 'category_id' })
-  const fields = useAssetFields(useCategoryAttributes(categoryId).data ?? [])
+  const fields = useCategoryAttributes(categoryId).data ?? []
   const categoryLabel = categories.find((o) => o.value === categoryId)?.label.trim() ?? asset?.category?.name ?? ''
 
   const [image, setImage] = useState<ImageChange>(undefined)

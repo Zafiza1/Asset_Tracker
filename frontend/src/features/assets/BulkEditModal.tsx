@@ -9,7 +9,6 @@ import { api, isApprovalPending } from '../../lib/api/client'
 import type { AttributeValue, CategoryAttribute } from '../../lib/api/types'
 import { errorMessage } from '../../lib/forms'
 import { AttributeValueInput } from '../master/attributes'
-import { useAssetFields } from '../master/categoryAttributeData'
 import { toOptions, useOptions } from '../master/options'
 import type { Asset } from './api'
 
@@ -49,7 +48,7 @@ export function BulkEditModal({ assets, onClose, onDone }: { assets: Asset[]; on
       staleTime: 30_000,
     })),
   })
-  const fields = useAssetFields([...new Map(fieldQueries.flatMap((q) => q.data ?? []).map((f) => [f.key, f])).values()])
+  const fields = [...new Map(fieldQueries.flatMap((q) => q.data ?? []).map((f) => [f.key, f])).values()]
   const sentAttributes = fields.filter((f) => enabledAttributes.includes(f.key))
   const nothingTicked = enabled.length === 0 && sentAttributes.length === 0
 

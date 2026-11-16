@@ -271,6 +271,25 @@ export interface OrganizationModule {
   enabled: boolean
 }
 
+/** Display names of the modules (OrganizationModule::CATALOG). */
+export const MODULE_NAMES: Record<ModuleKey, string> = { barcode: 'Barcode' }
+
+/** An asset category in a module's checklist (Menu Modul), in tree order (parents first). */
+export interface ModuleCategory {
+  id: string
+  code: string
+  name: string
+  parent_id: string | null
+  /** 0 = top-level category. */
+  depth: number
+  /** Active assets of the category and its subcategories. */
+  asset_count: number
+  /** Checked itself. */
+  assigned: boolean
+  /** A parent category is checked, so its assets use the module anyway. */
+  inherited: boolean
+}
+
 // ---------------------------------------------------------------- Master data
 
 export type MasterStatus = 'active' | 'inactive' | 'archived'

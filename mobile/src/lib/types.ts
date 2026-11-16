@@ -16,6 +16,9 @@ export interface Asset {
   name: string
   category_id: string
   category?: Ref | null
+  /** Modules picked for the asset in Menu Modul that the organization has switched on. */
+  modules: string[]
+  /** Uses the Barcode module: it has printable 1D/2D barcodes. */
   barcode_enabled: boolean
   location_id: string | null
   location?: Ref | null

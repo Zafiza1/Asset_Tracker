@@ -373,7 +373,7 @@ export function AssetsPage() {
             title: (a) =>
               a.barcode_enabled
                 ? undefined
-                : "Barcode belum diaktifkan untuk aset ini (isian Barcode pada data aset)",
+                : "Kategori aset ini belum dipilih untuk Modul Barcode (Menu Modul › Barcode)",
             cell: (a) =>
               a.barcode_enabled ? (
                 <Button
