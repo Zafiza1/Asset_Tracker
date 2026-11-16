@@ -64,6 +64,10 @@ final class PermissionCatalog
         'transaction.correct' => ['tenant', 'transaction', 'Mengajukan transaksi koreksi'],
         'report.view' => ['tenant', 'report', 'Melihat dashboard dan laporan'],
         'report.export' => ['tenant', 'report', 'Mengekspor laporan'],
+        // Opening a dashboard never grants the data its widgets show: they check the data permissions above.
+        'dashboard.view' => ['tenant', 'dashboard', 'Melihat dashboard organisasi dan yang dibagikan'],
+        'dashboard.create' => ['tenant', 'dashboard', 'Membuat dashboard pribadi'],
+        'dashboard.manage' => ['tenant', 'dashboard', 'Mengelola dashboard organisasi dan template'],
         'audit.view' => ['tenant', 'audit', 'Melihat audit trail organisasi'],
         'approval.manage' => ['tenant', 'approval', 'Menyetujui/menolak pengajuan transaksi, aset, dan master data'],
         'workflow.view' => ['tenant', 'workflow', 'Melihat konfigurasi workflow'],

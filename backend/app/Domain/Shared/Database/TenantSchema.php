@@ -51,6 +51,17 @@ final class TenantSchema
             FOREIGN KEY (organization_id, {$column}) REFERENCES {$parent} (organization_id, id) ON DELETE {$onDelete}");
     }
 
+    /**
+     * Composite FK (organization_id, $column) -> organization_members(organization_id, user_id):
+     * the referenced person belongs to the same organization (accounts themselves are global).
+     */
+    public static function memberForeign(string $table, string $column, string $onDelete = 'RESTRICT'): void
+    {
+        $name = substr("{$table}_{$column}_tfk", 0, 63);
+        DB::statement("ALTER TABLE {$table} ADD CONSTRAINT {$name}
+            FOREIGN KEY (organization_id, {$column}) REFERENCES organization_members (organization_id, user_id) ON DELETE {$onDelete}");
+    }
+
     public static function tenantKey(string $table): void
     {
         DB::statement("ALTER TABLE {$table} ADD CONSTRAINT {$table}_org_id_unique UNIQUE (organization_id, id)");

@@ -42,6 +42,8 @@ class DatabasePrivilegesTest extends TestCase
         'generic_attribute_definitions' => ['SIUD', '', '', 'ate_require_platform_context'],
         'generic_transaction_types' => ['SIUD', '', '', 'ate_require_platform_context'],
         'units' => ['SIUD', '', '', 'ate_require_platform_context'],
+        // Reference data synced by the seeder; tenants only read it.
+        'widget_catalog' => ['SIUD', '', '', 'ate_require_system_context'],
     ];
 
     /** Global tables that moved under RLS, with the runtime role's privileges. */

@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
                 PermissionSeeder::class,
                 GenericReferenceSeeder::class,
                 GenericCatalogSeeder::class,
+                DashboardCatalogSeeder::class,
                 PlatformAdminSeeder::class,
             ]);
         });

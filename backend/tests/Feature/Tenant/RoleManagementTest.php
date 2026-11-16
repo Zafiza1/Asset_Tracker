@@ -104,7 +104,7 @@ class RoleManagementTest extends TestCase
     {
         $adminRole = $this->roleId($this->org, RoleTemplates::ADMIN);
         $template = RoleTemplates::tenant()[RoleTemplates::ADMIN]['permissions'];
-        $this->assertEqualsCanonicalizing([...PermissionCatalog::codesInGroups(['asset', 'document', 'master', 'report', 'transaction']), 'organization.view'], $template);
+        $this->assertEqualsCanonicalizing([...PermissionCatalog::codesInGroups(['asset', 'dashboard', 'document', 'master', 'report', 'transaction']), 'organization.view'], $template);
         // Supervisor: everything but licensing and the Super Admin-only permissions.
         $this->assertEqualsCanonicalizing(
             array_values(array_diff(PermissionCatalog::codes(PermissionCatalog::SCOPE_TENANT), PermissionCatalog::codesInGroups(['license']), ['user.create', 'organization.manage'])),
