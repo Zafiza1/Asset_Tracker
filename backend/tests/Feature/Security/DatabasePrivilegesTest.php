@@ -44,6 +44,7 @@ class DatabasePrivilegesTest extends TestCase
         'units' => ['SIUD', '', '', 'ate_require_platform_context'],
         // Reference data synced by the seeder; tenants only read it.
         'widget_catalog' => ['SIUD', '', '', 'ate_require_system_context'],
+        'report_field_registry' => ['SIUD', '', '', 'ate_require_system_context'],
     ];
 
     /** Global tables that moved under RLS, with the runtime role's privileges. */

@@ -64,6 +64,16 @@ final class PermissionCatalog
         'transaction.correct' => ['tenant', 'transaction', 'Mengajukan transaksi koreksi'],
         'report.view' => ['tenant', 'report', 'Melihat dashboard dan laporan'],
         'report.export' => ['tenant', 'report', 'Mengekspor laporan'],
+        // Custom Report Designer: its own group so the Admin template (codesInGroups 'report')
+        // does not hold it; Supervisor and Super Admin get the whole group.
+        'report.create' => ['tenant', 'report_designer', 'Membuat template laporan kustom'],
+        'report.update' => ['tenant', 'report_designer', 'Mengubah template laporan kustom'],
+        'report.delete' => ['tenant', 'report_designer', 'Menghapus template laporan kustom'],
+        'report.publish' => ['tenant', 'report_designer', 'Mempublikasikan dan mengarsipkan template laporan'],
+        'report.generate' => ['tenant', 'report_designer', 'Membuat laporan dari template terpublikasi'],
+        'report.download' => ['tenant', 'report_designer', 'Mengunduh hasil laporan kustom'],
+        'report.manage' => ['tenant', 'report_designer', 'Mengelola aset dan pengaturan template laporan'],
+        'report.history.view' => ['tenant', 'report_designer', 'Melihat riwayat ekspor laporan kustom'],
         // Opening a dashboard never grants the data its widgets show: they check the data permissions above.
         'dashboard.view' => ['tenant', 'dashboard', 'Melihat dashboard organisasi dan yang dibagikan'],
         'dashboard.create' => ['tenant', 'dashboard', 'Membuat dashboard pribadi'],

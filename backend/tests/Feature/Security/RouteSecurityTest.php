@@ -6,6 +6,7 @@ use App\Domain\Approvals\Models\ApprovalRequest;
 use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
+use App\Domain\ReportDesigner\Models\ReportTemplate;
 use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Route as RouteFacade;
@@ -116,8 +117,14 @@ class RouteSecurityTest extends TestCase
         $approval = (new ApprovalRequest)->forceFill(['organization_id' => $orgB->id, 'category' => 'master', 'action' => 'location.create',
             'summary' => 'Gudang', 'method' => 'POST', 'path' => 'api/locations', 'payload' => ['name' => 'Gudang'], 'requested_by' => $adminB->id]);
         $approval->save();
+        $template = (new ReportTemplate)->forceFill(['organization_id' => $orgB->id, 'code' => 'B-TPL', 'name' => 'Beta',
+            'data_source' => 'asset', 'status' => 'draft']);
+        $template->save();
 
         return [
+            // {source} is a registry key, not a record: an unknown one answers 404 for everyone.
+            'source' => 'bukan-sumber',
+            'reportTemplate' => $template->id,
             'approvalRequest' => $approval->id,
             'invitation' => $invitation->id,
             'asset' => $asset->id,
