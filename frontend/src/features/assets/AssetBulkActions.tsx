@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, PencilLine, Printer, X } from "lucide-react";
+import { Archive, FileSpreadsheet, Printer, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { Alert } from "../../components/ui/Feedback";
@@ -74,10 +74,10 @@ export function AssetBulkActions({ selected, offPage, canEdit, editable, canArch
                 ? `Multiple Edit maksimal ${MAX_EDIT_SELECTION} aset sekaligus`
                 : editable === 0
                   ? "Aset nonaktif tidak dapat diubah lewat Multiple Edit"
-                  : `Ubah data ${editable} aset terpilih sekaligus`
+                  : `Ubah data ${editable} aset terpilih lewat Excel`
             }
           >
-            <PencilLine className="size-4" aria-hidden /> Multiple Edit
+            <FileSpreadsheet className="size-4" aria-hidden /> Multiple Edit
             {editable !== selected.length && <span className="tabular-nums">({editable})</span>}
           </Button>
         )}

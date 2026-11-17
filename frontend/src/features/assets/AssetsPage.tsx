@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Boxes, ImageOff, Plus, Printer, SearchX } from "lucide-react";
+import { Boxes, FileSpreadsheet, ImageOff, Plus, Printer, SearchX } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -26,12 +26,11 @@ import {
   usePersistedSearchParams,
 } from "../../lib/usePersistedFilters";
 import { toOptions, useOptions } from "../master/options";
-import { assetStatusLabel, type Asset, type AssetStatus } from "./api";
+import { assetStatusLabel, MAX_EDIT_SELECTION, type Asset, type AssetStatus } from "./api";
 import { AssetStatusBadge } from "./AssetStatusBadge";
 import { AddMenu } from "../../components/ui/AddMenu";
 import { AssetBarcodeModal } from "./AssetBarcodeModal";
 import { AssetBulkActions } from "./AssetBulkActions";
-import { BulkEditModal } from "./BulkEditModal";
 import { AssetFormModal } from "./AssetFormModal";
 import { CategoryFilter } from "./CategoryFilter";
 
@@ -225,8 +224,19 @@ export function AssetsPage() {
   };
   const pageIds = new Set(query.data?.data.map((a) => a.id) ?? []);
   const offPage = [...selected.keys()].filter((id) => !pageIds.has(id)).length;
-  // Multiple Edit takes the checked rows; archived assets cannot be edited.
+  // Multiple Edit (Excel, same flow as Kategori/Lokasi): the checked rows when there are any,
+  // otherwise every active asset matching the applied filters. Archived assets are never in the sheet.
   const editAssets = [...selected.values()].filter((a) => !a.is_archived);
+  const editIds = editAssets.map((a) => a.id);
+  const skippedArchived = selected.size - editIds.length;
+  const editingSelection = editIds.length > 0;
+  const tooManyToEdit = editIds.length > MAX_EDIT_SELECTION;
+  const listFilters = Object.fromEntries(
+    Object.entries(filters).filter(([k]) => !VIEW_KEYS.has(k)),
+  );
+  const editSheetEndpoint = editingSelection
+    ? `/assets/edit-sheet${qs({ ids: editIds.join(",") })}`
+    : `/assets/edit-sheet${qs(listFilters)}`;
 
   // Every applied filter as a removable chip, so the filter controls stay one tidy row.
   const nameOf = (
@@ -405,14 +415,26 @@ export function AssetsPage() {
         title="Data Aset"
         description="Seluruh aset organisasi: cari, saring, lalu buka untuk melihat detail dan riwayatnya."
         actions={
-          can("asset.create") && (
-            <AddMenu
-              label="Tambah aset"
-              noun="aset"
-              onForm={() => setCreating(true)}
-              onImport={() => setImporting(true)}
-            />
-          )
+          <>
+            {can("asset.update") && (
+              <Button
+                variant="secondary"
+                onClick={() => setBulkEditing(true)}
+                disabled={tooManyToEdit}
+                title={tooManyToEdit ? `Multiple Edit maksimal ${MAX_EDIT_SELECTION} aset sekaligus` : undefined}
+              >
+                <FileSpreadsheet className="size-4" aria-hidden /> Multiple Edit{editingSelection ? ` (${editIds.length})` : ""}
+              </Button>
+            )}
+            {can("asset.create") && (
+              <AddMenu
+                label="Tambah aset"
+                noun="aset"
+                onForm={() => setCreating(true)}
+                onImport={() => setImporting(true)}
+              />
+            )}
+          </>
         }
       />
       <Card>
@@ -578,12 +600,23 @@ export function AssetsPage() {
           </>
         )}
       </Card>
-      {/* Multiple Edit starts from the bulk action bar, so it always has checked assets. */}
-      {bulkEditing && editAssets.length > 0 && (
-        <BulkEditModal
-          assets={editAssets}
+      {bulkEditing && (
+        <ImportModal
+          open
+          mode="edit"
           onClose={() => setBulkEditing(false)}
-          onDone={() => setSelected(new Map())}
+          onSuccess={() => setSelected(new Map())}
+          title="Multiple Edit Aset (Excel)"
+          endpoint="/assets/edit-sheet"
+          templateEndpoint={editSheetEndpoint}
+          templateFilename="edit_aset.xlsx"
+          scopeNote={
+            editingSelection
+              ? `${editIds.length} aset yang dicentang${skippedArchived > 0 ? `; ${skippedArchived} aset nonaktif tidak ikut` : ""}`
+              : hasFilters
+                ? "semua aset aktif sesuai filter yang aktif"
+                : "semua aset aktif"
+          }
         />
       )}
       {printing && (
