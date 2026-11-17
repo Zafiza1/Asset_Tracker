@@ -24,10 +24,16 @@ final class TransactionType
 
     public const RESTORE = 'restore';
 
-    public const ALL = [self::REGISTRATION, self::TRANSFER, self::STATUS_CHANGE, self::LOAN, self::RETURN, self::NOTE, self::ARCHIVE, self::RESTORE];
+    /** Asset leaves the organization for an outside party (see OutgoingReason). */
+    public const OUTGOING = 'outgoing';
+
+    /** A temporarily outgoing asset comes back; linked to its outgoing row. */
+    public const INCOMING = 'incoming';
+
+    public const ALL = [self::REGISTRATION, self::TRANSFER, self::STATUS_CHANGE, self::LOAN, self::RETURN, self::NOTE, self::ARCHIVE, self::RESTORE, self::OUTGOING, self::INCOMING];
 
     /** Types a user records in the Transactions menu; the others are written by asset actions. */
-    public const MANUAL = [self::TRANSFER, self::STATUS_CHANGE, self::LOAN, self::RETURN, self::NOTE];
+    public const MANUAL = [self::TRANSFER, self::STATUS_CHANGE, self::LOAN, self::RETURN, self::NOTE, self::OUTGOING, self::INCOMING];
 
     public const LABELS = [
         self::REGISTRATION => 'Penambahan aset',
@@ -38,6 +44,8 @@ final class TransactionType
         self::NOTE => 'Aktivitas lain',
         self::ARCHIVE => 'Penonaktifan',
         self::RESTORE => 'Pengaktifan kembali',
+        self::OUTGOING => 'Transaksi keluar',
+        self::INCOMING => 'Transaksi masuk',
     ];
 
     /** {TYPE} token of the transaction number format. */
@@ -50,5 +58,7 @@ final class TransactionType
         self::NOTE => 'CAT',
         self::ARCHIVE => 'NON',
         self::RESTORE => 'AKT',
+        self::OUTGOING => 'OUT',
+        self::INCOMING => 'IN',
     ];
 }

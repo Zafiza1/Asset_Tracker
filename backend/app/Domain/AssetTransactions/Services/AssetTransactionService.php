@@ -6,6 +6,7 @@ use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionLog;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Audit\AuditLogger;
@@ -24,7 +25,13 @@ use Illuminate\Support\Facades\DB;
  * Rules (kept deliberately small):
  *  - archived assets accept no transactions;
  *  - an asset on loan must be returned before it is moved or its status changes;
+ *  - an asset outside the organization (off_site) must come back (incoming) first, likewise;
  *  - disposed assets cannot be moved or lent (a status change can still correct the status).
+ *
+ * Outgoing/incoming (docs/factory/features/F-02, APR-0006): an outgoing transaction sends active
+ * or inactive assets to an outside party, temporarily (off_site, planned return date) or
+ * permanently (disposed, needs asset.dispose); an incoming transaction brings an off_site asset
+ * back and links to the outgoing row that sent it.
  */
 final class AssetTransactionService
 {
@@ -34,7 +41,12 @@ final class AssetTransactionService
         TransactionType::STATUS_CHANGE => 'asset.status_change',
         TransactionType::LOAN => 'asset.assign',
         TransactionType::RETURN => 'asset.assign',
+        TransactionType::OUTGOING => 'asset.outgoing',
+        TransactionType::INCOMING => 'asset.incoming',
     ];
+
+    /** Status an incoming asset may come back with. */
+    private const INCOMING_STATUSES = [AssetStatus::AVAILABLE, AssetStatus::UNDER_MAINTENANCE];
 
     public function __construct(
         private readonly AssetScope $scope,
@@ -78,6 +90,8 @@ final class AssetTransactionService
             TransactionType::LOAN => $this->loan($asset, $data),
             TransactionType::RETURN => $this->return($asset, $data),
             TransactionType::NOTE => [[], []],
+            TransactionType::OUTGOING => $this->outgoing($asset, $data),
+            TransactionType::INCOMING => $this->incoming($asset, $data),
         };
 
         if ($assetChanges !== []) {
@@ -123,7 +137,7 @@ final class AssetTransactionService
     /** @return array{0: array<string, mixed>, 1: array<string, mixed>} */
     private function transfer(Asset $asset, array $data): array
     {
-        $this->assertStatusNotIn($asset, [AssetStatus::ON_LOAN, AssetStatus::LOST, AssetStatus::DISPOSED], 'dipindahkan');
+        $this->assertStatusNotIn($asset, [AssetStatus::ON_LOAN, AssetStatus::OFF_SITE, AssetStatus::LOST, AssetStatus::DISPOSED], 'dipindahkan');
         $to = $data['to_location_id'] ?? null;
         if ($to === null) {
             throw $this->fieldError('to_location_id', 'Lokasi tujuan wajib dipilih.');
@@ -139,7 +153,7 @@ final class AssetTransactionService
     /** @return array{0: array<string, mixed>, 1: array<string, mixed>} */
     private function statusChange(Asset $asset, array $data): array
     {
-        $this->assertStatusNotIn($asset, [AssetStatus::ON_LOAN], 'diubah statusnya');
+        $this->assertStatusNotIn($asset, [AssetStatus::ON_LOAN, AssetStatus::OFF_SITE], 'diubah statusnya');
         $status = $data['to_status'] ?? null;
         if ($status === null || $status === $asset->status) {
             throw $this->fieldError('to_status', 'Pilih status baru yang berbeda dari saat ini.');
@@ -188,6 +202,101 @@ final class AssetTransactionService
         return [$assetChanges, $logChanges];
     }
 
+    /** @return array{0: array<string, mixed>, 1: array<string, mixed>} */
+    private function outgoing(Asset $asset, array $data): array
+    {
+        if (! in_array($asset->status, [AssetStatus::AVAILABLE, AssetStatus::IN_USE], true)) {
+            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Aktif atau Tidak Aktif yang dapat dikeluarkan (status saat ini: '.AssetStatus::LABELS[$asset->status].').');
+        }
+        $nature = $data['outgoing_nature'] ?? null;
+        if (! in_array($nature, OutgoingReason::NATURES, true)) {
+            throw $this->fieldError('outgoing_nature', 'Pilih sifat transaksi keluar: sementara atau permanen.');
+        }
+        $reason = $data['reason_code'] ?? null;
+        if ($reason === null || ! OutgoingReason::allows($nature, $reason)) {
+            throw $this->fieldError('reason_code', 'Pilih alasan keluar yang sesuai dengan sifatnya.');
+        }
+        if ($reason === OutgoingReason::OTHER && trim((string) ($data['notes'] ?? '')) === '') {
+            throw $this->fieldError('notes', 'Keterangan wajib diisi untuk alasan "Lainnya".');
+        }
+        $counterparty = trim((string) ($data['counterparty_name'] ?? ''));
+        if ($counterparty === '') {
+            throw $this->fieldError('counterparty_name', 'Nama pihak luar wajib diisi.');
+        }
+
+        $due = null;
+        $status = AssetStatus::DISPOSED;
+        if ($nature === OutgoingReason::TEMPORARY) {
+            $due = $data['due_date'] ?? null;
+            if ($due === null) {
+                throw $this->fieldError('due_date', 'Rencana tanggal kembali wajib diisi untuk transaksi keluar sementara.');
+            }
+            if ($due < ($data['transaction_date'] ?? $this->log->today())) {
+                throw $this->fieldError('due_date', 'Rencana tanggal kembali tidak boleh sebelum tanggal keluar.');
+            }
+            $status = AssetStatus::OFF_SITE;
+        }
+
+        return [['status' => $status], [
+            'from_status' => $asset->status,
+            'to_status' => $status,
+            'outgoing_nature' => $nature,
+            'reason_code' => $reason,
+            'counterparty_name' => $counterparty,
+            'counterparty_org' => self::trimmed($data['counterparty_org'] ?? null),
+            'counterparty_contact' => self::trimmed($data['counterparty_contact'] ?? null),
+            'document_number' => self::trimmed($data['document_number'] ?? null),
+            'due_date' => $due,
+        ]];
+    }
+
+    /** @return array{0: array<string, mixed>, 1: array<string, mixed>} */
+    private function incoming(Asset $asset, array $data): array
+    {
+        if ($asset->status !== AssetStatus::OFF_SITE) {
+            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Di Luar Organisasi yang dapat dicatat masuk kembali.');
+        }
+        $outgoing = AssetTransaction::query()->where('asset_id', $asset->id)
+            ->where('type', TransactionType::OUTGOING)->orderByDesc('seq')->first();
+        if ($outgoing === null || $outgoing->outgoing_nature !== OutgoingReason::TEMPORARY) {
+            throw ApiException::conflict('OUTGOING_NOT_FOUND', 'Transaksi keluar sementara untuk aset ini tidak ditemukan.');
+        }
+        $date = $data['transaction_date'] ?? $this->log->today();
+        if ($date < $outgoing->transaction_date->toDateString()) {
+            throw $this->fieldError('transaction_date', 'Tanggal masuk tidak boleh sebelum tanggal keluar ('.$outgoing->transaction_date->toDateString().').');
+        }
+        $status = $data['to_status'] ?? AssetStatus::AVAILABLE;
+        if (! in_array($status, self::INCOMING_STATUSES, true)) {
+            throw $this->fieldError('to_status', 'Status saat kembali hanya Tidak Aktif atau Dalam Perbaikan.');
+        }
+
+        $assetChanges = ['status' => $status];
+        $logChanges = [
+            'from_status' => AssetStatus::OFF_SITE,
+            'to_status' => $status,
+            'outgoing_transaction_id' => $outgoing->id,
+            'counterparty_name' => self::trimmed($data['counterparty_name'] ?? null) ?? $outgoing->counterparty_name,
+            'counterparty_org' => self::trimmed($data['counterparty_org'] ?? null) ?? $outgoing->counterparty_org,
+            'document_number' => self::trimmed($data['document_number'] ?? null),
+        ];
+
+        $location = $data['to_location_id'] ?? null;
+        if ($location !== null && $location !== $asset->location_id) {
+            $this->assertTargetLocation($location);
+            $assetChanges['location_id'] = $location;
+            $logChanges += ['from_location_id' => $asset->location_id, 'to_location_id' => $location];
+        }
+
+        return [$assetChanges, $logChanges];
+    }
+
+    private static function trimmed(mixed $value): ?string
+    {
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
+    }
+
     /** @param array<string, mixed> $data */
     private function authorize(string $type, array $data): void
     {
@@ -196,7 +305,9 @@ final class AssetTransactionService
         if ($permission !== null && ! $context->can($permission)) {
             throw ApiException::forbidden();
         }
-        if ($type === TransactionType::STATUS_CHANGE && ($data['to_status'] ?? null) === AssetStatus::DISPOSED && ! $context->can('asset.dispose')) {
+        $disposes = ($type === TransactionType::STATUS_CHANGE && ($data['to_status'] ?? null) === AssetStatus::DISPOSED)
+            || ($type === TransactionType::OUTGOING && ($data['outgoing_nature'] ?? null) === OutgoingReason::PERMANENT);
+        if ($disposes && ! $context->can('asset.dispose')) {
             throw ApiException::forbidden('FORBIDDEN', 'Anda tidak memiliki izin untuk menghapuskan aset.');
         }
     }
@@ -222,7 +333,11 @@ final class AssetTransactionService
     private function assertStatusNotIn(Asset $asset, array $statuses, string $action): void
     {
         if (in_array($asset->status, $statuses, true)) {
-            $hint = $asset->status === AssetStatus::ON_LOAN ? ' Catat pengembalian terlebih dahulu.' : '';
+            $hint = match ($asset->status) {
+                AssetStatus::ON_LOAN => ' Catat pengembalian terlebih dahulu.',
+                AssetStatus::OFF_SITE => ' Catat transaksi masuk terlebih dahulu.',
+                default => '',
+            };
             throw ApiException::conflict('INVALID_ASSET_STATUS', 'Aset berstatus '.AssetStatus::LABELS[$asset->status]." tidak dapat {$action}.{$hint}");
         }
     }

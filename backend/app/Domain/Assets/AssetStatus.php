@@ -23,9 +23,12 @@ final class AssetStatus
 
     public const DISPOSED = 'disposed';
 
-    public const ALL = [self::IN_USE, self::AVAILABLE, self::UNDER_MAINTENANCE, self::ON_LOAN, self::LOST, self::DISPOSED];
+    /** Temporarily outside the organization (outgoing transaction, temporary); back with an incoming one. */
+    public const OFF_SITE = 'off_site';
 
-    /** Statuses a user may pick directly; on_loan is set only by a loan transaction. */
+    public const ALL = [self::IN_USE, self::AVAILABLE, self::UNDER_MAINTENANCE, self::ON_LOAN, self::OFF_SITE, self::LOST, self::DISPOSED];
+
+    /** Statuses a user may pick directly; on_loan and off_site are set only by their transactions. */
     public const SELECTABLE = [self::IN_USE, self::AVAILABLE, self::UNDER_MAINTENANCE, self::LOST, self::DISPOSED];
 
     /** Statuses allowed when a new asset is registered. */
@@ -36,6 +39,7 @@ final class AssetStatus
         self::AVAILABLE => 'Tidak Aktif',
         self::UNDER_MAINTENANCE => 'Dalam Perbaikan',
         self::ON_LOAN => 'Dipinjamkan',
+        self::OFF_SITE => 'Di Luar Organisasi',
         self::LOST => 'Hilang',
         self::DISPOSED => 'Dihapuskan',
     ];

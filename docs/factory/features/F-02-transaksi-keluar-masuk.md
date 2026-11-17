@@ -136,7 +136,7 @@ Mesin laporan tidak berubah. Report Designer sudah mendukung sumber `asset_trans
 ## 10. Rencana Task (setelah disetujui)
 | ID | Task | Agent | Bergantung |
 |---|---|---|---|
-| F-02a | Migrasi + `TransactionType` + status `off_site` + aturan service + test (termasuk konkurensi) | database-engineer, backend-engineer | approval |
+| F-02a | Migrasi + `TransactionType` + status `off_site` + aturan service + test (termasuk konkurensi) | database-engineer, backend-engineer | approval | **in_review**: migrasi `2026_11_17_000000`, `OutgoingIncomingTransactionTest` (9 test) |
 | F-02b | Frontend: formulir Keluar/Masuk (multi-aset), daftar transaksi + filter, detail aset | frontend-engineer | F-02a, desain Figma (T-15) |
 | F-02c | Dashboard: widget "Keluar sementara lewat batas" dan ringkasan keluar/masuk | frontend + backend | F-01, F-02a |
 | F-03 | Mobile: ability `transaction:write`, layar Keluar/Masuk via scan | frontend-engineer (mobile), security-engineer | F-02a |

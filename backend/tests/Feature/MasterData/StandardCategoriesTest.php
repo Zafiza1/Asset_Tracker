@@ -92,7 +92,7 @@ class StandardCategoriesTest extends TestCase
 
     public function test_status_labels_match_the_default_choices(): void
     {
-        $this->assertSame(['Aktif', 'Tidak Aktif', 'Dalam Perbaikan', 'Dipinjamkan', 'Hilang', 'Dihapuskan'], array_values(AssetStatus::LABELS));
+        $this->assertSame(['Aktif', 'Tidak Aktif', 'Dalam Perbaikan', 'Dipinjamkan', 'Di Luar Organisasi', 'Hilang', 'Dihapuskan'], array_values(AssetStatus::LABELS));
     }
 
     public function test_location_is_required_while_the_serial_number_is_optional(): void

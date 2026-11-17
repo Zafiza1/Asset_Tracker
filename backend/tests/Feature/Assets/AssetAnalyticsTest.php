@@ -61,7 +61,7 @@ class AssetAnalyticsTest extends TestCase
         $this->assertSame(5, $data['summary']['added_this_month']);
 
         $byStatus = array_column($data['by_status'], 'count', 'status');
-        $this->assertSame(['in_use' => 1, 'available' => 1, 'under_maintenance' => 1, 'on_loan' => 1, 'lost' => 0, 'disposed' => 0], $byStatus);
+        $this->assertSame(['in_use' => 1, 'available' => 1, 'under_maintenance' => 1, 'on_loan' => 1, 'off_site' => 0, 'lost' => 0, 'disposed' => 0], $byStatus);
         // The status breakdown adds up to the "Total aset" figure (every status, archived left out).
         $this->assertSame($data['summary']['total'], array_sum($byStatus));
         $this->assertSame($data['summary']['total'], $data['utilization']['operable'] + $data['utilization']['excluded']);
@@ -109,7 +109,7 @@ class AssetAnalyticsTest extends TestCase
         $data = $this->getJson('/api/dashboard')->assertOk()->json('data');
 
         // 5 operable assets, 3 in service (server in use, laptop + printer on loan).
-        $this->assertEquals(['in_service' => 3, 'in_use' => 1, 'on_loan' => 2, 'available' => 1, 'under_maintenance' => 1, 'operable' => 5, 'excluded' => 0, 'rate' => 60], $data['utilization']);
+        $this->assertEquals(['in_service' => 3, 'in_use' => 1, 'on_loan' => 2, 'off_site' => 0, 'available' => 1, 'under_maintenance' => 1, 'operable' => 5, 'excluded' => 0, 'rate' => 60], $data['utilization']);
         $this->assertSame(['active' => 2, 'overdue' => 1, 'due_soon' => 1, 'no_due_date' => 0, 'due_soon_days' => 7], $data['loans']);
 
         $this->assertSame(['lt1' => 1, '1_3' => 1, '3_5' => 0, '5_10' => 1, 'gte10' => 0], array_column($data['age']['buckets'], 'count', 'key'));

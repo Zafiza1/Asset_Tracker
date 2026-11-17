@@ -50,6 +50,8 @@ final class PermissionCatalog
         'asset.transfer' => ['tenant', 'asset', 'Mengajukan perpindahan lokasi'],
         'asset.status_change' => ['tenant', 'asset', 'Mengajukan perubahan status'],
         'asset.dispose' => ['tenant', 'asset', 'Mengajukan pelepasan aset'],
+        'asset.outgoing' => ['tenant', 'asset', 'Mencatat aset keluar organisasi'],
+        'asset.incoming' => ['tenant', 'asset', 'Mencatat aset masuk kembali ke organisasi'],
         'asset.archive' => ['tenant', 'asset', 'Mengarsipkan aset'],
         'asset.restore' => ['tenant', 'asset', 'Memulihkan aset arsip'],
         'document.view' => ['tenant', 'document', 'Melihat dan mengunduh dokumen'],

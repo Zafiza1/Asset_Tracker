@@ -3,7 +3,7 @@ import type { AttributeValue, ModuleKey } from '../../lib/api/types'
 
 /** Asset Management module: API shapes and labels. Statuses mirror App\Domain\Assets\AssetStatus. */
 
-export type AssetStatus = 'in_use' | 'available' | 'under_maintenance' | 'on_loan' | 'lost' | 'disposed'
+export type AssetStatus = 'in_use' | 'available' | 'under_maintenance' | 'on_loan' | 'off_site' | 'lost' | 'disposed'
 
 export interface Ref {
   id: string
@@ -49,6 +49,7 @@ export const assetStatusLabel: Record<AssetStatus, string> = {
   available: 'Tidak Aktif',
   under_maintenance: 'Dalam Perbaikan',
   on_loan: 'Dipinjamkan',
+  off_site: 'Di Luar Organisasi',
   lost: 'Hilang',
   disposed: 'Dihapuskan',
 }
@@ -58,6 +59,7 @@ export const assetStatusTone: Record<AssetStatus, BadgeTone> = {
   available: 'blue',
   under_maintenance: 'amber',
   on_loan: 'amber',
+  off_site: 'amber',
   lost: 'red',
   disposed: 'slate',
 }

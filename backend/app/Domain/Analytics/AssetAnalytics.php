@@ -85,10 +85,11 @@ final class AssetAnalytics
     }
 
     /**
-     * Share of operable assets (not lost or disposed) that are in service: in use or on loan.
-     * operable = in_use + on_loan + available + under_maintenance; excluded = lost + disposed.
+     * Share of operable assets (not lost or disposed) that are in service: in use, on loan, or
+     * temporarily outside the organization (off_site: still in use, by an outside party).
+     * operable = in_use + on_loan + off_site + available + under_maintenance; excluded = lost + disposed.
      *
-     * @return array{in_service: int, in_use: int, on_loan: int, available: int, under_maintenance: int, operable: int, excluded: int, rate: float|null}
+     * @return array{in_service: int, in_use: int, on_loan: int, off_site: int, available: int, under_maintenance: int, operable: int, excluded: int, rate: float|null}
      */
     private function utilization(): array
     {
@@ -96,7 +97,7 @@ final class AssetAnalytics
             ->map(fn ($c): int => (int) $c);
         $of = fn (string ...$statuses): int => (int) $counts->only($statuses)->sum();
 
-        $inService = $of(AssetStatus::IN_USE, AssetStatus::ON_LOAN);
+        $inService = $of(AssetStatus::IN_USE, AssetStatus::ON_LOAN, AssetStatus::OFF_SITE);
         $excluded = $of(AssetStatus::LOST, AssetStatus::DISPOSED);
         $operable = (int) $counts->sum() - $excluded;
 
@@ -104,6 +105,7 @@ final class AssetAnalytics
             'in_service' => $inService,
             'in_use' => $of(AssetStatus::IN_USE),
             'on_loan' => $of(AssetStatus::ON_LOAN),
+            'off_site' => $of(AssetStatus::OFF_SITE),
             'available' => $of(AssetStatus::AVAILABLE),
             'under_maintenance' => $of(AssetStatus::UNDER_MAINTENANCE),
             'operable' => $operable,

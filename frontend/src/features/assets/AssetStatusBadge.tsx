@@ -1,4 +1,4 @@
-import { Archive, CheckCircle2, CircleDashed, PowerOff, SearchX, UserRoundCheck, Wrench, type LucideIcon } from 'lucide-react'
+import { Archive, CheckCircle2, CircleDashed, PowerOff, SearchX, Truck, UserRoundCheck, Wrench, type LucideIcon } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { assetStatusLabel, assetStatusTone, type AssetStatus } from './api'
 
@@ -8,6 +8,7 @@ const assetStatusIcon: Record<AssetStatus, LucideIcon> = {
   available: CircleDashed,
   under_maintenance: Wrench,
   on_loan: UserRoundCheck,
+  off_site: Truck,
   lost: SearchX,
   disposed: Archive,
 }

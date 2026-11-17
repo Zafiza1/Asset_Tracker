@@ -6,6 +6,7 @@ use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\Services\AssetTransactionService;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Shared\Exceptions\ApiException;
@@ -46,6 +47,8 @@ class AssetTransactionController extends Controller
                 ->where('transaction_number', 'ilike', ListQuery::like($term))
                 ->orWhere('notes', 'ilike', ListQuery::like($term))
                 ->orWhere('borrower_name', 'ilike', ListQuery::like($term))
+                ->orWhere('counterparty_name', 'ilike', ListQuery::like($term))
+                ->orWhere('document_number', 'ilike', ListQuery::like($term))
                 ->orWhereHas('asset', fn ($a) => $a->where('name', 'ilike', ListQuery::like($term)))))
             ->when($request->query('type'), fn ($q, $type) => $q->where('type', $type))
             ->when($request->query('asset_id'), fn ($q, $id) => $q->where('asset_id', $id))
@@ -92,6 +95,13 @@ class AssetTransactionController extends Controller
             'borrower_name' => ['nullable', 'string', 'max:150'],
             'due_date' => ['nullable', 'date_format:Y-m-d'],
             'notes' => [Rule::requiredIf($request->input('type') === TransactionType::NOTE), 'nullable', 'string', 'max:1000'],
+            // Outgoing / incoming (rules per nature and status live in the service).
+            'outgoing_nature' => ['nullable', Rule::in(OutgoingReason::NATURES)],
+            'reason_code' => ['nullable', Rule::in(OutgoingReason::codes())],
+            'counterparty_name' => ['nullable', 'string', 'max:150'],
+            'counterparty_org' => ['nullable', 'string', 'max:150'],
+            'counterparty_contact' => ['nullable', 'string', 'max:150'],
+            'document_number' => ['nullable', 'string', 'max:100'],
         ]);
 
         $single = isset($data['asset_id']);

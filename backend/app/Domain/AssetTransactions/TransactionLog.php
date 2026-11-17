@@ -15,7 +15,10 @@ use App\Domain\Shared\Tenancy\Tenancy;
 final class TransactionLog
 {
     private const CHANGE_COLUMNS = ['from_location_id', 'to_location_id', 'from_status', 'to_status',
-        'borrower_name', 'due_date'];
+        'borrower_name', 'due_date',
+        // outgoing / incoming
+        'outgoing_nature', 'reason_code', 'counterparty_name', 'counterparty_org', 'counterparty_contact',
+        'document_number', 'outgoing_transaction_id'];
 
     public function __construct(
         private readonly NumberSequence $numbers,

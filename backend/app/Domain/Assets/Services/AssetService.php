@@ -201,6 +201,9 @@ final class AssetService
         if ($asset->status === AssetStatus::ON_LOAN) {
             throw ApiException::conflict('ASSET_ON_LOAN', 'Aset yang sedang dipinjam harus dikembalikan sebelum dinonaktifkan.');
         }
+        if ($asset->status === AssetStatus::OFF_SITE) {
+            throw ApiException::conflict('ASSET_OFF_SITE', 'Aset yang sedang di luar organisasi harus dicatat masuk kembali sebelum dinonaktifkan.');
+        }
 
         return DB::transaction(function () use ($asset, $reason) {
             $userId = $this->tenancy->tenant()->userId();

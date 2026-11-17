@@ -26,6 +26,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $from_status
  * @property string|null $to_status
  * @property string|null $notes
+ * @property string|null $outgoing_nature temporary|permanent (outgoing only)
+ * @property string|null $reason_code see OutgoingReason (outgoing only)
+ * @property string|null $counterparty_name outside party (outgoing; incoming: received from)
+ * @property string|null $counterparty_org
+ * @property string|null $counterparty_contact personal data (APR-0006 D-10)
+ * @property string|null $document_number delivery note / handover record / invoice
+ * @property string|null $outgoing_transaction_id incoming only: the outgoing row it closes
  * @property string|null $created_by
  * @property Carbon $created_at
  */
@@ -64,5 +71,11 @@ class AssetTransaction extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** Incoming row: the outgoing row of the same asset it closes. */
+    public function outgoingTransaction(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'outgoing_transaction_id');
     }
 }

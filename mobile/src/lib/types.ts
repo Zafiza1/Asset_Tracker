@@ -1,6 +1,6 @@
 /** API shapes, mirroring frontend/src/features/assets/api.ts and lib/api/types.ts of the web app. */
 
-export type AssetStatus = 'in_use' | 'available' | 'under_maintenance' | 'on_loan' | 'lost' | 'disposed'
+export type AssetStatus = 'in_use' | 'available' | 'under_maintenance' | 'on_loan' | 'off_site' | 'lost' | 'disposed'
 
 export type AttributeValue = string | number | boolean | string[] | null
 
@@ -142,6 +142,7 @@ export const assetStatusLabel: Record<AssetStatus, string> = {
   available: 'Tidak Aktif',
   under_maintenance: 'Dalam Perbaikan',
   on_loan: 'Dipinjamkan',
+  off_site: 'Di Luar Organisasi',
   lost: 'Hilang',
   disposed: 'Dihapuskan',
 }
@@ -152,6 +153,7 @@ export const assetStatusColors: Record<AssetStatus, [string, string]> = {
   available: ['#dbeafe', '#1e40af'],
   under_maintenance: ['#fef3c7', '#92400e'],
   on_loan: ['#fef3c7', '#92400e'],
+  off_site: ['#fef3c7', '#92400e'],
   lost: ['#fee2e2', '#991b1b'],
   disposed: ['#f1f5f9', '#334155'],
 }
