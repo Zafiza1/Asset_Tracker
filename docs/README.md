@@ -12,5 +12,6 @@
 | [08-asset-tracker-sederhana.md](08-asset-tracker-sederhana.md) | **Arah terkini** (menggantikan bagian 01–07 yang bertentangan): modul/container, Generic vs User Data, aturan transaksi, dashboard, API aset |
 | [09-ui-design-system.md](09-ui-design-system.md) | Design system & standar UX web: fondasi, komponen dan aturan pakainya, prinsip UX, pola halaman, daftar periksa |
 | [api/master-data.md](api/master-data.md) | API Master Data: pola list/tulis, Generic Master, Tenant Custom Master, skema atribut, aturan override, effective schema |
+| [factory/00-onboarding-report.md](factory/00-onboarding-report.md) | Onboarding ke AI Software Factory (2026-11-16): pemetaan dokumen ke 10 tahap, temuan, keputusan yang perlu disetujui, brief, alur terkini, status security, Sprint 1 |
 
 Status: Fase 1–3 selesai; Pendataan Aset, Transaksi Aset, dan Dashboard selesai dalam versi sederhana (dokumen 08).

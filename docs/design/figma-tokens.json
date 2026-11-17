@@ -1,0 +1,100 @@
+{
+  "$description": "Asset Tracker design tokens (W3C DTCG format). Source: frontend/src/index.css @theme, Button.tsx, Badge.tsx, docs/09. Import into Figma with the Tokens Studio plugin (free) or as Figma Variables. Keep in sync with index.css — see docs/design/figma-guide.md §4. Tailwind v4 neutrals/status colors are defined in OKLCH; the hex values here are close sRGB equivalents.",
+  "color": {
+    "brand": {
+      "$type": "color",
+      "50":  { "$value": "#eff6ff" },
+      "100": { "$value": "#dbeafe" },
+      "200": { "$value": "#bfdbfe" },
+      "300": { "$value": "#93c5fd" },
+      "400": { "$value": "#60a5fa" },
+      "500": { "$value": "#3b82f6" },
+      "600": { "$value": "#2563eb" },
+      "700": { "$value": "#1d4ed8" },
+      "800": { "$value": "#1e40af" },
+      "900": { "$value": "#1e3a8a" },
+      "950": { "$value": "#172554" }
+    },
+    "slate": {
+      "$type": "color",
+      "50":  { "$value": "#f8fafc" },
+      "100": { "$value": "#f1f5f9" },
+      "200": { "$value": "#e2e8f0" },
+      "300": { "$value": "#cbd5e1" },
+      "400": { "$value": "#94a3b8" },
+      "500": { "$value": "#64748b" },
+      "600": { "$value": "#475569" },
+      "700": { "$value": "#334155" },
+      "800": { "$value": "#1e293b" },
+      "900": { "$value": "#0f172a" },
+      "950": { "$value": "#020617" }
+    },
+    "green": { "$type": "color", "50": { "$value": "#f0fdf4" }, "600": { "$value": "#16a34a" }, "700": { "$value": "#15803d" } },
+    "amber": { "$type": "color", "50": { "$value": "#fffbeb" }, "600": { "$value": "#d97706" }, "800": { "$value": "#92400e" } },
+    "red":   { "$type": "color", "50": { "$value": "#fef2f2" }, "600": { "$value": "#dc2626" }, "700": { "$value": "#b91c1c" }, "800": { "$value": "#991b1b" } },
+    "white": { "$type": "color", "$value": "#ffffff" }
+  },
+  "semantic": {
+    "$type": "color",
+    "text":           { "primary": { "$value": "{color.slate.900}" }, "body": { "$value": "{color.slate.700}" }, "secondary": { "$value": "{color.slate.500}" }, "inverse": { "$value": "{color.white}" } },
+    "border":         { "default": { "$value": "{color.slate.200}" }, "control": { "$value": "{color.slate.300}" } },
+    "background":     { "page": { "$value": "{color.slate.50}" }, "surface": { "$value": "{color.white}" } },
+    "focus":          { "$value": "{color.brand.600}" },
+    "action": {
+      "primary":   { "default": { "$value": "{color.brand.700}" }, "hover": { "$value": "{color.brand.800}" }, "active": { "$value": "{color.brand.900}" } },
+      "danger":    { "default": { "$value": "{color.red.600}" },   "hover": { "$value": "{color.red.700}" },   "active": { "$value": "{color.red.800}" } },
+      "secondary": { "default": { "$value": "{color.white}" },     "hover": { "$value": "{color.slate.50}" },  "active": { "$value": "{color.slate.100}" } }
+    },
+    "status": {
+      "green": { "bg": { "$value": "{color.green.50}" }, "text": { "$value": "{color.green.700}" }, "ring": { "$value": "{color.green.600}" } },
+      "amber": { "bg": { "$value": "{color.amber.50}" }, "text": { "$value": "{color.amber.800}" }, "ring": { "$value": "{color.amber.600}" } },
+      "red":   { "bg": { "$value": "{color.red.50}" },   "text": { "$value": "{color.red.700}" },   "ring": { "$value": "{color.red.600}" } },
+      "slate": { "bg": { "$value": "{color.slate.100}" }, "text": { "$value": "{color.slate.700}" }, "ring": { "$value": "{color.slate.500}" } },
+      "blue":  { "bg": { "$value": "{color.brand.50}" }, "text": { "$value": "{color.brand.700}" }, "ring": { "$value": "{color.brand.600}" } }
+    }
+  },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "display": { "$value": ["Lexend", "Source Sans 3", "sans-serif"] },
+      "sans":    { "$value": ["Source Sans 3", "system-ui", "sans-serif"] }
+    },
+    "weight": { "$type": "fontWeight", "regular": { "$value": 400 }, "medium": { "$value": 500 }, "semibold": { "$value": 600 }, "bold": { "$value": 700 } },
+    "size": {
+      "$type": "dimension",
+      "xs":   { "$value": "12px", "$description": "Keterangan, badge" },
+      "sm":   { "$value": "14px", "$description": "Isi, tombol, tabel" },
+      "base": { "$value": "16px", "$description": "Judul kartu (semibold)" },
+      "2xl":  { "$value": "24px", "$description": "Judul halaman (display)" }
+    }
+  },
+  "space": {
+    "$type": "dimension",
+    "1": { "$value": "4px" }, "2": { "$value": "8px" }, "2-5": { "$value": "10px" }, "3": { "$value": "12px" },
+    "4": { "$value": "16px" }, "5": { "$value": "20px" }, "6": { "$value": "24px" }, "8": { "$value": "32px" }
+  },
+  "size": {
+    "$type": "dimension",
+    "control-md": { "$value": "40px", "$description": "Tinggi minimum Button md / target sentuh" },
+    "control-sm": { "$value": "32px", "$description": "Tinggi minimum Button sm" },
+    "icon-badge": { "$value": "14px" },
+    "icon-button": { "$value": "16px" }
+  },
+  "radius": {
+    "$type": "dimension",
+    "control": { "$value": "8px",    "$description": "rounded-lg: tombol, input" },
+    "card":    { "$value": "12px",   "$description": "rounded-xl: kartu, dialog" },
+    "pill":    { "$value": "9999px", "$description": "rounded-full: badge" }
+  },
+  "shadow": {
+    "$type": "shadow",
+    "card": { "$value": [
+      { "color": "#0f172a0a", "offsetX": "0px", "offsetY": "1px", "blur": "2px", "spread": "0px" },
+      { "color": "#0f172a0f", "offsetX": "0px", "offsetY": "1px", "blur": "3px", "spread": "0px" } ] },
+    "raised": { "$value": [
+      { "color": "#0f172a14", "offsetX": "0px", "offsetY": "4px", "blur": "12px", "spread": "-2px" },
+      { "color": "#0f172a0f", "offsetX": "0px", "offsetY": "2px", "blur": "4px", "spread": "-2px" } ] },
+    "overlay": { "$value": [
+      { "color": "#0f172a40", "offsetX": "0px", "offsetY": "20px", "blur": "40px", "spread": "-12px" } ] }
+  }
+}

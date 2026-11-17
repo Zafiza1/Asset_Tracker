@@ -7,6 +7,8 @@ dengan class Tailwind sendiri.**
 
 Arah visual: *modern enterprise asset management* — profesional, bersih, berbasis data, konsisten.
 
+**Figma** (mulai 2026-11-16, [APR-0001](approvals/APR-0001-figma-sebagai-sumber-desain.md)) adalah sumber kebenaran tampilan dan tata letak; dokumen ini tetap menjadi aturan pakai komponen dan UX. Token: [design/figma-tokens.json](design/figma-tokens.json), panduan: [design/figma-guide.md](design/figma-guide.md). Perubahan token dilakukan di `index.css` dan file token dalam satu PR.
+
 ## 1. Fondasi
 
 | Hal | Standar | Sumber |
