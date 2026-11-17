@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup F-03 · Mobile Keluar &amp; Masuk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  Mockup persetujuan UI (APR-0008) untuk aplikasi mobile (Expo). Warna mengikuti
+  mobile/src/components/ui.tsx (colors), yang mengikuti token web. Setiap layar 375px.
+-->
+<style>
+:root{
+  --brand:#1d4ed8;--brandDark:#1e40af;--brandSoft:#eff6ff;--text:#1e293b;--muted:#64748b;--border:#e2e8f0;--surface:#fff;--bg:#f8fafc;
+  --danger:#b91c1c;--dangerSoft:#fef2f2;--warning:#92400e;--warningSoft:#fffbeb;--ok:#15803d;--okSoft:#f0fdf4;--s300:#cbd5e1;--s900:#0f172a;
+}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.4 "Source Sans 3",system-ui,sans-serif;color:var(--text);background:#e9edf2}
+h1,h2,h3{font-family:Lexend,sans-serif;margin:0;color:var(--s900)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.mk{position:sticky;top:0;z-index:5;background:var(--s900);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.mk b{font-family:Lexend;font-weight:500}
+.mk .grp{display:flex;gap:4px;flex-wrap:wrap}
+.mk button{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}
+.mk button[aria-pressed=true]{background:var(--brand);border-color:#2563eb;color:#fff}
+.note{max-width:1200px;margin:12px auto 0;padding:0 16px;font-size:13px;color:#475569}
+.note code{background:#fff;border:1px solid var(--border);border-radius:4px;padding:0 4px}
+
+.gallery{display:flex;flex-wrap:wrap;gap:24px;justify-content:center;padding:20px 16px 40px}
+.shot{display:flex;flex-direction:column;gap:8px;align-items:center}
+.cap{font-size:13px;color:#475569;max-width:375px;text-align:center}
+.cap b{color:var(--s900)}
+.phone{width:375px;max-width:calc(100vw - 32px);height:740px;background:var(--bg);border:1px solid var(--s300);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 40px -20px #0f172a40;position:relative}
+.status{height:28px;display:flex;justify-content:space-between;align-items:center;padding:0 20px;font-size:12px;font-weight:600;background:var(--surface)}
+.hdr{background:var(--surface);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;gap:8px;padding:0 12px}
+.hdr h2{font-size:17px;font-weight:600;flex:1}
+.icbtn{width:40px;height:40px;border-radius:10px;border:0;background:none;display:grid;place-items:center;color:var(--text);cursor:pointer}
+.body{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.foot{background:var(--surface);border-top:1px solid var(--border);padding:12px 16px 20px;display:flex;flex-direction:column;gap:8px}
+.btn{min-height:48px;border-radius:10px;border:1px solid transparent;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;width:100%}
+.btn.primary{background:var(--brand);color:#fff}
+.btn.secondary{background:#fff;border-color:var(--s300)}
+.btn[disabled]{opacity:.5}
+.row2{display:flex;gap:8px}.row2 .btn{flex:1}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+.card h3{font-size:15px;font-family:"Source Sans 3";font-weight:700;margin-bottom:8px}
+.muted{color:var(--muted)} .sm{font-size:13px}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600}
+.b-ok{background:var(--okSoft);color:var(--ok)}.b-warn{background:var(--warningSoft);color:var(--warning)}.b-red{background:var(--dangerSoft);color:var(--danger)}.b-blue{background:var(--brandSoft);color:var(--brand)}
+.alert{border:1px solid;border-radius:10px;padding:10px 12px;display:flex;gap:10px}
+.alert p{margin:2px 0 0;font-size:14px}
+.a-red{background:var(--dangerSoft);border-color:#fecaca;color:var(--danger)}
+.a-warn{background:var(--warningSoft);border-color:#fde68a;color:var(--warning)}
+.a-blue{background:var(--brandSoft);border-color:#dbeafe;color:var(--brandDark)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;min-height:104px;text-align:left;cursor:pointer}
+.tile .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center}
+.tile b{font-size:15px}.tile span{font-size:13px;color:var(--muted)}
+.tile.wide{grid-column:1/-1;flex-direction:row;align-items:center;min-height:0}
+.cam{height:250px;background:#111827;position:relative;flex:none;display:grid;place-items:center;color:#cbd5e1}
+.cam .win{width:220px;height:130px;border:3px solid #fff;border-radius:14px;box-shadow:0 0 0 999px #0009}
+.cam .lbl{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:13px;color:#e2e8f0}
+.cam .tools{position:absolute;top:10px;right:10px;display:flex;gap:6px}
+.cam .tools button{width:40px;height:40px;border-radius:999px;border:0;background:#0008;color:#fff;display:grid;place-items:center}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
+.item .t{flex:1;min-width:0}
+.item b{display:block}
+.item.bad{border-color:#fecaca;background:#fffafa}
+.item .x{width:36px;height:36px;border:0;background:none;color:var(--muted);display:grid;place-items:center;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-weight:600;font-size:14px}
+.req{color:var(--danger)}
+.input{min-height:48px;border:1px solid var(--s300);border-radius:10px;background:#fff;padding:0 12px;width:100%}
+textarea.input{padding:10px 12px;min-height:72px}
+.input.err{border-color:var(--danger);box-shadow:0 0 0 1px var(--danger)}
+.hint{font-size:13px;color:var(--muted)}
+.msg{font-size:13px;color:var(--danger)}
+.seg{display:flex;border:1px solid var(--s300);border-radius:10px;overflow:hidden;background:#fff}
+.seg button{flex:1;border:0;background:none;min-height:44px;cursor:pointer;font-weight:500}
+.seg button+button{border-left:1px solid var(--s300)}
+.seg button[aria-pressed=true]{background:var(--brandSoft);color:var(--brand);font-weight:700}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px;margin:0}
+.kv dt{color:var(--muted)} .kv dd{margin:0;text-align:right;font-weight:600}
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;padding:24px}
+.big{width:64px;height:64px;border-radius:20px;display:grid;place-items:center}
+.big svg{width:32px;height:32px}
+.spin{width:36px;height:36px;border-radius:50%;border:4px solid var(--brandSoft);border-top-color:var(--brand);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.sheet{position:absolute;inset:0;background:#0f172a66;display:flex;align-items:flex-end}
+.sheet .panel{background:#fff;border-radius:18px 18px 0 0;width:100%;padding:18px 16px 24px;display:flex;flex-direction:column;gap:12px}
+.grab{width:40px;height:4px;border-radius:9px;background:var(--s300);margin:0 auto 4px}
+.counter{display:flex;justify-content:space-between;align-items:center}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="mk" role="toolbar" aria-label="Kontrol mockup">
+  <b>Mockup F-03 · Mobile</b>
+  <div class="grp">
+    <button data-flow="out" aria-pressed="true">Alur Keluar</button>
+    <button data-flow="in" aria-pressed="false">Alur Masuk</button>
+    <button data-flow="states" aria-pressed="false">Keadaan lain</button>
+  </div>
+</div>
+<p class="note">Tombol Keluar/Masuk hanya muncul bila token mobile memiliki ability <code>transaction:write</code> dan pengguna memiliki <code>asset.outgoing</code> / <code>asset.incoming</code>. Tanpa mode offline (D-9): transaksi hanya terkirim saat online. Pencarian manual lewat No Seri; No Aset tidak ditampilkan.</p>
+
+<!-- ======================= ALUR KELUAR ======================= -->
+<div class="gallery" data-flow-show="out">
+
+  <div class="shot"><div class="cap"><b>1 · Beranda</b> — dua aksi baru di samping Pindai.</div>
+  <div class="phone">
+    <div class="status"><span>09:41</span><span>●●● 5G</span></div>
+    <div class="hdr"><h2>Asset Tracker</h2><button class="icbtn" aria-label="Akun"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg></button></div>
+    <div class="body">
+      <div><p class="muted sm" style="margin:0">Selamat pagi,</p><h2 style="font-size:20px">Rina Suryani</h2><p class="muted sm" style="margin:2px 0 0">PT Surya Inti Gas · Kantor Pusat</p></div>
+      <div class="tiles">
+        <button class="tile wide"><span class="ic" style="background:var(--brandSoft);color:var(--brand)"><svg class="i" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg></span><div><b>Pindai aset</b><br><span>Lihat detail lewat barcode</span></div></button>
+        <button class="tile"><span class="ic" style="background:var(--warningSoft);color:var(--warning)"><svg class="i" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></svg></span><b>Keluar</b><span>Aset ke pihak luar</span></button>
+        <button class="tile"><span class="ic" style="background:var(--okSoft);color:var(--ok)"><svg class="i" viewBox="0 0 24 24"><path d="M17 7 7 17M17 17H7V7"/></svg></span><b>Masuk</b><span>Aset kembali dari luar</span></button>
+      </div>
+      <div class="alert a-red" role="status"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div><b>3 aset lewat rencana kembali</b><p>Ketuk untuk melihat daftar dan catat masuk.</p></div></div>
+      <div class="card"><h3>Persetujuan menunggu</h3><p class="muted sm" style="margin:0">2 pengajuan perlu ditinjau</p></div>
+    </div>
+  </div></div>
+
+  <div class="shot"><div class="cap"><b>2 · Pindai beberapa aset</b> — kamera tetap terbuka; setiap pindaian masuk daftar. Aset yang tidak memenuhi syarat ditandai, bukan diam-diam dibuang.</div>
+  <div class="phone">
+    <div class="status"><span>09:42</span><span>●●● 5G</span></div>
+    <div class="hdr"><button class="icbtn" aria-label="Kembali"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Keluar · Pindai aset</h2></div>
+    <div class="cam"><div class="win"></div><div class="tools"><button aria-label="Senter"><svg class="i" viewBox="0 0 24 24"><path d="M6 2h12v5l-3 4v11H9V11L6 7z"/></svg></button></div><div class="lbl">Arahkan ke barcode atau QR pada label</div></div>
+    <div class="body">
+      <div class="counter"><b>3 dipindai · 2 siap</b><button class="icbtn" style="width:auto;padding:0 8px;color:var(--brand);font-weight:600">Ketik No Seri</button></div>
+      <div class="list">
+        <div class="item"><span class="badge b-ok">Siap</span><div class="t"><b>Laptop Dell Latitude 5440</b><span class="mono muted">DL5440-0091</span> · <span class="sm muted">Aktif · Ruang IT</span></div><button class="x" aria-label="Hapus dari daftar"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="item"><span class="badge b-ok">Siap</span><div class="t"><b>Charger Dell 65W</b><span class="mono muted">CHG65-1120</span> · <span class="sm muted">Aktif · Ruang IT</span></div><button class="x" aria-label="Hapus dari daftar"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="item bad"><span class="badge b-red">Ditolak</span><div class="t"><b>Proyektor Epson EB-X51</b><span class="sm" style="color:var(--danger)">Sudah di luar organisasi sejak 03 Nov</span></div><button class="x" aria-label="Hapus dari daftar"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      </div>
+    </div>
+    <div class="foot"><button class="btn primary">Lanjut · 2 aset</button></div>
+  </div></div>
+
+  <div class="shot"><div class="cap"><b>3 · Formulir ringkas</b> — isian sama dengan web (§3.1). Rencana kembali hanya muncul untuk <i>Sementara</i>.</div>
+  <div class="phone">
+    <div class="status"><span>09:43</span><span>●●● 5G</span></div>
+    <div class="hdr"><button class="icbtn" aria-label="Kembali"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Keluar · 2 aset</h2></div>
+    <div class="body">
+      <div class="field"><label>Sifat <span class="req">*</span></label><div class="seg"><button aria-pressed="true">Sementara</button><button aria-pressed="false">Permanen</button></div></div>
+      <div class="field"><label>Alasan <span class="req">*</span></label><select class="input"><option>Perbaikan di vendor</option><option>Dipinjamkan ke pihak luar</option><option>Dikirim ke proyek/klien</option><option>Lainnya</option></select></div>
+      <div class="field"><label>Nama pihak luar <span class="req">*</span></label><input class="input" value="CV Sinar Servis"></div>
+      <div class="field"><label>Instansi / kontak</label><input class="input" value="Dedi · 0812-xxxx-2290"></div>
+      <div class="field"><label>Rencana tanggal kembali <span class="req">*</span></label><input class="input" type="date" value="2026-11-24"></div>
+      <div class="field"><label>Nomor dokumen</label><input class="input" placeholder="Surat jalan / BAST"></div>
+      <div class="field"><label>Keterangan</label><textarea class="input" placeholder="Opsional"></textarea></div>
+      <p class="hint" style="margin:0">Tanggal keluar: hari ini (17 Nov 2026). Ubah di web bila perlu mundur tanggal.</p>
+    </div>
+    <div class="foot"><button class="btn primary">Periksa</button></div>
+  </div></div>
+
+  <div class="shot"><div class="cap"><b>4 · Konfirmasi</b> — ringkasan sebelum dikirim; menyebut akibat dan audit trail.</div>
+  <div class="phone">
+    <div class="status"><span>09:44</span><span>●●● 5G</span></div>
+    <div class="hdr"><button class="icbtn" aria-label="Kembali"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Keluar · 2 aset</h2></div>
+    <div class="body" style="opacity:.35"><div class="card" style="height:200px"></div><div class="card" style="height:140px"></div></div>
+    <div class="sheet"><div class="panel" role="dialog" aria-labelledby="cf1">
+      <div class="grab"></div>
+      <h2 id="cf1" style="font-size:18px">Catat 2 aset keluar?</h2>
+      <dl class="kv">
+        <dt>Sifat</dt><dd>Sementara</dd>
+        <dt>Alasan</dt><dd>Perbaikan di vendor</dd>
+        <dt>Pihak luar</dt><dd>CV Sinar Servis</dd>
+        <dt>Rencana kembali</dt><dd class="num">24 Nov 2026</dd>
+      </dl>
+      <div class="list"><div class="item" style="padding:8px 10px"><div class="t"><b>Laptop Dell Latitude 5440</b><span class="mono muted">DL5440-0091</span></div></div><div class="item" style="padding:8px 10px"><div class="t"><b>Charger Dell 65W</b><span class="mono muted">CHG65-1120</span></div></div></div>
+      <div class="alert a-blue"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg><div><p style="margin:0">Status kedua aset menjadi <b>Di Luar Organisasi</b>. Transaksi langsung berlaku, tercatat di audit trail, dan tidak dapat diubah.</p></div></div>
+      <div class="row2"><button class="btn secondary">Kembali</button><button class="btn primary">Catat keluar</button></div>
+    </div></div>
+  </div></div>
+
+  <div class="shot"><div class="cap"><b>5 · Berhasil</b> — nomor transaksi tampil besar untuk ditulis di surat jalan.</div>
+  <div class="phone">
+    <div class="status"><span>09:44</span><span>●●● 5G</span></div>
+    <div class="hdr"><h2>Transaksi dicatat</h2></div>
+    <div class="center">
+      <div class="big" style="background:var(--okSoft);color:var(--ok)"><svg class="i" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></div>
+      <h2 style="font-size:20px">2 aset dicatat keluar</h2>
+      <p class="muted" style="margin:0">Nomor transaksi</p>
+      <p class="mono" style="font-size:22px;font-weight:700;margin:0;color:var(--s900)">OUT-2026-000043</p>
+      <p class="muted sm" style="margin:0">CV Sinar Servis · kembali 24 Nov 2026</p>
+    </div>
+    <div class="foot"><button class="btn primary">Selesai</button><button class="btn secondary">Catat transaksi lain</button></div>
+  </div></div>
+</div>
+
+<!-- ======================= ALUR MASUK ======================= -->
+<div class="gallery hidden" data-flow-show="in">
+
+  <div class="shot"><div class="cap"><b>1 · Pindai aset yang kembali</b> — setiap aset menampilkan transaksi keluar yang dibukanya dan keterlambatannya.</div>
+  <div class="phone">
+    <div class="status"><span>14:02</span><span>●●● 5G</span></div>
+    <div class="hdr"><button class="icbtn" aria-label="Kembali"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Masuk · Pindai aset</h2></div>
+    <div class="cam"><div class="win"></div><div class="lbl">Arahkan ke barcode atau QR pada label</div></div>
+    <div class="body">
+      <div class="counter"><b>2 dipindai · 1 siap</b><button class="icbtn" style="width:auto;padding:0 8px;color:var(--brand);font-weight:600">Ketik No Seri</button></div>
+      <div class="list">
+        <div class="item"><span class="badge b-ok">Siap</span><div class="t"><b>Proyektor Epson EB-X51</b><span class="sm muted">Dinas Pendidikan Kota · <span class="mono">OUT-2026-000039</span></span><br><span class="badge b-red" style="margin-top:4px">Terlambat 7 hari</span></div><button class="x" aria-label="Hapus dari daftar"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="item bad"><span class="badge b-red">Ditolak</span><div class="t"><b>Laptop Dell Latitude 5440 (3)</b><span class="sm" style="color:var(--danger)">Tidak sedang di luar organisasi (status Aktif)</span></div><button class="x" aria-label="Hapus dari daftar"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      </div>
+    </div>
+    <div class="foot"><button class="btn primary">Lanjut · 1 aset</button></div>
+  </div></div>
+
+  <div class="shot"><div class="cap"><b>2 · Formulir masuk</b> — lokasi dan "diterima dari" terisi dari transaksi keluar (§3.2).</div>
+  <div class="phone">
+    <div class="status"><span>14:03</span><span>●●● 5G</span></div>
+    <div class="hdr"><button class="icbtn" aria-label="Kembali"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Masuk · 1 aset</h2></div>
+    <div class="body">
+      <div class="field"><label>Kondisi saat kembali <span class="req">*</span></label><div class="seg"><button aria-pressed="true">Baik</button><button aria-pressed="false">Perlu perbaikan</button></div><span class="hint">Baik → status Tidak Aktif. Perlu perbaikan → Dalam Perbaikan.</span></div>
+      <div class="field"><label>Lokasi masuk</label><select class="input"><option>Ruang Rapat 2 (lokasi asal)</option><option>Gudang</option></select></div>
+      <div class="field"><label>Diterima dari</label><input class="input" value="Dinas Pendidikan Kota"></div>
+      <div class="field"><label>Nomor dokumen</label><input class="input" placeholder="mis. BAST pengembalian"></div>
+      <div class="field"><label>Keterangan</label><textarea class="input" placeholder="Opsional"></textarea></div>
+    </div>
+    <div class="foot"><button class="btn primary">Periksa</button></div>
+  </div></div>
+
+  <div class="shot"><div class="cap"><b>3 · Berhasil</b></div>
+  <div class="phone">
+    <div class="status"><span>14:04</span><span>●●● 5G</span></div>
+    <div class="hdr"><h2>Transaksi dicatat</h2></div>
+    <div class="center">
+      <div class="big" style="background:var(--okSoft);color:var(--ok)"><svg class="i" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></div>
+      <h2 style="font-size:20px">1 aset dicatat masuk</h2>
+      <p class="muted" style="margin:0">Nomor transaksi</p>
+      <p class="mono" style="font-size:22px;font-weight:700;margin:0;color:var(--s900)">IN-2026-000032</p>
+      <p class="muted sm" style="margin:0">Proyektor Epson EB-X51 · 14 hari di luar · kini Tidak Aktif</p>
+    </div>
+    <div class="foot"><button class="btn primary">Selesai</button><button class="btn secondary">Catat transaksi lain</button></div>
+  </div></div>
+</div>
+
+<!-- ======================= KEADAAN LAIN ======================= -->
+<div class="gallery hidden" data-flow-show="states">
+
+  <div class="shot"><div class="cap"><b>Kosong</b> — belum ada aset dipindai; tombol Lanjut nonaktif.</div>
+  <div class="phone">
+    <div class="status"><span>09:42</span><span>●●● 5G</span></div>
+    <div class="hdr"><button class="icbtn" aria-label="Kembali"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Keluar · Pindai aset</h2></div>
+    <div class="cam"><div class="win"></div><div class="lbl">Arahkan ke barcode atau QR pada label</div></div>
+    <div class="center" style="gap:6px"><b>Belum ada aset</b><p class="muted sm" style="margin:0">Pindai label aset satu per satu. Bisa beberapa aset sekaligus dalam satu transaksi.</p><button class="icbtn" style="width:auto;padding:0 8px;color:var(--brand);font-weight:600">Ketik No Seri</button></div>
+    <div class="foot"><button class="btn primary" disabled>Lanjut</button></div>
+  </div></div>
+
+  <div class="shot"><div class="cap"><b>Memuat / mengirim</b> — tombol terkunci agar tidak terkirim dua kali.</div>
+  <div class="phone">
+    <div class="status"><span>09:44</span><span>●●● 5G</span></div>
+    <div class="hdr"><h2>Keluar · 2 aset</h2></div>
+    <div class="center"><div class="spin" role="progressbar" aria-label="Mengirim"></div><b>Mencatat transaksi…</b><p class="muted sm" style="margin:0">Jangan tutup aplikasi.</p></div>
+    <div class="foot"><button class="btn primary" disabled>Catat keluar</button></div>
+  </div></div>
+
+  <div class="shot"><div class="cap"><b>Gagal (offline)</b> — tanpa mode offline (D-9); isian tetap tersimpan di layar, bisa dikirim ulang.</div>
+  <div class="phone">
+    <div class="status"><span>09:44</span><span>✕ Tidak ada sinyal</span></div>
+    <div class="hdr"><button class="icbtn" aria-label="Kembali"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Keluar · 2 aset</h2></div>
+    <div class="body">
+      <div class="alert a-red" role="alert"><svg class="i" viewBox="0 0 24 24"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5.2-2.7M19 13a10 10 0 0 0-2-1.6M12 20h.01"/></svg><div><b>Transaksi belum terkirim</b><p>Tidak ada koneksi internet. Belum ada yang dicatat; status aset tidak berubah. Kirim ulang setelah online.</p></div></div>
+      <div class="card"><dl class="kv"><dt>Sifat</dt><dd>Sementara</dd><dt>Pihak luar</dt><dd>CV Sinar Servis</dd><dt>Aset</dt><dd>2</dd></dl></div>
+    </div>
+    <div class="foot"><button class="btn primary">Kirim ulang</button></div>
+  </div></div>
+
+  <div class="shot"><div class="cap"><b>Error validasi</b> — dari pemeriksaan di perangkat dan dari API (422), ditampilkan di field-nya.</div>
+  <div class="phone">
+    <div class="status"><span>09:43</span><span>●●● 5G</span></div>
+    <div class="hdr"><button class="icbtn" aria-label="Kembali"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Keluar · 2 aset</h2></div>
+    <div class="body">
+      <div class="alert a-red" role="alert"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><div><b>Periksa 2 isian</b></div></div>
+      <div class="field"><label>Sifat <span class="req">*</span></label><div class="seg"><button aria-pressed="true">Sementara</button><button aria-pressed="false">Permanen</button></div></div>
+      <div class="field"><label>Nama pihak luar <span class="req">*</span></label><input class="input err" value=""><span class="msg">Nama pihak luar wajib diisi.</span></div>
+      <div class="field"><label>Rencana tanggal kembali <span class="req">*</span></label><input class="input err" type="date" value=""><span class="msg">Wajib diisi untuk keluar sementara.</span></div>
+      <div class="alert a-warn"><svg class="i" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><div><b>Charger Dell 65W baru saja berubah status</b><p>Dicatat Dipinjamkan oleh pengguna lain. Hapus dari daftar untuk melanjutkan.</p></div></div>
+    </div>
+    <div class="foot"><button class="btn primary">Periksa</button></div>
+  </div></div>
+
+  <div class="shot"><div class="cap"><b>Tanpa izin</b> — pengguna tanpa ability <code>transaction:write</code>: tile Keluar/Masuk tidak dirender; detail aset tetap bisa dibuka.</div>
+  <div class="phone">
+    <div class="status"><span>09:41</span><span>●●● 5G</span></div>
+    <div class="hdr"><h2>Asset Tracker</h2><button class="icbtn" aria-label="Akun"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg></button></div>
+    <div class="body">
+      <div><p class="muted sm" style="margin:0">Selamat pagi,</p><h2 style="font-size:20px">Dimas Pratama</h2><p class="muted sm" style="margin:2px 0 0">Peran: Viewer</p></div>
+      <div class="tiles"><button class="tile wide"><span class="ic" style="background:var(--brandSoft);color:var(--brand)"><svg class="i" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg></span><div><b>Pindai aset</b><br><span>Lihat detail lewat barcode</span></div></button></div>
+      <div class="card"><h3>Sesi kedaluwarsa atau izin dicabut?</h3><p class="muted sm" style="margin:0">Bila API membalas 401/403 saat mengirim, aplikasi menampilkan "Izin Anda berubah. Masuk ulang untuk melanjutkan." dan kembali ke layar login tanpa mencatat apa pun.</p></div>
+    </div>
+  </div></div>
+
+  <div class="shot"><div class="cap"><b>Detail aset di luar organisasi</b> — hasil Pindai biasa; tombol Catat masuk langsung membuka alur Masuk dengan aset ini.</div>
+  <div class="phone">
+    <div class="status"><span>14:00</span><span>●●● 5G</span></div>
+    <div class="hdr"><button class="icbtn" aria-label="Kembali"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Detail aset</h2></div>
+    <div class="body">
+      <div><h2 style="font-size:20px">Proyektor Epson EB-X51</h2><p style="margin:6px 0 0"><span class="badge b-warn">Di Luar Organisasi</span> <span class="mono muted">X5K8-220931</span></p></div>
+      <div class="alert a-red"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div><b>Terlambat 7 hari</b><p>Rencana kembali 10 Nov 2026.</p></div></div>
+      <div class="card"><dl class="kv"><dt>Pihak luar</dt><dd>Dinas Pendidikan Kota</dd><dt>Alasan</dt><dd>Dipinjamkan</dd><dt>Keluar</dt><dd class="num">03 Nov 2026</dd><dt>Transaksi</dt><dd class="mono">OUT-2026-000039</dd><dt>Lokasi asal</dt><dd>Ruang Rapat 2</dd></dl></div>
+    </div>
+    <div class="foot"><button class="btn primary">Catat masuk</button></div>
+  </div></div>
+</div>
+
+<script>
+document.querySelectorAll('[data-flow]').forEach(function(b){b.onclick=function(){
+  document.querySelectorAll('[data-flow]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});
+  document.querySelectorAll('[data-flow-show]').forEach(function(g){g.classList.toggle('hidden',g.getAttribute('data-flow-show')!==b.dataset.flow)});
+}});
+document.querySelectorAll('.seg').forEach(function(g){g.querySelectorAll('button').forEach(function(b){b.onclick=function(){g.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))})}})});
+</script>
+</body>
+</html>

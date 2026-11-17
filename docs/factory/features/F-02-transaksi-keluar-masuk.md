@@ -134,6 +134,14 @@ Mesin laporan tidak berubah. Report Designer sudah mendukung sumber `asset_trans
 | D-9 | Mobile tanpa mode offline di versi ini | Ya |
 | D-10 | Kontak pihak luar diperlakukan sebagai data pribadi (permission khusus di laporan) | Ya |
 
+## 9a. Mockup UI ([APR-0008](../../approvals/APR-0008-mockup-sebelum-figma.md))
+| Mockup | Cakupan | Status |
+|---|---|---|
+| [Web F-02b](../../design/mockups/F-02b-transaksi-keluar-masuk.html) | Daftar transaksi (tab Keluar/Masuk/Belum kembali), form Keluar, form Masuk, detail aset di luar organisasi; keadaan isi, kosong, memuat, gagal, error validasi; lebar 375px | **disetujui** pemilik produk 2026-11-17 |
+| [Mobile F-03](../../design/mockups/F-03-mobile-keluar-masuk.html) | Beranda, pindai multi-aset, formulir, konfirmasi, berhasil (Keluar dan Masuk); kosong, mengirim, offline, error validasi, tanpa izin, detail aset | **disetujui** pemilik produk 2026-11-17 |
+
+Usulan di mockup, disetujui bersama mockup ("Udah oke", pemilik produk, 2026-11-17): (a) mobile memakai tanggal hari ini untuk transaksi (tanggal mundur hanya di web); (b) form Masuk di web dibuka dari detail aset dan dari "Catat transaksi"; (c) tab "Belum kembali" di daftar transaksi.
+
 ## 10. Rencana Task (setelah disetujui)
 | ID | Task | Agent | Bergantung |
 |---|---|---|---|
