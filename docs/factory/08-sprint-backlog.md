@@ -22,7 +22,7 @@
 | T-08 | ADR retroaktif: RLS + konteks bertanda tangan, penyederhanaan 08, approval via replay, penghapusan cabang/kondisi, modul + `MODULES_DISABLED` | system-architect | architecture-decision-records | — | `docs/adr/**` | M | tier1 | auditor | todo |
 | T-09 | Regenerasi ERD dari migrasi aktual; perbarui `04-data-ownership-matrix` | database-engineer | erd-design | T-01 | `docs/03-*`, `docs/04-*` | M | tier2 | system-architect, security | todo |
 | T-10 | Pindahkan atau hapus `backend/add_reference_column.sql` (cek apakah sudah tercakup migrasi `2026_10_28_072957`) | database-engineer | database-migration | — | `backend/add_reference_column.sql` | S | tier2 | auditor | todo |
-| T-11 | Verifikasi ulang SEC-01..04 dan SEC-07 terhadap kode terkini; perbarui status audit | independent-auditor | security-audit, evidence-based-reporting | T-01 | `docs/asset-tracker-audit.md`, `docs/factory/07-*` | M | tier2 | security-engineer | todo |
+| T-11 | Verifikasi ulang SEC-01..04 dan SEC-07 terhadap kode terkini; perbarui status audit | independent-auditor | security-audit, evidence-based-reporting | T-01 | `docs/asset-tracker-audit.md`, `docs/factory/07-*` | M | tier2 | security-engineer | in_review |
 | T-12 | Upgrade `zod` ke ≥ 4.6.6 (SEC-08) | frontend-engineer | dependency-security-audit | T-04 | `frontend/package.json`, `frontend/package-lock.json` | S | tier3 | security (Trivy di CI) | in_review |
 | T-17 | Perbaiki 2 test lama yang gagal (collation di `RegistrationTest`, pengundang Super Admin di `InvitationTest`) + assertion eksplisit di `DatabasePrivilegesTest` (L-3 ternyata sudah tercakup) | qa-engineer | regression-testing | — | `backend/tests/Feature/Auth/RegistrationTest.php`, `.../Tenant/InvitationTest.php`, `.../Security/DatabasePrivilegesTest.php`, `.../Reports/ReportDesignerBindingTest.php` | S | tier2 | backend-engineer, security | in_review |
 | T-18 | Putuskan L-1/L-2 (efek tulis GET dashboard, kategori di navigasi) | backend-engineer | service-architecture | T-01 | `app/Domain/Dashboards/**`, `app/Http/Controllers/Tenant/Dashboards/**` | S | tier2 | security | todo |
@@ -66,12 +66,27 @@ flowchart LR
 - Gelombang 3: T-12, T-13
 - Jalur desain (paralel dengan semua gelombang; tidak menyentuh repo kecuali `docs/design/`): T-14 → T-15, T-16 (setelah T-01)
 
+## 4a. Fitur Baru (dicatat 2026-11-17)
+
+**Diputuskan 2026-11-17: dikerjakan agent factory.** Requirement: [F-01](features/F-01-dashboard-builder-ui.md), [F-02/F-03/F-04](features/F-02-transaksi-keluar-masuk.md). Keputusan D-6 s/d D-11 disetujui 2026-11-17 ([APR-0006](../approvals/APR-0006-transaksi-keluar-masuk.md), [APR-0007](../approvals/APR-0007-dashboard-builder-ui.md)).
+
+| ID | Fitur | Keterangan dari pemilik produk | Lock scope | Tahap pipeline | Status |
+|---|---|---|---|---|---|
+| F-01 | Dashboard Builder (UI) | Backend selesai; frontend belum terhubung | `backend/app/Domain/Dashboards/**`, `backend/app/Domain/Analytics/**`, `frontend/src/features/dashboard/**` | 2–4: requirement disusun | approved |
+| F-02 | Transaksi keluar dan transaksi masuk | Aset keluar/masuk **organisasi** | `backend/app/Domain/AssetTransactions/**`, `backend/routes/modules/transactions.php`, `frontend/src/features/transactions/**` | 2–7: requirement disusun | approved |
+| F-03 | Mobile: scan lalu catat keluar/masuk | Mobile tidak lagi hanya baca | `mobile/**` | 2–7: requirement disusun | approved |
+| F-04 | Laporan keluar/masuk dengan format buatan pengguna | Lewat Report Designer | `backend/app/Domain/ReportDesigner/Catalog/FieldCatalog.php`, template laporan | 2–7: requirement disusun | approved |
+
+Catatan untuk F-04: Report Designer sudah mendukung sumber data transaksi (`ReportDataResolver::transactionQuery`, mengikuti data scope). Yang diperlukan kemungkinan field baru di `FieldCatalog` untuk jenis keluar/masuk, filter per jenis, dan template contoh, bukan mesin laporan baru.
+
+Sebelum F-02..F-04 dikodekan, tahap ringkas 2–7 wajib ada (`docs/factory/00` §6): bagian PRD (aturan bisnis keluar/masuk dan hubungannya dengan pemindahan/peminjaman), alur di `factory/03`, perubahan skema (database-engineer: tipe transaksi baru, kolom tujuan/asal), dan dampak security (permission baru, scope pada mobile).
+
 ## 5. Sprint 2 dan Seterusnya (sudah disetujui, belum dijadwalkan rinci)
 
 | ID | Judul | Agent pemilik | Dasar | Ukuran | Tier | Verifier |
 |---|---|---|---|---|---|---|
 | T-20 | Hapus API + tabel Tenant Definition sesuai syarat APR-0003 | database-engineer + backend-engineer | APR-0003, G-15 | M | tier2 | security, auditor |
-| T-21 | Lupa password mandiri (SEC-06), respons seragam (SEC-02) | backend-engineer + frontend-engineer | APR-0005, G-08 | M | tier2 | security, qa, auditor |
+| T-21 | Lupa password mandiri (SEC-06), respons seragam termasuk registrasi publik (SEC-02), konfirmasi ganti email (SEC-12) | backend-engineer + frontend-engineer | APR-0005, G-08 | M | tier2 | security, qa, auditor |
 | T-22 | Limiter per akun (SEC-05) | backend-engineer | APR-0005, G-09 | S | tier2 | security |
 
 T-21 dan T-22 adalah **blocker rilis produksi**.

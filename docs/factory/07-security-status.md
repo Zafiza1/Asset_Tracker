@@ -15,14 +15,15 @@ Status: **Terbuka** · **Kemungkinan selesai** (ada bukti di kode, belum diverif
 
 | ID | Temuan | Risiko | Status | Bukti saat onboarding | Tindakan |
 |---|---|---|---|---|---|
-| SEC-01 | Penambahan akun tanpa persetujuan, email tidak diverifikasi | High | Kemungkinan selesai | Migrasi `001100_create_organization_invitations`, `InvitationTest`, `InvitationAcceptanceTest`, `docs/08 §9` | Auditor memverifikasi bahwa tidak ada lagi jalur penempelan akun langsung (T-11) |
-| SEC-02 | Enumerasi email lintas platform | Medium | Perlu dicek | Belum ada bukti | Termasuk dalam verifikasi T-11 |
-| SEC-03 | Eskalasi scope via `PUT /users/{id}/scopes` | Medium | Kemungkinan selesai | `DataScopeEscalationTest`; perbaikan 2026-10-26 sudah di `main` | T-11 |
-| SEC-04 | Lolos dari scope lokasi dengan memindah induk | Medium | Kemungkinan selesai | `DataScopeEscalationTest` | T-11 |
+| SEC-01 | Penambahan akun tanpa persetujuan, email tidak diverifikasi | High | **Selesai** ([T-11](reviews/T-11-security-verification.md)) | Hanya penerimaan undangan yang membuat keanggotaan (`OrganizationInvitations.php:480`); `grantOrganization` juga membuat undangan | — |
+| SEC-02 | Enumerasi email lintas platform | Medium | **Sebagian** ([T-11](reviews/T-11-security-verification.md)) | Undangan seragam (`InvitationTest`); registrasi publik masih menjawab "Email sudah terdaftar" (`AuthController.php:205,210`) | T-21 |
+| SEC-03 | Eskalasi scope via `PUT /users/{id}/scopes` | Medium | **Selesai** ([T-11](reviews/T-11-security-verification.md)) | `UserManagement::syncScopes` + `DataScopeEscalationTest`, lulus di CI | — |
+| SEC-04 | Lolos dari scope lokasi dengan memindah induk | Medium | **Selesai** ([T-11](reviews/T-11-security-verification.md)) | `DataScopeEscalationTest` baris 367–525, lulus di CI | — |
 | SEC-05 | Proteksi brute-force terbatas | Low | Terbuka · **blocker rilis** ([APR-0005](../approvals/APR-0005-sec-05-06-sebelum-produksi.md)) | Hanya `throttle:login` per route; limiter per akun belum terlihat | T-22 |
 | SEC-06 | Tidak ada pemulihan akun mandiri | Medium | Terbuka · **blocker rilis** ([APR-0005](../approvals/APR-0005-sec-05-06-sebelum-produksi.md)) | Tidak ada route lupa password; yang ada hanya reset oleh admin | T-21 |
-| SEC-07 | RLS bergantung pada GUC yang dapat diubah | — | Kemungkinan selesai | Migrasi `001300_signed_database_context`, `001400`, `001500`; `SignedContextTest`, `TenantContextTamperingTest`; branch `sec-07-stage-b` sudah di `main` | T-11; prosedur produksi masuk checklist T-05 |
+| SEC-07 | RLS bergantung pada GUC yang dapat diubah | — | **Selesai di test** ([T-11](reviews/T-11-security-verification.md)) | `SignedContextTest`, `TenantContextTamperingTest`, `DatabasePrivilegesTest` lulus di CI (PostgreSQL 17) | Prosedur produksi: T-05 |
 | SEC-08 | `zod` rentan (GHSA-mrhx-c7xc-m3w5) | Low | Diperbaiki, menunggu CI | `zod` 4.6.7 (`5b09a3d`); `npm audit` 0 kerentanan | T-12 |
+| SEC-12 | Oracle keberadaan email lewat `PATCH /users/{id}` (validasi unique sebelum pemeriksaan kewenangan) | Low | Terbuka ([T-11](reviews/T-11-security-verification.md)) | `UserController.php:114`; 23505 → 409 | Sprint 2, bersama T-21 |
 | SEC-11 | Advisory dependency baru (2026-11-17): `laravel/framework` < 13.40 (low), Symfony `http-foundation`/`http-kernel`/`routing`/`yaml` < 8.1.11 dan `mime` < 8.1.10 (termasuk trusted proxies dan host URL), `undici` < 8.12 (High, dev) | Medium | Diperbaiki, menunggu CI | `composer audit` dan `npm audit` bersih setelah update | T-23 |
 | SEC-09 | Audit trail tanpa outcome, logging penolakan, hash-chain | Low | Terbuka | Tidak ada kolom outcome/hash di migrasi | Backlog P5 |
 | SEC-10 | Hardening konfigurasi & instruksi agen | Low | Sebagian: instruksi agen diperbaiki (T-03, in review); checklist deployment masih terbuka | `backend/AGENTS.md` kini mencerminkan `CLAUDE.md` tanpa perintah unduh-dan-jalankan | T-05 |
