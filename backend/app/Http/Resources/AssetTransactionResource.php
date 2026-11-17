@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
 use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionType;
+use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -38,11 +39,22 @@ class AssetTransactionResource extends JsonResource
             'reason_label' => OutgoingReason::label($this->outgoing_nature, $this->reason_code),
             'counterparty_name' => $this->counterparty_name,
             'counterparty_org' => $this->counterparty_org,
-            'counterparty_contact' => $this->counterparty_contact,
+            // Personal data (APR-0006 D-10): only with transaction.contact.view.
+            'counterparty_contact' => self::canSeeContact() ? $this->counterparty_contact : null,
             'document_number' => $this->document_number,
             'outgoing_transaction_id' => $this->outgoing_transaction_id,
+            // Temporary outgoing rows: Sudah kembali / Terlambat / Belum kembali, and days outside.
+            'return_status' => $this->return_status,
+            'days_out' => $this->days_out,
             'created_by' => $this->whenLoaded('creator', fn () => $this->creator?->name),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
+    }
+
+    private static function canSeeContact(): bool
+    {
+        $tenancy = app(Tenancy::class);
+
+        return $tenancy->hasTenant() && $tenancy->tenant()->can('transaction.contact.view');
     }
 }

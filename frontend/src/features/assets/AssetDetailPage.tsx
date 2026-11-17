@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftRight, CalendarDays, FolderTree, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, FolderTree, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -11,13 +11,13 @@ import { Field, Textarea } from '../../components/ui/Field'
 import { toast } from '../../components/ui/toast'
 import { DataTable, type Column } from '../../components/ui/Table'
 import { SegmentedControl } from '../../components/ui/Tabs'
-import { api } from '../../lib/api/client'
+import { api, qs } from '../../lib/api/client'
 import { MODULE_NAMES, type CategoryAttribute, type Paginated, type Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { formatDate, formatDateTime } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
 import { attributeRowsBySection, SECTION_LABELS } from '../master/categoryAttributeData'
-import { allowedTypes, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
+import { allowedTypes, daysLate, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
 import { LocationChange, StatusChange } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
 import { assetStatusLabel, formatMoney, type Asset } from './api'
@@ -43,6 +43,12 @@ export function AssetDetailPage() {
     queryKey: ['/assets', id, 'transactions'],
     queryFn: () => api.get<Paginated<AssetTransaction>>(`/assets/${id}/transactions?per_page=100`),
     enabled: can('transaction.view') && historyView === 'table',
+  })
+  // Off-site assets: the outgoing transaction that sent them out (newest first).
+  const outgoing = useQuery({
+    queryKey: ['/transactions', 'outgoing-of', id],
+    queryFn: () => api.get<Paginated<AssetTransaction>>(`/transactions${qs({ asset_id: id, type: 'outgoing', per_page: 1 })}`),
+    enabled: can('transaction.view') && asset.data?.data.status === 'off_site',
   })
   const timeline = useQuery({
     queryKey: ['/assets', id, 'timeline'],
@@ -80,6 +86,16 @@ export function AssetDetailPage() {
                 <UserRoundPlus className="size-4" aria-hidden /> Pinjamkan
               </Button>
             )}
+            {canRecord && types.includes('outgoing') && can('asset.outgoing') && (
+              <Button variant="secondary" onClick={() => setRecording('outgoing')}>
+                <ArrowUpRight className="size-4" aria-hidden /> Catat keluar
+              </Button>
+            )}
+            {canRecord && types.includes('incoming') && can('asset.incoming') && (
+              <Button variant="secondary" onClick={() => setRecording('incoming')}>
+                <ArrowDownLeft className="size-4" aria-hidden /> Catat masuk
+              </Button>
+            )}
             {canRecord && types.includes('return') && can('asset.assign') && (
               <Button variant="secondary" onClick={() => setRecording('return')}>
                 <Undo2 className="size-4" aria-hidden /> Catat pengembalian
@@ -101,6 +117,7 @@ export function AssetDetailPage() {
           </Alert>
         </div>
       )}
+      {a.status === 'off_site' && <OffSiteAlert trx={outgoing.data?.data[0]} />}
       {overdue && (
         <div className="mb-4">
           <Alert tone="warning" title="Peminjaman melewati batas">
@@ -373,5 +390,29 @@ function ArchiveModal({ asset, onClose }: { asset: Asset; onClose: () => void })
       </p>
       <Field label="Alasan">{(p) => <Textarea {...p} rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="mis. rusak total, dijual, hilang" />}</Field>
     </ConfirmDialog>
+  )
+}
+
+/** Where an off-site asset is and since when; red once it is past its planned return date. */
+function OffSiteAlert({ trx }: { trx: AssetTransaction | undefined }) {
+  if (!trx) {
+    return (
+      <div className="mb-4">
+        <Alert tone="info" title="Di luar organisasi">
+          Aset ini sedang berada di pihak luar. Catat transaksi masuk saat aset kembali.
+        </Alert>
+      </div>
+    )
+  }
+  const late = daysLate(trx)
+  const party = [trx.counterparty_name, trx.counterparty_org && `(${trx.counterparty_org})`].filter(Boolean).join(' ')
+  return (
+    <div className="mb-4">
+      <Alert tone={late > 0 ? 'error' : 'info'} title={late > 0 ? `Lewat rencana tanggal kembali ${late} hari` : 'Di luar organisasi'}>
+        {trx.reason_label} · {party} sejak {formatDate(trx.transaction_date)}
+        {trx.due_date && <>, rencana kembali {formatDate(trx.due_date)}</>} (<span className="font-mono text-xs">{trx.transaction_number}</span>
+        {trx.document_number && <>, dokumen {trx.document_number}</>}).
+      </Alert>
+    </div>
   )
 }

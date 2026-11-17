@@ -17,15 +17,19 @@ import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, type Asset, type AssetStatus } from '../assets/api'
 import { AssetStatusBadge } from '../assets/AssetStatusBadge'
 import { CategoryFilter } from '../assets/CategoryFilter'
-import { allowedTypes, ineligibleReason, manualTypes, transactionTypeLabel, typePermission, type ManualTransactionType } from './api'
+import { allowedTypes, ineligibleReason, localToday, manualTypes, outgoingNatureLabel, outgoingReasons, transactionTypeLabel, typePermission, type ManualTransactionType, type OutgoingNature } from './api'
 
 const selectableStatuses: AssetStatus[] = ['in_use', 'available', 'under_maintenance', 'lost', 'disposed']
 const DEFAULT_COLUMNS = ['pick', 'code', 'name', 'serial_number', 'category', 'location', 'status']
 
-function today(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+/** Values a type starts with, so the form shows the usual choice instead of an empty field. */
+function typeDefaults(type: ManualTransactionType | ''): Record<string, string> {
+  if (type === 'outgoing') return { outgoing_nature: 'temporary' }
+  if (type === 'incoming') return { to_status: 'available' }
+  return {}
 }
+
+const today = localToday
 
 interface Props {
   /** Pre-selected asset (from the asset detail page); otherwise the user picks one or more. */
@@ -47,9 +51,9 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   const assets = fixedAsset ? [fixedAsset] : picked
   const types = (fixedAsset ? allowedTypes(fixedAsset.status) : manualTypes).filter((t) => !typePermission[t] || can(typePermission[t]!))
   const [type, setType] = useState<ManualTransactionType | ''>(initialType && types.includes(initialType) ? initialType : '')
-  const [values, setValues] = useState<Record<string, string>>({ transaction_date: today() })
+  const [values, setValues] = useState<Record<string, string>>(() => ({ transaction_date: today(), ...typeDefaults(initialType && types.includes(initialType) ? initialType : '') }))
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
-  const [filters, setFilters] = useState({ location_id: '', status: '', category_ids: '' })
+  const [filters, setFilters] = useState({ location_id: '', status: initialType === 'incoming' ? 'off_site' : '', category_ids: '' })
   const [visibleColumns, setVisibleColumns] = useState(DEFAULT_COLUMNS)
 
   const locations = toOptions(useOptions('/locations').data)
@@ -158,7 +162,8 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
             Batal
           </Button>
           <Button type="submit" form="transaction-form" loading={save.isPending} disabled={!type || assets.length === 0 || blocked.length > 0}>
-            Simpan transaksi{!fixedAsset && assets.length > 0 ? ` (${assets.length} aset)` : ''}
+            {type === 'outgoing' ? 'Catat keluar' : type === 'incoming' ? 'Catat masuk' : 'Simpan transaksi'}
+            {!fixedAsset && assets.length > 0 ? ` (${assets.length} aset)` : ''}
           </Button>
         </>
       }
@@ -184,7 +189,9 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
                 const next = e.target.value as ManualTransactionType | ''
                 setType(next)
                 // Fields of the previous type must not be sent with the new one.
-                setValues((v) => ({ transaction_date: v.transaction_date ?? today(), notes: v.notes ?? '' }))
+                setValues((v) => ({ transaction_date: v.transaction_date ?? today(), notes: v.notes ?? '', ...typeDefaults(next) }))
+                // Only assets outside the organization can come back in.
+                setFilters((f) => ({ ...f, status: next === 'incoming' ? 'off_site' : f.status === 'off_site' ? '' : f.status }))
                 setFieldErrors({})
                 // Assets picked for the previous type that this one does not accept are dropped.
                 setPicked((prev) => (next ? prev.filter((a) => !ineligibleReason(a, next)) : prev))
@@ -243,6 +250,87 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
           </>
         )}
 
+        {type === 'outgoing' && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Sifat" required error={err('outgoing_nature')} hint={values.outgoing_nature === 'permanent' ? 'Status aset menjadi Dihapuskan.' : 'Aset akan kembali; statusnya Di Luar Organisasi.'}>
+              {(p) => (
+                <Select
+                  {...p}
+                  value={values.outgoing_nature ?? 'temporary'}
+                  // Reasons differ per nature, so the previous one no longer applies.
+                  onChange={(e) => setValues((v) => ({ ...v, outgoing_nature: e.target.value, reason_code: '', due_date: '' }))}
+                >
+                  {(Object.keys(outgoingNatureLabel) as OutgoingNature[]).map((n) => (
+                    <option key={n} value={n} disabled={n === 'permanent' && !can('asset.dispose')}>
+                      {n === 'temporary' ? 'Sementara — akan kembali' : can('asset.dispose') ? 'Permanen' : 'Permanen (perlu izin penghapusan aset)'}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+            <Field label="Alasan" required error={err('reason_code')}>
+              {(p) => (
+                <Select {...p} value={values.reason_code ?? ''} onChange={set('reason_code')}>
+                  <option value="">— Pilih —</option>
+                  {outgoingReasons[(values.outgoing_nature as OutgoingNature) || 'temporary'].map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+            <Field label="Nama pihak luar" required error={err('counterparty_name')} hint="Penerima di luar organisasi.">
+              {(p) => <Input {...p} value={values.counterparty_name ?? ''} onChange={set('counterparty_name')} maxLength={150} placeholder="mis. CV Sinar Servis" />}
+            </Field>
+            <Field label="Instansi" error={err('counterparty_org')}>
+              {(p) => <Input {...p} value={values.counterparty_org ?? ''} onChange={set('counterparty_org')} maxLength={150} />}
+            </Field>
+            <Field label="Kontak" error={err('counterparty_contact')} hint="Data pribadi; hanya tampil bagi yang berizin.">
+              {(p) => <Input {...p} value={values.counterparty_contact ?? ''} onChange={set('counterparty_contact')} maxLength={150} placeholder="Telepon atau email" />}
+            </Field>
+            <Field label="Nomor dokumen" error={err('document_number')} hint="Surat jalan, BAST, atau faktur.">
+              {(p) => <Input {...p} value={values.document_number ?? ''} onChange={set('document_number')} maxLength={100} />}
+            </Field>
+            {values.outgoing_nature !== 'permanent' && (
+              <Field label="Rencana tanggal kembali" required error={err('due_date')} hint="Aset yang melewati tanggal ini ditandai terlambat.">
+                {(p) => <Input {...p} type="date" min={values.transaction_date || undefined} value={values.due_date ?? ''} onChange={set('due_date')} />}
+              </Field>
+            )}
+          </div>
+        )}
+
+        {type === 'incoming' && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Kondisi saat kembali" required error={err('to_status')} hint="Menentukan status aset setelah masuk.">
+              {(p) => (
+                <Select {...p} value={values.to_status ?? 'available'} onChange={set('to_status')}>
+                  <option value="available">Baik — {assetStatusLabel.available}</option>
+                  <option value="under_maintenance">Perlu perbaikan — {assetStatusLabel.under_maintenance}</option>
+                </Select>
+              )}
+            </Field>
+            <Field label="Lokasi masuk" error={err('to_location_id')} hint="Kosongkan bila kembali ke lokasi asal.">
+              {(p) => (
+                <Select {...p} value={values.to_location_id ?? ''} onChange={set('to_location_id')}>
+                  <option value="">— Lokasi asal —</option>
+                  {locations.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+            <Field label="Diterima dari" error={err('counterparty_name')} hint="Kosongkan untuk memakai pihak luar pada transaksi keluar.">
+              {(p) => <Input {...p} value={values.counterparty_name ?? ''} onChange={set('counterparty_name')} maxLength={150} />}
+            </Field>
+            <Field label="Nomor dokumen" error={err('document_number')} hint="mis. BAST pengembalian.">
+              {(p) => <Input {...p} value={values.document_number ?? ''} onChange={set('document_number')} maxLength={100} />}
+            </Field>
+          </div>
+        )}
+
         {type === 'return' && (
           <Field label="Dikembalikan ke lokasi" error={err('to_location_id')} hint="Kosongkan bila kembali ke lokasi semula.">
             {(p) => (
@@ -260,10 +348,10 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
 
         {type && (
           <>
-            <Field label="Tanggal transaksi" required error={err('transaction_date')}>
+            <Field label={type === 'outgoing' ? 'Tanggal keluar' : type === 'incoming' ? 'Tanggal masuk' : 'Tanggal transaksi'} required error={err('transaction_date')}>
               {(p) => <Input {...p} type="date" max={today()} value={values.transaction_date ?? ''} onChange={set('transaction_date')} />}
             </Field>
-            <Field label={type === 'note' ? 'Keterangan aktivitas' : 'Catatan'} required={type === 'note'} error={err('notes')}>
+            <Field label={type === 'note' ? 'Keterangan aktivitas' : 'Catatan'} required={type === 'note' || (type === 'outgoing' && values.reason_code === 'other')} error={err('notes')}>
               {(p) => <Textarea {...p} rows={3} value={values.notes ?? ''} onChange={set('notes')} />}
             </Field>
           </>

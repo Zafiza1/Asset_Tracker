@@ -57,7 +57,9 @@ describe('GuidePage', () => {
   it('shows which transactions each asset status allows', () => {
     renderGuide([])
     const row = screen.getByRole('rowheader', { name: 'Dipinjamkan' }).closest('tr')!
-    // Columns: Pemindahan lokasi, Perubahan status, Peminjaman, Pengembalian, Aktivitas lain.
-    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['Tidak', 'Tidak', 'Tidak', 'Ya', 'Ya'])
+    // Columns: Pemindahan lokasi, Perubahan status, Peminjaman, Pengembalian, Transaksi keluar, Transaksi masuk, Aktivitas lain.
+    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['Tidak', 'Tidak', 'Tidak', 'Ya', 'Tidak', 'Tidak', 'Ya'])
+    const offSite = screen.getByRole('rowheader', { name: 'Di Luar Organisasi' }).closest('tr')!
+    expect(within(offSite).getAllByRole('cell').map((c) => c.textContent)).toEqual(['Tidak', 'Tidak', 'Tidak', 'Tidak', 'Tidak', 'Ya', 'Ya'])
   })
 })

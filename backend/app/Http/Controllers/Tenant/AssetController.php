@@ -446,7 +446,7 @@ class AssetController extends Controller
     /** Full history of one asset, newest first. */
     public function transactions(Request $request, Asset $asset): AnonymousResourceCollection
     {
-        $history = $asset->transactions()->with(['fromLocation', 'toLocation', 'creator'])
+        $history = $asset->transactions()->with(['fromLocation', 'toLocation', 'creator', 'incomingTransaction:id,outgoing_transaction_id,transaction_date'])
             ->orderByDesc('seq')
             ->paginate(ListQuery::perPage($request, 10));
 

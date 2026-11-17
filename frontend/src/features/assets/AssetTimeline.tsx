@@ -1,7 +1,9 @@
 import clsx from 'clsx'
 import {
   ArrowLeftRight,
+  ArrowDownLeft,
   ArrowRight,
+  ArrowUpRight,
   FileText,
   PackagePlus,
   Pencil,
@@ -49,6 +51,8 @@ const TYPE_STYLE: Record<TransactionType, { icon: LucideIcon; tone: string }> = 
   note: { icon: StickyNote, tone: 'bg-slate-100 text-slate-600 ring-slate-200' },
   archive: { icon: Power, tone: 'bg-red-50 text-red-700 ring-red-200' },
   restore: { icon: RotateCcw, tone: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  outgoing: { icon: ArrowUpRight, tone: 'bg-amber-50 text-amber-700 ring-amber-200' },
+  incoming: { icon: ArrowDownLeft, tone: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
 }
 
 const EDIT_STYLE = { icon: Pencil, tone: 'bg-slate-100 text-slate-600 ring-slate-200' }

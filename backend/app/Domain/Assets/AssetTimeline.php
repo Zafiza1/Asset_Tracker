@@ -56,7 +56,7 @@ final class AssetTimeline
     /** @return Collection<int, array<string, mixed>> */
     private function transactions(Asset $asset, Request $request): Collection
     {
-        return $asset->transactions()->with(['fromLocation', 'toLocation', 'creator'])
+        return $asset->transactions()->with(['fromLocation', 'toLocation', 'creator', 'incomingTransaction:id,outgoing_transaction_id,transaction_date'])
             ->orderByDesc('seq')->limit(self::LIMIT)->get()
             ->map(fn ($t) => [
                 'id' => 'trx-'.$t->id,

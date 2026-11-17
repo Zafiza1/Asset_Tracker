@@ -23,7 +23,8 @@ use Illuminate\Validation\Rule;
 /** Asset Transactions container: searchable list, detail, manual recording. */
 class AssetTransactionController extends Controller
 {
-    private const RELATIONS = ['asset', 'fromLocation', 'toLocation', 'creator'];
+    /** incomingTransaction: return status and days outside of temporary outgoing rows. */
+    private const RELATIONS = ['asset', 'fromLocation', 'toLocation', 'creator', 'incomingTransaction:id,outgoing_transaction_id,transaction_date'];
 
     private const MAX_ASSETS = 200;
 
@@ -34,26 +35,8 @@ class AssetTransactionController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'type' => ['nullable', Rule::in(TransactionType::ALL)],
-            'asset_id' => ['nullable', 'uuid'],
-            'date_from' => ['nullable', 'date_format:Y-m-d'],
-            'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
-        ]);
-
-        $query = $this->visible()->with(self::RELATIONS)
-            ->when($request->query('search'), fn ($q, $term) => $q->where(fn ($w) => $w
-                ->where('transaction_number', 'ilike', ListQuery::like($term))
-                ->orWhere('notes', 'ilike', ListQuery::like($term))
-                ->orWhere('borrower_name', 'ilike', ListQuery::like($term))
-                ->orWhere('counterparty_name', 'ilike', ListQuery::like($term))
-                ->orWhere('document_number', 'ilike', ListQuery::like($term))
-                ->orWhereHas('asset', fn ($a) => $a->where('name', 'ilike', ListQuery::like($term)))))
-            ->when($request->query('type'), fn ($q, $type) => $q->where('type', $type))
-            ->when($request->query('asset_id'), fn ($q, $id) => $q->where('asset_id', $id))
-            ->when($request->query('date_from'), fn ($q, $d) => $q->where('transaction_date', '>=', $d))
-            ->when($request->query('date_to'), fn ($q, $d) => $q->where('transaction_date', '<=', $d));
+        $request->validate($this->filterRules());
+        $query = $this->filtered($request)->with(self::RELATIONS);
 
         // Newest first by default; a column header asks for another order.
         $request->filled('sort')
@@ -111,6 +94,59 @@ class AssetTransactionController extends Controller
         return $single
             ? new AssetTransactionResource($transactions->first())
             : AssetTransactionResource::collection($transactions)->response()->setStatusCode(201);
+    }
+
+    /**
+     * Rows per list tab (Semua / Keluar / Masuk / Belum kembali) under the other list filters,
+     * so the counts match what each tab shows.
+     */
+    public function counts(Request $request): JsonResponse
+    {
+        $request->validate($this->filterRules());
+        $base = $request->except(['type', 'outgoing_nature', 'not_returned', 'page', 'per_page', 'sort']);
+        $count = fn (array $tab) => $this->filtered($request->duplicate([...$base, ...$tab]))->count();
+
+        return response()->json(['data' => [
+            'all' => $count([]),
+            TransactionType::OUTGOING => $count(['type' => TransactionType::OUTGOING]),
+            TransactionType::INCOMING => $count(['type' => TransactionType::INCOMING]),
+            'not_returned' => $count(['not_returned' => '1']),
+        ]]);
+    }
+
+    /** @return array<string, list<mixed>> */
+    private function filterRules(): array
+    {
+        return [
+            'search' => ['nullable', 'string', 'max:100'],
+            'type' => ['nullable', Rule::in(TransactionType::ALL)],
+            'outgoing_nature' => ['nullable', Rule::in(OutgoingReason::NATURES)],
+            // Temporary outgoing rows whose asset has not come back yet (same rule as the report filter).
+            'not_returned' => ['nullable', 'boolean'],
+            'asset_id' => ['nullable', 'uuid'],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+        ];
+    }
+
+    /** Visible transactions narrowed by the (validated) list filters. */
+    private function filtered(Request $request): Builder
+    {
+        return $this->visible()
+            ->when($request->query('search'), fn ($q, $term) => $q->where(fn ($w) => $w
+                ->where('transaction_number', 'ilike', ListQuery::like($term))
+                ->orWhere('notes', 'ilike', ListQuery::like($term))
+                ->orWhere('borrower_name', 'ilike', ListQuery::like($term))
+                ->orWhere('counterparty_name', 'ilike', ListQuery::like($term))
+                ->orWhere('document_number', 'ilike', ListQuery::like($term))
+                ->orWhereHas('asset', fn ($a) => $a->where('name', 'ilike', ListQuery::like($term)))))
+            ->when($request->query('type'), fn ($q, $type) => $q->where('type', $type))
+            ->when($request->query('outgoing_nature'), fn ($q, $nature) => $q->where('outgoing_nature', $nature))
+            ->when($request->boolean('not_returned'), fn ($q) => $q->where('type', TransactionType::OUTGOING)
+                ->where('outgoing_nature', OutgoingReason::TEMPORARY)->whereDoesntHave('incomingTransaction'))
+            ->when($request->query('asset_id'), fn ($q, $id) => $q->where('asset_id', $id))
+            ->when($request->query('date_from'), fn ($q, $d) => $q->where('transaction_date', '>=', $d))
+            ->when($request->query('date_to'), fn ($q, $d) => $q->where('transaction_date', '<=', $d));
     }
 
     /** Transactions of assets within the user's data scope. */

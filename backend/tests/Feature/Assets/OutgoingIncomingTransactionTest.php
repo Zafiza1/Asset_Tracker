@@ -187,6 +187,53 @@ class OutgoingIncomingTransactionTest extends TestCase
         $this->assertSame(2, $utilization['operable']);
     }
 
+    public function test_list_tabs_counts_and_return_status(): void
+    {
+        $back = $this->asset('Kembali');
+        $out = $this->asset('Di luar');
+        $late = $this->asset('Terlambat');
+        $this->record($back, 'outgoing', $this->temporary(['transaction_date' => now()->subDays(5)->toDateString()]))->assertCreated();
+        $this->record($back, 'incoming')->assertCreated();
+        $this->record($out, 'outgoing', $this->temporary())->assertCreated();
+        $this->record($late, 'outgoing', $this->temporary([
+            'transaction_date' => now()->subDays(10)->toDateString(),
+            'due_date' => now()->subDays(3)->toDateString(),
+        ]))->assertCreated();
+
+        $notReturned = collect($this->getJson('/api/transactions?not_returned=1')->assertOk()->json('data'));
+        $this->assertEqualsCanonicalizing([$out, $late], $notReturned->pluck('asset.id')->all());
+        $this->assertSame('Terlambat', $notReturned->firstWhere('asset.id', $late)['return_status']);
+        $this->assertSame(10, $notReturned->firstWhere('asset.id', $late)['days_out']);
+        $this->assertSame('Belum kembali', $notReturned->firstWhere('asset.id', $out)['return_status']);
+
+        $backRow = collect($this->getJson('/api/transactions?type=outgoing')->json('data'))->firstWhere('asset.id', $back);
+        $this->assertSame('Sudah kembali', $backRow['return_status']);
+        $this->assertSame(5, $backRow['days_out']);
+        $this->assertCount(3, $this->getJson('/api/transactions?type=outgoing&outgoing_nature=temporary')->json('data'));
+
+        // Registrations (3) + outgoing (3) + incoming (1); the tab filter itself is ignored.
+        $this->getJson('/api/transactions/counts?type=incoming')->assertOk()->assertExactJson(['data' => [
+            'all' => 7, 'outgoing' => 3, 'incoming' => 1, 'not_returned' => 2,
+        ]]);
+        $this->getJson('/api/transactions/counts?search=Terlambat')->assertJsonPath('data.all', 2)->assertJsonPath('data.not_returned', 1);
+        $this->assertErrorCode($this->getJson('/api/transactions/counts?type=bogus'), 422, 'VALIDATION_FAILED');
+    }
+
+    public function test_counterparty_contact_needs_contact_permission(): void
+    {
+        $asset = $this->asset();
+        $this->record($asset, 'outgoing', $this->temporary(['counterparty_contact' => '0812-555']))->assertCreated();
+        $this->getJson('/api/transactions?type=outgoing')->assertJsonPath('data.0.counterparty_contact', '0812-555');
+
+        $this->actingAs($this->member([]), 'web');
+        $this->getJson('/api/transactions?type=outgoing')->assertOk()
+            ->assertJsonPath('data.0.counterparty_name', 'CV Servis Jaya')
+            ->assertJsonPath('data.0.counterparty_contact', null);
+
+        $this->actingAs($this->member(['transaction.contact.view']), 'web');
+        $this->getJson('/api/transactions?type=outgoing')->assertJsonPath('data.0.counterparty_contact', '0812-555');
+    }
+
     public function test_database_rejects_outgoing_rows_without_their_required_fields(): void
     {
         $constraints = collect(DB::select("SELECT conname FROM pg_constraint WHERE conrelid = 'asset_transactions'::regclass"))->pluck('conname');

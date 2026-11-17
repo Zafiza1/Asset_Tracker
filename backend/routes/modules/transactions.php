@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 // Transactions apply at once, without approval (approval covers assets and master data only).
 Route::middleware('module:transactions')->group(function () {
     Route::get('/transactions', [AssetTransactionController::class, 'index'])->middleware('permission:transaction.view');
+    Route::get('/transactions/counts', [AssetTransactionController::class, 'counts'])->middleware('permission:transaction.view');
     Route::post('/transactions', [AssetTransactionController::class, 'store'])->middleware('permission:transaction.create');
     Route::get('/transactions/{assetTransaction}', [AssetTransactionController::class, 'show'])->middleware('permission:transaction.view');
 });

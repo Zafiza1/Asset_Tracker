@@ -1,6 +1,8 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, CircleCheck, Clock } from 'lucide-react'
+import { Badge } from '../../components/ui/Badge'
+import { formatDate } from '../../lib/format'
 import { assetStatusLabel } from '../assets/api'
-import type { AssetTransaction, TransactionWithState } from './api'
+import { daysLate, type AssetTransaction, type TransactionWithState } from './api'
 
 const locationChange = (trx: AssetTransaction) => trx.to_location && { from: trx.from_location?.name, to: trx.to_location.name }
 const statusChange = (trx: AssetTransaction) => trx.to_status && { from: trx.from_status && assetStatusLabel[trx.from_status], to: assetStatusLabel[trx.to_status] }
@@ -45,6 +47,35 @@ export function TransactionChanges({ trx }: { trx: AssetTransaction }) {
           <span className="font-medium text-slate-900">{r.to}</span>
         </p>
       ))}
+      {trx.type === 'outgoing' && (
+        <>
+          <p className="text-slate-700">
+            <span className="font-medium text-slate-900">{[trx.outgoing_nature_label, trx.reason_label].filter(Boolean).join(' · ')}</span>
+          </p>
+          <p className="text-slate-700">
+            <span className="text-slate-500">Ke:</span> {trx.counterparty_name}
+            {trx.counterparty_org && <span className="text-slate-500"> ({trx.counterparty_org})</span>}
+            {trx.counterparty_contact && <span className="text-slate-500"> · {trx.counterparty_contact}</span>}
+          </p>
+          {trx.due_date && (
+            <p className="text-slate-700">
+              <span className="text-slate-500">Rencana kembali:</span> <span className="tabular-nums">{formatDate(trx.due_date)}</span>
+            </p>
+          )}
+          <ReturnStatusBadge trx={trx} />
+        </>
+      )}
+      {trx.type === 'incoming' && trx.counterparty_name && (
+        <p className="text-slate-700">
+          <span className="text-slate-500">Dari:</span> {trx.counterparty_name}
+          {trx.counterparty_org && <span className="text-slate-500"> ({trx.counterparty_org})</span>}
+        </p>
+      )}
+      {trx.document_number && (
+        <p className="text-slate-700">
+          <span className="text-slate-500">Dokumen:</span> <span className="font-mono text-xs">{trx.document_number}</span>
+        </p>
+      )}
       {trx.borrower_name && (
         <p className="text-slate-700">
           <span className="text-slate-500">Peminjam:</span> {trx.borrower_name}
@@ -52,7 +83,31 @@ export function TransactionChanges({ trx }: { trx: AssetTransaction }) {
         </p>
       )}
       {trx.notes && <p className="whitespace-pre-line text-slate-600">{trx.notes}</p>}
-      {rows.length === 0 && !trx.borrower_name && !trx.notes && <p className="text-slate-400">—</p>}
+      {rows.length === 0 && !trx.borrower_name && !trx.notes && !trx.counterparty_name && <p className="text-slate-400">—</p>}
     </div>
+  )
+}
+
+/** Return state of a temporary outgoing row: late (with days), back, or still outside. */
+export function ReturnStatusBadge({ trx }: { trx: AssetTransaction }) {
+  if (!trx.return_status) return null
+  if (trx.return_status === 'Terlambat') {
+    return (
+      <Badge tone="red" icon={Clock}>
+        Terlambat {daysLate(trx)} hari
+      </Badge>
+    )
+  }
+  if (trx.return_status === 'Sudah kembali') {
+    return (
+      <Badge tone="green" icon={CircleCheck}>
+        Sudah kembali{trx.days_out != null ? ` · ${trx.days_out} hari di luar` : ''}
+      </Badge>
+    )
+  }
+  return (
+    <Badge tone="amber" icon={Clock}>
+      Belum kembali{trx.days_out != null ? ` · ${trx.days_out} hari` : ''}
+    </Badge>
   )
 }

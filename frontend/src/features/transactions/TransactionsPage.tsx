@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ArrowLeftRight, Plus, SearchX } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Plus, SearchX } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { ActiveFilters, AdvancedFilters, DateRangeFilter, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
@@ -10,19 +10,35 @@ import { Card, PageHeader } from '../../components/ui/Card'
 import { ColumnToggle } from '../../components/ui/ColumnToggle'
 import { EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
+import { PillTabs } from '../../components/ui/Tabs'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { Paginated } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { formatDate } from '../../lib/format'
-import { transactionTypeLabel, type AssetTransaction, type TransactionType } from './api'
+import { outgoingNatureLabel, transactionTypeLabel, type AssetTransaction, type OutgoingNature, type TransactionType } from './api'
 import { TransactionChanges } from './TransactionChanges'
 import { TransactionFormModal } from './TransactionFormModal'
 
-const FILTERS = ['page', 'per_page', 'search', 'type', 'date_from', 'date_to', 'sort', 'columns'] as const
+const FILTERS = ['page', 'per_page', 'search', 'type', 'outgoing_nature', 'not_returned', 'date_from', 'date_to', 'sort', 'columns'] as const
 const DEFAULT_PER_PAGE = 25
-const ADVANCED = ['type', 'date_from', 'date_to'] as const
+const ADVANCED = ['type', 'outgoing_nature', 'date_from', 'date_to'] as const
+
+/** List tabs; counts come from GET /transactions/counts under the other filters. */
+type Tab = '' | 'outgoing' | 'incoming' | 'not_returned'
+const TABS: { value: Tab; label: string; count: 'all' | Exclude<Tab, ''> }[] = [
+  { value: '', label: 'Semua', count: 'all' },
+  { value: 'outgoing', label: 'Keluar', count: 'outgoing' },
+  { value: 'incoming', label: 'Masuk', count: 'incoming' },
+  { value: 'not_returned', label: 'Belum kembali', count: 'not_returned' },
+]
+
+function TypeBadge({ trx }: { trx: AssetTransaction }) {
+  if (trx.type === 'outgoing') return <Badge tone="amber" icon={ArrowUpRight}>Keluar</Badge>
+  if (trx.type === 'incoming') return <Badge tone="green" icon={ArrowDownLeft}>Masuk</Badge>
+  return <Badge tone={trx.type === 'registration' ? 'green' : 'blue'}>{trx.type_label}</Badge>
+}
 const DEFAULT_COLUMNS = ['number', 'asset', 'type', 'changes', 'by']
 
 /** Asset Transactions module: every recorded activity, searchable and filterable. */
@@ -59,6 +75,14 @@ export function TransactionsPage() {
     placeholderData: keepPreviousData,
   })
 
+  // Counts ignore the tab itself, paging and sorting, so they stay put while switching tabs.
+  const { page: _page, per_page: _perPage, sort: _sort, columns: _columns, type: _type, not_returned: _notReturned, ...countFilters } = filters
+  const counts = useQuery({
+    queryKey: ['/transactions', 'counts', countFilters],
+    queryFn: () => api.get<{ data: Record<string, number> }>(`/transactions/counts${qs(countFilters)}`),
+    placeholderData: keepPreviousData,
+  })
+
   const update = (next: Record<string, string>) => {
     const merged = new URLSearchParams(params)
     for (const [k, v] of Object.entries(next)) {
@@ -76,9 +100,12 @@ export function TransactionsPage() {
 
   // Every applied filter as a removable chip.
   const type = params.get('type') as TransactionType | null
+  const nature = params.get('outgoing_nature') as OutgoingNature | null
+  const tab: Tab | 'other' = params.get('not_returned') === '1' ? 'not_returned' : !type ? '' : type === 'outgoing' || type === 'incoming' ? type : 'other'
   const chips: FilterChip[] = [
     ...searchChip(params.get('search'), () => (setSearch(''), update({ search: '' }))),
     ...(type ? [{ key: 'type', label: `Jenis: ${transactionTypeLabel[type] ?? type}`, clear: () => update({ type: '' }) }] : []),
+    ...(nature ? [{ key: 'nature', label: `Sifat: ${outgoingNatureLabel[nature] ?? nature}`, clear: () => update({ outgoing_nature: '' }) }] : []),
     ...(params.get('date_from') ? [{ key: 'from', label: `Dari ${formatDate(params.get('date_from')!)}`, clear: () => update({ date_from: '' }) }] : []),
     ...(params.get('date_to') ? [{ key: 'to', label: `Sampai ${formatDate(params.get('date_to')!)}`, clear: () => update({ date_to: '' }) }] : []),
   ]
@@ -110,7 +137,7 @@ export function TransactionsPage() {
           </Link>
         ),
     },
-    { key: 'type', header: 'Jenis', className: 'w-36', sortKey: 'type', cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge> },
+    { key: 'type', header: 'Jenis', className: 'w-36', sortKey: 'type', cell: (t) => <TypeBadge trx={t} /> },
     { key: 'changes', header: 'Rincian', className: 'whitespace-normal', cell: (t) => <TransactionChanges trx={t} />, hideOnMobile: true },
     { key: 'by', header: 'Dicatat oleh', className: 'w-40', sortKey: 'by', cell: (t) => t.created_by ?? '—', hideOnMobile: true },
   ]
@@ -119,7 +146,7 @@ export function TransactionsPage() {
     <>
       <PageHeader
         title="Transaksi Aset"
-        description="Riwayat setiap perpindahan, peminjaman, pengembalian, dan perubahan status aset."
+        description="Riwayat perpindahan, peminjaman, aset keluar dan masuk organisasi, serta perubahan status aset."
         actions={
           can('transaction.create') && (
             <Button onClick={() => setCreating(true)}>
@@ -129,12 +156,20 @@ export function TransactionsPage() {
         }
       />
       <Card>
+        <div className="border-b border-slate-100 px-3 pt-3">
+          <PillTabs
+            label="Saring jenis transaksi"
+            value={tab}
+            onChange={(next) => update({ type: next === 'outgoing' || next === 'incoming' ? next : '', not_returned: next === 'not_returned' ? '1' : '' })}
+            tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts.data?.data[t.count], attention: t.value === 'not_returned' }))}
+          />
+        </div>
         <FilterPanel>
           <SearchForm
             value={search}
             onChange={setSearch}
             onSubmit={() => update({ search })}
-            placeholder="Cari nomor transaksi, aset, peminjam, catatan"
+            placeholder="Cari nomor, aset, peminjam, pihak luar, nomor dokumen"
             label="Cari transaksi"
             aside={
               <ColumnToggle
@@ -151,6 +186,14 @@ export function TransactionsPage() {
               {(Object.keys(transactionTypeLabel) as TransactionType[]).map((t) => (
                 <option key={t} value={t}>
                   {transactionTypeLabel[t]}
+                </option>
+              ))}
+            </Select>
+            <Select value={draft.outgoing_nature} onChange={(e) => advanced.set({ outgoing_nature: e.target.value })} aria-label="Sifat transaksi keluar">
+              <option value="">Sifat keluar: semua</option>
+              {(Object.keys(outgoingNatureLabel) as OutgoingNature[]).map((n) => (
+                <option key={n} value={n}>
+                  {outgoingNatureLabel[n]}
                 </option>
               ))}
             </Select>

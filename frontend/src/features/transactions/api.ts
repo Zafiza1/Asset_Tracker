@@ -2,10 +2,16 @@ import { assetStatusLabel, type Asset, type AssetStatus, type Ref } from '../ass
 
 /** Asset Transactions module: API shapes and labels. Types mirror App\Domain\AssetTransactions\TransactionType. */
 
-export type TransactionType = 'registration' | 'transfer' | 'status_change' | 'loan' | 'return' | 'note' | 'archive' | 'restore'
+export type TransactionType = 'registration' | 'transfer' | 'status_change' | 'loan' | 'return' | 'note' | 'archive' | 'restore' | 'outgoing' | 'incoming'
 
 /** Types recorded manually in the Transactions menu. */
-export type ManualTransactionType = 'transfer' | 'status_change' | 'loan' | 'return' | 'note'
+export type ManualTransactionType = 'transfer' | 'status_change' | 'loan' | 'return' | 'note' | 'outgoing' | 'incoming'
+
+/** Outgoing transactions: temporary (asset comes back, off_site) or permanent (disposed). */
+export type OutgoingNature = 'temporary' | 'permanent'
+
+/** Only on temporary outgoing rows (mirrors AssetTransaction::returnStatus). */
+export type ReturnStatus = 'Sudah kembali' | 'Terlambat' | 'Belum kembali'
 
 export interface AssetTransaction {
   id: string
@@ -22,6 +28,18 @@ export interface AssetTransaction {
   borrower_name: string | null
   due_date: string | null
   notes: string | null
+  outgoing_nature?: OutgoingNature | null
+  outgoing_nature_label?: string | null
+  reason_code?: string | null
+  reason_label?: string | null
+  counterparty_name?: string | null
+  counterparty_org?: string | null
+  /** Personal data: null without transaction.contact.view. */
+  counterparty_contact?: string | null
+  document_number?: string | null
+  outgoing_transaction_id?: string | null
+  return_status?: ReturnStatus | null
+  days_out?: number | null
   created_by?: string | null
   created_at: string
 }
@@ -35,9 +53,32 @@ export const transactionTypeLabel: Record<TransactionType, string> = {
   note: 'Aktivitas lain',
   archive: 'Penonaktifan',
   restore: 'Pengaktifan kembali',
+  outgoing: 'Transaksi keluar',
+  incoming: 'Transaksi masuk',
 }
 
-export const manualTypes: ManualTransactionType[] = ['transfer', 'status_change', 'loan', 'return', 'note']
+/** Outgoing reasons per nature; mirrors App\Domain\AssetTransactions\OutgoingReason::REASONS. */
+export const outgoingReasons: Record<OutgoingNature, { value: string; label: string }[]> = {
+  temporary: [
+    { value: 'lent_external', label: 'Dipinjamkan ke pihak luar' },
+    { value: 'external_repair', label: 'Perbaikan di vendor' },
+    { value: 'sent_to_project', label: 'Dikirim ke proyek/klien' },
+    { value: 'other', label: 'Lainnya' },
+  ],
+  permanent: [
+    { value: 'sold', label: 'Dijual' },
+    { value: 'donated', label: 'Dihibahkan' },
+    { value: 'returned_to_owner', label: 'Dikembalikan ke pemilik/vendor' },
+    { value: 'other', label: 'Lainnya' },
+  ],
+}
+
+export const outgoingNatureLabel: Record<OutgoingNature, string> = {
+  temporary: 'Sementara',
+  permanent: 'Permanen',
+}
+
+export const manualTypes: ManualTransactionType[] = ['transfer', 'status_change', 'loan', 'return', 'outgoing', 'incoming', 'note']
 
 /** Extra permission per type (the API checks it as well). */
 export const typePermission: Record<ManualTransactionType, string | null> = {
@@ -46,6 +87,8 @@ export const typePermission: Record<ManualTransactionType, string | null> = {
   loan: 'asset.assign',
   return: 'asset.assign',
   note: null,
+  outgoing: 'asset.outgoing',
+  incoming: 'asset.incoming',
 }
 
 /** Target values chosen in the form that some assets cannot take part in. */
@@ -59,7 +102,11 @@ export interface TransactionTarget {
  * Mirrors the API rules so ineligible assets can be shown but not picked.
  */
 export function ineligibleReason(asset: Pick<Asset, 'status' | 'location_id'>, type: ManualTransactionType, target: TransactionTarget = {}): string | null {
-  if (!allowedTypes(asset.status).includes(type)) return `Status ${assetStatusLabel[asset.status]}`
+  if (!allowedTypes(asset.status).includes(type)) {
+    if (type === 'outgoing' && asset.status === 'off_site') return 'Sudah di luar organisasi'
+    if (type === 'incoming') return 'Tidak sedang di luar organisasi'
+    return `Status ${assetStatusLabel[asset.status]}`
+  }
   if (type === 'transfer' && target.to_location_id && target.to_location_id === asset.location_id) return 'Sudah di lokasi tujuan'
   if (type === 'status_change' && target.to_status && target.to_status === asset.status) return 'Status sudah sama'
   return null
@@ -69,9 +116,10 @@ export function ineligibleReason(asset: Pick<Asset, 'status' | 'location_id'>, t
 export function allowedTypes(status: AssetStatus | undefined): ManualTransactionType[] {
   if (!status) return manualTypes
   if (status === 'on_loan') return ['return', 'note']
+  if (status === 'off_site') return ['incoming', 'note']
   if (status === 'disposed' || status === 'lost') return ['status_change', 'note']
   if (status === 'under_maintenance') return ['transfer', 'status_change', 'note']
-  return ['transfer', 'status_change', 'loan', 'note']
+  return ['transfer', 'status_change', 'loan', 'outgoing', 'note']
 }
 
 /** A transaction with where the asset was and what its status was right after it. */
@@ -91,4 +139,16 @@ export function withStateAfter(history: AssetTransaction[], asset: Pick<Asset, '
     if (t.to_status && t.from_status) status = t.from_status
     return row
   })
+}
+
+/** Today in the browser's time zone as YYYY-MM-DD (transaction dates are plain dates). */
+export function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Days a temporary outgoing asset is past its planned return date (0 when not late or back). */
+export function daysLate(trx: Pick<AssetTransaction, 'return_status' | 'due_date'>, today: string = localToday()): number {
+  if (trx.return_status !== 'Terlambat' || !trx.due_date) return 0
+  return Math.max(0, Math.round((Date.parse(today) - Date.parse(trx.due_date)) / 86_400_000))
 }
