@@ -82,6 +82,8 @@ npm run dev        # http://localhost:5173 — /api dan /sanctum di-proxy ke htt
 
 ## Pengujian
 
+CI (`.github/workflows/ci.yml`) menjalankan semua pemeriksaan di bawah pada setiap PR dan push ke `main`, ditambah Gitleaks (secret) dan Trivy (dependency). Di lokal, jalankan PHPUnit langsung dengan memori cukup: `php -d memory_limit=1G vendor/bin/phpunit` (`php artisan test` tidak meneruskan `memory_limit` ke proses PHPUnit dan dapat berhenti di test spreadsheet). Database CI disiapkan oleh `.github/ci/postgres-setup.sql`.
+
 ```bash
 cd backend && php artisan test         # buat .env.testing (salinan .env dengan DB_DATABASE=asset_tracker_v1_test)
 cd frontend && npm run typecheck && npm run lint && npm test && npm run build

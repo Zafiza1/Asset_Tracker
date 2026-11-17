@@ -15,7 +15,7 @@
 | T-01 | Verifikasi dan commit Dashboard kustom + Report Designer (WIP), lalu push | backend-engineer + frontend-engineer | verification-before-completion, code-review | — | file WIP di `git status` | L | tier2 | qa, security, auditor | in_review |
 | T-02 | Perbaiki error typecheck `usersPage.test.tsx` | frontend-engineer | — | — | `frontend/src/test/usersPage.test.tsx` | S | tier3 | qa (CI) | in_review |
 | T-03 | Netralkan instruksi instalasi remote di `backend/AGENTS.md` dan `CLAUDE.md` (SEC-10) | security-engineer | ai-agent-security | — | `backend/AGENTS.md`, `backend/CLAUDE.md` | S | tier2 | auditor | in_review |
-| T-04 | CI GitHub Actions: lint, typecheck, Vitest, PHPUnit (PostgreSQL service + 5 role), Gitleaks, Trivy | devops-engineer | ci-cd-pipeline | T-02 | `.github/**` | M | tier2 | security, auditor | todo |
+| T-04 | CI GitHub Actions: lint, typecheck, Vitest, PHPUnit (PostgreSQL service + 5 role), Gitleaks, Trivy | devops-engineer | ci-cd-pipeline | T-02 | `.github/**` | M | tier2 | security, auditor | in_review |
 | T-05 | `docs/deployment-checklist.md`: APP_DEBUG, secure cookie, kunci konteks DB, role PostgreSQL, backup | devops-engineer | deployment-automation | — | `docs/deployment-checklist.md` | S | tier2 | security | todo |
 | T-06 | PRD mutakhir: gabungkan `01` + `08`, beri ID requirement dan acceptance criteria | product-analyst | brd-prd-creation, acceptance-criteria | D-1 | `docs/01-requirements.md`, `docs/08-*` | M | tier2 | system-architect, qa | todo |
 | T-07 | Tandai `06-lifecycle-and-workflow.md` usang; lengkapi `factory/03` §7 (Dashboard, Report Designer, mobile) | system-architect | system-flow-design | T-01 | `docs/06-*`, `docs/factory/03-*` | S | tier2 | product-analyst | todo |
