@@ -4,8 +4,12 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Identity\Models\User;
 use App\Domain\ReportDesigner\Models\ReportTemplate;
+use App\Domain\ReportDesigner\Services\DesignValidator;
+use App\Domain\ReportDesigner\Services\ReportDataResolver;
+use App\Domain\ReportDesigner\Services\ReportPreviewResolver;
 use App\Domain\ReportDesigner\Services\ReportTemplateService;
 use App\Domain\ReportDesigner\TemplateStatus;
+use App\Domain\Shared\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ReportTemplateResource;
 use App\Http\Resources\ReportTemplateVersionResource;
@@ -19,7 +23,12 @@ use Symfony\Component\HttpFoundation\Response;
 /** Custom Report Designer: template management (list, CRUD, duplicate, publish, archive, versions). */
 class ReportTemplateController extends Controller
 {
-    public function __construct(private readonly ReportTemplateService $service) {}
+    public function __construct(
+        private readonly ReportTemplateService $service,
+        private readonly DesignValidator $validator,
+        private readonly ReportDataResolver $data,
+        private readonly ReportPreviewResolver $preview,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -90,6 +99,48 @@ class ReportTemplateController extends Controller
     public function archive(ReportTemplate $reportTemplate): ReportTemplateResource
     {
         return new ReportTemplateResource($this->service->archive($reportTemplate)->load('creator'));
+    }
+
+    /**
+     * Static design check against the Field Registry: every {{binding}}, table column,
+     * condition and geometry rule. Accepts an unsaved `design` or a stored version.
+     */
+    public function validateDesign(Request $request, ReportTemplate $reportTemplate): JsonResponse
+    {
+        $data = $request->validate([
+            'design' => ['nullable', 'array'],
+            'version_number' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $design = $data['design'] ?? $this->preview->versionFor($reportTemplate, $data['version_number'] ?? null)?->design;
+        $check = $this->validator->validate(is_array($design) ? $design : [], $reportTemplate->data_source);
+
+        return response()->json(['data' => $check]);
+    }
+
+    /**
+     * Resolve the design against live tenant data (bounded row set). Read-only: it
+     * never writes exports, files or template state.
+     */
+    public function preview(Request $request, ReportTemplate $reportTemplate): JsonResponse
+    {
+        $rules = [
+            'version_number' => ['nullable', 'integer', 'min:1'],
+            'filters' => ['nullable', 'array'],
+        ];
+        foreach (ReportDataResolver::filterRules($reportTemplate->data_source) as $key => $rule) {
+            $rules["filters.{$key}"] = $rule;
+        }
+        $data = $request->validate($rules);
+
+        $version = $this->preview->versionFor($reportTemplate, $data['version_number'] ?? null);
+        if ($version === null) {
+            throw new ApiException('NOT_FOUND', 'Versi template tidak ditemukan.', 404);
+        }
+
+        $filters = $this->data->filters($reportTemplate->data_source, $data['filters'] ?? []);
+
+        return response()->json(['data' => $this->preview->preview($reportTemplate, $version, $filters)]);
     }
 
     public function versions(ReportTemplate $reportTemplate): AnonymousResourceCollection

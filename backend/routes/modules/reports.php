@@ -24,5 +24,8 @@ Route::middleware('module:reports')->group(function () {
     Route::post('/report-templates/{reportTemplate}/duplicate', [ReportTemplateController::class, 'duplicate'])->middleware('permission:report.create');
     Route::post('/report-templates/{reportTemplate}/publish', [ReportTemplateController::class, 'publish'])->middleware('permission:report.publish');
     Route::post('/report-templates/{reportTemplate}/archive', [ReportTemplateController::class, 'archive'])->middleware('permission:report.publish');
+    // Data binding: registry validation while designing, live-data preview for authorized users.
+    Route::post('/report-templates/{reportTemplate}/validate', [ReportTemplateController::class, 'validateDesign'])->middleware('permission:report.update');
+    Route::post('/report-templates/{reportTemplate}/preview', [ReportTemplateController::class, 'preview'])->middleware('permission:report.preview');
     Route::get('/report-templates/{reportTemplate}/versions', [ReportTemplateController::class, 'versions'])->middleware('permission:report.view');
 });

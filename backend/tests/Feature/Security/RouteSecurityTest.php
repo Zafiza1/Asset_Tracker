@@ -3,6 +3,8 @@
 namespace Tests\Feature\Security;
 
 use App\Domain\Approvals\Models\ApprovalRequest;
+use App\Domain\Dashboards\Models\Dashboard;
+use App\Domain\Dashboards\Models\DashboardTemplate;
 use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
@@ -120,8 +122,16 @@ class RouteSecurityTest extends TestCase
         $template = (new ReportTemplate)->forceFill(['organization_id' => $orgB->id, 'code' => 'B-TPL', 'name' => 'Beta',
             'data_source' => 'asset', 'status' => 'draft']);
         $template->save();
+        $dashboard = (new Dashboard)->forceFill(['organization_id' => $orgB->id, 'name' => 'Beta', 'dashboard_type' => 'custom',
+            'visibility' => 'organization', 'created_by' => $adminB->id]);
+        $dashboard->save();
+        $dashboardTemplate = (new DashboardTemplate)->forceFill(['organization_id' => $orgB->id, 'template_key' => 'beta', 'name' => 'Beta',
+            'dashboard_type' => 'custom', 'scope' => 'organization']);
+        $dashboardTemplate->save();
 
         return [
+            'dashboard' => $dashboard->id,
+            'dashboardTemplate' => $dashboardTemplate->id,
             // {source} is a registry key, not a record: an unknown one answers 404 for everyone.
             'source' => 'bukan-sumber',
             'reportTemplate' => $template->id,

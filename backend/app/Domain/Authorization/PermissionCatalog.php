@@ -71,6 +71,7 @@ final class PermissionCatalog
         'report.delete' => ['tenant', 'report_designer', 'Menghapus template laporan kustom'],
         'report.publish' => ['tenant', 'report_designer', 'Mempublikasikan dan mengarsipkan template laporan'],
         'report.generate' => ['tenant', 'report_designer', 'Membuat laporan dari template terpublikasi'],
+        'report.preview' => ['tenant', 'report_designer', 'Melihat pratinjau laporan dari template'],
         'report.download' => ['tenant', 'report_designer', 'Mengunduh hasil laporan kustom'],
         'report.manage' => ['tenant', 'report_designer', 'Mengelola aset dan pengaturan template laporan'],
         'report.history.view' => ['tenant', 'report_designer', 'Melihat riwayat ekspor laporan kustom'],

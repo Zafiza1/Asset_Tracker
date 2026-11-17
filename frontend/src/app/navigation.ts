@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileBarChart, FileClock, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, QrCode, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileBarChart, FileClock, FileText, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, QrCode, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -41,7 +41,10 @@ export const tenantNavigation: NavSection[] = [
   {
     group: 'Monitoring',
     title: 'Laporan & Analisis',
-    items: [{ to: '/laporan', label: 'Laporan Aset', icon: FileBarChart, permission: 'report.view' }],
+    items: [
+      { to: '/laporan', label: 'Laporan Aset', icon: FileBarChart, permission: 'report.view' },
+      { to: '/laporan/template', label: 'Template Laporan', icon: FileText, permission: 'report.view' },
+    ],
   },
   {
     group: 'Konfigurasi',
@@ -106,7 +109,9 @@ export const breadcrumbLabels: Record<string, string> = {
   'ubah-password': 'Ubah Password',
   aset: 'Data Aset',
   transaksi: 'Transaksi Aset',
-  laporan: 'Laporan Aset',
+  laporan: 'Laporan',
+  template: 'Template Laporan',
+  desain: 'Desainer',
   master: 'Master Data',
   kategori: 'Kategori',
   definisi: 'Definisi',

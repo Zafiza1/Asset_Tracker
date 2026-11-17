@@ -3,12 +3,15 @@
 namespace App\Providers;
 
 use App\Domain\Assets\AssetMasterUsage;
+use App\Domain\Dashboards\Models\Dashboard;
+use App\Domain\Dashboards\Services\DashboardAccessService;
 use App\Domain\Identity\Models\MobileAccessToken;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\AccountUserProvider;
 use App\Domain\Identity\Services\EmailVerification;
 use App\Domain\Shared\Masters\MasterUsage;
 use App\Domain\Shared\Tenancy\Tenancy;
+use App\Policies\DashboardPolicy;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
@@ -27,17 +31,22 @@ use Laravel\Sanctum\Sanctum;
 class AppServiceProvider extends ServiceProvider
 {
     /** Route parameters that are always UUID primary keys (invalid ids → 404, never a SQL error). */
-    private const UUID_ROUTE_PARAMETERS = ['user', 'role', 'organization', 'invitation'];
+    private const UUID_ROUTE_PARAMETERS = ['user', 'role', 'organization', 'invitation', 'dashboard', 'dashboardTemplate'];
 
     public function register(): void
     {
         $this->app->singleton(Tenancy::class);
         $this->app->bind(MasterUsage::class, AssetMasterUsage::class);
+        // Memoizes role ids per TenantContext (one per request), so a singleton is safe.
+        $this->app->singleton(DashboardAccessService::class);
     }
 
     public function boot(): void
     {
         Model::shouldBeStrict(! $this->app->isProduction());
+
+        // Domain models live outside App\Models, so policies are registered explicitly.
+        Gate::policy(Dashboard::class, DashboardPolicy::class);
 
         Auth::provider('account', fn ($app, array $config) => new AccountUserProvider($app['hash'], $config['model'], $app->make(Tenancy::class)));
         // Bearer tokens are only issued to the mobile scanner app (see MobileAccessToken).

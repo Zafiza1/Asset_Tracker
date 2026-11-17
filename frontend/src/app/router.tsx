@@ -22,6 +22,9 @@ import {
 import { PlatformOrganizationDetailPage } from '../features/platform/PlatformOrganizationDetailPage'
 import { PlatformOrganizationsPage } from '../features/platform/PlatformOrganizationsPage'
 import { AssetReportPage } from '../features/reports/AssetReportPage'
+import { ReportDesignerPage } from '../features/reportDesigner/ReportDesignerPage'
+import { ReportTemplateDetailPage } from '../features/reportDesigner/ReportTemplateDetailPage'
+import { ReportTemplatesPage } from '../features/reportDesigner/ReportTemplatesPage'
 import { RoleFormPage } from '../features/roles/RoleFormPage'
 import { TransactionsPage } from '../features/transactions/TransactionsPage'
 import { NotificationsPage } from '../features/approvals/NotificationsPage'
@@ -76,6 +79,9 @@ export const router = createBrowserRouter([
                   { path: '/notifikasi', element: tenant(null, <NotificationsPage />) },
                   { path: '/panduan', element: tenant(null, <GuidePage />) },
                   { path: '/laporan', element: tenant('report.view', <AssetReportPage />) },
+                  { path: '/laporan/template', element: tenant('report.view', <ReportTemplatesPage />) },
+                  { path: '/laporan/template/:id', element: tenant('report.view', <ReportTemplateDetailPage />) },
+                  { path: '/laporan/template/:id/desain', element: tenant('report.update', <ReportDesignerPage />) },
                   { path: '/ubah-password', element: <ChangePasswordPage /> },
                   { path: '/organisasi', element: tenant('organization.view', <OrganizationPage />) },
                   { path: '/modul/barcode', element: tenant('settings.manage', <ModulesPage module="barcode" />) },

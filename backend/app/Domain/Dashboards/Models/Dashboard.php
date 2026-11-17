@@ -78,6 +78,28 @@ class Dashboard extends Model
         return $this->dashboard_type === DashboardType::OVERVIEW;
     }
 
+    public function isCategory(): bool
+    {
+        return $this->dashboard_type === DashboardType::CATEGORY;
+    }
+
+    public function isCustom(): bool
+    {
+        return $this->dashboard_type === DashboardType::CUSTOM;
+    }
+
+    /** Overview and category dashboards: created by the system, one per organization / category, never deleted by users. */
+    public function isSystemManaged(): bool
+    {
+        return ! $this->isCustom();
+    }
+
+    /** The template it was copied from has a newer version (applying it is an explicit action). */
+    public function templateUpdateAvailable(): bool
+    {
+        return $this->template !== null && $this->template_version !== null && $this->template->version > $this->template_version;
+    }
+
     public function isPersonal(): bool
     {
         return $this->visibility === DashboardType::PERSONAL;
