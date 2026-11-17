@@ -4,11 +4,13 @@ namespace Tests\Feature\Auth;
 
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Audit\Models\AuditLog;
+use App\Domain\Identity\Models\MobileAccessToken;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\Shared\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -218,6 +220,59 @@ class MobileAccessTest extends TestCase
             'counterparty_name' => 'CV Servis', 'due_date' => now()->addWeek()->toDateString(),
         ]);
         $this->assertErrorCode($response, 403, 'FORBIDDEN');
+    }
+
+    public function test_token_works_until_the_end_of_the_organization_day(): void
+    {
+        $jakarta = fn (string $at) => CarbonImmutable::parse($at, 'Asia/Jakarta');
+        $end = fn (string $at) => MobileAccessToken::expiresAt('Asia/Jakarta', $jakarta($at))->setTimezone('Asia/Jakarta')->format('Y-m-d H:i:s');
+        $this->assertSame('2026-11-17 23:59:59', $end('2026-11-17 08:00'));
+        $this->assertSame('2026-11-17 23:59:59', $end('2026-11-17 17:59'));
+        // Under MIN_HOURS left (e.g. a night shift): the end of the next day, so it never ends mid-shift.
+        $this->assertSame('2026-11-18 23:59:59', $end('2026-11-17 21:30'));
+        $this->assertSame('2026-11-18 23:59:59', $end('2026-11-18 00:30'));
+        // The organization's day, not the server's (UTC).
+        $this->assertSame('2026-11-17 23:59:59', MobileAccessToken::expiresAt(null, CarbonImmutable::parse('2026-11-17 08:00', 'UTC'))->format('Y-m-d H:i:s'));
+
+        $this->tenancy()->runAsSystem(fn () => $this->alpha->forceFill(['timezone' => 'Asia/Jakarta'])->save());
+        $login = $this->login()->assertOk();
+        $this->assertSame(MobileAccessToken::expiresAt('Asia/Jakarta')->toIso8601String(), $login->json('data.expires_at'));
+
+        // Past its end the token is refused and the app asks to log in again.
+        $token = $login->json('data.token');
+        $this->tenancy()->runAsSystem(fn () => DB::table('mobile_access_tokens')->update(['expires_at' => now()->subSecond()]));
+        $this->bearer($token)->getJson('/api/auth/mobile/me')->assertUnauthorized();
+    }
+
+    public function test_password_change_and_reset_end_mobile_logins(): void
+    {
+        $token = $this->login()->json('data.token');
+        $this->withoutToken()->withHeader('Origin', 'http://localhost:5173')->actingAs($this->admin, 'web');
+        $this->putJson('/api/auth/password', [
+            'current_password' => self::PASSWORD, 'password' => 'Baru-Rahasia-2026', 'password_confirmation' => 'Baru-Rahasia-2026',
+        ])->assertOk();
+        $this->assertSame(0, $this->tenancy()->runAsSystem(fn () => DB::table('mobile_access_tokens')->where('tokenable_id', $this->admin->id)->count()));
+        $this->bearer($token)->getJson('/api/auth/mobile/me')->assertUnauthorized();
+
+        // Reset by an administrator.
+        $staff = $this->createTenantUser($this->alpha, ['ADMIN']);
+        $staffToken = $this->login(['email' => $staff->email])->assertOk()->json('data.token');
+        $this->app['auth']->forgetGuards();
+        $this->withoutToken()->withHeader('Origin', 'http://localhost:5173')->actingAs($this->admin, 'web');
+        $this->postJson("/api/users/{$staff->id}/reset-password", ['password' => 'Sementara-Rahasia-2026'])->assertNoContent();
+        $this->assertSame(0, $this->tenancy()->runAsSystem(fn () => DB::table('mobile_access_tokens')->where('tokenable_id', $staff->id)->count()));
+        $this->bearer($staffToken)->getJson('/api/auth/mobile/me')->assertUnauthorized();
+    }
+
+    public function test_deactivated_member_loses_mobile_logins_of_that_organization(): void
+    {
+        $staff = $this->createTenantUser($this->alpha, ['ADMIN']);
+        $this->login(['email' => $staff->email])->assertOk();
+        $this->assertSame(1, $this->tenancy()->runAsSystem(fn () => DB::table('mobile_access_tokens')->where('tokenable_id', $staff->id)->count()));
+
+        $this->withoutToken()->withHeader('Origin', 'http://localhost:5173')->actingAs($this->admin, 'web');
+        $this->postJson("/api/users/{$staff->id}/deactivate")->assertOk();
+        $this->assertSame(0, $this->tenancy()->runAsSystem(fn () => DB::table('mobile_access_tokens')->where('tokenable_id', $staff->id)->count()));
     }
 
     public function test_tokens_are_invisible_in_a_tenant_context(): void

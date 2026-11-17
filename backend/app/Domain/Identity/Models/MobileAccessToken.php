@@ -2,7 +2,9 @@
 
 namespace App\Domain\Identity\Models;
 
+use App\Domain\Identity\Models\User;
 use App\Domain\Shared\Tenancy\Tenancy;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
@@ -22,8 +24,36 @@ class MobileAccessToken extends PersonalAccessToken
 {
     use HasUuids;
 
-    /** Days a token works after login; the app then asks to log in again. */
-    public const LIFETIME_DAYS = 30;
+    /**
+     * A token works until the end of the day it was issued (organization's time zone), so a lost
+     * phone is usable for one working day at most and every shift starts with a login (decision
+     * of the product owner, 2026-11-17). A login with less than MIN_HOURS left in the day (e.g. a
+     * night shift) runs to the end of the next day instead, so it never ends mid-shift.
+     */
+    public const MIN_HOURS = 6;
+
+    public static function expiresAt(?string $timezone, ?CarbonImmutable $now = null): CarbonImmutable
+    {
+        $local = ($now ?? CarbonImmutable::now())->setTimezone($timezone ?: 'UTC');
+        $end = $local->endOfDay();
+        if ($local->diffInHours($end) < self::MIN_HOURS) {
+            $end = $local->addDay()->endOfDay();
+        }
+
+        return $end->utc();
+    }
+
+    /**
+     * Ends the account's mobile logins: all of them (password changed or reset), or those of one
+     * organization (membership deactivated). The app then asks to log in again.
+     */
+    public static function revokeFor(User $user, ?string $organizationId = null): int
+    {
+        return app(Tenancy::class)->runAsSystem(fn () => static::query()
+            ->where('tokenable_type', $user->getMorphClass())->where('tokenable_id', $user->getKey())
+            ->when($organizationId, fn ($q, $id) => $q->where('organization_id', $id))
+            ->delete());
+    }
 
     protected $table = 'mobile_access_tokens';
 

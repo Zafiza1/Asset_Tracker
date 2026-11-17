@@ -101,7 +101,7 @@ class AuthController extends Controller
             'name' => $data['device_name'],
             'token' => hash('sha256', $plain),
             'abilities' => $abilities,
-            'expires_at' => now()->addDays(MobileAccessToken::LIFETIME_DAYS),
+            'expires_at' => MobileAccessToken::expiresAt($organization->timezone),
             'organization_id' => $organization->id,
         ]);
         $this->tenancy->runAsSystem(fn () => $user->forceFill(['last_login_at' => now()])->save());
@@ -372,6 +372,8 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
         $sessions->terminateAll($user, exceptSessionId: $request->session()->getId());
+        // A changed password also ends every phone logged in with the old one (e.g. a lost phone).
+        MobileAccessToken::revokeFor($user);
         $this->audit->record('auth.password_changed', $user, organizationId: $this->currentOrganizationId($request, $user), actor: $user);
 
         return response()->json(['data' => $this->profile($request, $user)]);

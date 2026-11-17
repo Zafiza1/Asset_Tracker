@@ -42,7 +42,7 @@ export default function LoginScreen() {
             <Text style={styles.subtitle}>Pindai barcode 1D atau 2D untuk melihat detail aset.</Text>
           </View>
 
-          {error && <Alert>{error}</Alert>}
+          {error ? <Alert>{error}</Alert> : session.notice && <Alert tone="warning">{session.notice}</Alert>}
 
           {organizations ? (
             <View style={styles.form}>

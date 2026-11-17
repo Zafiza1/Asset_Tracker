@@ -7,7 +7,7 @@ Aplikasi Android/iOS untuk memindai barcode aset dan menampilkan detailnya, sama
 | Teknologi | Expo SDK 58, React Native 0.88, Expo Router, `expo-camera` |
 | Barcode 1D | Code 128 (label cetak), Code 39, Code 93, Codabar, EAN-13, EAN-8, UPC-A, UPC-E, ITF-14 |
 | Barcode 2D | QR Code (label cetak), Data Matrix, PDF417, Aztec |
-| Akses | Membaca, menambah aset/kategori/lokasi, dan menindaklanjuti approval, sesuai role. Token login terikat ke satu organisasi dan berlaku 30 hari |
+| Akses | Membaca, menambah aset/kategori/lokasi, dan menindaklanjuti approval, sesuai role. Token login terikat ke satu organisasi dan berlaku sampai pukul 23.59 hari login (zona waktu organisasi; login dengan sisa < 6 jam berlaku sampai akhir hari berikutnya). Ganti/reset password mencabut semua login mobile; menonaktifkan anggota mencabut login mobile di organisasi itu. Saat sesi berakhir, layar login menampilkan alasannya |
 
 Setelah login, aplikasi membuka halaman **beranda** (nama akun dan organisasi, tombol **Scan Aset**, pencarian manual berdasarkan nomor seri, menu, dan tombol **Keluar**). Kamera baru aktif setelah tombol Scan Aset ditekan.
 

@@ -10,6 +10,7 @@ use App\Domain\Authorization\Services\DataScopeGuard;
 use App\Domain\Authorization\Services\OrgAdminGuard;
 use App\Domain\Authorization\Services\RoleManagement;
 use App\Domain\Identity\Models\OrganizationMember;
+use App\Domain\Identity\Models\MobileAccessToken;
 use App\Domain\Identity\Models\User;
 use App\Domain\Licensing\Services\LicenseCodeService;
 use App\Domain\Licensing\Services\Licensing;
@@ -176,6 +177,10 @@ final class UserManagement
             if ($status !== User::STATUS_ACTIVE && $this->access->isExclusiveTo($user, $orgId)) {
                 $this->sessions->terminateAll($user);
             }
+            // Mobile logins are bound to one organization: end those of this one.
+            if ($status !== User::STATUS_ACTIVE) {
+                MobileAccessToken::revokeFor($user, $orgId);
+            }
 
             // Release license code when user is deactivated
             if ($status === User::STATUS_DEACTIVATED) {
@@ -253,6 +258,7 @@ final class UserManagement
                 'password_changed_at' => now(),
             ])->save();
             $this->sessions->terminateAll($user);
+            MobileAccessToken::revokeFor($user);
             $this->audit->record('user.password_reset', $user);
         });
     }

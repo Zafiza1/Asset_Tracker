@@ -14,6 +14,8 @@ interface Session {
   server: string
   token: string | null
   profile: Profile | null
+  /** Why the last session ended on its own (expired or revoked), shown on the login screen. */
+  notice: string | null
   login: (input: { server: string; email: string; password: string; organizationId?: string }) => Promise<void>
   logout: () => Promise<void>
   /** GET {server}/api{path} with the token; a rejected token ends the session. */
@@ -26,6 +28,9 @@ interface Session {
 }
 
 const KEYS = { server: 'server', token: 'token', profile: 'profile' } as const
+
+/** A login lasts until the end of the organization's day; a password or access change ends it sooner. */
+export const SESSION_ENDED = 'Sesi Anda berakhir. Login berlaku sampai akhir hari, dan berakhir lebih cepat bila password atau akses Anda berubah. Silakan masuk lagi.'
 
 const SessionContext = createContext<Session | null>(null)
 
@@ -41,8 +46,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [server, setServer] = useState('')
   const [token, setToken] = useState<string | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
-  const clear = useCallback(async () => {
+  const clear = useCallback(async (reason: string | null = null) => {
+    setNotice(reason)
     setToken(null)
     setProfile(null)
     await Promise.all([SecureStore.deleteItemAsync(KEYS.token), SecureStore.deleteItemAsync(KEYS.profile)])
@@ -73,7 +80,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             return SecureStore.setItemAsync(KEYS.profile, JSON.stringify(r.data))
           })
           .catch(async (e) => {
-            if (e instanceof ApiError && e.status === 401) await clear()
+            if (e instanceof ApiError && e.status === 401) await clear(SESSION_ENDED)
           })
         return
       }
@@ -100,6 +107,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         SecureStore.setItemAsync(KEYS.profile, JSON.stringify(newProfile)),
       ])
       setServer(base)
+      setNotice(null)
       setToken(newToken)
       setProfile(newProfile)
     } catch (e) {
@@ -121,7 +129,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       try {
         return await request<T>(server, path, { ...options, token })
       } catch (e) {
-        if (e instanceof ApiError && e.status === 401) await clear()
+        if (e instanceof ApiError && e.status === 401) await clear(SESSION_ENDED)
         throw e
       }
     },
@@ -136,6 +144,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       server,
       token,
       profile,
+      notice,
       login,
       logout,
       get,
@@ -143,7 +152,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       can: (p) => profile?.permissions.includes(p) ?? false,
       hasModule: (m) => profile?.modules?.includes(m) ?? false,
     }),
-    [ready, server, token, profile, login, logout, get, post],
+    [ready, server, token, profile, notice, login, logout, get, post],
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
