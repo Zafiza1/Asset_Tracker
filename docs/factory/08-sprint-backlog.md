@@ -77,6 +77,7 @@ flowchart LR
 | F-02 | Transaksi keluar dan transaksi masuk | Aset keluar/masuk **organisasi** | `backend/app/Domain/AssetTransactions/**`, `backend/routes/modules/transactions.php`, `frontend/src/features/transactions/**` | 2–7: requirement disusun | approved |
 | F-03 | Mobile: scan lalu catat keluar/masuk | Mobile tidak lagi hanya baca | `mobile/**` | 2–7: requirement disusun | approved |
 | F-04 | Laporan keluar/masuk dengan format buatan pengguna | Lewat Report Designer | `backend/app/Domain/ReportDesigner/Catalog/FieldCatalog.php`, template laporan | 2–7: requirement disusun | approved |
+| F-05 | Menjalankan laporan dari template: filter, pratinjau, unduh PDF/Excel, riwayat | Report Designer belum dapat menghasilkan laporan | `backend/app/Domain/ReportDesigner/**`, `frontend/src/features/reportDesigner/**` | 2–7: [requirement](features/F-05-jalankan-laporan.md), mockup | approved |
 
 Catatan untuk F-04: Report Designer sudah mendukung sumber data transaksi (`ReportDataResolver::transactionQuery`, mengikuti data scope). Yang diperlukan kemungkinan field baru di `FieldCatalog` untuk jenis keluar/masuk, filter per jenis, dan template contoh, bukan mesin laporan baru.
 

@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup F-05 · Jalankan Laporan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  Mockup persetujuan UI (APR-0008) untuk docs/factory/features/F-05-jalankan-laporan.md.
+  CSS dasar sama dengan mockup F-02b (token docs/design/figma-tokens.json, komponen docs/09).
+-->
+<style>
+:root{
+  --brand-50:#eff6ff;--brand-100:#dbeafe;--brand-600:#2563eb;--brand-700:#1d4ed8;--brand-800:#1e40af;
+  --s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;--s300:#cbd5e1;--s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;--s900:#0f172a;
+  --g50:#f0fdf4;--g600:#16a34a;--g700:#15803d;--a50:#fffbeb;--a600:#d97706;--a800:#92400e;--r50:#fef2f2;--r600:#dc2626;--r700:#b91c1c;
+  --shadow-card:0 1px 2px #0f172a0a,0 1px 3px #0f172a0f;--shadow-raised:0 4px 12px -2px #0f172a14,0 2px 4px -2px #0f172a0f;--shadow-overlay:0 20px 40px -12px #0f172a40;
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 "Source Sans 3",system-ui,sans-serif;color:var(--s700);background:#e9edf2}
+h1,h2,h3{font-family:Lexend,"Source Sans 3",sans-serif;color:var(--s900);margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brand-600);outline-offset:2px}
+.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--s500)} .xs{font-size:12px}
+svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+svg.i.sm{width:14px;height:14px}
+
+/* Kontrol mockup (bukan bagian aplikasi) */
+.mk{position:sticky;top:0;z-index:50;background:var(--s900);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.mk b{font-family:Lexend;font-weight:500;margin-right:4px}
+.mk .grp{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.mk .grp span{font-size:12px;color:var(--s400);margin-right:4px}
+.mk button{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}
+.mk button[aria-pressed=true]{background:var(--brand-700);border-color:var(--brand-600);color:#fff}
+.note{max-width:1180px;margin:12px auto 0;padding:0 16px;font-size:13px;color:var(--s600)}
+.note code{background:#fff;border:1px solid var(--s200);border-radius:4px;padding:0 4px}
+
+/* Bingkai aplikasi */
+.stage{padding:16px;display:flex;justify-content:center}
+.frame{width:100%;max-width:1180px;background:var(--s50);border:1px solid var(--s300);border-radius:12px;overflow:hidden;container-type:inline-size;transition:max-width .2s}
+.frame.narrow{max-width:375px}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:760px}
+.side{background:#fff;border-right:1px solid var(--s200);padding:16px 12px}
+.logo{display:flex;gap:8px;align-items:center;font-family:Lexend;font-weight:600;color:var(--s900);padding:4px 8px 16px}
+.logo i{width:28px;height:28px;border-radius:8px;background:var(--brand-700);display:inline-block}
+.nav a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:var(--s600);text-decoration:none;margin-bottom:2px}
+.nav a.on{background:var(--brand-50);color:var(--brand-700);font-weight:600;box-shadow:inset 3px 0 0 var(--brand-700)}
+.main{min-width:0}
+.top{height:56px;background:#fff;border-bottom:1px solid var(--s200);display:flex;align-items:center;gap:12px;padding:0 20px}
+.burger{display:none}
+.gsearch{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;border:1px solid var(--s300);border-radius:8px;padding:0 10px;height:36px;color:var(--s400)}
+.gsearch kbd{margin-left:auto;font-size:11px;border:1px solid var(--s200);border-radius:4px;padding:0 4px}
+.avatar{margin-left:auto;width:32px;height:32px;border-radius:50%;background:var(--brand-100);color:var(--brand-700);display:grid;place-items:center;font-weight:600}
+.content{padding:24px}
+
+/* Komponen */
+.ph{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.ph h1{font-size:24px;font-weight:600}
+.ph p{margin:4px 0 0;color:var(--s500)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;border-radius:8px;border:1px solid transparent;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn.sm{min-height:32px;padding:0 10px;font-size:13px}
+.btn.primary{background:var(--brand-700);color:#fff}.btn.primary:hover{background:var(--brand-800)}
+.btn.secondary{background:#fff;border-color:var(--s300);color:var(--s700)}.btn.secondary:hover{background:var(--s50)}
+.btn.ghost{background:transparent;color:var(--s600)}.btn.ghost:hover{background:var(--s100)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.card{background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-card)}
+.card-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--s200)}
+.card-h h3{font-size:16px;font-weight:600;font-family:"Source Sans 3"}
+.pad{padding:16px}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:9999px;padding:1px 8px 1px 6px;font-size:12px;font-weight:600;white-space:nowrap;box-shadow:inset 0 0 0 1px currentColor}
+.badge.green{background:var(--g50);color:var(--g700)}.badge.amber{background:var(--a50);color:var(--a800)}.badge.red{background:var(--r50);color:var(--r700)}.badge.slate{background:var(--s100);color:var(--s700)}.badge.blue{background:var(--brand-50);color:var(--brand-700)}
+.badge.green,.badge.amber,.badge.red,.badge.slate,.badge.blue{box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 25%,transparent)}
+.pills{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}
+.pill{border:1px solid var(--s200);background:#fff;border-radius:9999px;padding:4px 12px;font-size:13px;cursor:pointer;color:var(--s600)}
+.pill[aria-selected=true]{background:var(--brand-50);border-color:var(--brand-600);color:var(--brand-700);font-weight:600}
+.pill .n{margin-left:4px;color:var(--s400);font-weight:500}
+.filters{padding:12px 16px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--s200)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.input,.select{height:40px;border:1px solid var(--s300);border-radius:8px;background:#fff;padding:0 10px;min-width:0}
+.input.err,.select.err{border-color:var(--r600);box-shadow:0 0 0 1px var(--r600)}
+textarea.input{height:auto;padding:8px 10px;min-height:64px;resize:vertical}
+.search{flex:1;min-width:200px;position:relative}
+.search .input{width:100%;padding-left:34px}
+.search svg{position:absolute;left:10px;top:12px;color:var(--s400)}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--s100);border-radius:9999px;padding:2px 6px 2px 10px;font-size:12px}
+.chip button{border:0;background:none;padding:2px;cursor:pointer;color:var(--s500);display:grid}
+.link{color:var(--brand-700);background:none;border:0;padding:0;cursor:pointer;font-weight:600;font-size:13px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;font-weight:600;color:var(--s600);background:var(--s50);padding:10px 12px;border-bottom:1px solid var(--s200);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--s100);vertical-align:top}
+tr.dis td{color:var(--s400)}
+tbody tr:hover td{background:#fbfdff}
+.pager{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:13px;color:var(--s500);flex-wrap:wrap;gap:8px}
+.sub{display:none}
+.alert{display:flex;gap:10px;border-radius:8px;padding:10px 12px;border:1px solid}
+.alert.red{background:var(--r50);border-color:#fecaca;color:var(--r700)}
+.alert.amber{background:var(--a50);border-color:#fde68a;color:var(--a800)}
+.alert.blue{background:var(--brand-50);border-color:var(--brand-100);color:var(--brand-800)}
+.alert p{margin:2px 0 0}
+.empty{text-align:center;padding:48px 16px}
+.empty .ic{width:48px;height:48px;border-radius:12px;background:var(--s100);display:grid;place-items:center;margin:0 auto 12px;color:var(--s500)}
+.empty h3{font-size:16px;font-family:"Source Sans 3";font-weight:600}
+.empty p{margin:4px auto 16px;max-width:360px;color:var(--s500)}
+.sk{background:linear-gradient(90deg,var(--s100),var(--s200),var(--s100));background-size:200% 100%;animation:sk 1.2s infinite;border-radius:6px;height:12px}
+@keyframes sk{to{background-position:-200% 0}}
+.err-state{text-align:center;padding:40px 16px}
+.err-state .ic{color:var(--r600);margin:0 auto 8px;width:40px;height:40px;display:grid;place-items:center;background:var(--r50);border-radius:12px}
+.toast{position:fixed;right:20px;bottom:20px;background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-overlay);padding:12px 14px;display:flex;gap:10px;max-width:360px;z-index:60}
+.toast .ok{color:var(--g600)}
+
+/* Modal */
+.overlay{position:absolute;inset:0;background:#0f172a66;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow:auto}
+.modal{background:#fff;border-radius:12px;box-shadow:var(--shadow-overlay);width:100%;max-width:880px}
+.modal-h{display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px;border-bottom:1px solid var(--s200)}
+.modal-h h2{font-size:18px;font-weight:600}
+.modal-b{padding:20px;display:flex;flex-direction:column;gap:20px}
+.modal-f{display:flex;justify-content:space-between;gap:8px;padding:14px 20px;border-top:1px solid var(--s200);background:var(--s50);border-radius:0 0 12px 12px;flex-wrap:wrap}
+.step{display:flex;gap:8px;align-items:center;font-weight:600;color:var(--s900);margin-bottom:10px}
+.step i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--brand-50);color:var(--brand-700);display:grid;place-items:center;font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-weight:600;color:var(--s700);font-size:13px}
+.field label .req{color:var(--r600)}
+.field .hint{font-size:12px;color:var(--s500)}
+.field .msg{font-size:12px;color:var(--r700);display:flex;gap:4px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--s300);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:8px 14px;cursor:pointer;min-height:40px}
+.seg button+button{border-left:1px solid var(--s300)}
+.seg button[aria-pressed=true]{background:var(--brand-50);color:var(--brand-700);font-weight:600}
+.typecards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tc{border:1px solid var(--s200);border-radius:8px;padding:10px;background:#fff;text-align:left;cursor:pointer;display:flex;gap:8px;align-items:flex-start}
+.tc small{display:block;color:var(--s500);font-size:12px;font-weight:400}
+.tc[aria-pressed=true]{border-color:var(--brand-600);background:var(--brand-50);box-shadow:0 0 0 1px var(--brand-600)}
+.picked{display:flex;flex-wrap:wrap;gap:6px}
+.picked .chip{background:var(--brand-50);color:var(--brand-800)}
+.box{border:1px solid var(--s200);border-radius:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.kv dt{color:var(--s500)} .kv dd{margin:0;color:var(--s900)}
+.detail{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.timeline{list-style:none;margin:0;padding:0}
+.timeline li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--s100)}
+.dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none}
+.hidden{display:none!important}
+
+/* 375px: container query mengikuti lebar bingkai */
+@container (max-width: 640px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .burger{display:grid}
+  .gsearch kbd,.gsearch .t{display:none}
+  .gsearch{max-width:40px;padding:0;justify-content:center}
+  .content{padding:16px}
+  .hm{display:none}
+  .sub{display:block;margin-top:4px}
+  .grid2,.detail{grid-template-columns:1fr}
+  .typecards{grid-template-columns:1fr 1fr}
+  .overlay{padding:0;align-items:stretch}
+  .modal{border-radius:0;max-width:none}
+  .modal-f{border-radius:0;position:sticky;bottom:0}
+  .modal-f .btn{flex:1}
+  .ph .btn{width:100%}
+  .search{min-width:0}
+  .lbl-long{display:none}
+}
+/* F-05 */
+.paper-wrap{background:var(--s100);border-top:1px solid var(--s200);padding:16px;overflow:auto;display:flex;flex-direction:column;align-items:center;gap:12px}
+.paper{background:#fff;width:595px;min-height:420px;box-shadow:var(--shadow-raised);padding:28px 32px;flex:none;position:relative;font-size:11px;color:#111}
+.paper h4{font-family:Lexend;font-size:15px;margin:0 0 2px;color:#111}
+.paper .ph-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:10px}
+.paper .logo2{width:34px;height:34px;border-radius:6px;background:var(--brand-700)}
+.paper table th{background:#f1f5f9;color:#111;font-size:10px;padding:5px 6px;border:1px solid #cbd5e1}
+.paper table td{font-size:10px;padding:5px 6px;border:1px solid #cbd5e1}
+.paper .foot{position:absolute;left:32px;right:32px;bottom:14px;display:flex;justify-content:space-between;color:#64748b;font-size:9px}
+.paper .sign{margin-top:22px;display:flex;justify-content:flex-end}
+.paper .sign div{width:160px;text-align:center}
+.paper .sign i{display:block;height:44px}
+.meta-line{font-size:12px;color:var(--s500)}
+.chips-row{display:flex;flex-wrap:wrap;gap:6px}
+.sample{border:1px solid var(--s200);border-radius:10px;padding:12px;display:flex;gap:10px;align-items:flex-start;cursor:pointer;background:#fff;text-align:left}
+.sample[aria-pressed=true]{border-color:var(--brand-600);background:var(--brand-50);box-shadow:0 0 0 1px var(--brand-600)}
+.samples{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.designer{display:grid;grid-template-columns:1fr 300px;min-height:560px}
+.canvas{background:var(--s100);display:flex;justify-content:center;padding:24px;border-right:1px solid var(--s200)}
+.panel{background:#fff;padding:16px;display:flex;flex-direction:column;gap:14px}
+.panel h3{font-size:14px;font-family:"Source Sans 3";font-weight:700}
+.toggle{display:flex;align-items:center;gap:8px}
+.toggle input{width:18px;height:18px}
+.split{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+@container (max-width: 640px){
+  .split,.designer,.samples{grid-template-columns:1fr}
+  .paper{width:100%;min-height:0;padding:16px}
+  .paper .foot{position:static;margin-top:16px}
+  .canvas{padding:12px}
+}
+</style>
+</head>
+<body>
+
+<div class="mk" role="toolbar" aria-label="Kontrol mockup">
+  <b>Mockup F-05</b>
+  <div class="grp"><span>Layar</span>
+    <button data-view="list" aria-pressed="true">Template Laporan</button>
+    <button data-view="samples">Mulai dari contoh</button>
+    <button data-view="designer">Desainer: filter bawaan</button>
+    <button data-view="run">Jalankan laporan</button>
+  </div>
+  <div class="grp"><span>Keadaan</span>
+    <button data-state="filled" aria-pressed="true">Isi</button>
+    <button data-state="empty">Kosong</button>
+    <button data-state="loading">Memuat</button>
+    <button data-state="error">Gagal</button>
+    <button data-state="invalid">Error validasi</button>
+    <button data-state="truncated">Terpotong</button>
+  </div>
+  <div class="grp"><span>Lebar</span>
+    <button data-w="wide" aria-pressed="true">Desktop</button>
+    <button data-w="narrow">375px</button>
+  </div>
+</div>
+<p class="note">Keadaan "Error validasi" dan "Terpotong" berlaku di layar <b>Jalankan laporan</b>. Tombol mengikuti izin: <code>report.create</code> (buat / dari contoh), <code>report.generate</code> (Jalankan, unduh), <code>report.history.view</code> (riwayat seluruh organisasi). Keputusan D-12..D-17 ada di dokumen F-05 §8.</p>
+
+<div class="stage">
+<div class="frame" id="frame">
+<div class="app" style="position:relative">
+  <aside class="side">
+    <div class="logo"><i></i>Asset Tracker</div>
+    <nav class="nav">
+      <a href="#"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</a>
+      <a href="#"><svg class="i" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/></svg>Data Aset</a>
+      <a href="#"><svg class="i" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg>Transaksi</a>
+      <a href="#"><svg class="i" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Laporan Aset</a>
+      <a href="#" class="on"><svg class="i" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Template Laporan</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <button class="btn ghost sm burger" aria-label="Buka menu"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <div class="gsearch"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg><span class="t">Cari aset atau menu</span><kbd>Ctrl K</kbd></div>
+      <div class="avatar" aria-label="Akun">RS</div>
+    </header>
+
+    <!-- ============ TEMPLATE LAPORAN ============ -->
+    <section class="content" data-screen="list">
+      <div class="ph">
+        <div><h1>Template Laporan</h1><p>Desain laporan milik organisasi: susun di desainer, terbitkan, lalu jalankan untuk mengunduh PDF/Excel.</p></div>
+        <div class="row">
+          <button class="btn secondary" data-open="samples"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 17h7M17.5 14v7"/></svg>Mulai dari contoh</button>
+          <button class="btn primary"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Buat template</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="filters"><div class="row"><div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg><input class="input" aria-label="Cari template" placeholder="Cari kode atau nama template"></div><select class="select" aria-label="Sumber data"><option>Sumber data: semua</option><option>Aset</option><option>Riwayat Transaksi</option></select></div></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Template</th><th class="hm">Sumber data</th><th>Status</th><th class="hm">Diubah</th><th style="width:120px"></th></tr></thead>
+          <tbody>
+            <tr><td><b style="color:var(--s900)">Laporan Transaksi Keluar</b><div class="mono muted">RPT-TRX-KELUAR</div><div class="sub xs muted">Riwayat Transaksi · v2</div></td><td class="hm">Riwayat Transaksi</td><td><span class="badge green"><svg class="i sm" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg>Terbit v2</span></td><td class="hm num">17 Nov 2026</td><td><button class="btn secondary sm" data-open="run"><svg class="i sm" viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></svg>Jalankan</button></td></tr>
+            <tr><td><b style="color:var(--s900)">BAST Serah Terima</b><div class="mono muted">RPT-BAST</div></td><td class="hm">Riwayat Transaksi</td><td><span class="badge green"><svg class="i sm" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg>Terbit v1</span></td><td class="hm num">15 Nov 2026</td><td><button class="btn secondary sm" data-open="run"><svg class="i sm" viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></svg>Jalankan</button></td></tr>
+            <tr><td><b style="color:var(--s900)">Daftar Aset per Lokasi</b><div class="mono muted">RPT-ASET-LOK</div></td><td class="hm">Aset</td><td><span class="badge slate">Draft</span></td><td class="hm num">14 Nov 2026</td><td><span class="xs muted">Terbitkan untuk menjalankan</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ============ MULAI DARI CONTOH (dialog) ============ -->
+    <div class="overlay hidden" data-screen="samples" role="dialog" aria-modal="true" aria-labelledby="smpTitle">
+      <div class="modal" style="max-width:640px">
+        <div class="modal-h"><div><h2 id="smpTitle">Mulai dari contoh</h2><p class="xs muted" style="margin:2px 0 0">Contoh disalin menjadi template draft milik organisasi. Ubah formatnya sesuka Anda sebelum diterbitkan.</p></div><button class="btn ghost sm" aria-label="Tutup"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="modal-b">
+          <div class="samples" role="radiogroup" aria-label="Contoh template">
+            <button class="sample" aria-pressed="true"><svg class="i" viewBox="0 0 24 24" style="color:var(--a800)"><path d="M7 17 17 7M7 7h10v10"/></svg><span><b style="color:var(--s900)">Laporan Transaksi Keluar</b><br><span class="xs muted">Sifat, alasan, pihak luar, dokumen, status kembali. Filter bawaan: Jenis = Keluar.</span></span></button>
+            <button class="sample" aria-pressed="false"><svg class="i" viewBox="0 0 24 24" style="color:var(--g700)"><path d="M17 7 7 17M17 17H7V7"/></svg><span><b style="color:var(--s900)">Laporan Transaksi Masuk</b><br><span class="xs muted">Aset yang kembali, dari siapa, kondisi. Filter bawaan: Jenis = Masuk.</span></span></button>
+            <button class="sample" aria-pressed="false"><svg class="i" viewBox="0 0 24 24" style="color:var(--r700)"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span><b style="color:var(--s900)">Aset Belum Kembali</b><br><span class="xs muted">Keluar sementara yang masih di luar, termasuk yang terlambat.</span></span></button>
+            <button class="sample" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M9 15h6"/></svg><span><b style="color:var(--s900)">BAST per Transaksi</b><br><span class="xs muted">Berita acara serah terima dengan area tanda tangan dua pihak.</span></span></button>
+          </div>
+          <div class="field"><label for="smp-name">Nama template <span class="req">*</span></label><input id="smp-name" class="input" value="Laporan Transaksi Keluar"><span class="hint">Kode dibuat otomatis dan dapat diubah di detail template.</span></div>
+        </div>
+        <div class="modal-f"><button class="btn secondary">Batal</button><button class="btn primary" data-open="designer">Buat dari contoh</button></div>
+      </div>
+    </div>
+
+    <!-- ============ DESAINER: FILTER BAWAAN ============ -->
+    <section class="content hidden" data-screen="designer" style="padding:0">
+      <div class="top" style="height:auto;padding:10px 16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px"><b style="color:var(--s900)">Laporan Transaksi Keluar</b> <span class="badge slate">Draft v3</span><div class="xs muted">Sumber data: Riwayat Transaksi</div></div>
+        <button class="btn secondary sm"><svg class="i sm" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Pratinjau</button>
+        <button class="btn primary sm">Terbitkan</button>
+      </div>
+      <div class="designer">
+        <div class="canvas">
+          <div class="paper" style="width:420px;min-height:300px;font-size:9px">
+            <div class="ph-top"><div><h4 style="font-size:12px">LAPORAN TRANSAKSI KELUAR</h4><div style="color:#64748b">{organisasi.nama} · {laporan.dibuat}</div></div><div class="logo2" style="width:26px;height:26px"></div></div>
+            <table style="width:100%"><thead><tr><th>No. Transaksi</th><th>Aset</th><th>Pihak Luar</th><th>Status Kembali</th></tr></thead><tbody><tr><td>{transaction.number}</td><td>{transaction.asset_name}</td><td>{transaction.counterparty_name}</td><td>{transaction.return_status}</td></tr></tbody></table>
+          </div>
+        </div>
+        <aside class="panel" aria-label="Filter bawaan">
+          <div><h3>Filter bawaan</h3><p class="xs muted" style="margin:2px 0 0">Selalu terisi saat laporan dijalankan; pengguna masih dapat mengubahnya.</p></div>
+          <div class="field"><label for="d-type">Jenis transaksi</label><select id="d-type" class="select"><option>Semua jenis</option><option selected>Transaksi keluar</option><option>Transaksi masuk</option><option>Pemindahan lokasi</option></select></div>
+          <div class="field"><label for="d-nat">Sifat keluar</label><select id="d-nat" class="select"><option>Semua</option><option>Sementara</option><option>Permanen</option></select></div>
+          <div class="field"><label for="d-reason">Alasan</label><select id="d-reason" class="select"><option>Semua alasan</option><option>Perbaikan di vendor</option><option>Dipinjamkan ke pihak luar</option></select></div>
+          <label class="toggle"><input type="checkbox"> Hanya yang belum kembali</label>
+          <div class="field"><label>Periode bawaan</label><select class="select"><option>Tidak ada (pengguna memilih)</option><option>Bulan ini</option><option>Bulan lalu</option><option>30 hari terakhir</option></select><span class="hint">Tanggal persis dipilih saat dijalankan.</span></div>
+          <div class="alert blue"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg><div><p style="margin:0">Pratinjau memakai data organisasi sesuai cakupan data Anda.</p></div></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============ JALANKAN LAPORAN ============ -->
+    <section class="content hidden" data-screen="run">
+      <div class="ph">
+        <div><h1>Laporan Transaksi Keluar</h1><p class="row" style="margin-top:6px"><span class="badge green"><svg class="i sm" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg>Terbit v2</span><span class="mono muted">RPT-TRX-KELUAR</span><span class="muted">· Riwayat Transaksi</span></p></div>
+        <div class="row">
+          <button class="btn secondary" data-dl="Excel"><svg class="i" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M8 13l4 4M12 13l-4 4"/></svg>Unduh Excel</button>
+          <button class="btn primary" data-dl="PDF"><svg class="i" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Unduh PDF</button>
+        </div>
+      </div>
+
+      <div class="split">
+        <div class="card">
+          <div class="card-h"><h3>Filter</h3><button class="link">Kembalikan ke bawaan</button></div>
+          <div class="pad" style="display:flex;flex-direction:column;gap:14px">
+            <div class="alert red" data-state-show="invalid" role="alert"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><div><b>Periksa 1 isian</b></div></div>
+            <div class="grid2" style="gap:10px">
+              <div class="field"><label for="r-from">Dari tanggal</label><input id="r-from" type="date" class="input" value="2026-11-01"></div>
+              <div class="field"><label for="r-to">Sampai</label><input id="r-to" type="date" class="input" value="2026-11-30" data-invalid-val="2026-10-01"><span class="msg" data-state-show="invalid">Tanggal akhir tidak boleh sebelum tanggal awal.</span></div>
+            </div>
+            <div class="chips-row"><button class="pill">Bulan ini</button><button class="pill">Bulan lalu</button><button class="pill">30 hari</button><button class="pill">Tahun ini</button></div>
+            <div class="field"><label for="r-type">Jenis transaksi</label><select id="r-type" class="select"><option>Semua jenis</option><option selected>Transaksi keluar</option><option>Transaksi masuk</option></select><span class="hint">Bawaan template: Transaksi keluar</span></div>
+            <div class="field"><label for="r-nat">Sifat keluar</label><select id="r-nat" class="select"><option>Semua</option><option>Sementara</option><option>Permanen</option></select></div>
+            <div class="field"><label for="r-reason">Alasan</label><select id="r-reason" class="select"><option>Semua alasan</option><option>Perbaikan di vendor</option><option>Dipinjamkan ke pihak luar</option><option>Dikirim ke proyek/klien</option><option>Dijual</option><option>Dihibahkan</option></select></div>
+            <label class="toggle"><input type="checkbox"> Hanya yang belum kembali</label>
+            <div class="field"><label for="r-q">Cari</label><input id="r-q" class="input" placeholder="Nomor, aset, pihak luar, dokumen"></div>
+            <button class="btn secondary">Terapkan filter</button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+          <div class="card" style="overflow:hidden">
+            <div class="card-h"><h3>Pratinjau</h3><span class="meta-line" data-state-show="filled">12 baris · 1 halaman · A4 tegak</span></div>
+
+            <div data-state-show="truncated" class="pad" style="padding-bottom:0"><div class="alert amber" role="status"><svg class="i" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><div><b>Menampilkan 500 dari 1.284 baris</b><p>Satu laporan memuat paling banyak 500 baris. Persempit tanggal atau filter lain sebelum mengunduh.</p></div></div></div>
+
+            <div class="paper-wrap" data-state-show="filled truncated">
+              <div class="paper">
+                <div class="ph-top"><div><h4>LAPORAN TRANSAKSI KELUAR</h4><div style="color:#475569">PT Surya Inti Gas · Periode 1–30 Nov 2026</div></div><div class="logo2"></div></div>
+                <div class="tablewrap"><table style="width:100%">
+                  <thead><tr><th>No. Transaksi</th><th>Tanggal</th><th>Aset</th><th>Sifat</th><th>Pihak Luar</th><th>Rencana Kembali</th><th>Status Kembali</th></tr></thead>
+                  <tbody>
+                    <tr><td>OUT-2026-000042</td><td>17 Nov 2026</td><td>Laptop Dell Latitude 5440</td><td>Sementara</td><td>CV Sinar Servis</td><td>24 Nov 2026</td><td>Belum kembali</td></tr>
+                    <tr><td>OUT-2026-000039</td><td>03 Nov 2026</td><td>Proyektor Epson EB-X51</td><td>Sementara</td><td>Dinas Pendidikan Kota</td><td>10 Nov 2026</td><td>Terlambat</td></tr>
+                    <tr><td>OUT-2026-000035</td><td>28 Okt 2026</td><td>Printer HP LaserJet M404</td><td>Permanen</td><td>SDN 4 Cibeunying</td><td>—</td><td>—</td></tr>
+                    <tr><td>OUT-2026-000027</td><td>23 Okt 2026</td><td>Kamera Canon EOS R50</td><td>Sementara</td><td>PT Media Kreatif</td><td>30 Okt 2026</td><td>Sudah kembali</td></tr>
+                  </tbody>
+                </table></div>
+                <div class="sign"><div>Bandung, 17 Nov 2026<br>Mengetahui,<i></i><b>Rina Suryani</b><br>Kepala Bagian Umum</div></div>
+                <div class="foot"><span>Dibuat oleh Rina S. · 17 Nov 2026 10.21</span><span>Halaman 1 dari 1</span></div>
+              </div>
+            </div>
+
+            <div data-state-show="loading" class="pad" aria-busy="true"><div style="display:grid;gap:14px"><div class="sk" style="width:50%"></div><div class="sk" style="width:90%;height:180px"></div></div></div>
+            <div data-state-show="empty" class="empty"><div class="ic"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4M8 11h6"/></svg></div><h3>Tidak ada data untuk filter ini</h3><p>Tidak ada transaksi keluar pada 1–30 Nov 2026. Ubah tanggal atau filter. Laporan kosong tetap dapat diunduh.</p><button class="btn secondary">Kembalikan ke bawaan</button></div>
+            <div data-state-show="error" class="err-state" role="alert"><div class="ic"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div><h3 style="font-size:16px;font-family:'Source Sans 3'">Pratinjau gagal dimuat</h3><p class="xs muted" style="margin:4px 0 14px">ID permintaan: <span class="mono">a71c-0f3e-9921</span></p><button class="btn secondary">Coba lagi</button></div>
+            <div data-state-show="invalid" class="empty"><h3>Perbaiki filter untuk melihat pratinjau</h3></div>
+          </div>
+
+          <div class="card">
+            <div class="card-h"><h3>Riwayat unduhan</h3><span class="xs muted">File disimpan 30 hari</span></div>
+            <div class="tablewrap"><table>
+              <thead><tr><th>Nomor</th><th class="hm">Filter</th><th class="hm">Baris</th><th>Dibuat</th><th style="width:90px"></th></tr></thead>
+              <tbody>
+                <tr><td><span class="mono">RPT-2026-000018</span><div class="xs muted">PDF · v2</div></td><td class="hm xs">1–30 Nov 2026 · Keluar</td><td class="hm num">12</td><td class="xs">Rina S.<br><span class="muted num">17 Nov 2026 10.21</span></td><td><button class="btn ghost sm">Unduh</button></td></tr>
+                <tr><td><span class="mono">RPT-2026-000017</span><div class="xs muted">Excel · v2</div></td><td class="hm xs">Okt 2026 · Keluar · Belum kembali</td><td class="hm num">3</td><td class="xs">Andi P.<br><span class="muted num">02 Nov 2026 08.05</span></td><td><button class="btn ghost sm">Unduh</button></td></tr>
+                <tr class="dis"><td><span class="mono">RPT-2026-000004</span><div class="xs">PDF · v1</div></td><td class="hm xs">Sep 2026 · Keluar</td><td class="hm num">9</td><td class="xs">Rina S.<br><span class="num">01 Okt 2026</span></td><td><span class="badge slate">Kedaluwarsa</span></td></tr>
+              </tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</div>
+</div>
+
+<div class="toast hidden" id="toast" role="status">
+  <svg class="i ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+  <div><b style="color:var(--s900)">Laporan siap diunduh</b><div class="xs muted"><span class="mono">RPT-2026-000019</span> · PDF · 12 baris</div></div>
+</div>
+
+<script>
+(function(){
+  var view='list', state='filled', frame=document.getElementById('frame');
+  function press(sel,attr,val){document.querySelectorAll(sel).forEach(function(b){b.setAttribute('aria-pressed',String(b.getAttribute(attr)===val))})}
+  function render(){
+    document.querySelectorAll('[data-screen]').forEach(function(el){
+      var s=el.getAttribute('data-screen');
+      el.classList.toggle('hidden',!(s===view||(view==='samples'&&s==='list')));
+    });
+    var eff=view==='run'?state:'filled';
+    document.querySelectorAll('[data-state-show]').forEach(function(el){
+      el.classList.toggle('hidden',el.getAttribute('data-state-show').split(' ').indexOf(eff)<0);
+    });
+    document.querySelectorAll('[data-invalid-val]').forEach(function(i){
+      if(!i.dataset.orig) i.dataset.orig=i.value;
+      var bad=eff==='invalid'; i.value=bad?i.dataset.invalidVal:i.dataset.orig; i.classList.toggle('err',bad);
+    });
+    press('[data-view]','data-view',view); press('[data-state]','data-state',state);
+  }
+  document.querySelectorAll('[data-view]').forEach(function(b){b.onclick=function(){view=b.dataset.view;render()}});
+  document.querySelectorAll('[data-state]').forEach(function(b){b.onclick=function(){state=b.dataset.state;render()}});
+  document.querySelectorAll('[data-open]').forEach(function(b){b.onclick=function(){view=b.dataset.open;render()}});
+  document.querySelectorAll('.overlay .modal-h .btn,.overlay .modal-f .secondary').forEach(function(b){b.onclick=function(){view='list';render()}});
+  document.querySelectorAll('[data-w]').forEach(function(b){b.onclick=function(){frame.classList.toggle('narrow',b.dataset.w==='narrow');press('[data-w]','data-w',b.dataset.w)}});
+  document.querySelectorAll('.sample').forEach(function(b){b.onclick=function(){document.querySelectorAll('.sample').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});document.getElementById('smp-name').value=b.querySelector('b').textContent}});
+  document.querySelectorAll('[data-dl]').forEach(function(b){b.onclick=function(){var t=document.getElementById('toast');t.querySelector('.xs').innerHTML='<span class="mono">RPT-2026-000019</span> · '+b.dataset.dl+' · 12 baris';t.classList.remove('hidden');setTimeout(function(){t.classList.add('hidden')},3000)}});
+  render();
+})();
+</script>
+</body>
+</html>
