@@ -22,7 +22,8 @@ Status: **Terbuka** · **Kemungkinan selesai** (ada bukti di kode, belum diverif
 | SEC-05 | Proteksi brute-force terbatas | Low | Terbuka · **blocker rilis** ([APR-0005](../approvals/APR-0005-sec-05-06-sebelum-produksi.md)) | Hanya `throttle:login` per route; limiter per akun belum terlihat | T-22 |
 | SEC-06 | Tidak ada pemulihan akun mandiri | Medium | Terbuka · **blocker rilis** ([APR-0005](../approvals/APR-0005-sec-05-06-sebelum-produksi.md)) | Tidak ada route lupa password; yang ada hanya reset oleh admin | T-21 |
 | SEC-07 | RLS bergantung pada GUC yang dapat diubah | — | Kemungkinan selesai | Migrasi `001300_signed_database_context`, `001400`, `001500`; `SignedContextTest`, `TenantContextTamperingTest`; branch `sec-07-stage-b` sudah di `main` | T-11; prosedur produksi masuk checklist T-05 |
-| SEC-08 | `zod` rentan (GHSA-mrhx-c7xc-m3w5) | Low | **Terbuka** | `package-lock.json`: `zod 4.6.5` (perlu ≥ 4.6.6) | T-12 |
+| SEC-08 | `zod` rentan (GHSA-mrhx-c7xc-m3w5) | Low | Diperbaiki, menunggu CI | `zod` 4.6.7 (`5b09a3d`); `npm audit` 0 kerentanan | T-12 |
+| SEC-11 | Advisory dependency baru (2026-11-17): `laravel/framework` < 13.40 (low), Symfony `http-foundation`/`http-kernel`/`routing`/`yaml` < 8.1.11 dan `mime` < 8.1.10 (termasuk trusted proxies dan host URL), `undici` < 8.12 (High, dev) | Medium | Diperbaiki, menunggu CI | `composer audit` dan `npm audit` bersih setelah update | T-23 |
 | SEC-09 | Audit trail tanpa outcome, logging penolakan, hash-chain | Low | Terbuka | Tidak ada kolom outcome/hash di migrasi | Backlog P5 |
 | SEC-10 | Hardening konfigurasi & instruksi agen | Low | Sebagian: instruksi agen diperbaiki (T-03, in review); checklist deployment masih terbuka | `backend/AGENTS.md` kini mencerminkan `CLAUDE.md` tanpa perintah unduh-dan-jalankan | T-05 |
 
@@ -31,10 +32,10 @@ Status: **Terbuka** · **Kemungkinan selesai** (ada bukti di kode, belum diverif
 | Kebutuhan | Tool (gratis) | Status |
 |---|---|---|
 | Static analysis | SonarQube Community Build (self-hosted) | Belum |
-| Secret scanning | Gitleaks | Belum |
-| Dependency & container | Trivy | Belum |
+| Secret scanning | Gitleaks | **Aktif di CI** (run pertama lulus, seluruh riwayat) |
+| Dependency & container | Trivy | **Aktif di CI** (run pertama gagal karena SEC-08/SEC-11) |
 | DAST | OWASP ZAP baseline ke lingkungan lokal/staging | Belum |
-| Unit/feature test | PHPUnit, Vitest | Ada, belum otomatis di CI |
+| Unit/feature test | PHPUnit, Vitest | **Aktif di CI** (lulus) |
 | E2E | Playwright | Belum |
 | Error monitoring | Sentry (free / self-hosted) | Belum |
 
