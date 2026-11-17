@@ -47,7 +47,6 @@ class AssetController extends Controller
      * Category fields ({key: value}) only touch the keys sent; a key is ignored on assets whose
      * category does not have it.
      */
-    private const BULK_EDITABLE = ['category_id', 'acquisition_date', 'acquisition_cost', 'description', 'attributes'];
 
     public function __construct(
         private readonly AssetService $assets,
@@ -151,28 +150,6 @@ class AssetController extends Controller
         ]);
 
         return new AssetResource($this->assets->update($asset, $data)->load(self::RELATIONS));
-    }
-
-    /** Same descriptive changes for several (active) assets; only the fields sent in `changes` are touched. */
-    public function bulkUpdate(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'asset_ids' => ['required', 'array', 'min:1', 'max:1000'],
-            'asset_ids.*' => ['required', 'uuid', 'distinct'],
-            'changes' => ['required', 'array', 'min:1'],
-            ...Arr::prependKeysWith(Arr::only($this->descriptiveRules(creating: false), self::BULK_EDITABLE), 'changes.'),
-        ]);
-        $changes = Arr::only($data['changes'] ?? [], self::BULK_EDITABLE);
-        if ($changes === []) {
-            throw ApiException::unprocessable('VALIDATION_FAILED', 'Pilih minimal satu data yang akan diubah.', ['fields' => ['changes' => ['Pilih minimal satu data yang akan diubah.']]]);
-        }
-
-        $assets = $this->scope->apply(Asset::query())->whereIn('id', $data['asset_ids'])->orderBy('asset_number')->get();
-        if ($assets->count() !== count($data['asset_ids'])) {
-            throw ApiException::unprocessable('INVALID_REFERENCE', 'Sebagian aset tidak ditemukan atau di luar cakupan data Anda.');
-        }
-
-        return response()->json(['data' => ['updated' => $this->assets->bulkUpdate($assets, $changes)]]);
     }
 
     /** The asset's photo; route binding applies the data scope, so out-of-scope assets are 404. */

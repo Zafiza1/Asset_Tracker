@@ -104,6 +104,9 @@ final class ApprovalService
     public function approve(ApprovalRequest $approval, ?string $note): ApprovalRequest
     {
         $this->assertDecider();
+        if (ApprovalActions::retired($approval->action)) {
+            throw ApiException::conflict('ACTION_RETIRED', 'Jenis pengajuan ini sudah tidak tersedia, sehingga tidak dapat diterapkan. Tolak pengajuan ini; perubahan dapat diajukan ulang lewat Multiple Edit Excel.');
+        }
         $requester = $this->tenancy->runAsSystem(fn () => User::query()->find($approval->requested_by));
         $organization = $requester === null ? null : $this->access->find($requester, $approval->organization_id);
         if ($organization === null) {

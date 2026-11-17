@@ -8,6 +8,7 @@ use App\Domain\AssetTransactions\Models\AssetTransaction;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
+use App\Domain\Shared\Tenancy\TenantContext;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -110,6 +111,22 @@ class ApprovalTest extends TestCase
 
         $this->postJson("/api/approvals/{$id}/reject", ['note' => 'Aset sedang dipinjam'])->assertOk()
             ->assertJsonPath('data.status', 'rejected')->assertJsonPath('data.decision_note', 'Aset sedang dipinjam');
+    }
+
+    public function test_request_of_a_retired_action_can_be_read_and_rejected_but_not_approved(): void
+    {
+        // A Multiple Edit form request submitted before T-25 removed POST /assets/bulk-update.
+        $this->loginAs($this->admin);
+        $id = $this->postJson('/api/locations', ['name' => 'Gudang Lama'])->assertStatus(202)->json('data.id');
+        $this->tenancy()->runAsTenant(new TenantContext($this->org, $this->owner), fn () => ApprovalRequest::query()->whereKey($id)->update([
+            'action' => 'asset.bulk_update', 'category' => 'asset', 'method' => 'POST', 'path' => 'api/assets/bulk-update',
+        ]));
+
+        $this->loginAs($this->supervisor);
+        $this->getJson("/api/approvals/{$id}")->assertOk()->assertJsonPath('data.action_label', 'Multiple Edit aset');
+        $this->assertErrorCode($this->postJson("/api/approvals/{$id}/approve"), 409, 'ACTION_RETIRED');
+        $this->getJson("/api/approvals/{$id}")->assertJsonPath('data.status', 'pending');
+        $this->postJson("/api/approvals/{$id}/reject", ['note' => 'Ajukan ulang lewat Excel'])->assertOk()->assertJsonPath('data.status', 'rejected');
     }
 
     public function test_requesters_see_and_cancel_only_their_own_requests(): void

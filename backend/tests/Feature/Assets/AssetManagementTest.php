@@ -171,44 +171,12 @@ class AssetManagementTest extends TestCase
         $this->assertSame(['name' => 'Laptop Kantor'], $audit->after);
     }
 
-    public function test_bulk_edit_applies_only_the_sent_fields_to_all_assets_or_none(): void
+    public function test_form_bulk_edit_endpoint_is_gone(): void
     {
-        $a = $this->register(['name' => 'Laptop', 'description' => 'lama'])->json('data');
-        $b = $this->register(['name' => 'Printer', 'acquisition_cost' => 500])->json('data');
-        $other = $this->category('CAT9', 'Elektronik');
-
-        $this->postJson('/api/assets/bulk-update', [
-            'asset_ids' => [$a['id'], $b['id']],
-            'changes' => ['category_id' => $other->id, 'description' => 'Pengadaan 2026', 'name' => 'diabaikan'],
-        ])->assertOk()->assertJsonPath('data.updated', 2);
-
-        foreach ([$a, $b] as $before) {
-            $after = $this->getJson("/api/assets/{$before['id']}")->assertOk()->json('data');
-            $this->assertSame('CAT9', $after['category']['code']);
-            $this->assertSame('Pengadaan 2026', $after['description']);
-            $this->assertSame($before['name'], $after['name']);
-            $this->assertSame($before['acquisition_cost'], $after['acquisition_cost']);
-        }
-        $this->assertSame(2, AuditLog::query()->where('action', 'asset.updated')->count());
-
-        // Category fields: only the keys sent change; unknown keys are ignored.
-        $field = $this->postJson("/api/tenant-masters/categories/{$other->id}/attributes", ['label' => 'Warna Casing', 'data_type' => 'string'])
-            ->assertCreated()->json('data.key');
-        $this->postJson('/api/assets/bulk-update', [
-            'asset_ids' => [$a['id'], $b['id']], 'changes' => ['attributes' => [$field => 'Dell', 'tidak_ada' => 'x']],
-        ])->assertOk()->assertJsonPath('data.updated', 2);
-        $this->assertSame('Dell', $this->getJson("/api/assets/{$b['id']}")->json("data.attributes.{$field}"));
-        $this->assertSame('Pengadaan 2026', Asset::query()->findOrFail($b['id'])->description);
-
-        // One archived asset fails the whole batch.
-        $this->postJson("/api/assets/{$b['id']}/archive")->assertOk();
-        $this->assertErrorCode($this->postJson('/api/assets/bulk-update', [
-            'asset_ids' => [$a['id'], $b['id']], 'changes' => ['description' => 'baru'],
-        ]), 422, 'BULK_UPDATE_FAILED');
-        $this->assertSame('Pengadaan 2026', Asset::query()->findOrFail($a['id'])->description);
-
-        $this->assertErrorCode($this->postJson('/api/assets/bulk-update', ['asset_ids' => [$a['id']], 'changes' => ['name' => 'X']]), 422, 'VALIDATION_FAILED');
-        $this->assertErrorCode($this->postJson('/api/assets/bulk-update', ['asset_ids' => ['00000000-0000-0000-0000-000000000000'], 'changes' => ['description' => 'X']]), 422, 'INVALID_REFERENCE');
+        // Multiple Edit goes through the Excel flow (asset.import_edits) since T-25.
+        $a = $this->register(['name' => 'Laptop'])->json('data');
+        // No POST route is left; the path now only matches /assets/{asset}, which has no POST.
+        $this->postJson('/api/assets/bulk-update', ['asset_ids' => [$a['id']], 'changes' => ['description' => 'X']])->assertStatus(405);
     }
 
     public function test_serial_number_is_unique_per_organization_case_insensitive(): void

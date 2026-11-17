@@ -120,31 +120,6 @@ final class AssetService
     }
 
     /**
-     * Applies the same changes to several assets in one transaction: all are saved or none.
-     * A failure names the asset it happened on.
-     *
-     * @param  iterable<Asset>  $assets
-     * @param  array<string, mixed>  $changes  validated input
-     */
-    public function bulkUpdate(iterable $assets, array $changes): int
-    {
-        return DB::transaction(function () use ($assets, $changes) {
-            $updated = 0;
-            foreach ($assets as $asset) {
-                try {
-                    $before = $asset->lock_version;
-                    $updated += $this->update($asset, $changes)->lock_version !== $before ? 1 : 0;
-                } catch (ApiException|ValidationException $e) {
-                    $message = $e instanceof ValidationException ? collect($e->errors())->flatten()->first() : $e->getMessage();
-                    throw ApiException::unprocessable('BULK_UPDATE_FAILED', "Aset {$asset->name}: {$message}");
-                }
-            }
-
-            return $updated;
-        });
-    }
-
-    /**
      * Replaces the asset's photo, or removes it when `$image` is null. The new file is written
      * before the row changes and the old one deleted only after the commit, so a failure never
      * leaves the asset pointing at a missing file.

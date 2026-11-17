@@ -62,6 +62,18 @@ final class ApprovalActions
      */
     private const NOT_TRIED = ['asset.image', 'asset.document'];
 
+    /**
+     * Actions whose route was removed (T-25: Multiple Edit form replaced by the Excel flow,
+     * asset.import_edits). Old requests stay readable and can be rejected or cancelled, but
+     * cannot be approved: there is nothing left to replay them against.
+     */
+    private const RETIRED = ['asset.bulk_update'];
+
+    public static function retired(string $action): bool
+    {
+        return in_array($action, self::RETIRED, true);
+    }
+
     public static function exists(string $action): bool
     {
         return isset(self::ACTIONS[$action]);

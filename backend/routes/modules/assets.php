@@ -9,7 +9,6 @@ Route::middleware('module:assets')->group(function () {
     Route::get('/assets', [AssetController::class, 'index'])->middleware('permission:asset.view');
     Route::post('/assets', [AssetController::class, 'store'])->middleware(['permission:asset.create', 'approval:asset.create']);
     Route::post('/assets/import', [AssetController::class, 'import'])->middleware(['permission:asset.create', 'approval:asset.import']);
-    Route::post('/assets/bulk-update', [AssetController::class, 'bulkUpdate'])->middleware(['permission:asset.update', 'approval:asset.bulk_update']);
     Route::get('/assets/template', [AssetController::class, 'downloadTemplate'])->middleware('permission:asset.create');
     // Bulk edit in Excel: the filtered assets as .xlsx, then the edited file back.
     Route::get('/assets/edit-sheet', [AssetController::class, 'downloadEditSheet'])->middleware('permission:asset.update');
