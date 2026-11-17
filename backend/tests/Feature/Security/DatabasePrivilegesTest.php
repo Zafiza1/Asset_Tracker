@@ -107,11 +107,12 @@ class DatabasePrivilegesTest extends TestCase
             FROM pg_default_acl d WHERE d.defaclnamespace = 'public'::regnamespace OR d.defaclnamespace = 0
         SQL);
 
-        foreach ($defaults as $default) {
-            if ($default->type === 'r') {
-                $this->assertStringNotContainsString(self::APP.'=', $default->acl, "Default table privileges of {$default->owner}");
-            }
-        }
+        // No default table ACL may grant the runtime role anything (no rows at all is the expected state).
+        $grantsToApp = array_values(array_map(
+            fn ($default) => "{$default->owner}: {$default->acl}",
+            array_filter($defaults, fn ($default) => $default->type === 'r' && str_contains($default->acl, self::APP.'=')),
+        ));
+        $this->assertSame([], $grantsToApp, 'Default table privileges granted to '.self::APP);
     }
 
     public function test_database_roles_have_only_the_attributes_and_memberships_they_need(): void

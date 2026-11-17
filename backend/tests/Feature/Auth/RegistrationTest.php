@@ -42,7 +42,8 @@ class RegistrationTest extends TestCase
         $this->assertSame('PT Baru Jaya', $org->name);
         $this->assertTrue($user->memberships()->where('organization_id', $org->id)->where('status', 'active')->exists());
         $this->assertAuthenticatedAs($user, 'web');
-        $this->assertSame(['ADMIN', 'SUPERVISOR', 'SUPER_ADMIN'], Role::query()->where('organization_id', $org->id)->orderBy('code')->pluck('code')->all());
+        // Sorted in PHP (byte order): ORDER BY follows the database collation, which differs per server.
+        $this->assertSame(['ADMIN', 'SUPERVISOR', 'SUPER_ADMIN'], Role::query()->where('organization_id', $org->id)->pluck('code')->sort()->values()->all());
         $this->assertSame(['SUPER_ADMIN'], $user->roles()->pluck('code')->all());
         $this->assertSame($user->id, LicenseCode::query()->where('organization_id', $org->id)->where('reference', 'SUPER_ADMIN_FREE')->value('assigned_to_user_id'));
         $this->assertTrue(AuditLog::query()->where('action', 'auth.registered')->where('actor_user_id', $user->id)->exists());

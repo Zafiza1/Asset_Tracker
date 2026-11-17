@@ -5,7 +5,7 @@
 | Tanggal | 2026-11-16 |
 | Basis | `c9d3256` + working tree (belum di-commit) |
 | Pemverifikasi | qa-engineer (test), security-engineer (review), bukan pembuat fitur |
-| Status | **Lulus untuk commit**, dengan 2 kegagalan test lama yang ditangani terpisah (T-17) |
+| Status | **Lulus; di-commit `535987c`, push 2026-11-17.** 2 kegagalan test lama diperbaiki di T-17 |
 
 ## 1. Test
 
@@ -47,4 +47,4 @@ Tidak ada temuan Critical, High, atau Medium.
 |---|---|---|
 | L-1 | GET `/dashboards`, `/dashboards/overview`, `/default`, `/categories/{id}` dapat membuat baris dashboard (efek tulis pada GET) | Buat dashboard overview/kategori saat organisasi atau kategori dibuat, atau lewat POST |
 | L-2 | `GET /dashboards/navigation` menampilkan semua kategori aktif kepada pengguna yang hanya punya `dashboard.view` | Terima bila nama kategori dianggap tidak sensitif; jika tidak, tampilkan kategori yang memiliki aset dalam scope |
-| L-3 | Belum ada test khusus bahwa pratinjau laporan pengguna ber-scope lokasi tidak memuat aset di luar scope | Tambahkan test di `ReportDesignerBindingTest` |
+| L-3 | ~~Belum ada test pratinjau ber-scope lokasi~~ **Koreksi 2026-11-17:** sudah ada, `ReportDesignerBindingTest::test_preview_respects_field_permissions_and_data_scope` (pengguna ber-scope lokasi; aset tanpa lokasi tidak terlihat) | Tidak perlu tindakan |

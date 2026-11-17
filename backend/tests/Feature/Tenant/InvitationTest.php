@@ -146,7 +146,8 @@ class InvitationTest extends TestCase
         $warehouse = $this->location('GDG');
         $rack = $this->location('RAK', $warehouse);
         $office = $this->location('KTR');
-        $manager = $this->createTenantUser($this->org, ['SUPERVISOR'], [['scope_type' => 'location', 'ref_id' => $warehouse->id]]);
+        // Only Super Admin may invite (docs/08 §9); a location-scoped one still cannot grant wider scopes.
+        $manager = $this->createTenantUser($this->org, ['SUPER_ADMIN'], [['scope_type' => 'location', 'ref_id' => $warehouse->id]]);
         $this->actingAs($manager);
 
         foreach ([[['scope_type' => 'organization']], [['scope_type' => 'location', 'ref_id' => $office->id]]] as $i => $scopes) {
