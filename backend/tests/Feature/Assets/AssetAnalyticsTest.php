@@ -69,7 +69,7 @@ class AssetAnalyticsTest extends TestCase
         $this->assertSame(['Kategori 1' => 2, 'Perangkat IT' => 2], collect($data['by_category'])->pluck('count', 'name')->sortKeys()->all());
         $this->assertSame(['Gudang 1' => 3, 'Tanpa lokasi' => 1], collect($data['by_location'])->pluck('count', 'name')->sortKeys()->all());
 
-        $this->assertSame(['overdue_loan' => 1, 'under_maintenance' => 1, 'no_location' => 1], $data['attention']['counts']);
+        $this->assertSame(['overdue_loan' => 1, 'overdue_return' => 0, 'under_maintenance' => 1, 'no_location' => 1], $data['attention']['counts']);
         $this->assertSame('overdue_loan', $data['attention']['items'][0]['reason']);
         $this->assertSame('Laptop', $data['attention']['items'][0]['asset']['name']);
         $this->assertCount(3, $data['attention']['items']);

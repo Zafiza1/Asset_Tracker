@@ -22,9 +22,10 @@ describe('DashboardPage widgets', () => {
     by_location: [{ id: 'l1', name: 'Gudang', count: 1 }],
     transactions: { days: 30, total: 0, by_type: [], recent: [] },
     trend: [],
-    attention: { counts: { overdue_loan: 0, under_maintenance: 0, no_location: 0 }, items: [] },
-    utilization: { in_service: 0, in_use: 0, on_loan: 0, available: 1, under_maintenance: 0, operable: 1, excluded: 0, rate: 0 },
+    attention: { counts: { overdue_loan: 0, overdue_return: 0, under_maintenance: 0, no_location: 0 }, items: [] },
+    utilization: { in_service: 0, in_use: 0, on_loan: 0, off_site: 0, available: 1, under_maintenance: 0, operable: 1, excluded: 0, rate: 0 },
     loans: { active: 0, overdue: 0, due_soon: 0, no_due_date: 0, due_soon_days: 7 },
+    external: { active: 0, overdue: 0, due_soon: 0, due_soon_days: 7, days: 30, outgoing: 0, incoming: 0 },
     age: { buckets: [], unknown: 1, average_years: null, by_category: [], oldest: [] },
     value_by_category: [],
     data_quality: { total: 1, complete: 1, fields: [], score: null },
@@ -56,7 +57,7 @@ describe('DashboardPage widgets', () => {
         { status: 'available', label: 'Tidak Aktif', count: 5 },
         { status: 'lost', label: 'Hilang', count: 1 },
       ],
-      utilization: { in_service: 15, in_use: 15, on_loan: 0, available: 5, under_maintenance: 0, operable: 20, excluded: 1, rate: 75 },
+      utilization: { in_service: 15, in_use: 15, on_loan: 0, off_site: 0, available: 5, under_maintenance: 0, operable: 20, excluded: 1, rate: 75 },
       data_quality: {
         total: 21,
         complete: 1,
@@ -81,6 +82,26 @@ describe('DashboardPage widgets', () => {
     // Each incomplete column links to the assets missing it; complete ones are listed apart.
     expect(screen.getByRole('link', { name: /20 kosong/ })).toHaveAttribute('href', '/aset?missing=image_path')
     expect(screen.getByText('Sudah lengkap: Lokasi.')).toBeInTheDocument()
+  })
+
+  it('shows assets outside the organization and late returns to follow up', async () => {
+    renderPage('u1', {
+      ...dashboard,
+      utilization: { ...dashboard.utilization, in_service: 3, off_site: 3, operable: 4, rate: 75 },
+      external: { active: 3, overdue: 1, due_soon: 1, due_soon_days: 7, days: 30, outgoing: 4, incoming: 1 },
+      attention: {
+        counts: { overdue_loan: 0, overdue_return: 1, under_maintenance: 0, no_location: 0 },
+        items: [
+          { reason: 'overdue_return', asset: { id: 'a9', name: 'Proyektor Epson' }, status: 'off_site', location: 'Ruang Rapat', borrower_name: null, loan_due_date: null, counterparty_name: 'Dinas Pendidikan', return_due_date: '2026-11-10' },
+        ],
+      },
+    })
+    expect(await screen.findByText('Aset di luar organisasi')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '3' })).toHaveAttribute('href', '/transaksi?not_returned=1')
+    expect(screen.getByText('30 hari terakhir: 4 keluar · 1 masuk')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Di pihak luar/ })).toHaveAttribute('href', '/aset?status=off_site')
+    expect(screen.getAllByText(/Keluar sementara lewat batas/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Dinas Pendidikan · rencana kembali/)).toBeInTheDocument()
   })
 
   it('warns when the status breakdown does not add up to the total', async () => {

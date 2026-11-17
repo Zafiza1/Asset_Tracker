@@ -21,6 +21,7 @@ type AttentionReason = keyof Dashboard['attention']['counts']
 
 const attentionLabel: Record<AttentionReason, string> = {
   overdue_loan: 'Pinjaman lewat jatuh tempo',
+  overdue_return: 'Keluar sementara lewat batas',
   under_maintenance: 'Dalam perbaikan',
   no_location: 'Tanpa lokasi',
 }
@@ -142,6 +143,7 @@ function usageRows(data: Dashboard): UsageRow[] {
   return [
     row('in_use', 'Digunakan', u.in_use, 'Sedang dipakai sendiri oleh unit/pegawai.'),
     row('on_loan', 'Dipinjam', u.on_loan, 'Dipinjamkan ke pihak lain lewat transaksi peminjaman.'),
+    row('off_site', 'Di pihak luar', u.off_site, 'Keluar sementara dari organisasi dan akan kembali.'),
     row('available', 'Tersedia', u.available, 'Siap dipakai, tetapi saat ini tidak digunakan.'),
     row('under_maintenance', 'Dalam perbaikan', u.under_maintenance, 'Sementara tidak dapat dipakai.'),
   ]
@@ -169,7 +171,7 @@ function UsageBreakdown({ data, detailed = false }: { data: Dashboard; detailed?
         ))}
       </ul>
       <p className="mt-3 text-xs text-slate-500">
-        Pemanfaatan = (Digunakan + Dipinjam) ÷ {formatCount(operable)} aset operasional.
+        Pemanfaatan = (Digunakan + Dipinjam + Di pihak luar) ÷ {formatCount(operable)} aset operasional.
         {excluded > 0 && <> {formatCount(excluded)} aset hilang/dihapuskan tidak dihitung.</>}
       </p>
     </div>
@@ -185,7 +187,27 @@ function UtilizationWidget({ data }: { data: Dashboard }) {
     { key: 'due_soon', label: `Jatuh tempo ≤ ${loans.due_soon_days} hari`, value: loans.due_soon, color: STATUS_COLOR.warning },
     { key: 'on_time', label: 'Belum jatuh tempo', value: onTime, color: STATUS_COLOR.good },
   ]
-  const gauge = <Gauge value={utilization.rate} label="Tingkat pemanfaatan" note={`${formatCount(utilization.in_service)} dari ${formatCount(utilization.operable)} aset operasional digunakan atau dipinjam`} />
+  const gauge = <Gauge value={utilization.rate} label="Tingkat pemanfaatan" note={`${formatCount(utilization.in_service)} dari ${formatCount(utilization.operable)} aset operasional digunakan, dipinjam, atau di pihak luar`} />
+  const external = data.external
+  const externalData: SliceDatum[] = [
+    { key: 'overdue', label: 'Lewat rencana kembali', value: external.overdue, color: STATUS_COLOR.critical },
+    { key: 'due_soon', label: `Kembali ≤ ${external.due_soon_days} hari`, value: external.due_soon, color: STATUS_COLOR.warning },
+    { key: 'on_time', label: 'Belum waktunya', value: external.active - external.overdue - external.due_soon, color: STATUS_COLOR.good },
+  ]
+  const externalBlock = external.active > 0 && (
+    <div className="min-w-0">
+      <p className="mb-2 flex items-baseline justify-between gap-2 text-sm">
+        <span className="font-medium text-slate-700">Aset di luar organisasi</span>
+        <Link to="/transaksi?not_returned=1" className="font-semibold tabular-nums text-slate-900 hover:text-brand-700">
+          {formatCount(external.active)}
+        </Link>
+      </p>
+      <StackedBar data={externalData} emptyText="Tidak ada aset di luar organisasi." />
+      <p className="mt-2 text-xs text-slate-500">
+        {external.days} hari terakhir: {formatCount(external.outgoing)} keluar · {formatCount(external.incoming)} masuk
+      </p>
+    </div>
+  )
   const loanBlock = (
     <div className="min-w-0">
       <p className="mb-2 flex items-baseline justify-between gap-2 text-sm">
@@ -205,6 +227,7 @@ function UtilizationWidget({ data }: { data: Dashboard }) {
           {gauge}
           <UsageBreakdown data={data} />
           {loans.active > 0 && loanBlock}
+          {externalBlock}
         </div>
       </Widget>
     )
@@ -216,6 +239,7 @@ function UtilizationWidget({ data }: { data: Dashboard }) {
           {gauge}
           <UsageBreakdown data={data} />
           <div className="col-span-2">{loanBlock}</div>
+          {externalBlock && <div className="col-span-2">{externalBlock}</div>}
         </div>
       </Widget>
     )
@@ -226,7 +250,10 @@ function UtilizationWidget({ data }: { data: Dashboard }) {
         <div className="grid grid-cols-[auto_minmax(0,1.3fr)_minmax(0,1fr)] items-start gap-5 p-4">
           {gauge}
           <UsageBreakdown data={data} detailed />
-          {loanBlock}
+          <div className="space-y-5">
+            {loanBlock}
+            {externalBlock}
+          </div>
         </div>
       </Widget>
     )
@@ -237,7 +264,10 @@ function UtilizationWidget({ data }: { data: Dashboard }) {
       <div className="grid grid-cols-[auto_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] items-start gap-5 p-4">
         {gauge}
         <UsageBreakdown data={data} detailed />
-        {loanBlock}
+        <div className="space-y-5">
+          {loanBlock}
+          {externalBlock}
+        </div>
         <div className="min-w-0">
           <h3 className="mb-2 text-sm font-medium text-slate-700">Pinjaman terlambat</h3>
           {overdue.length === 0 ? (
@@ -750,7 +780,9 @@ function attentionDetail(item: Dashboard['attention']['items'][number]): ReactNo
   const parts =
     item.reason === 'overdue_loan'
       ? [item.borrower_name, item.loan_due_date && `jatuh tempo ${formatDate(item.loan_due_date)}`]
-      : [item.location]
+      : item.reason === 'overdue_return'
+        ? [item.counterparty_name, item.return_due_date && `rencana kembali ${formatDate(item.return_due_date)}`]
+        : [item.location]
   return parts.filter(Boolean).join(' · ')
 }
 

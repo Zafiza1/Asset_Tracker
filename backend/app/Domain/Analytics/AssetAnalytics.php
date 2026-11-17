@@ -6,6 +6,7 @@ use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Carbon\CarbonImmutable;
@@ -77,6 +78,7 @@ final class AssetAnalytics
             'attention' => $this->attention($today),
             'utilization' => $this->utilization(),
             'loans' => $this->loans($today),
+            'external' => $this->external($today),
             'age' => $this->age($today),
             'value_by_category' => $this->valueByCategory(),
             'data_quality' => $this->dataQuality(),
@@ -132,6 +134,45 @@ final class AssetAnalytics
             'no_due_date' => (int) $row->no_due_date,
             'due_soon_days' => self::DUE_SOON_DAYS,
         ];
+    }
+
+    /**
+     * Temporary outgoing transactions whose asset has not come back (F-02c): how many, how many
+     * are past or near their planned return date, and outgoing/incoming in the recent period.
+     *
+     * @return array{active: int, overdue: int, due_soon: int, due_soon_days: int, days: int, outgoing: int, incoming: int}
+     */
+    private function external(CarbonImmutable $today): array
+    {
+        $date = $today->toDateString();
+        $row = $this->openOutgoing()->toBase()->selectRaw(<<<'SQL'
+            count(*) AS active,
+            count(*) FILTER (WHERE due_date < ?) AS overdue,
+            count(*) FILTER (WHERE due_date BETWEEN ? AND ?) AS due_soon
+        SQL, [$date, $date, $today->addDays(self::DUE_SOON_DAYS - 1)->toDateString()])->first();
+        $since = $today->subDays(self::RECENT_DAYS - 1)->toDateString();
+        $recent = $this->transactions()->toBase()->where('transaction_date', '>=', $since)
+            ->whereIn('type', [TransactionType::OUTGOING, TransactionType::INCOMING])
+            ->select('type', DB::raw('count(*) AS count'))->groupBy('type')->pluck('count', 'type');
+
+        return [
+            'active' => (int) $row->active,
+            'overdue' => (int) $row->overdue,
+            'due_soon' => (int) $row->due_soon,
+            'due_soon_days' => self::DUE_SOON_DAYS,
+            'days' => self::RECENT_DAYS,
+            'outgoing' => (int) ($recent[TransactionType::OUTGOING] ?? 0),
+            'incoming' => (int) ($recent[TransactionType::INCOMING] ?? 0),
+        ];
+    }
+
+    /** Temporary outgoing rows of active assets that are still outside (no incoming row closes them). */
+    private function openOutgoing(): Builder
+    {
+        return AssetTransaction::query()
+            ->whereIn('asset_id', $this->assets()->where('assets.status', AssetStatus::OFF_SITE)->select('assets.id'))
+            ->where('type', TransactionType::OUTGOING)->where('outgoing_nature', OutgoingReason::TEMPORARY)
+            ->whereDoesntHave('incomingTransaction');
     }
 
     /**
@@ -438,8 +479,10 @@ final class AssetAnalytics
     private function attention(CarbonImmutable $today): array
     {
         $date = $today->toDateString();
+        $lateReturn = fn () => $this->openOutgoing()->where('due_date', '<', $date);
         $rules = [
             'overdue_loan' => fn (Builder $q) => $q->where('status', AssetStatus::ON_LOAN)->whereNotNull('loan_due_date')->where('loan_due_date', '<', $date),
+            'overdue_return' => fn (Builder $q) => $q->whereIn('assets.id', $lateReturn()->select('asset_id')),
             'under_maintenance' => fn (Builder $q) => $q->where('status', AssetStatus::UNDER_MAINTENANCE),
             'no_location' => fn (Builder $q) => $q->whereNull('location_id')->where('status', '!=', AssetStatus::DISPOSED),
         ];
@@ -466,8 +509,23 @@ final class AssetAnalytics
                     'location' => $asset->location?->name,
                     'borrower_name' => $asset->borrower_name,
                     'loan_due_date' => $asset->loan_due_date?->toDateString(),
+                    // overdue_return only (filled in below): the outside party and the planned return date.
+                    'counterparty_name' => null,
+                    'return_due_date' => null,
                 ];
             }
+        }
+
+        $late = array_column(array_filter($items, fn ($i) => $i['reason'] === 'overdue_return'), 'asset');
+        if ($late !== []) {
+            $rows = $lateReturn()->whereIn('asset_id', array_column($late, 'id'))->get(['asset_id', 'due_date', 'counterparty_name'])->keyBy('asset_id');
+            foreach ($items as &$item) {
+                if ($item['reason'] === 'overdue_return' && isset($rows[$item['asset']['id']])) {
+                    $item['counterparty_name'] = $rows[$item['asset']['id']]->counterparty_name;
+                    $item['return_due_date'] = $rows[$item['asset']['id']]->due_date?->toDateString();
+                }
+            }
+            unset($item);
         }
 
         return ['counts' => $counts, 'items' => $items];

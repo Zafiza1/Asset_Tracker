@@ -29,10 +29,25 @@ export interface Dashboard {
     recent: { id: string; transaction_number: string; type: TransactionType; transaction_date: string; asset: { id: string; name: string }; created_by: string | null }[]
   }
   trend: TrendPoint[]
-  attention: { counts: Record<AttentionReason, number>; items: { reason: AttentionReason; asset: AssetRef; status: AssetStatus; location: string | null; borrower_name: string | null; loan_due_date: string | null }[] }
-  /** operable = in_use + on_loan + available + under_maintenance; excluded = lost + disposed. */
-  utilization: { in_service: number; in_use: number; on_loan: number; available: number; under_maintenance: number; operable: number; excluded: number; rate: number | null }
+  attention: {
+    counts: Record<AttentionReason, number>
+    items: {
+      reason: AttentionReason
+      asset: AssetRef
+      status: AssetStatus
+      location: string | null
+      borrower_name: string | null
+      loan_due_date: string | null
+      /** overdue_return only. */
+      counterparty_name: string | null
+      return_due_date: string | null
+    }[]
+  }
+  /** operable = in_use + on_loan + off_site + available + under_maintenance; excluded = lost + disposed. */
+  utilization: { in_service: number; in_use: number; on_loan: number; off_site: number; available: number; under_maintenance: number; operable: number; excluded: number; rate: number | null }
   loans: { active: number; overdue: number; due_soon: number; no_due_date: number; due_soon_days: number }
+  /** Temporary outgoing not yet back (F-02c); outgoing/incoming = transactions in the last `days` days. */
+  external: { active: number; overdue: number; due_soon: number; due_soon_days: number; days: number; outgoing: number; incoming: number }
   age: {
     buckets: { key: string; label: string; count: number }[]
     unknown: number
@@ -47,7 +62,7 @@ export interface Dashboard {
 }
 
 type AssetRef = { id: string; name: string }
-type AttentionReason = 'overdue_loan' | 'under_maintenance' | 'no_location'
+type AttentionReason = 'overdue_loan' | 'overdue_return' | 'under_maintenance' | 'no_location'
 
 /**
  * Asset Analytics module: everything here is computed by the API from the stored data,

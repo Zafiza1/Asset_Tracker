@@ -219,6 +219,29 @@ class OutgoingIncomingTransactionTest extends TestCase
         $this->assertErrorCode($this->getJson('/api/transactions/counts?type=bogus'), 422, 'VALIDATION_FAILED');
     }
 
+    public function test_dashboard_shows_assets_outside_and_late_returns(): void
+    {
+        $late = $this->asset('Proyektor');
+        $soon = $this->asset('Kamera');
+        $back = $this->asset('Laptop');
+        $this->record($late, 'outgoing', $this->temporary([
+            'transaction_date' => now()->subDays(10)->toDateString(), 'due_date' => now()->subDays(3)->toDateString(), 'counterparty_name' => 'Dinas Pendidikan',
+        ]))->assertCreated();
+        $this->record($soon, 'outgoing', $this->temporary(['due_date' => now()->addDays(2)->toDateString()]))->assertCreated();
+        $this->record($back, 'outgoing', $this->temporary([
+            'transaction_date' => now()->subDays(10)->toDateString(), 'due_date' => now()->subDays(5)->toDateString(),
+        ]))->assertCreated();
+        $this->record($back, 'incoming')->assertCreated();
+
+        $data = $this->getJson('/api/dashboard')->assertOk()->json('data');
+        $this->assertSame(['active' => 2, 'overdue' => 1, 'due_soon' => 1, 'due_soon_days' => 7, 'days' => 30, 'outgoing' => 3, 'incoming' => 1], $data['external']);
+        $this->assertSame(1, $data['attention']['counts']['overdue_return']);
+        $item = collect($data['attention']['items'])->firstWhere('reason', 'overdue_return');
+        $this->assertSame($late, $item['asset']['id']);
+        $this->assertSame('Dinas Pendidikan', $item['counterparty_name']);
+        $this->assertSame(now()->subDays(3)->toDateString(), $item['return_due_date']);
+    }
+
     public function test_counterparty_contact_needs_contact_permission(): void
     {
         $asset = $this->asset();
