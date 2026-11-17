@@ -2,8 +2,9 @@ import { router, useFocusEffect, type Href } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Button, Card, colors } from '@/components/ui'
+import { Alert, Button, Card, colors } from '@/components/ui'
 import { useSession } from '@/lib/session'
+import { canRecord } from '@/lib/transactions'
 
 // A screen that throws keeps the header; only the content shows the error.
 export { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -17,7 +18,11 @@ export default function HomeScreen() {
   const [manual, setManual] = useState('')
   const [leaving, setLeaving] = useState(false)
   const [pending, setPending] = useState<number | null>(null)
+  const [notReturned, setNotReturned] = useState<number | null>(null)
   const canDecide = can('approval.manage')
+  const canOut = canRecord(profile, can, 'outgoing')
+  const canIn = canRecord(profile, can, 'incoming')
+  const canViewTransactions = can('transaction.view')
 
   // Pending requests: every one for approvers, the user's own otherwise; refreshed on return.
   useFocusEffect(
@@ -26,10 +31,16 @@ export default function HomeScreen() {
       get<{ data: { pending: number } }>('/approvals/summary')
         .then((r) => live && setPending(r.data.pending))
         .catch(() => undefined)
+      // Assets still outside the organization, for the reminder to record them coming back.
+      if (canViewTransactions && canIn) {
+        get<{ data: { not_returned: number } }>('/transactions/counts')
+          .then((r) => live && setNotReturned(r.data.not_returned))
+          .catch(() => undefined)
+      }
       return () => {
         live = false
       }
-    }, [get]),
+    }, [get, canViewTransactions, canIn]),
   )
 
   const actions: { title: string; text: string; href: Href; badge?: number | null }[] = [
@@ -81,6 +92,47 @@ export default function HomeScreen() {
             <Text style={styles.scanText}>Pindai barcode atau QR code pada label aset dengan kamera.</Text>
           </View>
         </Pressable>
+
+        {(canOut || canIn) && (
+          <View style={styles.tiles}>
+            {canOut && (
+              <Pressable
+                style={({ pressed }) => [styles.tile, pressed && { backgroundColor: colors.background }]}
+                onPress={() => router.push({ pathname: '/transaction/[type]', params: { type: 'outgoing' } })}
+                accessibilityRole="button"
+                accessibilityLabel="Catat aset keluar"
+              >
+                <View style={[styles.tileIcon, { backgroundColor: colors.warningSoft }]}>
+                  <Text style={{ color: colors.warning, fontSize: 20, fontWeight: '800' }}>↗</Text>
+                </View>
+                <Text style={styles.actionTitle}>Aset Keluar</Text>
+                <Text style={styles.muted}>Aset ke pihak luar</Text>
+              </Pressable>
+            )}
+            {canIn && (
+              <Pressable
+                style={({ pressed }) => [styles.tile, pressed && { backgroundColor: colors.background }]}
+                onPress={() => router.push({ pathname: '/transaction/[type]', params: { type: 'incoming' } })}
+                accessibilityRole="button"
+                accessibilityLabel="Catat aset masuk"
+              >
+                <View style={[styles.tileIcon, { backgroundColor: colors.okSoft }]}>
+                  <Text style={{ color: colors.ok, fontSize: 20, fontWeight: '800' }}>↙</Text>
+                </View>
+                <Text style={styles.actionTitle}>Aset Masuk</Text>
+                <Text style={styles.muted}>Aset kembali dari luar</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {!!notReturned && (
+          <Pressable onPress={() => router.push({ pathname: '/transaction/[type]', params: { type: 'incoming' } })} accessibilityRole="button">
+            <Alert tone="warning" title={`${notReturned} aset belum kembali`}>
+              Aset yang keluar sementara masih di pihak luar. Ketuk untuk mencatat yang sudah kembali.
+            </Alert>
+          </Pressable>
+        )}
 
         <Card title="Cari nomor seri">
           <View style={styles.search}>
@@ -159,5 +211,8 @@ const styles = StyleSheet.create({
   badge: { minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger },
   badgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   chevron: { fontSize: 24, color: colors.muted },
+  tiles: { flexDirection: 'row', gap: 12 },
+  tile: { flex: 1, gap: 6, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, minHeight: 104 },
+  tileIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, fontSize: 16, color: colors.text },
 })

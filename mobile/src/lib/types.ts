@@ -112,10 +112,19 @@ export interface AssetDetail {
 export interface AssetTransaction {
   id: string
   transaction_number: string
+  type?: string
   type_label: string
   transaction_date: string
   notes: string | null
   created_by: string | null
+  /** Outgoing / incoming rows (F-02); null on other types. */
+  reason_label?: string | null
+  counterparty_name?: string | null
+  counterparty_org?: string | null
+  document_number?: string | null
+  due_date?: string | null
+  return_status?: 'Sudah kembali' | 'Terlambat' | 'Belum kembali' | null
+  days_out?: number | null
 }
 
 export interface Paginated<T> {
@@ -135,6 +144,8 @@ export interface Profile {
   permissions: string[]
   /** Optional modules switched on for the organization (e.g. 'barcode'). */
   modules?: string[]
+  /** Token abilities beyond reading (e.g. 'transaction:write'); missing on logins before F-03. */
+  abilities?: string[]
 }
 
 export const assetStatusLabel: Record<AssetStatus, string> = {

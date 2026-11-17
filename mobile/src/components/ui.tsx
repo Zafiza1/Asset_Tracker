@@ -15,6 +15,8 @@ export const colors = {
   dangerSoft: '#fef2f2',
   warning: '#92400e',
   warningSoft: '#fffbeb',
+  ok: '#15803d',
+  okSoft: '#f0fdf4',
 }
 
 export function Button({

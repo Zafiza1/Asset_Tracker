@@ -61,7 +61,7 @@ final class ResolveTenant
 
         // The mobile app reads and makes a few listed writes; its token carries the organization chosen at login.
         if ($token instanceof MobileAccessToken) {
-            if (! MobileAccessToken::allows($request)) {
+            if (! $token->allows($request)) {
                 throw ApiException::forbidden('MOBILE_TOKEN_READ_ONLY', 'Perubahan ini hanya dapat dilakukan melalui aplikasi web.');
             }
             $organization = $this->access->find($user, $token->organization_id)

@@ -1,11 +1,12 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router'
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { useCallback, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Alert, Badge, Button, Card, colors, Row, SectionHeader } from '@/components/ui'
 import { ApiError, errorMessage } from '@/lib/api'
 import { attributeRowsBySection, formatDate, formatDateTime, formatMoney } from '@/lib/format'
 import { useSession } from '@/lib/session'
+import { canRecord, daysBetween, localToday, rejectReason } from '@/lib/transactions'
 import { assetStatusColors, assetStatusLabel, SECTION_LABELS, type AssetDetail, type AssetTransaction, type Paginated } from '@/lib/types'
 
 // A screen that throws keeps the header and back button; only the content shows the error.
@@ -14,7 +15,7 @@ export { ErrorBoundary } from '@/components/ErrorBoundary'
 /** The asset a scanned code encodes, laid out as the web app's asset detail (Pendataan Aset). */
 export default function AssetDetailScreen() {
   const { code } = useLocalSearchParams<{ code: string }>()
-  const { get, can, server, token } = useSession()
+  const { get, can, server, token, profile } = useSession()
   const [detail, setDetail] = useState<AssetDetail | null>(null)
   const [history, setHistory] = useState<AssetTransaction[] | null>(null)
   const [error, setError] = useState<unknown>(null)
@@ -37,9 +38,12 @@ export default function AssetDetailScreen() {
     }
   }, [code, get, canViewHistory])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  // Also on return from recording a transaction, so the status is current.
+  useFocusEffect(
+    useCallback(() => {
+      load()
+    }, [load]),
+  )
 
   if (loading && !detail) {
     return (
@@ -103,6 +107,7 @@ export default function AssetDetailScreen() {
           {`Aset ini tidak termasuk inventaris aktif sejak ${formatDateTime(a.archived_at)}. Data dan riwayat tetap tersimpan.`}
         </Alert>
       )}
+      {a.status === 'off_site' && <OffSite history={history} />}
       {overdue && (
         <Alert tone="warning" title="Peminjaman melewati batas">
           {`Dipinjam oleh ${a.borrower_name}, seharusnya kembali ${formatDate(a.loan_due_date)}.`}
@@ -166,8 +171,33 @@ export default function AssetDetailScreen() {
         )}
       </Card>
 
-      <Button title="Pindai aset lain" onPress={() => router.replace('/scan')} />
+      {canRecord(profile, can, 'outgoing') && !rejectReason(a, 'outgoing') && (
+        <Button title="Catat keluar" variant="secondary" onPress={() => router.push({ pathname: '/transaction/[type]', params: { type: 'outgoing', code: a.id } })} />
+      )}
+      {canRecord(profile, can, 'incoming') && !rejectReason(a, 'incoming') && (
+        <Button title="Catat masuk" onPress={() => router.push({ pathname: '/transaction/[type]', params: { type: 'incoming', code: a.id } })} />
+      )}
+      <Button title="Pindai aset lain" variant={a.status === 'off_site' && canRecord(profile, can, 'incoming') ? 'secondary' : 'primary'} onPress={() => router.replace('/scan')} />
     </ScrollView>
+  )
+}
+
+/** Off-site asset: the outgoing transaction that sent it out (newest in the history), red once late. */
+function OffSite({ history }: { history: AssetTransaction[] | null }) {
+  const out = history?.find((t) => t.type === 'outgoing')
+  if (!out) {
+    return (
+      <Alert tone="warning" title="Di luar organisasi">
+        Aset ini sedang berada di pihak luar. Catat transaksi masuk saat aset kembali.
+      </Alert>
+    )
+  }
+  const late = out.due_date ? daysBetween(out.due_date, localToday()) : 0
+  const party = [out.counterparty_name, out.counterparty_org && `(${out.counterparty_org})`].filter(Boolean).join(' ')
+  return (
+    <Alert tone={late > 0 ? 'error' : 'warning'} title={late > 0 ? `Terlambat ${late} hari` : 'Di luar organisasi'}>
+      {`${out.reason_label ?? 'Keluar'} · ${party} sejak ${formatDate(out.transaction_date)}${out.due_date ? `, rencana kembali ${formatDate(out.due_date)}` : ''} (${out.transaction_number}).`}
+    </Alert>
   )
 }
 

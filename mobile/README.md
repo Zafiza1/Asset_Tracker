@@ -24,7 +24,9 @@ Menu beranda mengikuti izin akun di organisasi token (sama dengan web):
 
 Alur approval sama dengan web: penambahan oleh Super Admin/Supervisor langsung tersimpan; oleh role lain disimpan sebagai pengajuan (HTTP 202) dan baru diterapkan setelah disetujui. Badge merah di menu menunjukkan jumlah pengajuan yang menunggu.
 
-Foto dan dokumen aset, perubahan data, arsip, impor Excel, dan transaksi tetap lewat aplikasi web.
+**Aset Keluar** dan **Aset Masuk** (F-03): pindai satu atau beberapa aset, isi formulir ringkas, konfirmasi, lalu aplikasi menampilkan nomor transaksi (`OUT-…`/`IN-…`). Tanggal transaksi selalu hari ini (tanggal mundur lewat web), dan tidak ada mode offline: tanpa koneksi tidak ada yang tercatat. Tile hanya muncul bila token memiliki ability `transaction:write` dan akun memiliki `transaction.create` + `asset.outgoing`/`asset.incoming`. Akun yang baru diberi izin perlu keluar lalu masuk ulang.
+
+Foto dan dokumen aset, perubahan data, arsip, impor Excel, dan jenis transaksi lain tetap lewat aplikasi web.
 
 Isi barcode adalah **ID internal aset** (UUID, seperti label dari tombol *Print barcode* di web); No Aset tidak dipakai dan tidak ditampilkan. Aplikasi mencarinya lewat `GET /api/assets/lookup?code=…`, dengan cakupan data dan izin akun yang sama seperti di web. Bila label rusak, ketik **nomor seri** aset.
 
@@ -41,7 +43,7 @@ Aplikasi memakai endpoint berikut (sudah ada di `backend/`):
 
 Selain itu aplikasi memakai endpoint tenant yang sama dengan web: `GET /locations`, `GET /tenant-masters/categories`, `GET /tenant-masters/categories/{id}/attributes`, `POST /assets`, `POST /locations`, `POST /tenant-masters/categories`, dan `GET /approvals`, `/approvals/counts`, `/approvals/summary`, `/approvals/{id}`, `POST /approvals/{id}/approve|reject|cancel`.
 
-Token disimpan di tabel `mobile_access_tokens` yang hanya dapat dibaca dalam konteks system (RLS), sehingga konteks tenant tidak pernah melihat token. Pada rute tenant token diterima untuk request baca (GET) dan hanya untuk write yang terdaftar di `MobileAccessToken::WRITE_ROUTES` (daftar POST di atas); write lain ditolak dengan `403 MOBILE_TOKEN_READ_ONLY`. Izin (`permission:`) dan gerbang approval (`approval:`) tetap berlaku seperti di web. Token ditolak di rute akun web (`/api/auth/logout`, `/password`, `/organizations`, dst.).
+Token disimpan di tabel `mobile_access_tokens` yang hanya dapat dibaca dalam konteks system (RLS), sehingga konteks tenant tidak pernah melihat token. Pada rute tenant token diterima untuk request baca (GET) dan hanya untuk write yang terdaftar di `MobileAccessToken::WRITE_ROUTES` (daftar POST di atas), ditambah `POST /api/transactions` jenis `outgoing`/`incoming` bagi token dengan ability `transaction:write` (`MobileAccessToken::ABILITY_ROUTES`, diberikan saat login hanya bila akun memiliki `transaction.create` dan `asset.outgoing` atau `asset.incoming`); write lain ditolak dengan `403 MOBILE_TOKEN_READ_ONLY`. Izin dicek ulang di setiap request, jadi izin yang dicabut langsung berlaku walau token masih memegang ability. Izin (`permission:`) dan gerbang approval (`approval:`) tetap berlaku seperti di web. Token ditolak di rute akun web (`/api/auth/logout`, `/password`, `/organizations`, dst.).
 
 Jalankan migrasinya sekali:
 

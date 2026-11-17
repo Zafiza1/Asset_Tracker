@@ -173,6 +173,53 @@ class MobileAccessTest extends TestCase
         $this->bearer('not-a-token')->getJson('/api/auth/mobile/me')->assertUnauthorized();
     }
 
+    public function test_transaction_write_ability_records_outgoing_and_incoming_only(): void
+    {
+        $login = $this->login()->assertOk()->assertJsonPath('data.abilities', ['read', 'transaction:write']);
+        $token = $login->json('data.token');
+        $this->bearer($token)->getJson('/api/auth/mobile/me')->assertJsonPath('data.abilities', ['read', 'transaction:write']);
+        $asset = $this->asset->id;
+
+        $out = $this->bearer($token)->postJson('/api/transactions', [
+            'asset_ids' => [$asset], 'type' => 'outgoing', 'outgoing_nature' => 'temporary', 'reason_code' => 'external_repair',
+            'counterparty_name' => 'CV Servis', 'due_date' => now()->addWeek()->toDateString(),
+        ])->assertCreated()->json('data.0');
+        $this->assertStringStartsWith('OUT-', $out['transaction_number']);
+        $this->bearer($token)->postJson('/api/transactions', ['asset_ids' => [$asset], 'type' => 'incoming'])
+            ->assertCreated()->assertJsonPath('data.0.outgoing_transaction_id', $out['id']);
+
+        // Other transaction types stay on the web.
+        $this->assertErrorCode($this->bearer($token)->postJson('/api/transactions', ['asset_ids' => [$asset], 'type' => 'note', 'notes' => 'x']), 403, 'MOBILE_TOKEN_READ_ONLY');
+        $this->assertErrorCode($this->bearer($token)->postJson('/api/transactions', ['asset_ids' => [$asset], 'type' => 'transfer']), 403, 'MOBILE_TOKEN_READ_ONLY');
+    }
+
+    public function test_token_without_transaction_permissions_gets_no_write_ability(): void
+    {
+        $viewer = $this->createTenantUser($this->alpha, [$this->createRole($this->alpha, 'MOBILE_VIEW', ['asset.view', 'transaction.view', 'transaction.create'])->code]);
+        $token = $this->login(['email' => $viewer->email])->assertOk()->assertJsonPath('data.abilities', ['read'])->json('data.token');
+
+        $this->assertErrorCode($this->bearer($token)->postJson('/api/transactions', [
+            'asset_ids' => [$this->asset->id], 'type' => 'outgoing', 'outgoing_nature' => 'temporary', 'reason_code' => 'external_repair',
+            'counterparty_name' => 'CV Servis', 'due_date' => now()->addWeek()->toDateString(),
+        ]), 403, 'MOBILE_TOKEN_READ_ONLY');
+    }
+
+    public function test_revoked_permission_blocks_a_token_that_still_has_the_ability(): void
+    {
+        $role = $this->createRole($this->alpha, 'MOBILE_OUT', ['asset.view', 'transaction.view', 'transaction.create', 'asset.outgoing', 'approval.manage']);
+        $staff = $this->createTenantUser($this->alpha, [$role->code]);
+        $token = $this->login(['email' => $staff->email])->assertOk()->assertJsonPath('data.abilities', ['read', 'transaction:write'])->json('data.token');
+
+        $this->tenancy()->runAsTenant(new TenantContext($this->alpha, $this->admin), fn () => $role->permissions()->detach(
+            $role->permissions()->where('code', 'asset.outgoing')->pluck('permissions.id')
+        ));
+        $response = $this->bearer($token)->postJson('/api/transactions', [
+            'asset_ids' => [$this->asset->id], 'type' => 'outgoing', 'outgoing_nature' => 'temporary', 'reason_code' => 'external_repair',
+            'counterparty_name' => 'CV Servis', 'due_date' => now()->addWeek()->toDateString(),
+        ]);
+        $this->assertErrorCode($response, 403, 'FORBIDDEN');
+    }
+
     public function test_tokens_are_invisible_in_a_tenant_context(): void
     {
         $this->login()->assertOk();

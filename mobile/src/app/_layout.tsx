@@ -39,6 +39,7 @@ function Screens() {
         <Stack.Screen name="index" options={{ title: 'Asset Tracker' }} />
         <Stack.Screen name="scan" options={{ title: 'Pindai Barcode' }} />
         <Stack.Screen name="asset/[code]" options={{ title: 'Detail Aset' }} />
+        <Stack.Screen name="transaction/[type]" options={{ title: 'Transaksi' }} />
         <Stack.Screen name="new/asset" options={{ title: 'Tambah Aset' }} />
         <Stack.Screen name="new/category" options={{ title: 'Tambah Kategori' }} />
         <Stack.Screen name="new/location" options={{ title: 'Tambah Lokasi' }} />

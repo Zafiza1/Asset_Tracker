@@ -42,15 +42,50 @@ class MobileAccessToken extends PersonalAccessToken
         'POST api/approvals/{approvalRequest}/cancel',
     ];
 
+    /**
+     * Outgoing/incoming transactions from the scanner (F-03, APR-0006). Issued at login only to
+     * accounts with transaction.create and asset.outgoing or asset.incoming; the route keeps its
+     * permission checks, so revoking a permission takes effect on the next request.
+     */
+    public const TRANSACTION_WRITE = 'transaction:write';
+
+    /** Writes that need an ability on the token ("METHOD uri" => ability). */
+    public const ABILITY_ROUTES = ['POST api/transactions' => self::TRANSACTION_WRITE];
+
+    /** Transaction types the app records; the others stay on the web. */
+    public const TRANSACTION_TYPES = ['outgoing', 'incoming'];
+
     protected $fillable = ['name', 'token', 'abilities', 'expires_at', 'organization_id'];
 
-    /** Reads, and the writes in WRITE_ROUTES. */
-    public static function allows(Request $request): bool
+    /** Reads, the writes in WRITE_ROUTES, and the ABILITY_ROUTES this token holds the ability for. */
+    public function allows(Request $request): bool
     {
+        if ($request->isMethodSafe()) {
+            return true;
+        }
         $route = $request->route();
+        if (! $route instanceof Route) {
+            return false;
+        }
+        $key = $request->method().' '.$route->uri();
+        if (in_array($key, self::WRITE_ROUTES, true)) {
+            return true;
+        }
+        $ability = self::ABILITY_ROUTES[$key] ?? null;
 
-        return $request->isMethodSafe()
-            || ($route instanceof Route && in_array($request->method().' '.$route->uri(), self::WRITE_ROUTES, true));
+        return $ability !== null && $this->can($ability)
+            && in_array($request->input('type'), self::TRANSACTION_TYPES, true);
+    }
+
+    /** Abilities a new token of this account gets in the organization (context of that organization). */
+    public static function abilitiesFor(callable $can): array
+    {
+        $abilities = ['read'];
+        if ($can('transaction.create') && ($can('asset.outgoing') || $can('asset.incoming'))) {
+            $abilities[] = self::TRANSACTION_WRITE;
+        }
+
+        return $abilities;
     }
 
     public static function findToken($token)

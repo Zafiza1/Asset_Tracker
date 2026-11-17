@@ -94,11 +94,13 @@ class AuthController extends Controller
         }
 
         $plain = $user->generateTokenString();
+        $abilities = $this->tenancy->runAsTenant(new TenantContext($organization, $user),
+            fn () => MobileAccessToken::abilitiesFor(fn (string $p) => $this->tenancy->tenant()->can($p)));
         /** @var MobileAccessToken $token */
         $token = $user->tokens()->create([
             'name' => $data['device_name'],
             'token' => hash('sha256', $plain),
-            'abilities' => ['read'],
+            'abilities' => $abilities,
             'expires_at' => now()->addDays(MobileAccessToken::LIFETIME_DAYS),
             'organization_id' => $organization->id,
         ]);
@@ -108,7 +110,7 @@ class AuthController extends Controller
         return response()->json(['data' => [
             'token' => $token->getKey().'|'.$plain,
             'expires_at' => $token->expires_at->toIso8601String(),
-            ...$this->mobileProfile($user, $organization),
+            ...$this->mobileProfile($user, $organization, $token),
         ]]);
     }
 
@@ -122,7 +124,7 @@ class AuthController extends Controller
             throw new ApiException('ACCOUNT_INACTIVE', 'Akun atau akses organisasi Anda tidak aktif.', 401);
         }
 
-        return response()->json(['data' => $this->mobileProfile($user, $organization)]);
+        return response()->json(['data' => $this->mobileProfile($user, $organization, $token)]);
     }
 
     /** Revokes the token the mobile app is using. */
@@ -177,9 +179,11 @@ class AuthController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function mobileProfile(User $user, Organization $organization): array
+    private function mobileProfile(User $user, Organization $organization, MobileAccessToken $token): array
     {
         return $this->tenancy->runAsTenant(new TenantContext($organization, $user), fn () => [
+            // What this token may do beyond reading (e.g. transaction:write); permissions still apply.
+            'abilities' => array_values($token->abilities ?? []),
             'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'job_title' => $user->membership()->value('job_title')],
             'organization' => ['id' => $organization->id, 'code' => $organization->code, 'name' => $organization->name],
             'permissions' => $this->tenancy->tenant()->permissions(),
