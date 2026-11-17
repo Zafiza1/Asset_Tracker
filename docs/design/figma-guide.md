@@ -59,6 +59,9 @@ Ikon: Lucide (sama dengan kode, `lucide-react`). Pakai plugin Lucide atau impor 
 - **Penyimpangan ditemukan** (kode ≠ Figma) → catat sebagai issue; yang benar adalah versi yang sudah disetujui terakhir, bukan yang paling baru diubah.
 
 ## 5. Alur Kerja (Tahap 4 pipeline)
+
+> **Sejak 2026-11-17 ([APR-0008](../approvals/APR-0008-mockup-sebelum-figma.md)):** selama file Figma belum tersedia, persetujuan UI memakai **mockup HTML** dari design system. Halaman yang disetujui lewat mockup digambar di Figma belakangan. Alur di bawah berlaku penuh setelah Figma tersedia, atau bila pemilik produk meminta Figma lebih dulu untuk fitur tertentu.
+
 ```mermaid
 flowchart LR
   A[PRD / requirement] --> B[ui-ux-designer<br/>desain di 90 Work in progress]

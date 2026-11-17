@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Identity\Models\User;
+use App\Domain\ReportDesigner\Catalog\SampleTemplates;
 use App\Domain\ReportDesigner\Models\ReportTemplate;
 use App\Domain\ReportDesigner\Services\DesignValidator;
 use App\Domain\ReportDesigner\Services\ReportDataResolver;
@@ -138,9 +139,25 @@ class ReportTemplateController extends Controller
             throw new ApiException('NOT_FOUND', 'Versi template tidak ditemukan.', 404);
         }
 
-        $filters = $this->data->filters($reportTemplate->data_source, $data['filters'] ?? []);
+        // The template's default filters (design.filters) apply unless the request overrides them.
+        $filters = $this->data->filtersFor($reportTemplate->data_source, $version->design ?? [], $data['filters'] ?? []);
 
         return response()->json(['data' => $this->preview->preview($reportTemplate, $version, $filters)]);
+    }
+
+    /** Ready-made templates (code-defined) an organization can copy and then adapt. */
+    public function samples(): JsonResponse
+    {
+        return response()->json(['data' => SampleTemplates::summaries()]);
+    }
+
+    /** Copy a sample into the organization as a draft template the user owns and edits. */
+    public function fromSample(Request $request): JsonResponse
+    {
+        $data = $request->validate(['sample' => ['required', 'string', Rule::in(array_keys(SampleTemplates::all()))]]);
+
+        return (new ReportTemplateResource($this->service->createFromSample($data['sample'], $this->user($request))))
+            ->response()->setStatusCode(201);
     }
 
     public function versions(ReportTemplate $reportTemplate): AnonymousResourceCollection

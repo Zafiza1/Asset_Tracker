@@ -30,7 +30,7 @@
 - Nyaman di 375px: grid menjadi satu kolom, mode edit hanya di layar ≥ 768px ⚑.
 
 ## 4. Sebelum Dikodekan
-- Desain di Figma halaman `12 Dashboard` (T-15/T-16), status `[Approved]`.
+- Mockup HTML disetujui pemilik produk ([APR-0008](../../approvals/APR-0008-mockup-sebelum-figma.md)); Figma `12 Dashboard` menyusul.
 - Putuskan temuan L-1/L-2 (T-18): pembuatan dashboard pada request GET dan daftar kategori di navigasi.
 
 ## 5. Keputusan

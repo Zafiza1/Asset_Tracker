@@ -4,6 +4,7 @@ namespace App\Domain\ReportDesigner\Services;
 
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Identity\Models\User;
+use App\Domain\ReportDesigner\Catalog\SampleTemplates;
 use App\Domain\ReportDesigner\Models\ReportTemplate;
 use App\Domain\ReportDesigner\Models\ReportTemplateVersion;
 use App\Domain\ReportDesigner\TemplateStatus;
@@ -218,6 +219,23 @@ final class ReportTemplateService
         if ($taken) {
             throw ApiException::conflict('TEMPLATE_CODE_TAKEN', 'Kode template sudah digunakan. Pilih kode lain.');
         }
+    }
+
+    /** A draft copy of a code-defined sample (SampleTemplates): the organization owns and edits it. */
+    public function createFromSample(string $key, User $user): ReportTemplate
+    {
+        $sample = SampleTemplates::all()[$key];
+        $code = ReportTemplate::withTrashed()->where('code', $sample['code'])->exists() ? $this->availableCode($sample['code']) : $sample['code'];
+
+        return $this->create([
+            'code' => $code,
+            'name' => $sample['name'],
+            'description' => $sample['description'],
+            'category' => $sample['category'],
+            'data_source' => $sample['data_source'],
+            'design' => $sample['design'],
+            'change_note' => 'Dibuat dari contoh "'.$sample['name'].'"',
+        ], $user);
     }
 
     private function availableCode(string $base): string

@@ -5,6 +5,7 @@ namespace App\Domain\ReportDesigner\Services;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\ReportDesigner\Binding\FieldResolver;
 use App\Domain\ReportDesigner\Binding\ValueFormatter;
@@ -48,6 +49,10 @@ final class ReportDataResolver
                 'asset_id' => ['nullable', 'uuid'],
                 'date_from' => ['nullable', 'date_format:Y-m-d'],
                 'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+                // Outgoing / incoming (F-04)
+                'outgoing_nature' => ['nullable', Rule::in(OutgoingReason::NATURES)],
+                'reason_code' => ['nullable', Rule::in(OutgoingReason::codes())],
+                'not_returned' => ['nullable', 'boolean'],
             ],
             default => [],
         };
@@ -57,6 +62,23 @@ final class ReportDataResolver
     public function filters(string $source, array $input): array
     {
         return validator($input, self::filterRules($source))->validate();
+    }
+
+    /**
+     * The template's own default filters (design.filters, checked by DesignValidator) with the
+     * request's filters on top: a sample "Outgoing" template preselects type=outgoing, and the
+     * user can still override any key.
+     *
+     * @param  array<string, mixed>  $design
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function filtersFor(string $source, array $design, array $input): array
+    {
+        $defaults = is_array($design['filters'] ?? null) ? $design['filters'] : [];
+        $allowed = array_intersect_key($defaults, self::filterRules($source));
+
+        return $this->filters($source, [...$allowed, ...$input]);
     }
 
     /**
@@ -195,8 +217,15 @@ final class ReportDataResolver
                 ->where('transaction_number', 'ilike', ListQuery::like($term))
                 ->orWhere('notes', 'ilike', ListQuery::like($term))
                 ->orWhere('borrower_name', 'ilike', ListQuery::like($term))
+                ->orWhere('counterparty_name', 'ilike', ListQuery::like($term))
+                ->orWhere('document_number', 'ilike', ListQuery::like($term))
                 ->orWhereHas('asset', fn ($a) => $a->where('name', 'ilike', ListQuery::like($term)))))
             ->when($filters['type'] ?? null, fn ($q, $type) => $q->where('type', $type))
+            ->when($filters['outgoing_nature'] ?? null, fn ($q, $nature) => $q->where('outgoing_nature', $nature))
+            ->when($filters['reason_code'] ?? null, fn ($q, $reason) => $q->where('reason_code', $reason))
+            // Temporary outgoing rows whose asset has not come back yet.
+            ->when((bool) ($filters['not_returned'] ?? false), fn ($q) => $q->where('type', TransactionType::OUTGOING)
+                ->where('outgoing_nature', OutgoingReason::TEMPORARY)->whereDoesntHave('incomingTransaction'))
             ->when($filters['asset_id'] ?? null, fn ($q, $id) => $q->where('asset_id', $id))
             ->when($filters['date_from'] ?? null, fn ($q, $d) => $q->where('transaction_date', '>=', $d))
             ->when($filters['date_to'] ?? null, fn ($q, $d) => $q->where('transaction_date', '<=', $d))

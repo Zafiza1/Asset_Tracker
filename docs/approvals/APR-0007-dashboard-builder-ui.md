@@ -15,7 +15,7 @@
 Dashboard Builder menggantikan dashboard tetap saat ini. Endpoint `GET /api/dashboard` dihapus setelah UI baru lulus E2E.
 
 ## Syarat
-Desain halaman `12 Dashboard` di Figma berstatus `[Approved]` sebelum UI dikodekan; L-1/L-2 (T-18) diputuskan lebih dulu.
+Mockup Dashboard Builder disetujui pemilik produk sebelum UI dikodekan ([APR-0008](APR-0008-mockup-sebelum-figma.md)); Figma `12 Dashboard` menyusul; L-1/L-2 (T-18) diputuskan lebih dulu.
 
 ## Keputusan
 "Setuju." — pemilik produk, 2026-11-17.

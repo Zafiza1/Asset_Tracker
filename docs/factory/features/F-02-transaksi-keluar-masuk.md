@@ -112,6 +112,7 @@ Mesin laporan tidak berubah. Report Designer sudah mendukung sumber `asset_trans
 - `FieldCatalog` sumber transaksi ditambah: jenis, sifat, alasan, pihak luar (nama/instansi/kontak), nomor dokumen, rencana kembali, tanggal masuk terkait, durasi di luar, status kembali (sudah/belum/terlambat).
 - Filter laporan: jenis (`outgoing`/`incoming`), sifat, alasan, pihak luar, rentang tanggal, "belum kembali".
 - **Template contoh (sistem)** yang dapat diduplikasi dan diubah pengguna: *Laporan Transaksi Keluar*, *Laporan Transaksi Masuk*, *Aset Belum Kembali*, *Bukti Serah Terima (BAST) per transaksi* ⚑.
+- Implementasi: contoh didefinisikan di kode (`SampleTemplates`); `POST /api/report-templates/from-sample` menyalinnya menjadi template draft milik organisasi. Setiap contoh membawa **filter bawaan** (`design.filters`, divalidasi `DesignValidator`) yang tetap dapat ditimpa filter pengguna.
 - Pengguna membuat dan mengubah format sendiri dengan permission `report.create`/`report.update` yang sudah ada.
 
 ## 8. Security (security-engineer)
@@ -137,8 +138,8 @@ Mesin laporan tidak berubah. Report Designer sudah mendukung sumber `asset_trans
 | ID | Task | Agent | Bergantung |
 |---|---|---|---|
 | F-02a | Migrasi + `TransactionType` + status `off_site` + aturan service + test (termasuk konkurensi) | database-engineer, backend-engineer | approval | **in_review**: migrasi `2026_11_17_000000`, `OutgoingIncomingTransactionTest` (9 test) |
-| F-02b | Frontend: formulir Keluar/Masuk (multi-aset), daftar transaksi + filter, detail aset | frontend-engineer | F-02a, desain Figma (T-15) |
+| F-02b | Frontend: formulir Keluar/Masuk (multi-aset), daftar transaksi + filter, detail aset | frontend-engineer | F-02a, mockup disetujui ([APR-0008](../../approvals/APR-0008-mockup-sebelum-figma.md)) |
 | F-02c | Dashboard: widget "Keluar sementara lewat batas" dan ringkasan keluar/masuk | frontend + backend | F-01, F-02a |
 | F-03 | Mobile: ability `transaction:write`, layar Keluar/Masuk via scan | frontend-engineer (mobile), security-engineer | F-02a |
-| F-04 | `FieldCatalog` + filter + 4 template contoh | backend-engineer | F-02a |
+| F-04 | `FieldCatalog` + filter + 4 template contoh | backend-engineer | F-02a | **in_review**: 10 field baru, filter `outgoing_nature`/`reason_code`/`not_returned`, filter bawaan template (`design.filters`), `GET /report-templates/samples` + `POST /report-templates/from-sample`, permission `transaction.contact.view`; `OutgoingIncomingReportTest` (7 test) |
 | F-QA | E2E Playwright: keluar sementara → masuk → laporan | qa-engineer | F-02b, F-04 |

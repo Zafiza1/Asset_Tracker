@@ -7,7 +7,7 @@
 | Tahap / gate | S4 — UI/UX Design |
 | Area | User experience |
 | Artefak | `docs/factory/00-onboarding-report.md` §5 D-3 |
-| Status | **Approved** |
+| Status | **Approved**, diubah oleh [APR-0008](APR-0008-mockup-sebelum-figma.md) (mockup sebagai persetujuan UI sampai Figma tersedia) |
 | Diputuskan oleh | Pemilik produk |
 | Tanggal diputuskan | 2026-11-16 |
 

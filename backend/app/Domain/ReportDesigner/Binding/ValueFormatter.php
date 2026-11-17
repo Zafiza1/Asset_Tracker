@@ -3,6 +3,7 @@
 namespace App\Domain\ReportDesigner\Binding;
 
 use App\Domain\Assets\AssetStatus;
+use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionType;
 use Illuminate\Support\Carbon;
 
@@ -114,6 +115,7 @@ final class ValueFormatter
     {
         $map = match (true) {
             str_ends_with($fieldKey, '.type') => TransactionType::LABELS,
+            str_ends_with($fieldKey, '.outgoing_nature') => OutgoingReason::NATURE_LABELS,
             str_contains($fieldKey, 'status') => AssetStatus::LABELS,
             default => [],
         };

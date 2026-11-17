@@ -57,6 +57,7 @@ final class PermissionCatalog
         'document.view' => ['tenant', 'document', 'Melihat dan mengunduh dokumen'],
         'document.manage' => ['tenant', 'document', 'Mengunggah dan mengarsipkan dokumen'],
         'transaction.view' => ['tenant', 'transaction', 'Melihat transaksi'],
+        'transaction.contact.view' => ['tenant', 'transaction', 'Melihat kontak pihak luar di laporan (data pribadi)'],
         'transaction.create' => ['tenant', 'transaction', 'Membuat draft transaksi'],
         'transaction.submit' => ['tenant', 'transaction', 'Mengajukan transaksi'],
         'transaction.approve' => ['tenant', 'transaction', 'Menyetujui transaksi'],

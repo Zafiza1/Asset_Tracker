@@ -56,6 +56,9 @@ final class DesignValidator
         }
 
         $this->validatePage($design['page'] ?? null, $issues);
+        if (array_key_exists('filters', $design)) {
+            $this->validateFilters($design['filters'], $dataSource, $issues);
+        }
 
         $elements = $design['elements'] ?? null;
         if (! is_array($elements)) {
@@ -93,6 +96,29 @@ final class DesignValidator
     public function bindings(array $design, string $dataSource): array
     {
         return $this->validate($design, $dataSource)['bindings'];
+    }
+
+    /**
+     * design.filters: the template's default report filters, with the same keys and rules as
+     * the preview/generate `filters` request object (ReportDataResolver::filterRules).
+     *
+     * @param  list<array<string, mixed>>  $issues
+     */
+    private function validateFilters(mixed $filters, string $dataSource, array &$issues): void
+    {
+        if (! is_array($filters) || ($filters !== [] && array_is_list($filters))) {
+            $issues[] = $this->issue('error', null, 'filters', 'INVALID_FILTERS', 'Filter bawaan template tidak valid.');
+
+            return;
+        }
+        $rules = ReportDataResolver::filterRules($dataSource);
+        foreach (array_keys(array_diff_key($filters, $rules)) as $key) {
+            $issues[] = $this->issue('error', null, "filters.{$key}", 'UNKNOWN_FILTER', "Filter \"{$key}\" tidak dikenal untuk sumber data ini.");
+        }
+        $validator = validator(array_intersect_key($filters, $rules), $rules);
+        foreach ($validator->errors()->messages() as $key => $messages) {
+            $issues[] = $this->issue('error', null, "filters.{$key}", 'INVALID_FILTER', $messages[0]);
+        }
     }
 
     /** @param  list<array<string, mixed>>  $issues */

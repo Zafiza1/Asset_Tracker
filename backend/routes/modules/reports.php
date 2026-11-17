@@ -18,6 +18,9 @@ Route::middleware('module:reports')->group(function () {
     // Report templates: viewing needs report.view; managing needs the report_designer group.
     Route::get('/report-templates', [ReportTemplateController::class, 'index'])->middleware('permission:report.view');
     Route::post('/report-templates', [ReportTemplateController::class, 'store'])->middleware('permission:report.create');
+    // Ready-made samples (F-04): list them, copy one into the organization as a draft.
+    Route::get('/report-templates/samples', [ReportTemplateController::class, 'samples'])->middleware('permission:report.view');
+    Route::post('/report-templates/from-sample', [ReportTemplateController::class, 'fromSample'])->middleware('permission:report.create');
     Route::get('/report-templates/{reportTemplate}', [ReportTemplateController::class, 'show'])->middleware('permission:report.view');
     Route::put('/report-templates/{reportTemplate}', [ReportTemplateController::class, 'update'])->middleware('permission:report.update');
     Route::delete('/report-templates/{reportTemplate}', [ReportTemplateController::class, 'destroy'])->middleware('permission:report.delete');

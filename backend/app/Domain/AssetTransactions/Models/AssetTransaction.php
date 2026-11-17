@@ -3,12 +3,17 @@
 namespace App\Domain\AssetTransactions\Models;
 
 use App\Domain\Assets\Models\Asset;
+use App\Domain\AssetTransactions\OutgoingReason;
+use App\Domain\AssetTransactions\TransactionLog;
+use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -77,5 +82,53 @@ class AssetTransaction extends Model
     public function outgoingTransaction(): BelongsTo
     {
         return $this->belongsTo(self::class, 'outgoing_transaction_id');
+    }
+
+    /** Outgoing row: the incoming row that brought the asset back (none while still outside). */
+    public function incomingTransaction(): HasOne
+    {
+        return $this->hasOne(self::class, 'outgoing_transaction_id');
+    }
+
+    /** Label of the outgoing reason (report field transaction.reason). */
+    protected function reasonLabel(): Attribute
+    {
+        return Attribute::get(fn () => OutgoingReason::label($this->outgoing_nature, $this->reason_code));
+    }
+
+    /**
+     * Temporary outgoing rows only: Sudah kembali / Terlambat / Belum kembali (report field
+     * transaction.return_status). Needs incomingTransaction (eager-loaded by the report).
+     */
+    protected function returnStatus(): Attribute
+    {
+        return Attribute::get(function (): ?string {
+            if ($this->type !== TransactionType::OUTGOING || $this->outgoing_nature !== OutgoingReason::TEMPORARY) {
+                return null;
+            }
+            if ($this->incomingTransaction !== null) {
+                return 'Sudah kembali';
+            }
+
+            return $this->due_date !== null && $this->due_date->toDateString() < self::today() ? 'Terlambat' : 'Belum kembali';
+        });
+    }
+
+    /** Temporary outgoing rows only: days outside, until the return or until today. */
+    protected function daysOut(): Attribute
+    {
+        return Attribute::get(function (): ?int {
+            if ($this->type !== TransactionType::OUTGOING || $this->outgoing_nature !== OutgoingReason::TEMPORARY) {
+                return null;
+            }
+            $until = $this->incomingTransaction?->transaction_date?->toDateString() ?? self::today();
+
+            return (int) $this->transaction_date->startOfDay()->diffInDays(Carbon::parse($until)->startOfDay());
+        });
+    }
+
+    private static function today(): string
+    {
+        return app(TransactionLog::class)->today();
     }
 }
