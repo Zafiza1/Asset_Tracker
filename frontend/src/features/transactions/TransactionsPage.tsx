@@ -34,6 +34,13 @@ const TABS: { value: Tab; label: string; count: 'all' | Exclude<Tab, ''> }[] = [
   { value: 'not_returned', label: 'Belum kembali', count: 'not_returned' },
 ]
 
+/** Empty list of a tab (without search or other filters): says what the tab holds, not "no data at all". */
+const TAB_EMPTY: Record<Exclude<Tab, ''>, { title: string; description: string }> = {
+  outgoing: { title: 'Belum ada transaksi keluar', description: 'Aset yang dikirim ke pihak luar, sementara atau permanen, muncul di sini.' },
+  incoming: { title: 'Belum ada transaksi masuk', description: 'Aset yang kembali dari pihak luar muncul di sini.' },
+  not_returned: { title: 'Tidak ada aset yang belum kembali', description: 'Semua aset yang keluar sementara sudah dicatat masuk kembali.' },
+}
+
 function TypeBadge({ trx }: { trx: AssetTransaction }) {
   if (trx.type === 'outgoing') return <Badge tone="amber" icon={ArrowUpRight}>Keluar</Badge>
   if (trx.type === 'incoming') return <Badge tone="green" icon={ArrowDownLeft}>Masuk</Badge>
@@ -208,8 +215,8 @@ export function TransactionsPage() {
         ) : query.data!.data.length === 0 ? (
           <EmptyState
             icon={chips.length > 0 ? SearchX : ArrowLeftRight}
-            title={chips.length > 0 ? 'Tidak ada transaksi yang cocok' : 'Belum ada transaksi'}
-            description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : 'Transaksi muncul di sini setelah aset ditambahkan atau dicatat aktivitasnya.'}
+            title={chips.length > 0 ? 'Tidak ada transaksi yang cocok' : tab && tab !== 'other' ? TAB_EMPTY[tab].title : 'Belum ada transaksi'}
+            description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : tab && tab !== 'other' ? TAB_EMPTY[tab].description : 'Transaksi muncul di sini setelah aset ditambahkan atau dicatat aktivitasnya.'}
             action={
               chips.length > 0 ? (
                 <Button variant="secondary" onClick={resetAll}>

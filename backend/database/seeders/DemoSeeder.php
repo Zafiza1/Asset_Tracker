@@ -30,6 +30,9 @@ use RuntimeException;
  */
 class DemoSeeder extends Seeder
 {
+    /** Seats per demo organization, room for the demo accounts plus invitations. */
+    private const SEATS = 20;
+
     private const ORGANIZATIONS = [
         'MAJU' => ['name' => 'PT Maju Jaya', 'domain' => 'majujaya.test', 'site' => ['JKT', 'Jakarta'], 'department' => ['OPS', 'Operasional']],
         'SENTOSA' => ['name' => 'PT Sentosa Gas', 'domain' => 'sentosagas.test', 'site' => ['SBY', 'Surabaya'], 'department' => ['DIST', 'Distribusi']],
@@ -78,7 +81,10 @@ class DemoSeeder extends Seeder
         $orgId = $result['organization']->id;
         $licensing = app(Licensing::class);
         $licensing->grant($result['organization'], OrganizationLicense::KIND_BASE, 1, now(), now()->addYear(), 'DEMO');
-        $licensing->grant($result['organization'], OrganizationLicense::KIND_SEATS, 20, now(), now()->addYear(), 'DEMO');
+        // Capacity is the number of valid licenses (one seat each, Licensing::status()), so one per seat.
+        for ($seat = 1; $seat < self::SEATS; $seat++) {
+            $licensing->grant($result['organization'], OrganizationLicense::KIND_SEATS, 1, now(), now()->addYear(), 'DEMO');
+        }
 
         $department = new Department(['code' => $spec['department'][0], 'name' => $spec['department'][1]]);
         $department->forceFill(['organization_id' => $orgId])->save();

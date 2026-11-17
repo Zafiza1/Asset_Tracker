@@ -24,5 +24,10 @@ class DemoSeederTest extends TestCase
         $data = $this->getJson('/api/dashboard')->assertOk()->json('data');
         $this->assertSame(8, $data['summary']['total']);
         $this->assertSame(1, $data['attention']['counts']['overdue_loan']);
+
+        // Enough seats for every demo member, so the demo organizations can change data.
+        $license = $this->getJson('/api/license')->assertOk()->json('data');
+        $this->assertFalse($license['over_limit']);
+        $this->assertGreaterThanOrEqual($license['seats']['used'], $license['seats']['capacity']);
     }
 }

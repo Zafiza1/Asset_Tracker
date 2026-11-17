@@ -141,6 +141,18 @@ describe('TransactionFormModal outgoing', () => {
 })
 
 describe('TransactionsPage tabs', () => {
+  it('says what an empty tab holds instead of "no transactions at all"', async () => {
+    const { wrap } = setup(['transaction.view'], (url) =>
+      url.includes('/transactions/counts')
+        ? { data: { all: 5, outgoing: 1, incoming: 1, not_returned: 0 } }
+        : { data: [], meta: { current_page: 1, last_page: 1, per_page: 25, total: 0, from: null, to: null } },
+    )
+    wrap(<TransactionsPage />)
+    fireEvent.click(await screen.findByRole('tab', { name: /Belum kembali/ }))
+    expect(await screen.findByText('Tidak ada aset yang belum kembali')).toBeInTheDocument()
+    expect(screen.queryByText('Belum ada transaksi')).not.toBeInTheDocument()
+  })
+
   it('shows counts per tab and filters not-returned rows', async () => {
     const { fetchMock, wrap } = setup(['transaction.view'], (url) =>
       url.includes('/transactions/counts')
