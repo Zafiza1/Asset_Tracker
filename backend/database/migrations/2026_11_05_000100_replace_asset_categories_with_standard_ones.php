@@ -4,6 +4,7 @@ use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use App\Domain\TenantMaster\Services\TenantCategoryService;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -98,7 +99,7 @@ return new class extends Migration
     /**
      * @param  array<string, mixed>  $values  old key => value
      * @param  array<string, string>  $oldLabels  old key => label
-     * @param  \Illuminate\Support\Collection<string, TenantCategoryAttribute>  $fields  by lower case label
+     * @param  Collection<string, TenantCategoryAttribute>  $fields  by lower case label
      * @return array<string, mixed> new key => value
      */
     private function values(array $values, array $oldLabels, $fields): array

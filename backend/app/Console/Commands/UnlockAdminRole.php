@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Domain\Authorization\Models\Role;
+use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -23,7 +24,7 @@ class UnlockAdminRole extends Command
         $this->info('Unlocking ADMIN role...');
 
         $organizations = $this->tenancy->runAsSystem(function () {
-            return \App\Domain\Organization\Models\Organization::all();
+            return Organization::all();
         });
 
         $updated = 0;
@@ -39,7 +40,7 @@ class UnlockAdminRole extends Command
                     $role->save();
                     $updated++;
                     $this->info("  Unlocked ADMIN role for organization: {$org->name}");
-                } elseif ($role && !$role->is_locked) {
+                } elseif ($role && ! $role->is_locked) {
                     $this->info("  ADMIN role already unlocked for organization: {$org->name}");
                 } else {
                     $this->warn("  ADMIN role not found for organization: {$org->name}");
@@ -48,6 +49,7 @@ class UnlockAdminRole extends Command
         }
 
         $this->info("\nDone! Total roles unlocked: {$updated}");
+
         return 0;
     }
 }

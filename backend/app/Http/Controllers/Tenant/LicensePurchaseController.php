@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Licensing\Models\OrganizationLicense;
+use App\Domain\Licensing\Services\LicenseCodeService;
 use App\Domain\Licensing\Services\Licensing;
+use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OrganizationLicenseResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 
 /**
  * License purchase controller for tenant organizations.
@@ -44,14 +45,14 @@ class LicensePurchaseController extends Controller
         $result = $this->tenancy->runAsSystem(function () use ($orgId, $quantity, $notes) {
             $start = now();
             $end = $start->copy()->addYears(1); // 1 year license by default
-            $organization = \App\Domain\Organization\Models\Organization::find($orgId);
+            $organization = Organization::find($orgId);
 
             $licenses = [];
             // References link each license to its code: continue the day's numbering instead of restarting it.
-            $prefix = 'PURCHASE-' . date('Ymd') . '-';
-            $taken = OrganizationLicense::query()->where('organization_id', $orgId)->where('reference', 'like', $prefix . '%')->count();
+            $prefix = 'PURCHASE-'.date('Ymd').'-';
+            $taken = OrganizationLicense::query()->where('organization_id', $orgId)->where('reference', 'like', $prefix.'%')->count();
             for ($i = 0; $i < $quantity; $i++) {
-                $reference = $prefix . str_pad($taken + $i + 1, 3, '0', STR_PAD_LEFT);
+                $reference = $prefix.str_pad($taken + $i + 1, 3, '0', STR_PAD_LEFT);
                 $license = $this->licensing->grant(
                     organization: $organization,
                     kind: OrganizationLicense::KIND_BASE,
@@ -65,7 +66,7 @@ class LicensePurchaseController extends Controller
                 $licenses[] = $license;
 
                 // Create license code for each purchased license with reference
-                \App\Domain\Licensing\Services\LicenseCodeService::createForOrganization(
+                LicenseCodeService::createForOrganization(
                     $organization,
                     $notes ?? 'Lisensi dari pembelian',
                     $reference
@@ -79,7 +80,7 @@ class LicensePurchaseController extends Controller
             'data' => OrganizationLicenseResource::collection($result)->resolve($request),
             'meta' => [
                 'purchased' => count($result),
-                'message' => 'Berhasil membeli ' . count($result) . ' lisensi pengguna. Kode lisensi telah dibuat otomatis.',
+                'message' => 'Berhasil membeli '.count($result).' lisensi pengguna. Kode lisensi telah dibuat otomatis.',
             ],
         ], 201);
     }

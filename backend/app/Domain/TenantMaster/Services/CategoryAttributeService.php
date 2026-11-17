@@ -305,7 +305,7 @@ final class CategoryAttributeService
             }
             // Only archive non-default attributes
             foreach ($own->except($kept) as $removed) {
-                if (!$removed->is_default) {
+                if (! $removed->is_default) {
                     $this->archive($removed);
                 }
             }
@@ -320,6 +320,7 @@ final class CategoryAttributeService
         if ($attribute->is_default) {
             throw ApiException::conflict('DEFAULT_ATTRIBUTE_IMMUTABLE', 'Atribut default tidak dapat dihapus.');
         }
+
         return $this->writer->archive($attribute, 'category_attribute.archived', null);
     }
 

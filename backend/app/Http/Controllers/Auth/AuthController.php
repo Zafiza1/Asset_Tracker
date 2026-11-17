@@ -7,6 +7,8 @@ use App\Domain\Identity\Models\MobileAccessToken;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\OrganizationAccess;
 use App\Domain\Identity\Services\SessionTerminator;
+use App\Domain\Licensing\Models\OrganizationLicense;
+use App\Domain\Licensing\Services\LicenseCodeService;
 use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Organization\Models\OrganizationModule;
@@ -224,21 +226,21 @@ class AuthController extends Controller
                     $end = $start->copy()->addYears(1);
 
                     for ($i = 0; $i < $quantity; $i++) {
-                        $reference = 'REGISTRATION-' . date('Ymd') . '-' . str_pad($i + 1, 3, '0', STR_PAD_LEFT);
+                        $reference = 'REGISTRATION-'.date('Ymd').'-'.str_pad($i + 1, 3, '0', STR_PAD_LEFT);
                         $licensing->grant(
                             organization: $result['organization'],
-                            kind: \App\Domain\Licensing\Models\OrganizationLicense::KIND_BASE,
+                            kind: OrganizationLicense::KIND_BASE,
                             seats: 1,
                             startsAt: $start,
                             expiresAt: $end,
                             reference: $reference,
                             notes: 'Pembelian lisensi saat registrasi',
-                            source: \App\Domain\Licensing\Models\OrganizationLicense::SOURCE_PURCHASE,
+                            source: OrganizationLicense::SOURCE_PURCHASE,
                         );
 
                         // Create license code for each purchased license with reference
                         try {
-                            $licenseCode = \App\Domain\Licensing\Services\LicenseCodeService::createForOrganization(
+                            $licenseCode = LicenseCodeService::createForOrganization(
                                 $result['organization'],
                                 'Lisensi dari pembelian saat registrasi',
                                 $reference

@@ -1,9 +1,8 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 return new class extends Migration
 {
@@ -26,7 +25,7 @@ return new class extends Migration
                     ->where('code', 'SUPER_ADMIN')
                     ->first();
 
-                if (!$superAdminRole) {
+                if (! $superAdminRole) {
                     // Get tenant permissions
                     $tenantPermissions = DB::table('permissions')
                         ->where('scope', 'tenant')
@@ -34,7 +33,7 @@ return new class extends Migration
 
                     // Create SUPER_ADMIN role
                     $superAdminRoleId = DB::table('roles')->insertGetId([
-                        'id' => (string) \Illuminate\Support\Str::uuid(),
+                        'id' => (string) Str::uuid(),
                         'organization_id' => $orgId,
                         'code' => 'SUPER_ADMIN',
                         'name' => 'Super Admin',
@@ -93,13 +92,13 @@ return new class extends Migration
                 // Create individual licenses for each seat
                 for ($i = 0; $i < $seats; $i++) {
                     DB::table('organization_licenses')->insert([
-                        'id' => (string) \Illuminate\Support\Str::uuid(),
+                        'id' => (string) Str::uuid(),
                         'organization_id' => $seatPack->organization_id,
                         'kind' => 'base',
                         'seats' => 1,
                         'source' => 'migration',
-                        'reference' => 'MIGRATED-' . $seatPack->reference,
-                        'notes' => 'Migrated from seat pack: ' . ($seatPack->notes ?? 'No notes'),
+                        'reference' => 'MIGRATED-'.$seatPack->reference,
+                        'notes' => 'Migrated from seat pack: '.($seatPack->notes ?? 'No notes'),
                         'starts_at' => $seatPack->starts_at,
                         'expires_at' => $seatPack->expires_at,
                         'created_at' => $seatPack->created_at,
@@ -120,6 +119,6 @@ return new class extends Migration
     {
         // This is complex to reverse, so we don't implement rollback
         // In production, this migration should be run carefully
-        throw new \Exception('This migration cannot be rolled back automatically.');
+        throw new Exception('This migration cannot be rolled back automatically.');
     }
 };

@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Domain\Identity\Models\OrganizationMember;
-use App\Domain\Identity\Models\User;
 use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Licensing\Models\OrganizationLicense;
 use App\Domain\Licensing\Services\LicenseCodeService;
@@ -36,15 +35,16 @@ class GenerateMissingLicenseCodes extends Command
         $this->info('Checking for reference column...');
         try {
             $hasColumn = Schema::hasColumn('license_codes', 'reference');
-            if (!$hasColumn) {
+            if (! $hasColumn) {
                 $this->info('Adding reference column to license_codes table...');
-                DB::statement("ALTER TABLE license_codes ADD COLUMN reference VARCHAR(255) NULL");
+                DB::statement('ALTER TABLE license_codes ADD COLUMN reference VARCHAR(255) NULL');
                 $this->info('Reference column added successfully.');
             } else {
                 $this->info('Reference column already exists.');
             }
         } catch (\Exception $e) {
-            $this->error('Failed to add reference column: ' . $e->getMessage());
+            $this->error('Failed to add reference column: '.$e->getMessage());
+
             return 1;
         }
 
@@ -53,7 +53,7 @@ class GenerateMissingLicenseCodes extends Command
         $organizations = $this->tenancy->runAsSystem(function () {
             return Organization::all();
         });
-        $this->info('Found ' . $organizations->count() . ' organizations.');
+        $this->info('Found '.$organizations->count().' organizations.');
 
         $totalCreated = 0;
 
@@ -70,13 +70,13 @@ class GenerateMissingLicenseCodes extends Command
             $existingCodes = $this->tenancy->runAsSystem(function () use ($org) {
                 return LicenseCode::where('organization_id', $org->id)->pluck('reference')->toArray();
             });
-            $this->info("  Existing license codes: " . count($existingCodes));
+            $this->info('  Existing license codes: '.count($existingCodes));
 
             $createdCount = 0;
             $assignedCount = 0;
 
             foreach ($licenses as $license) {
-                if ($license->reference && !in_array($license->reference, $existingCodes)) {
+                if ($license->reference && ! in_array($license->reference, $existingCodes)) {
                     try {
                         $code = $this->tenancy->runAsSystem(function () use ($org, $license) {
                             return LicenseCodeService::createForOrganization(
@@ -106,7 +106,7 @@ class GenerateMissingLicenseCodes extends Command
                             }
                         }
                     } catch (\Exception $e) {
-                        $this->error("    Failed to create code for reference {$license->reference}: " . $e->getMessage());
+                        $this->error("    Failed to create code for reference {$license->reference}: ".$e->getMessage());
                     }
                 } elseif ($license->reference === 'SUPER_ADMIN_FREE') {
                     // Check if existing SUPER_ADMIN_FREE code needs to be assigned
@@ -137,7 +137,8 @@ class GenerateMissingLicenseCodes extends Command
             $this->info("  Assigned {$assignedCount} license codes to super admin.");
         }
 
-        $this->info('Done! Total license codes created: ' . $totalCreated);
+        $this->info('Done! Total license codes created: '.$totalCreated);
+
         return 0;
     }
 }

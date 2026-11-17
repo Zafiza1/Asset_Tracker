@@ -7,6 +7,7 @@ use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Licensing\Models\OrganizationLicense;
 use App\Domain\Licensing\Services\LicenseCodeService;
+use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LicenseCodeResource;
@@ -82,15 +83,15 @@ class LicenseCodeController extends Controller
     {
         $orgId = $this->tenancy->organizationId();
 
-        $licenses = \App\Domain\Licensing\Models\OrganizationLicense::where('organization_id', $orgId)->get();
+        $licenses = OrganizationLicense::where('organization_id', $orgId)->get();
         $existingCodes = LicenseCode::where('organization_id', $orgId)->pluck('reference')->toArray();
 
-        $organization = \App\Domain\Organization\Models\Organization::findOrFail($orgId);
+        $organization = Organization::findOrFail($orgId);
 
         $created = [];
         $failed = [];
         foreach ($licenses as $license) {
-            if ($license->reference && !in_array($license->reference, $existingCodes)) {
+            if ($license->reference && ! in_array($license->reference, $existingCodes)) {
                 // createForOrganization runs in its own (nested) transaction, so one failure
                 // rolls back only that code; the rest are still generated and the failure is reported.
                 try {

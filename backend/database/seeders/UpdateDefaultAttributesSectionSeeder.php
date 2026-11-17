@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class UpdateDefaultAttributesSectionSeeder extends Seeder
 {
@@ -38,7 +37,7 @@ class UpdateDefaultAttributesSectionSeeder extends Seeder
                 ->select('label', 'section')
                 ->get();
             foreach ($current as $attr) {
-                $this->command->line("    - {$attr->label}: section = " . ($attr->section ?? 'NULL'));
+                $this->command->line("    - {$attr->label}: section = ".($attr->section ?? 'NULL'));
             }
 
             $updated = 0;

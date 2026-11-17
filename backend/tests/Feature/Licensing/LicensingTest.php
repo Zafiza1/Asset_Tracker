@@ -2,12 +2,10 @@
 
 namespace Tests\Feature\Licensing;
 
-use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\User;
 use App\Domain\Licensing\Models\OrganizationLicense;
 use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Organization;
-use App\Domain\Shared\Tenancy\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;

@@ -43,8 +43,8 @@ return new class extends Migration
 
         TenantSchema::tenantKey('license_codes');
         // Composite FK: (organization_id, assigned_to_user_id) -> organization_members (organization_id, user_id)
-        DB::statement("ALTER TABLE license_codes ADD CONSTRAINT license_codes_assigned_to_user_id_tfk
-            FOREIGN KEY (organization_id, assigned_to_user_id) REFERENCES organization_members (organization_id, user_id) ON DELETE RESTRICT");
+        DB::statement('ALTER TABLE license_codes ADD CONSTRAINT license_codes_assigned_to_user_id_tfk
+            FOREIGN KEY (organization_id, assigned_to_user_id) REFERENCES organization_members (organization_id, user_id) ON DELETE RESTRICT');
 
         DB::statement('CREATE TRIGGER license_codes_immutable BEFORE UPDATE ON license_codes
             FOR EACH ROW EXECUTE FUNCTION ate_immutable_columns(\'id\', \'organization_id\', \'code\', \'created_at\')');

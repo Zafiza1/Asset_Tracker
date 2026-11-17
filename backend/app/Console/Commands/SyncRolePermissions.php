@@ -2,9 +2,10 @@
 
 namespace App\Console\Commands;
 
-use App\Domain\Authorization\PermissionCatalog;
-use App\Domain\Authorization\RoleTemplates;
+use App\Domain\Authorization\Models\Permission;
 use App\Domain\Authorization\Models\Role;
+use App\Domain\Authorization\RoleTemplates;
+use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -25,7 +26,7 @@ class SyncRolePermissions extends Command
         $this->info('Syncing role permissions...');
 
         $organizations = $this->tenancy->runAsSystem(function () {
-            return \App\Domain\Organization\Models\Organization::all();
+            return Organization::all();
         });
 
         foreach ($organizations as $org) {
@@ -39,24 +40,26 @@ class SyncRolePermissions extends Command
                         ->where('code', $code)
                         ->first();
 
-                    if (!$role) {
+                    if (! $role) {
                         $this->warn("  Role {$code} not found, skipping...");
+
                         continue;
                     }
 
-                    $permissionIds = \App\Domain\Authorization\Models\Permission::whereIn('code', $template['permissions'])->pluck('id');
+                    $permissionIds = Permission::whereIn('code', $template['permissions'])->pluck('id');
                     $syncData = [];
                     foreach ($permissionIds as $permissionId) {
                         $syncData[$permissionId] = ['organization_id' => $org->id];
                     }
                     $role->permissions()->sync($syncData);
 
-                    $this->info("  Synced {$code} with " . count($template['permissions']) . ' permissions');
+                    $this->info("  Synced {$code} with ".count($template['permissions']).' permissions');
                 }
             });
         }
 
         $this->info("\nDone! Role permissions synced successfully.");
+
         return 0;
     }
 }

@@ -4,7 +4,6 @@ namespace Tests\Feature\Licensing;
 
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Identity\Models\OrganizationInvitation;
-use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Licensing\Models\OrganizationLicense;

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Domain\Licensing\Models\LicenseCode;
+use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -23,7 +24,7 @@ class CheckLicenseCodes extends Command
         $this->info('Checking license codes in database...');
 
         $organizations = $this->tenancy->runAsSystem(function () {
-            return \App\Domain\Organization\Models\Organization::all();
+            return Organization::all();
         });
 
         foreach ($organizations as $org) {
@@ -40,9 +41,9 @@ class CheckLicenseCodes extends Command
                 $this->info("    Reference: {$code->reference}");
                 $this->info("    Status: {$code->status}");
                 $this->info("    Assigned to user ID: {$code->assigned_to_user_id}");
-                $this->info("    Assigned user: " . ($code->assignedUser ? $code->assignedUser->email : 'null'));
-                $this->info("    Is available: " . ($code->isAvailable() ? 'yes' : 'no'));
-                $this->info("    Is assigned: " . ($code->isAssigned() ? 'yes' : 'no'));
+                $this->info('    Assigned user: '.($code->assignedUser ? $code->assignedUser->email : 'null'));
+                $this->info('    Is available: '.($code->isAvailable() ? 'yes' : 'no'));
+                $this->info('    Is assigned: '.($code->isAssigned() ? 'yes' : 'no'));
             }
         }
 

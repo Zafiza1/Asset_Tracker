@@ -33,6 +33,7 @@ class AddDefaultAttributesToExistingCategoriesSeeder extends Seeder
 
                 if ($hasDefaults) {
                     $this->command->line("  Skipping category {$category->name} (already has default attributes)");
+
                     continue;
                 }
 

@@ -61,7 +61,7 @@ class OrganizationModuleController extends Controller
         $children = $categories->groupBy(fn ($c) => $c->parent_id ?? '');
         $ids = $categories->keyBy('id');
         $rows = [];
-        $walk = function (string $parent, int $depth, bool $inherited) use (&$walk, &$rows, $children, $ids, $assigned, $direct): int {
+        $walk = function (string $parent, int $depth, bool $inherited) use (&$walk, &$rows, $children, $assigned, $direct): int {
             $total = 0;
             foreach ($children->get($parent, []) as $c) {
                 $index = count($rows);

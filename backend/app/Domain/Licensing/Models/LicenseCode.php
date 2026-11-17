@@ -2,7 +2,6 @@
 
 namespace App\Domain\Licensing\Models;
 
-use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;

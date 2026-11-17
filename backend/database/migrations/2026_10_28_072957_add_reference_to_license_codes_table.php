@@ -16,7 +16,7 @@ return new class extends Migration
         });
 
         // For existing license codes, try to extract reference from notes if it contains reference pattern
-        \DB::statement("UPDATE license_codes SET reference = REGEXP_REPLACE(notes, '.*([A-Z]+-[0-9]{8}-[0-9]{3}).*', '\\1') WHERE notes ~ '[A-Z]+-[0-9]{8}-[0-9]{3}' AND reference IS NULL");
+        DB::statement("UPDATE license_codes SET reference = REGEXP_REPLACE(notes, '.*([A-Z]+-[0-9]{8}-[0-9]{3}).*', '\\1') WHERE notes ~ '[A-Z]+-[0-9]{8}-[0-9]{3}' AND reference IS NULL");
     }
 
     /**

@@ -3,7 +3,6 @@
 namespace App\Http\Resources;
 
 use App\Domain\Identity\Models\OrganizationInvitation;
-use App\Domain\Licensing\Models\LicenseCode;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 

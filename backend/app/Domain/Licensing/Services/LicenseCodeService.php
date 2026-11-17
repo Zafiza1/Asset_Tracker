@@ -6,8 +6,10 @@ use App\Domain\Audit\AuditLogger;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Licensing\Models\LicenseCode;
+use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\Tenancy;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -47,7 +49,7 @@ final class LicenseCodeService
     /**
      * Create a new license code for the current organization.
      */
-    public function create(string $notes = null, string $reference = null): LicenseCode
+    public function create(?string $notes = null, ?string $reference = null): LicenseCode
     {
         return DB::transaction(function () use ($notes, $reference) {
             $code = new LicenseCode;
@@ -67,7 +69,7 @@ final class LicenseCodeService
     /**
      * Create a new license code for a specific organization (static method for system context).
      */
-    public static function createForOrganization(\App\Domain\Organization\Models\Organization $organization, string $notes = null, string $reference = null): LicenseCode
+    public static function createForOrganization(Organization $organization, ?string $notes = null, ?string $reference = null): LicenseCode
     {
         return DB::transaction(function () use ($organization, $notes, $reference) {
             $code = new LicenseCode;
@@ -104,9 +106,9 @@ final class LicenseCodeService
      * Create multiple license codes for the current organization.
      *
      * @param  int  $count  Number of codes to create
-     * @return  array<int, LicenseCode>
+     * @return array<int, LicenseCode>
      */
-    public function createBatch(int $count, string $notes = null): array
+    public function createBatch(int $count, ?string $notes = null): array
     {
         return DB::transaction(function () use ($count, $notes) {
             $codes = [];
@@ -122,7 +124,7 @@ final class LicenseCodeService
      * Assign a license code to a user. The user must be a member of the organization who does
      * not hold another code here yet (one code per person).
      *
-     * @throws  ApiException  if code is not available, or the user cannot receive it
+     * @throws ApiException if code is not available, or the user cannot receive it
      */
     public function assign(string $codeId, string $userId): LicenseCode
     {
@@ -160,7 +162,7 @@ final class LicenseCodeService
     /**
      * Release a license code (when user resigns).
      *
-     * @throws  ApiException  if code is not assigned
+     * @throws ApiException if code is not assigned
      */
     public function release(string $codeId): LicenseCode
     {
@@ -224,7 +226,7 @@ final class LicenseCodeService
      * Find and validate a license code by its code string.
      * Returns the code if it exists and is available for the organization.
      *
-     * @throws  ApiException  if code is invalid, not found, or not available
+     * @throws ApiException if code is invalid, not found, or not available
      */
     public function validateCode(string $code, string $organizationId): LicenseCode
     {
@@ -251,7 +253,7 @@ final class LicenseCodeService
     /**
      * Get available license codes for the current organization.
      *
-     * @return  \Illuminate\Database\Eloquent\Collection<int, LicenseCode>
+     * @return Collection<int, LicenseCode>
      */
     public function getAvailableCodes()
     {
@@ -265,7 +267,7 @@ final class LicenseCodeService
     /**
      * Get all license codes for the current organization.
      *
-     * @return  \Illuminate\Database\Eloquent\Collection<int, LicenseCode>
+     * @return Collection<int, LicenseCode>
      */
     public function getAllCodes()
     {

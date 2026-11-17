@@ -84,7 +84,7 @@ final class Licensing
             throw ApiException::forbidden();
         }
 
-        return DB::transaction(function () use ($organization, $kind, $seats, $startsAt, $expiresAt, $reference, $notes, $source) {
+        return DB::transaction(function () use ($organization, $kind, $startsAt, $expiresAt, $reference, $notes, $source) {
             $license = new OrganizationLicense;
             $license->forceFill([
                 'organization_id' => $organization->id,

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Domain\Assets\Models\Asset;
+use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\Shared\Tenancy\TenantContext;
@@ -27,25 +28,28 @@ class UpdateSatuanValuesSeeder extends Seeder
 
             if ($organizations->isEmpty()) {
                 $this->command?->warn('No organizations found.');
+
                 return;
             }
 
             foreach ($organizations as $organization) {
                 $this->command?->info("Updating satuan values for organization: {$organization->name}");
 
-                $member = \App\Domain\Identity\Models\OrganizationMember::where('organization_id', $organization->id)
+                $member = OrganizationMember::where('organization_id', $organization->id)
                     ->where('status', 'active')
                     ->first();
 
-                if (!$member) {
+                if (! $member) {
                     $this->command?->warn("No active member found for {$organization->code}, skipping.");
+
                     continue;
                 }
 
                 $admin = $member->user;
 
-                if (!$admin) {
+                if (! $admin) {
                     $this->command?->warn("No user found for member in {$organization->code}, skipping.");
+
                     continue;
                 }
 
@@ -62,6 +66,7 @@ class UpdateSatuanValuesSeeder extends Seeder
 
         if ($assets->isEmpty()) {
             $this->command?->warn('No assets found.');
+
             return;
         }
 
@@ -74,7 +79,7 @@ class UpdateSatuanValuesSeeder extends Seeder
             // Get attribute_values (the model accessor will decode it automatically)
             $attributeValues = $asset->attribute_values ?? [];
 
-            if (!is_array($attributeValues)) {
+            if (! is_array($attributeValues)) {
                 $attributeValues = [];
             }
 

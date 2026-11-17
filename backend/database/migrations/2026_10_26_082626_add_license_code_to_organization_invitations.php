@@ -1,6 +1,5 @@
 <?php
 
-use App\Domain\Shared\Database\TenantSchema;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -21,8 +20,8 @@ return new class extends Migration
         });
 
         // Composite FK: (organization_id, license_code_id) -> license_codes (organization_id, id)
-        DB::statement("ALTER TABLE organization_invitations ADD CONSTRAINT organization_invitations_license_code_id_tfk
-            FOREIGN KEY (organization_id, license_code_id) REFERENCES license_codes (organization_id, id) ON DELETE RESTRICT");
+        DB::statement('ALTER TABLE organization_invitations ADD CONSTRAINT organization_invitations_license_code_id_tfk
+            FOREIGN KEY (organization_id, license_code_id) REFERENCES license_codes (organization_id, id) ON DELETE RESTRICT');
     }
 
     public function down(): void

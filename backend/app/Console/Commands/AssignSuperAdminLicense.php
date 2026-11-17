@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Licensing\Models\LicenseCode;
+use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -24,7 +25,7 @@ class AssignSuperAdminLicense extends Command
         $this->info('Assigning SUPER_ADMIN_FREE license to super admin users...');
 
         $organizations = $this->tenancy->runAsSystem(function () {
-            return \App\Domain\Organization\Models\Organization::all();
+            return Organization::all();
         });
 
         $totalAssigned = 0;
@@ -39,14 +40,15 @@ class AssignSuperAdminLicense extends Command
                     ->first();
             });
 
-            if (!$code) {
-                $this->warn("  No SUPER_ADMIN_FREE license code found for this organization.");
+            if (! $code) {
+                $this->warn('  No SUPER_ADMIN_FREE license code found for this organization.');
+
                 continue;
             }
 
             $this->info("  Found license code: {$code->code}");
             $this->info("  Current status: {$code->status}");
-            $this->info("  Assigned to: " . ($code->assigned_to_user_id ?? 'none'));
+            $this->info('  Assigned to: '.($code->assigned_to_user_id ?? 'none'));
 
             // Find super admin
             $superAdmin = $this->tenancy->runAsSystem(function () use ($org) {
@@ -58,8 +60,9 @@ class AssignSuperAdminLicense extends Command
                     ->first();
             });
 
-            if (!$superAdmin) {
-                $this->warn("  No super admin found for this organization.");
+            if (! $superAdmin) {
+                $this->warn('  No super admin found for this organization.');
+
                 continue;
             }
 
@@ -67,7 +70,8 @@ class AssignSuperAdminLicense extends Command
 
             // Check if already assigned
             if ($code->assigned_to_user_id === $superAdmin->user_id && $code->status === LicenseCode::STATUS_ASSIGNED) {
-                $this->info("  License already assigned to this super admin.");
+                $this->info('  License already assigned to this super admin.');
+
                 continue;
             }
 
@@ -76,14 +80,15 @@ class AssignSuperAdminLicense extends Command
                 $this->tenancy->runAsSystem(function () use ($code, $superAdmin) {
                     $code->assignTo($superAdmin->user_id);
                 });
-                $this->info("  Successfully assigned license to super admin!");
+                $this->info('  Successfully assigned license to super admin!');
                 $totalAssigned++;
             } catch (\Exception $e) {
-                $this->error("  Failed to assign license: " . $e->getMessage());
+                $this->error('  Failed to assign license: '.$e->getMessage());
             }
         }
 
         $this->info("\nDone! Total licenses assigned: {$totalAssigned}");
+
         return 0;
     }
 }
