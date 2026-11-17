@@ -75,7 +75,8 @@ final class AssetTimeline
         $logs = AuditLog::query()->forOrganization($asset->organization_id)
             ->where('entity_type', class_basename($asset))->where('entity_id', $asset->id)
             ->whereIn('action', self::EDIT_ACTIONS)
-            ->with('actor')->orderByDesc('created_at')->limit(self::LIMIT)->get();
+            // UUIDv7 id breaks created_at ties (same transaction), so order and LIMIT are deterministic.
+            ->with('actor')->orderByDesc('created_at')->orderByDesc('id')->limit(self::LIMIT)->get();
 
         $names = $this->names($logs);
 

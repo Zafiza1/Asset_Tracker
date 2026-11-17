@@ -75,7 +75,10 @@ class ApprovalRequestResource extends JsonResource
             ->where('entity_type', class_basename(ApprovalRequest::class))
             ->where('entity_id', $this->id)
             ->whereIn('action', array_keys(self::HISTORY_LABELS))
+            // created_at defaults to now() (transaction start), so entries written in one
+            // transaction tie; the UUIDv7 id breaks the tie in insertion order.
             ->orderBy('created_at')
+            ->orderBy('id')
             ->get()
             ->map(fn (AuditLog $log) => [
                 'action' => $log->action,

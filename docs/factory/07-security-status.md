@@ -33,7 +33,7 @@ Status: **Terbuka** · **Kemungkinan selesai** (ada bukti di kode, belum diverif
 |---|---|---|
 | Static analysis | SonarQube Community Build (self-hosted) | Belum |
 | Secret scanning | Gitleaks | **Aktif di CI** (run pertama lulus, seluruh riwayat) |
-| Dependency & container | Trivy | **Aktif di CI** (run pertama gagal karena SEC-08/SEC-11) |
+| Dependency & container | Trivy | **Aktif di CI** (dua run pertama tidak memindai apa pun: versi action `0.28.0` tidak ada; diperbaiki di `dd8eca6` dengan pin SHA v0.36.0) |
 | DAST | OWASP ZAP baseline ke lingkungan lokal/staging | Belum |
 | Unit/feature test | PHPUnit, Vitest | **Aktif di CI** (lulus) |
 | E2E | Playwright | Belum |

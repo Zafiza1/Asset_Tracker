@@ -30,6 +30,7 @@
 | T-15 | Figma `03 Patterns` + layout; gambar Data Aset, Detail Aset, Transaksi, Dashboard sesuai implementasi | ui-ux-designer | wireframing, information-architecture | T-14 | Figma: `03`, `10`–`12` | L | tier2 | product-analyst, qa | todo |
 | T-16 | Figma Dashboard kustom + Report Designer dari implementasi; review UX dan accessibility sebelum rilis | ui-ux-designer | usability-review, accessibility-review | T-01, T-14 | Figma: `12`, `13` | M | tier2 | product-analyst, pemilik produk (approval UX) | todo |
 | T-23 | Tutup advisory dependency yang ditemukan Trivy/audit: `laravel/framework` + Symfony (9 advisory), `undici` (High, dev) | backend-engineer + frontend-engineer | dependency-security-audit | T-04 | `backend/composer.lock`, `frontend/package-lock.json` | S | tier2 | security (Trivy di CI) | in_review |
+| T-24 | Urutan riwayat approval dan timeline aset tidak deterministik (`created_at` kembar dalam satu transaksi) → tambah UUIDv7 `id` sebagai pengurut kedua; test flaky `ApprovalTest` di CI | backend-engineer | systematic-debugging | T-04 | `app/Http/Resources/ApprovalRequestResource.php`, `app/Domain/Assets/AssetTimeline.php` | S | tier2 | qa (CI), auditor | in_review |
 | T-13 | Playwright smoke: login → tambah aset → pemindahan → dashboard | qa-engineer | e2e-testing | T-01, T-04 | `frontend/e2e/**` | M | tier2 | auditor | todo |
 
 Status: `todo`, `queued`, `in_progress`, `in_review`, `done`, `needs_human`, `blocked`.
