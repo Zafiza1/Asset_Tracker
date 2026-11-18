@@ -40,7 +40,7 @@ class HomeCardsTest extends TestCase
         $this->assertSame(array_keys(HomeCards::CARDS), $keys);   // Super Admin: everything, in order
 
         $this->actingAs($this->member(['transaction.view', 'asset.view']), 'web');
-        $this->assertSame(['my_requests', 'overdue_outgoing', 'due_soon', 'date_reminders'], array_column($this->cards(), 'key'));
+        $this->assertSame(['transaction_tasks', 'my_requests', 'overdue_outgoing', 'due_soon', 'date_reminders'], array_column($this->cards(), 'key'));
 
         $this->actingAs($this->member([]), 'web');
         $this->assertSame(['my_requests'], array_column($this->cards(), 'key'));

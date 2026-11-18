@@ -28,6 +28,9 @@ use LogicException;
  * start step's preconditions, locks the assets (D-29) and moves on. Automatic steps (condition,
  * action, wait, end) follow one another at once; a step done by people (input, approval) opens a
  * task and waits for it. A run keeps the flow version it started with (D-28).
+ *
+ * A wait for the paired transaction ends when every asset of the run got a transaction of the
+ * type that closes the run's type; that transaction may take the run's locked assets.
  */
 final class FlowEngine
 {
@@ -39,7 +42,8 @@ final class FlowEngine
         private readonly AssetScope $scope,
         private readonly TransactionLog $log,
         private readonly TransactionFieldTypes $fieldTypes,
-        private readonly AssetTransactionService $transactions,
+        private readonly FlowActions $actions,
+        private readonly RunAccess $access,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -86,7 +90,7 @@ final class FlowEngine
                 }
                 AssetTransactionService::assertCategoryAllowed($asset, $definition);
             }
-            $this->transactions->assertNotHeldByRun($assets->all());
+            $closes = AssetTransactionService::assertNotHeldByRun($assets->all(), $definition);
 
             $pre = $config['preconditions'] ?? [];
             if (! FlowConditions::passes($pre['rules'] ?? [], $pre['match'] ?? 'all', $pre['assets'] ?? 'all', $assets, $values, $roles)) {
@@ -105,13 +109,19 @@ final class FlowEngine
                 'transaction_date' => $data['transaction_date'] ?? $this->today(),
                 'created_by' => $this->userId(),
             ])->save();
+            // Assets still held by the run this one closes stay with that run until it moves on.
+            $heldByClosed = $closes === [] ? [] : DB::table('transaction_run_assets')->whereIn('run_id', $closes)->where('locked', true)->pluck('asset_id')->all();
             $orgId = $this->tenancy->organizationId();
-            $run->assets()->attach($assets->pluck('id')->mapWithKeys(fn ($id) => [$id => ['organization_id' => $orgId, 'locked' => $definition->locks_assets]])->all());
+            $run->assets()->attach($assets->pluck('id')->mapWithKeys(fn ($id) => [$id => [
+                'organization_id' => $orgId, 'locked' => $definition->locks_assets && ! in_array($id, $heldByClosed, true),
+            ]])->all());
+            $this->fieldTypes->claimAttachments($definition->fields, $values, $run->id);
 
             $this->step($run, $startNode, 'started', $this->userId(), $data['notes'] ?? null, ['values' => $values]);
             $this->moveTo($run, FlowGraph::next($graph, $startNode['id']));
             $this->advance($run, $graph);
             $this->audit->record('transaction_run.started', $run, after: ['transaction_number' => $run->transaction_number, 'type' => $definition->name, 'assets' => $assets->pluck('name')->all()]);
+            $this->resumeRuns($closes);
 
             return $run;
         });
@@ -120,7 +130,9 @@ final class FlowEngine
     }
 
     /**
-     * Work done on the run's current step: data filled in, or an approval decision.
+     * Work done on the run's current step: data filled in, or an approval decision. An approval
+     * that needs several approvers stays open until enough different people approved; one
+     * rejection ends it.
      *
      * @param  array<string, mixed>  $input  decision (approved|rejected), field_values, note
      */
@@ -133,7 +145,10 @@ final class FlowEngine
                 throw ApiException::conflict('TASK_NOT_OPEN', 'Langkah ini sudah dikerjakan atau transaksi sudah berakhir.');
             }
             $userId = $this->userId();
-            if (! $this->isAssignee($task, $userId)) {
+            if (in_array($userId, $task->approved_by, true)) {
+                throw ApiException::conflict('ALREADY_APPROVED', 'Anda sudah menyetujui langkah ini. Persetujuan berikutnya dari penyetuju lain.');
+            }
+            if (! $this->access->isAssignee($task)) {
                 throw ApiException::forbidden('FORBIDDEN', 'Langkah ini bukan tugas Anda.');
             }
 
@@ -154,21 +169,35 @@ final class FlowEngine
                     throw ApiException::forbidden('SELF_APPROVAL', 'Anda tidak dapat menyetujui transaksi yang Anda mulai sendiri.');
                 }
                 $outcome = $decision;
-                $details = [];
+                $approvals = $decision === 'approved' ? [...$task->approved_by, $userId] : $task->approved_by;
+                $details = ['approvals' => count($approvals), 'required' => $task->required_approvals];
+                if ($decision === 'approved' && count($approvals) < $task->required_approvals) {
+                    // Not enough approvers yet: the step stays, the next approver is asked.
+                    $task->forceFill(['approved_by' => $approvals])->save();
+                    $this->step($run, $node, 'approved', $userId, $note, $details);
+                    $this->audit->record('transaction.approved', $run, after: ['transaction_number' => $run->transaction_number, 'step' => $node['label'] ?? $node['id'], ...$details]);
+
+                    return $run->refresh();
+                }
+                $task->forceFill(['approved_by' => $approvals]);
             } else {
                 $definition = $run->definition()->with('fields')->firstOrFail();
                 $keys = (array) ($config['fields'] ?? []);
                 $fields = $definition->fields->whereIn('key', $keys)->values();
-                $entered = $this->fieldTypes->values($fields, $input['field_values'] ?? [], $this->today(), (array) ($config['required'] ?? []));
+                $entered = $this->fieldTypes->values($fields, $input['field_values'] ?? [], $this->today(), (array) ($config['required'] ?? []), $run->id);
                 $entered = array_filter($entered, fn ($v, $k) => $v !== null || array_key_exists($k, $input['field_values'] ?? []), ARRAY_FILTER_USE_BOTH);
                 $run->field_values = [...$run->field_values, ...$entered];
                 $run->save();
+                $this->fieldTypes->claimAttachments($fields, $entered, $run->id);
                 $outcome = 'submitted';
                 $details = ['values' => $entered];
             }
 
             $task->forceFill(['status' => TransactionTask::DONE, 'completed_by' => $userId, 'completed_at' => now()])->save();
             $this->step($run, $node, $outcome, $userId, $note, $details);
+            if ($task->kind === 'approval') {
+                $this->audit->record("transaction.{$outcome}", $run, after: ['transaction_number' => $run->transaction_number, 'step' => $node['label'] ?? $node['id']]);
+            }
             $this->moveTo($run, FlowGraph::next($graph, $node['id'], $task->kind === 'approval' ? $outcome : null));
             $this->advance($run, $graph);
             $this->audit->record('transaction.step_completed', $run, after: ['transaction_number' => $run->transaction_number, 'step' => $node['label'] ?? $node['id'], 'outcome' => $outcome]);
@@ -204,7 +233,7 @@ final class FlowEngine
     }
 
     /**
-     * Moves a waiting run on when its date has come (scheduled, and on demand).
+     * Moves a waiting run on when what it waits for has come (scheduled, and on demand).
      */
     public function resume(TransactionRun $run): void
     {
@@ -214,6 +243,22 @@ final class FlowEngine
                 $this->advance($run, $run->flowVersion->graph);
             }
         });
+    }
+
+    /**
+     * After a transaction of $closing was recorded for these assets: the runs of the type it
+     * closes that wait for it move on.
+     *
+     * @param  list<string>  $assetIds
+     */
+    public function resumePaired(TransactionTypeDefinition $closing, array $assetIds): void
+    {
+        if ($closing->closes_type_id === null || $assetIds === []) {
+            return;
+        }
+        $runs = TransactionRun::query()->where('type_definition_id', $closing->closes_type_id)->where('state', TransactionRun::RUNNING)
+            ->whereHas('assets', fn ($a) => $a->whereIn('assets.id', $assetIds))->pluck('id')->all();
+        $this->resumeRuns($runs);
     }
 
     /**
@@ -251,6 +296,17 @@ final class FlowEngine
         return $path;
     }
 
+    /** @param list<string> $runIds */
+    private function resumeRuns(array $runIds): void
+    {
+        foreach ($runIds as $id) {
+            $run = TransactionRun::query()->lockForUpdate()->find($id);
+            if ($run !== null && $run->isRunning()) {
+                $this->advance($run, $run->flowVersion->graph);
+            }
+        }
+    }
+
     /** @param array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>} $graph */
     private function advance(TransactionRun $run, array $graph): void
     {
@@ -280,17 +336,24 @@ final class FlowEngine
                 case 'action':
                     $applied = [];
                     foreach ($config['actions'] ?? [] as $action) {
-                        $applied[] = [...$action, 'assets' => $this->applyAction($run, $action)];
+                        $applied[] = [...$action, 'count' => $this->actions->apply($run, $action)];
                     }
                     $this->step($run, $node, 'applied', null, null, ['actions' => $applied]);
                     $this->moveTo($run, FlowGraph::next($graph, $node['id']));
                     break;
                 case 'wait':
-                    $date = $run->field_values[$config['field'] ?? ''] ?? null;
-                    if (! is_string($date) || $date > $this->today()) {
-                        return;
+                    if (($config['until'] ?? 'date') === 'paired') {
+                        if (! $this->pairRecorded($run)) {
+                            return;
+                        }
+                        $this->step($run, $node, 'passed', null, null, ['paired' => true]);
+                    } else {
+                        $date = $run->field_values[$config['field'] ?? ''] ?? null;
+                        if (! is_string($date) || $date > $this->today()) {
+                            return;
+                        }
+                        $this->step($run, $node, 'passed', null, null, ['date' => $date]);
                     }
-                    $this->step($run, $node, 'passed', null, null, ['date' => $date]);
                     $this->moveTo($run, FlowGraph::next($graph, $node['id']));
                     break;
                 case 'end':
@@ -310,16 +373,29 @@ final class FlowEngine
         throw new LogicException("Run {$run->id} did not stop after ".self::MAX_AUTOMATIC_STEPS.' automatic steps.');
     }
 
-    /** @param array<string, mixed> $action */
-    private function applyAction(TransactionRun $run, array $action): int
+    /**
+     * Has every asset of the run got a transaction of a type that closes the run's type since
+     * the run started (recorded at once, or a run of that type that is not rejected or cancelled)?
+     */
+    private function pairRecorded(TransactionRun $run): bool
     {
-        return match ($action['kind']) {
-            'set_status' => $this->transactions->applyForRun($run, TransactionType::STATUS_CHANGE, ['to_status' => $action['status']]),
-            'move_to_field_location' => is_string($location = $run->field_values[$action['field']] ?? null)
-                ? $this->transactions->applyForRun($run, TransactionType::TRANSFER, ['to_location_id' => $location])
-                : throw ApiException::unprocessable('FIELD_MISSING', 'Lokasi tujuan belum diisi sehingga aset tidak dapat dipindahkan.'),
-            default => throw new LogicException("Unknown flow action {$action['kind']}."),
-        };
+        $closing = TransactionTypeDefinition::query()->where('closes_type_id', $run->type_definition_id)->pluck('id')->all();
+        if ($closing === []) {
+            return false;
+        }
+        $assetIds = DB::table('transaction_run_assets')->where('run_id', $run->id)->pluck('asset_id');
+        foreach ($assetIds as $assetId) {
+            $recorded = DB::table('asset_transactions')->where('asset_id', $assetId)->where('type', TransactionType::CUSTOM)
+                ->whereIn('type_definition_id', $closing)->whereNull('run_id')->where('created_at', '>=', $run->created_at)->exists()
+                || DB::table('transaction_run_assets as ra')->join('transaction_runs as r', 'r.id', '=', 'ra.run_id')
+                    ->where('ra.asset_id', $assetId)->whereIn('r.type_definition_id', $closing)
+                    ->whereIn('r.state', [TransactionRun::RUNNING, TransactionRun::COMPLETED])->where('r.created_at', '>=', $run->created_at)->exists();
+            if (! $recorded) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** @param array<string, mixed> $node */
@@ -330,10 +406,12 @@ final class FlowEngine
             return;
         }
         $config = $node['config'] ?? [];
-        $who = $node['type'] === 'approval' ? ($config['approver'] ?? []) : ($config['assignee'] ?? ['type' => 'starter']);
+        $approval = $node['type'] === 'approval';
+        $who = $approval ? ($config['approver'] ?? []) : ($config['assignee'] ?? ['type' => 'starter']);
         [$type, $id] = match ($who['type'] ?? 'starter') {
             'role' => ['role', $who['id']],
             'user' => ['user', $who['id']],
+            'location_supervisor' => ['location_supervisor', null],
             'field' => ['user', is_string($run->field_values[$who['field'] ?? ''] ?? null) ? $run->field_values[$who['field']] : $run->created_by],
             default => ['user', $run->created_by],
         };
@@ -343,6 +421,7 @@ final class FlowEngine
         $task->forceFill([
             'run_id' => $run->id, 'node_id' => $node['id'], 'kind' => $node['type'],
             'assignee_type' => $type, 'assignee_id' => $id, 'status' => TransactionTask::OPEN,
+            'required_approvals' => $approval ? max(1, min(FlowGraph::MAX_APPROVALS, (int) ($config['min_approvals'] ?? 1))) : 1,
             'due_date' => is_int($days) ? CarbonImmutable::parse($this->today())->addDays($days)->toDateString() : null,
         ])->save();
     }
@@ -385,18 +464,10 @@ final class FlowEngine
         ])->save();
     }
 
-    private function isAssignee(TransactionTask $task, string $userId): bool
-    {
-        return $task->assignee_type === 'user'
-            ? $task->assignee_id === $userId
-            : in_array($task->assignee_id, $this->userRoles($userId), true);
-    }
-
     /** @return list<string> */
     public function userRoles(string $userId): array
     {
-        return DB::table('user_roles')->where('organization_id', $this->tenancy->organizationId())
-            ->where('user_id', $userId)->pluck('role_id')->all();
+        return $this->access->userRoles($userId);
     }
 
     private function userId(): string

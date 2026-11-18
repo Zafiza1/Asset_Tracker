@@ -3,6 +3,7 @@
 namespace App\Domain\AssetTransactions\Models;
 
 use App\Domain\Assets\Models\Asset;
+use App\Domain\AssetTransactions\Flows\FlowGraph;
 use App\Domain\Identity\Models\User;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -103,5 +104,13 @@ class TransactionRun extends Model
     public function isRunning(): bool
     {
         return $this->state === self::RUNNING;
+    }
+
+    /** Waiting at a step for the transaction of the type that closes this one (F-07 §4.1 Tunggu). */
+    public function awaitsPair(): bool
+    {
+        $node = $this->current_node_id === null ? null : FlowGraph::node($this->flowVersion->graph, $this->current_node_id);
+
+        return $this->isRunning() && ($node['type'] ?? null) === 'wait' && ($node['config']['until'] ?? null) === 'paired';
     }
 }

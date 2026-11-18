@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /** Asset Transactions container: searchable list, detail, manual recording. */
@@ -103,7 +104,16 @@ class AssetTransactionController extends Controller
             return (new TransactionRunResource($run))->withDetail()->response()->setStatusCode(201);
         }
 
-        $transactions = (new Collection($this->transactions->create($data)))->load(self::RELATIONS);
+        // Recorded at once; for a closing type, the runs waiting for this pair move on (F-07b).
+        $transactions = DB::transaction(function () use ($data) {
+            $rows = $this->transactions->create($data);
+            if ($data['type'] === TransactionType::CUSTOM && ($definition = TransactionTypeDefinition::query()->find($data['type_definition_id'])) !== null) {
+                $this->engine->resumePaired($definition, $data['asset_ids']);
+            }
+
+            return $rows;
+        });
+        $transactions = (new Collection($transactions))->load(self::RELATIONS);
 
         return $single
             ? new AssetTransactionResource($transactions->first())

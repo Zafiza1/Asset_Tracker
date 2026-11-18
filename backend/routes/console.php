@@ -2,6 +2,7 @@
 
 use App\Domain\AssetTransactions\Flows\FlowEngine;
 use App\Domain\AssetTransactions\Flows\FlowVersionService;
+use App\Domain\AssetTransactions\Services\TransactionAttachments;
 use App\Domain\Identity\Services\OrganizationInvitations;
 use App\Domain\ReportDesigner\Services\ReportExportService;
 use App\Domain\Shared\Tenancy\Tenancy;
@@ -30,3 +31,9 @@ Artisan::command('transactions:resume', function (Tenancy $tenancy, FlowEngine $
 })->purpose('Move running flow transactions on when their wait step date has come (F-07b)');
 
 Schedule::command('transactions:resume')->daily();
+
+Artisan::command('transactions:prune-attachments', function (Tenancy $tenancy) {
+    $this->info(TransactionAttachments::prune($tenancy).' lampiran yang tidak dipakai dihapus.');
+})->purpose('Delete attachment uploads never used in a transaction (F-07b)');
+
+Schedule::command('transactions:prune-attachments')->daily();

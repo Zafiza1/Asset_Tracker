@@ -92,11 +92,16 @@ final class AssetTransactionService
 
         return DB::transaction(function () use ($type, $data, $definition) {
             $assets = $this->lockAssets($data['asset_ids']);
-            $this->assertNotHeldByRun($assets);
+            self::assertNotHeldByRun($assets, $definition);
             $number = $this->log->nextNumber($type, $definition?->code);
 
-            return array_map(fn (Asset $asset) => $this->withAssetContext($asset, count($assets) > 1,
+            $rows = array_map(fn (Asset $asset) => $this->withAssetContext($asset, count($assets) > 1,
                 fn () => $this->apply($asset, $type, $data, $number, $definition)), $assets);
+            if ($definition !== null) {
+                $this->fieldTypes->claimAttachments($definition->fields, $data['field_values'], null, $number);
+            }
+
+            return $rows;
         });
     }
 
@@ -325,23 +330,27 @@ final class AssetTransactionService
         return $value === '' ? null : $value;
     }
 
-    /** @param array<string, mixed> $data */
     /**
-     * A flow action (F-07b): a status change or a move of every asset of the run, recorded under the
-     * run's number. Assets already in the wanted state are left alone. Core rules still apply.
+     * A flow action (F-07b): a status change, a move, a loan to a person or its return, for every
+     * asset of the run, recorded under the run's number. Assets already in the wanted state are
+     * left alone. Core rules still apply (an asset on loan is not lent again, and so on).
      *
-     * @param  array<string, mixed>  $data  to_status or to_location_id
+     * @param  array<string, mixed>  $data  to_status, to_location_id, or borrower_name and due_date
      * @return int number of assets changed
      */
     public function applyForRun(TransactionRun $run, string $type, array $data): int
     {
+        if (! in_array($type, [TransactionType::STATUS_CHANGE, TransactionType::TRANSFER, TransactionType::LOAN, TransactionType::RETURN], true)) {
+            throw new \LogicException("Flow actions do not record {$type} transactions.");
+        }
         $this->flowAction = true;
         try {
             $assets = Asset::query()->whereIn('id', $run->assets()->select('assets.id'))->orderBy('id')->lockForUpdate()->get();
             $changed = 0;
             foreach ($assets as $asset) {
                 $unchanged = ($type === TransactionType::STATUS_CHANGE && $asset->status === ($data['to_status'] ?? null))
-                    || ($type === TransactionType::TRANSFER && $asset->location_id === ($data['to_location_id'] ?? null));
+                    || ($type === TransactionType::TRANSFER && $asset->location_id === ($data['to_location_id'] ?? null))
+                    || ($type === TransactionType::RETURN && $asset->status !== AssetStatus::ON_LOAN);
                 if ($unchanged) {
                     continue;
                 }
@@ -358,19 +367,32 @@ final class AssetTransactionService
     }
 
     /**
-     * Assets held by a running transaction take no other transaction (D-29).
+     * Assets held by a running transaction take no other transaction (D-29). One exception: a
+     * transaction of the type that closes the run's type (closes_type_id), while the run waits
+     * for it at a "wait for the paired transaction" step.
      *
      * @param  list<Asset>  $assets
+     * @return list<string> ids of the runs the transaction closes (their assets stay theirs)
      */
-    public static function assertNotHeldByRun(array $assets): void
+    public static function assertNotHeldByRun(array $assets, ?TransactionTypeDefinition $closing = null): array
     {
         $held = DB::table('transaction_run_assets as ra')->join('transaction_runs as r', 'r.id', '=', 'ra.run_id')
             ->whereIn('ra.asset_id', array_map(fn (Asset $a) => $a->id, $assets))->where('ra.locked', true)
-            ->first(['ra.asset_id', 'r.transaction_number']);
-        if ($held !== null) {
-            $name = collect($assets)->firstWhere('id', $held->asset_id)?->name;
-            throw ApiException::conflict('ASSET_LOCKED', "{$name} sedang dalam transaksi {$held->transaction_number} yang belum selesai.", ['asset_id' => $held->asset_id, 'transaction_number' => $held->transaction_number]);
+            ->orderBy('ra.asset_id')->get(['ra.asset_id', 'r.id as run_id', 'r.transaction_number', 'r.type_definition_id']);
+        $closes = [];
+        foreach ($held as $row) {
+            $pairs = $closing !== null && $closing->closes_type_id === $row->type_definition_id
+                && TransactionRun::query()->with('flowVersion')->find($row->run_id)?->awaitsPair();
+            if ($pairs) {
+                $closes[] = $row->run_id;
+
+                continue;
+            }
+            $name = collect($assets)->firstWhere('id', $row->asset_id)?->name;
+            throw ApiException::conflict('ASSET_LOCKED', "{$name} sedang dalam transaksi {$row->transaction_number} yang belum selesai.", ['asset_id' => $row->asset_id, 'transaction_number' => $row->transaction_number]);
         }
+
+        return array_values(array_unique($closes));
     }
 
     /**

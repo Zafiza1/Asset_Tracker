@@ -54,9 +54,17 @@ class AssetTransaction extends Model
         return [
             'transaction_date' => 'date',
             'due_date' => 'date',
-            'field_values' => 'array',
             'created_at' => 'datetime',
         ];
+    }
+
+    /** Values of an organization type's fields: a JSON object even with no fields (column check). */
+    protected function fieldValues(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value === null ? null : (json_decode($value, true) ?: []),
+            set: fn (?array $value) => $value === null ? null : json_encode((object) $value),
+        );
     }
 
     public function asset(): BelongsTo

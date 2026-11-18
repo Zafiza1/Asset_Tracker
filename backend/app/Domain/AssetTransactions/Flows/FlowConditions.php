@@ -3,6 +3,7 @@
 namespace App\Domain\AssetTransactions\Flows;
 
 use App\Domain\Assets\Models\Asset;
+use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use Illuminate\Support\Collection;
 
 /**
@@ -64,6 +65,9 @@ final class FlowConditions
             'asset.acquisition_cost' => $asset->acquisition_cost === null ? null : (float) $asset->acquisition_cost,
             // The category and its ancestors: "category is Vehicles" also holds for Cars.
             'asset.category' => array_values(array_filter(explode('/', (string) $asset->category?->path))),
+            // The option value of the asset's default "Kondisi Aset" field (e.g. RUSAK_BERAT).
+            'asset.condition' => ($key = app(CategoryAttributeService::class)->conditionAttribute($asset->category_id)?->key) === null
+                ? null : ($asset->attribute_values[$key] ?? null),
             default => null,
         };
     }

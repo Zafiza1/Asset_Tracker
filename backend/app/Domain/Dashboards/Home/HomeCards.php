@@ -6,7 +6,10 @@ use App\Domain\Approvals\Models\ApprovalRequest;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
+use App\Domain\AssetTransactions\Flows\FlowGraph;
+use App\Domain\AssetTransactions\Flows\RunAccess;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\AssetTransactions\Models\TransactionTask;
 use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Audit\Models\AuditLog;
@@ -44,6 +47,7 @@ final class HomeCards
     /** Card key => permission needed (null: every member). Order is the display order. */
     public const CARDS = [
         'approvals_to_decide' => 'approval.manage',
+        'transaction_tasks' => 'transaction.view',
         'my_requests' => null,
         'overdue_outgoing' => 'transaction.view',
         'due_soon' => 'transaction.view',
@@ -60,6 +64,7 @@ final class HomeCards
         private readonly Tenancy $tenancy,
         private readonly AssetScope $scope,
         private readonly Licensing $licensing,
+        private readonly RunAccess $runAccess,
     ) {}
 
     /** @return list<array<string, mixed>> */
@@ -97,6 +102,7 @@ final class HomeCards
     {
         return match ($key) {
             'approvals_to_decide' => $this->approvalsToDecide(),
+            'transaction_tasks' => $this->transactionTasks($today),
             'my_requests' => $this->myRequests($today),
             'overdue_outgoing' => $this->overdueOutgoing($today),
             'due_soon' => $this->dueSoon($today),
@@ -122,6 +128,31 @@ final class HomeCards
                 ->map(fn (ApprovalRequest $a) => [
                     'id' => $a->id, 'summary' => $a->summary, 'action' => $a->action,
                     'requested_by' => $a->requester?->name, 'created_at' => $a->created_at?->toIso8601String(),
+                ])->all(),
+        ];
+    }
+
+    /**
+     * Steps of running transactions waiting for the user (F-07 §5): input and approvals assigned
+     * to them, their role or, as location supervisor, their data scope. Earliest due first.
+     */
+    private function transactionTasks(CarbonImmutable $today): array
+    {
+        $query = $this->runAccess->openTasks();
+        $todayDate = $today->toDateString();
+
+        return [
+            'count' => (clone $query)->count(),
+            'overdue' => (clone $query)->where('due_date', '<', $todayDate)->count(),
+            'items' => $query->with(['run:id,transaction_number,type_definition_id,flow_version_id,created_by', 'run.definition:id,name',
+                'run.flowVersion', 'run.creator:id,name'])
+                ->orderByRaw('due_date IS NULL, due_date')->orderBy('created_at')->limit(self::ITEMS)->get()
+                ->map(fn (TransactionTask $t) => [
+                    'run_id' => $t->run_id, 'transaction_number' => $t->run?->transaction_number,
+                    'type' => $t->run?->definition?->name, 'kind' => $t->kind,
+                    'step' => $t->run ? (FlowGraph::node($t->run->flowVersion->graph, $t->node_id)['label'] ?? null) : null,
+                    'started_by' => $t->run?->creator?->name, 'due_date' => $t->due_date?->toDateString(),
+                    'overdue' => $t->due_date !== null && $t->due_date->toDateString() < $todayDate,
                 ])->all(),
         ];
     }

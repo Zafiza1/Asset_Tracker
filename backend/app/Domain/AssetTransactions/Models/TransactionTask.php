@@ -4,21 +4,25 @@ namespace App\Domain\AssetTransactions\Models;
 
 use App\Domain\Identity\Models\User;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Open work for people at a step of a run: fill in data or approve. Assigned to a role (any
- * member holding it) or to one user.
+ * member holding it), to one user, or (approvals) to the location supervisors of the run's
+ * assets. An approval may need several approvers (required_approvals); approved_by lists who
+ * approved so far. Whose task it is: see Flows\RunAccess.
  *
  * @property string $run_id
  * @property string $node_id
  * @property string $kind
- * @property string $assignee_type
- * @property string $assignee_id
+ * @property string $assignee_type role|user|location_supervisor
+ * @property string|null $assignee_id
  * @property string $status
+ * @property int $required_approvals
+ * @property list<string> $approved_by
  */
 class TransactionTask extends Model
 {
@@ -37,7 +41,17 @@ class TransactionTask extends Model
         return [
             'due_date' => 'date',
             'completed_at' => 'datetime',
+            'required_approvals' => 'integer',
         ];
+    }
+
+    /** Always a JSON array (the column requires one). */
+    protected function approvedBy(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value === null ? [] : array_values(json_decode($value, true) ?: []),
+            set: fn (?array $value) => json_encode(array_values($value ?? [])),
+        );
     }
 
     public function run(): BelongsTo
@@ -48,17 +62,5 @@ class TransactionTask extends Model
     public function completer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'completed_by');
-    }
-
-    /**
-     * Open tasks a user may work on: assigned to them or to one of their roles.
-     *
-     * @param  list<string>  $roleIds
-     */
-    public function scopeOpenFor(Builder $query, string $userId, array $roleIds): Builder
-    {
-        return $query->where('status', self::OPEN)->where(fn ($w) => $w
-            ->where(fn ($u) => $u->where('assignee_type', 'user')->where('assignee_id', $userId))
-            ->orWhere(fn ($r) => $r->where('assignee_type', 'role')->whereIn('assignee_id', $roleIds)));
     }
 }

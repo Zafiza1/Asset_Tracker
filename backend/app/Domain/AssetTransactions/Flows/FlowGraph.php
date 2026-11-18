@@ -3,6 +3,7 @@
 namespace App\Domain\AssetTransactions\Flows;
 
 use App\Domain\Assets\AssetStatus;
+use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\AssetTransactions\Models\TransactionTypeField;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\RoleTemplates;
@@ -30,10 +31,13 @@ final class FlowGraph
 
     public const MAX_EDGES = 100;
 
+    /** Most approvers one approval step may need. */
+    public const MAX_APPROVALS = 5;
+
     public const OPERATORS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'empty', 'not_empty'];
 
     /** Fixed subjects; field.<key> subjects name a field of the type. */
-    public const SUBJECTS = ['asset.status', 'asset.category', 'asset.location', 'asset.acquisition_cost', 'starter.role'];
+    public const SUBJECTS = ['asset.status', 'asset.condition', 'asset.category', 'asset.location', 'asset.acquisition_cost', 'starter.role'];
 
     /** Statuses a flow action may set (disposal keeps its own permission and transaction). */
     public const ACTION_STATUSES = [AssetStatus::AVAILABLE, AssetStatus::IN_USE, AssetStatus::UNDER_MAINTENANCE, AssetStatus::LOST];
@@ -78,9 +82,10 @@ final class FlowGraph
      *
      * @param  array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}  $graph
      * @param  Collection<int, TransactionTypeField>  $fields
+     * @param  string|null  $typeId  the flow's type, to check a wait for its paired (closing) type
      * @return list<array{code: string, message: string, node_id: string|null}>
      */
-    public static function issues(array $graph, Collection $fields): array
+    public static function issues(array $graph, Collection $fields, ?string $typeId = null): array
     {
         $issues = [];
         $add = function (string $code, string $message, ?string $node = null) use (&$issues) {
@@ -123,7 +128,7 @@ final class FlowGraph
             if ($node['type'] !== 'start' && $edges->where('target', $id)->isEmpty()) {
                 $add('UNREACHABLE', "Langkah {$label($id)} tidak terhubung: belum ada garis masuk.", $id);
             }
-            foreach (self::configIssues($node, $fields) as $message) {
+            foreach (self::configIssues($node, $fields, $typeId) as $message) {
                 $add('CONFIG', "{$label($id)}: {$message}", $id);
             }
         }
@@ -158,7 +163,7 @@ final class FlowGraph
      * @param  Collection<int, TransactionTypeField>  $fields
      * @return list<string>
      */
-    private static function configIssues(array $node, Collection $fields): array
+    private static function configIssues(array $node, Collection $fields, ?string $typeId): array
     {
         $config = $node['config'] ?? [];
         $byKey = $fields->keyBy('key');
@@ -191,7 +196,14 @@ final class FlowGraph
                 }
                 break;
             case 'approval':
-                $issues = [...$issues, ...self::assigneeIssues($config['approver'] ?? [], $field, true)];
+                $approver = $config['approver'] ?? [];
+                $issues = [...$issues, ...self::assigneeIssues($approver, $field, true)];
+                $min = $config['min_approvals'] ?? 1;
+                if (! is_int($min) || $min < 1 || $min > self::MAX_APPROVALS) {
+                    $issues[] = 'jumlah minimal penyetuju 1 sampai '.self::MAX_APPROVALS.'.';
+                } elseif ($min > 1 && ($approver['type'] ?? null) === 'user') {
+                    $issues[] = 'penyetuju satu pengguna hanya dapat memberi satu persetujuan; pilih role atau atasan lokasi.';
+                }
                 break;
             case 'condition':
                 $rules = $config['rules'] ?? [];
@@ -209,9 +221,19 @@ final class FlowGraph
                     $issues[] = 'isi 1 sampai 5 aksi.';
                 }
                 foreach ($actions as $action) {
+                    $action = is_array($action) ? $action : [];
+                    $optional = fn (?string $key, string $type) => $key === null || $field($key, $type);
                     $ok = match ($action['kind'] ?? null) {
                         'set_status' => in_array($action['status'] ?? null, self::ACTION_STATUSES, true),
                         'move_to_field_location' => $field($action['field'] ?? null, 'location'),
+                        // A fixed option of Kondisi Aset, or a choice field whose options name one.
+                        'set_condition' => isset($action['field']) ? $field($action['field'], 'select')
+                            : is_string($action['value'] ?? null) && trim($action['value']) !== '',
+                        'loan_to_field_user' => $field($action['user_field'] ?? null, 'user') && $optional($action['due_field'] ?? null, 'date'),
+                        'return' => $optional($action['location_field'] ?? null, 'location'),
+                        'notify' => is_string($action['message'] ?? null) && trim($action['message']) !== ''
+                            && mb_strlen($action['message']) <= FlowActions::MAX_MESSAGE
+                            && self::assigneeIssues(is_array($action['to'] ?? null) ? $action['to'] : [], $field, false) === [],
                         default => false,
                     };
                     if (! $ok) {
@@ -220,8 +242,18 @@ final class FlowGraph
                 }
                 break;
             case 'wait':
-                if (($config['until'] ?? null) !== 'date' || ! $field($config['field'] ?? null, 'date')) {
-                    $issues[] = 'pilih field tanggal yang ditunggu.';
+                $until = $config['until'] ?? null;
+                if ($until === 'date') {
+                    if (! $field($config['field'] ?? null, 'date')) {
+                        $issues[] = 'pilih field tanggal yang ditunggu.';
+                    }
+                } elseif ($until === 'paired') {
+                    $closing = $typeId !== null && TransactionTypeDefinition::query()->where('closes_type_id', $typeId)->exists();
+                    if (! $closing) {
+                        $issues[] = 'belum ada jenis transaksi yang menutup jenis ini (atur "Berpasangan" pada jenis penutupnya).';
+                    }
+                } else {
+                    $issues[] = 'pilih yang ditunggu: tanggal atau transaksi pasangan.';
                 }
                 break;
             case 'end':
@@ -262,6 +294,9 @@ final class FlowGraph
                 ->get()->contains(fn (Role $r) => RoleTemplates::mayHoldApproval($r->template_code));
 
             return $approval && ! $approver ? ['penyetuju harus memegang role Super Admin atau Supervisor.'] : [];
+        }
+        if ($approval && $type === 'location_supervisor') {
+            return [];
         }
         if (! $approval && $type === 'starter') {
             return [];

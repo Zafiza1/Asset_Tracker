@@ -3,6 +3,7 @@
 namespace Tests\Feature\Security;
 
 use App\Domain\Approvals\Models\ApprovalRequest;
+use App\Domain\AssetTransactions\Models\TransactionAttachment;
 use App\Domain\AssetTransactions\Models\TransactionFlowVersion;
 use App\Domain\AssetTransactions\Models\TransactionRun;
 use App\Domain\AssetTransactions\Models\TransactionTask;
@@ -148,6 +149,10 @@ class RouteSecurityTest extends TestCase
         $task = (new TransactionTask)->forceFill(['organization_id' => $orgB->id, 'run_id' => $run->id, 'node_id' => 'isi',
             'kind' => 'input', 'assignee_type' => 'user', 'assignee_id' => $adminB->id]);
         $task->save();
+        $attachment = (new TransactionAttachment)->forceFill(['organization_id' => $orgB->id, 'type_definition_id' => $transactionType->id,
+            'field_key' => 'berkas', 'path' => 'transactions/x/a.pdf', 'original_name' => 'a.pdf', 'mime_type' => 'application/pdf',
+            'size' => 1, 'uploaded_by' => $adminB->id]);
+        $attachment->save();
         $dashboard = (new Dashboard)->forceFill(['organization_id' => $orgB->id, 'name' => 'Beta', 'dashboard_type' => 'custom',
             'visibility' => 'organization', 'created_by' => $adminB->id]);
         $dashboard->save();
@@ -165,6 +170,7 @@ class RouteSecurityTest extends TestCase
             'transactionType' => $transactionType->id,
             'transactionRun' => $run->id,
             'task' => $task->id,
+            'transactionAttachment' => $attachment->id,
             'approvalRequest' => $approval->id,
             'invitation' => $invitation->id,
             'asset' => $asset->id,

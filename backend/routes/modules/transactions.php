@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Tenant\AssetTransactionController;
+use App\Http\Controllers\Tenant\TransactionAttachmentController;
 use App\Http\Controllers\Tenant\TransactionFlowController;
 use App\Http\Controllers\Tenant\TransactionRunController;
 use App\Http\Controllers\Tenant\TransactionTypeController;
@@ -38,4 +39,10 @@ Route::middleware('module:transactions')->group(function () {
     Route::get('/transaction-runs/{transactionRun}', [TransactionRunController::class, 'show'])->middleware('permission:transaction.view');
     Route::post('/transaction-runs/{transactionRun}/tasks/{task}/complete', [TransactionRunController::class, 'complete'])->middleware('permission:transaction.view');
     Route::post('/transaction-runs/{transactionRun}/cancel', [TransactionRunController::class, 'cancel'])->middleware('permission:transaction.view');
+
+    // Files of attachment fields (F-07b): uploaded by whoever fills the form (also at a later
+    // step), read by whoever sees the transaction (TransactionAttachments).
+    Route::post('/transaction-types/{transactionType}/attachments', [TransactionAttachmentController::class, 'store'])
+        ->middleware(['permission:transaction.view', 'throttle:30,1']);
+    Route::get('/transaction-attachments/{transactionAttachment}', [TransactionAttachmentController::class, 'show'])->middleware('permission:transaction.view');
 });

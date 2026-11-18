@@ -32,7 +32,7 @@ class TransactionFlowController extends Controller
 
         return response()->json(['data' => [
             'active' => $active ? $this->version($active) : null,
-            'draft' => $draft ? [...$this->version($draft), 'issues' => FlowGraph::issues($draft->graph, $transactionType->fields()->get())] : null,
+            'draft' => $draft ? [...$this->version($draft), 'issues' => FlowGraph::issues($draft->graph, $transactionType->fields()->get(), $transactionType->id)] : null,
             'versions' => $all->map(fn (TransactionFlowVersion $v) => [
                 'version_number' => $v->version_number, 'status' => $v->status, 'change_note' => $v->change_note,
                 'published_at' => $v->published_at?->toIso8601String(), 'published_by' => $v->publisher?->name,
@@ -45,14 +45,14 @@ class TransactionFlowController extends Controller
         $data = $request->validate([...FlowGraph::rules(), 'change_note' => ['nullable', 'string', 'max:500']]);
         $draft = $this->versions->saveDraft($transactionType, $data['graph'], $data['change_note'] ?? null);
 
-        return response()->json(['data' => [...$this->version($draft), 'issues' => FlowGraph::issues($draft->graph, $transactionType->fields()->get())]]);
+        return response()->json(['data' => [...$this->version($draft), 'issues' => FlowGraph::issues($draft->graph, $transactionType->fields()->get(), $transactionType->id)]]);
     }
 
     /** Checks a diagram (the one sent, or the saved draft) without saving it. */
     public function validateFlow(Request $request, TransactionTypeDefinition $transactionType): JsonResponse
     {
         $graph = $request->has('graph') ? $request->validate(FlowGraph::rules())['graph'] : ($this->versions->draft($transactionType)?->graph ?? ['nodes' => [], 'edges' => []]);
-        $issues = FlowGraph::issues(['nodes' => $graph['nodes'] ?? [], 'edges' => $graph['edges'] ?? []], $transactionType->fields()->get());
+        $issues = FlowGraph::issues(['nodes' => $graph['nodes'] ?? [], 'edges' => $graph['edges'] ?? []], $transactionType->fields()->get(), $transactionType->id);
 
         return response()->json(['data' => ['valid' => $issues === [], 'issues' => $issues]]);
     }

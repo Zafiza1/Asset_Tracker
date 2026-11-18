@@ -56,7 +56,7 @@ final class FlowVersionService
         return DB::transaction(function () use ($definition) {
             $definition = TransactionTypeDefinition::query()->with('fields')->lockForUpdate()->findOrFail($definition->id);
             $draft = $this->draft($definition) ?? throw ApiException::conflict('NO_DRAFT', 'Belum ada draft alur untuk diterbitkan.');
-            $issues = FlowGraph::issues($draft->graph, $definition->fields);
+            $issues = FlowGraph::issues($draft->graph, $definition->fields, $definition->id);
             if ($issues !== []) {
                 throw ApiException::unprocessable('FLOW_INVALID', 'Alur masih memiliki masalah. Perbaiki sebelum diterbitkan.', ['issues' => $issues]);
             }

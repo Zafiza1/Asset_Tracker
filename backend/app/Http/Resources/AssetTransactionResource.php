@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Domain\AssetTransactions\Models\AssetTransaction;
 use App\Domain\AssetTransactions\OutgoingReason;
+use App\Domain\AssetTransactions\Services\TransactionAttachments;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Http\Request;
@@ -69,9 +70,15 @@ class AssetTransactionResource extends JsonResource
     {
         $values = $this->field_values ?? [];
         $fields = $this->relationLoaded('typeDefinition') && $this->typeDefinition ? $this->typeDefinition->fields : collect();
+        $files = TransactionAttachments::summaries(array_values(array_filter(
+            $fields->where('data_type', 'attachment')->map(fn ($f) => $values[$f->key] ?? null)->all(), 'is_string')));
         $out = [];
         foreach ($fields as $field) {
-            $out[] = ['key' => $field->key, 'label' => $field->label, 'data_type' => $field->data_type, 'value' => $values[$field->key] ?? null];
+            $value = $values[$field->key] ?? null;
+            if ($field->data_type === 'attachment' && is_string($value)) {
+                $value = $files[$value] ?? null;
+            }
+            $out[] = ['key' => $field->key, 'label' => $field->label, 'data_type' => $field->data_type, 'value' => $value];
             unset($values[$field->key]);
         }
         foreach ($values as $key => $value) {

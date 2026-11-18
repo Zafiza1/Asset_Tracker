@@ -4,6 +4,7 @@ namespace App\Domain\AssetTransactions\Types;
 
 use App\Domain\Assets\AssetScope;
 use App\Domain\AssetTransactions\Models\TransactionTypeField;
+use App\Domain\AssetTransactions\Services\TransactionAttachments;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Location;
@@ -33,6 +34,7 @@ final class TransactionFieldTypes
         'user' => 'Pengguna',
         'location' => 'Lokasi',
         'counterparty' => 'Pihak luar',
+        'attachment' => 'Lampiran',
     ];
 
     /** Security limits (F-07 §7). */
@@ -45,6 +47,7 @@ final class TransactionFieldTypes
     public function __construct(
         private readonly Tenancy $tenancy,
         private readonly AssetScope $scope,
+        private readonly TransactionAttachments $attachments,
     ) {}
 
     /**
@@ -63,7 +66,10 @@ final class TransactionFieldTypes
             'fields.*.label' => ['required', 'string', 'max:100'],
             'fields.*.data_type' => ['required', Rule::in($types)],
             'fields.*.is_required' => ['sometimes', 'boolean'],
-            'fields.*.settings' => ['sometimes', 'array:max_length,min,max,decimals,options,not_before_today,not_after_today,default'],
+            'fields.*.settings' => ['sometimes', 'array:max_length,min,max,decimals,options,not_before_today,not_after_today,default,accept,max_mb'],
+            'fields.*.settings.accept' => ['sometimes', 'array'],
+            'fields.*.settings.accept.*' => ['string', 'distinct', Rule::in(array_keys(TransactionAttachments::KINDS))],
+            'fields.*.settings.max_mb' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'fields.*.settings.max_length' => ['sometimes', 'integer', 'min:1', 'max:2000'],
             'fields.*.settings.min' => ['sometimes', 'nullable', 'numeric'],
             'fields.*.settings.max' => ['sometimes', 'nullable', 'numeric'],
@@ -139,6 +145,11 @@ final class TransactionFieldTypes
                 return ['options' => array_map(fn (array $o) => ['value' => (string) $o['value'], 'label' => (string) $o['label']], $options)];
             })(),
             'boolean' => array_filter(['default' => $settings['default'] ?? null], fn ($v) => $v !== null),
+            // Kinds of file accepted (none: all) and a size limit, capped by max_upload_mb on upload.
+            'attachment' => array_filter([
+                'accept' => array_values(array_unique((array) ($settings['accept'] ?? []))) ?: null,
+                'max_mb' => isset($settings['max_mb']) ? (int) $settings['max_mb'] : null,
+            ], fn ($v) => $v !== null),
             default => [],
         };
     }
@@ -150,16 +161,17 @@ final class TransactionFieldTypes
      * @param  iterable<TransactionTypeField>  $fields  the fields accepted here (a flow step may take a subset)
      * @param  array<string, mixed>  $input
      * @param  list<string>|null  $required  keys required here; null: each field's own is_required
+     * @param  string|null  $runId  the run the values belong to: its attachments stay usable
      * @return array<string, mixed>
      */
-    public function values(iterable $fields, array $input, string $today, ?array $required = null): array
+    public function values(iterable $fields, array $input, string $today, ?array $required = null, ?string $runId = null): array
     {
         $rules = [];
         $byKey = [];
         foreach ($fields as $field) {
             $byKey[$field->key] = $field;
             $isRequired = $required === null ? $field->is_required : in_array($field->key, $required, true);
-            foreach ($this->valueRules($field, $today, $isRequired) as $path => $rule) {
+            foreach ($this->valueRules($field, $today, $isRequired, $runId) as $path => $rule) {
                 $rules[$path === '' ? "field_values.{$field->key}" : "field_values.{$field->key}.{$path}"] = $rule;
             }
         }
@@ -183,8 +195,19 @@ final class TransactionFieldTypes
         return $stored;
     }
 
+    /**
+     * After the values are saved: their attachment files belong to the run or transaction.
+     *
+     * @param  iterable<TransactionTypeField>  $fields
+     * @param  array<string, mixed>  $values
+     */
+    public function claimAttachments(iterable $fields, array $values, ?string $runId, ?string $transactionNumber = null): void
+    {
+        $this->attachments->claim($fields, $values, $runId, $transactionNumber);
+    }
+
     /** @return array<string, list<mixed>> path below the field ('' = the field itself) => rules */
-    private function valueRules(TransactionTypeField $field, string $today, bool $isRequired): array
+    private function valueRules(TransactionTypeField $field, string $today, bool $isRequired, ?string $runId): array
     {
         $presence = $isRequired ? ['required'] : ['nullable'];
         $s = $field->settings ?? [];
@@ -210,6 +233,12 @@ final class TransactionFieldTypes
                 'name' => [$isRequired ? 'required' : 'required_with:field_values.'.$field->key.'.contact', 'nullable', 'string', 'max:150'],
                 'contact' => ['nullable', 'string', 'max:150'],
             ],
+            // The id of a file uploaded for this field (TransactionAttachments).
+            'attachment' => ['' => [...$presence, 'uuid', function (string $attribute, mixed $value, Closure $fail) use ($field, $runId) {
+                if (! is_string($value) || ! $this->attachments->usable(strtolower($value), $field, $runId)) {
+                    $fail(':attribute: file tidak ditemukan. Unggah ulang file-nya.');
+                }
+            }]],
         };
     }
 
@@ -224,7 +253,7 @@ final class TransactionFieldTypes
             'money' => round((float) $value, 2),
             'boolean' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
             'multiselect' => array_values($value),
-            'user', 'location' => strtolower((string) $value),
+            'user', 'location', 'attachment' => strtolower((string) $value),
             'counterparty' => ['name' => $value['name'] ?? null, 'contact' => $value['contact'] ?? null],
             default => $value,
         };

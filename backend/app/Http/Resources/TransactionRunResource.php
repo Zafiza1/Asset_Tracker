@@ -3,9 +3,13 @@
 namespace App\Http\Resources;
 
 use App\Domain\AssetTransactions\Flows\FlowGraph;
+use App\Domain\AssetTransactions\Flows\RunAccess;
 use App\Domain\AssetTransactions\Models\TransactionRun;
 use App\Domain\AssetTransactions\Models\TransactionStep;
 use App\Domain\AssetTransactions\Models\TransactionTask;
+use App\Domain\AssetTransactions\Services\TransactionAttachments;
+use App\Domain\Authorization\Models\Role;
+use App\Domain\Identity\Models\User;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -54,16 +58,30 @@ class TransactionRunResource extends JsonResource
                 'node_id' => $s->node_id, 'type' => $s->node_type, 'label' => $graph ? (FlowGraph::node($graph, $s->node_id)['label'] ?? null) : null,
                 'outcome' => $s->outcome, 'actor' => $s->actor?->name, 'note' => $s->note, 'created_at' => $s->created_at?->toIso8601String(),
             ])->values()),
-            'open_task' => $this->when($this->detail && $this->relationLoaded('tasks'), function () {
+            'open_task' => $this->when($this->relationLoaded('tasks'), function () {
                 $task = $this->tasks->firstWhere('status', TransactionTask::OPEN);
 
                 return $task ? [
                     'id' => $task->id, 'node_id' => $task->node_id, 'kind' => $task->kind,
                     'assignee_type' => $task->assignee_type, 'assignee_id' => $task->assignee_id,
+                    'assignee_name' => $this->assigneeName($task),
                     'due_date' => $task->due_date?->toDateString(),
+                    'required_approvals' => $task->required_approvals, 'approvals' => count($task->approved_by),
+                    // Whether the signed-in user may work this step now (the server checks again).
+                    'can_act' => app(RunAccess::class)->isAssignee($task),
                 ] : null;
             }),
         ];
+    }
+
+    private function assigneeName(TransactionTask $task): ?string
+    {
+        return match ($task->assignee_type) {
+            'user' => User::query()->whereKey($task->assignee_id)->value('name'),
+            'role' => Role::query()->whereKey($task->assignee_id)->value('name'),
+            'location_supervisor' => 'Atasan lokasi aset',
+            default => null,
+        };
     }
 
     /**
@@ -76,11 +94,16 @@ class TransactionRunResource extends JsonResource
         $values = $this->field_values;
         $fields = $this->relationLoaded('definition') ? $this->definition->fields : collect();
         $canSeeContact = app(Tenancy::class)->tenant()->can('transaction.contact.view');
+        $files = TransactionAttachments::summaries(array_values(array_filter(
+            $fields->where('data_type', 'attachment')->map(fn ($f) => $values[$f->key] ?? null)->all(), 'is_string')));
         $out = [];
         foreach ($fields as $field) {
             $value = $values[$field->key] ?? null;
             if ($field->data_type === 'counterparty' && is_array($value) && ! $canSeeContact) {
                 $value['contact'] = null;
+            }
+            if ($field->data_type === 'attachment' && is_string($value)) {
+                $value = $files[$value] ?? null;
             }
             $out[] = ['key' => $field->key, 'label' => $field->label, 'data_type' => $field->data_type, 'value' => $value];
         }
