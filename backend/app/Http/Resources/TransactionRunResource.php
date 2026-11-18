@@ -8,6 +8,7 @@ use App\Domain\AssetTransactions\Models\TransactionRun;
 use App\Domain\AssetTransactions\Models\TransactionStep;
 use App\Domain\AssetTransactions\Models\TransactionTask;
 use App\Domain\AssetTransactions\Services\TransactionAttachments;
+use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Identity\Models\User;
 use App\Domain\Shared\Tenancy\Tenancy;
@@ -94,6 +95,7 @@ class TransactionRunResource extends JsonResource
         $values = $this->field_values;
         $fields = $this->relationLoaded('definition') ? $this->definition->fields : collect();
         $canSeeContact = app(Tenancy::class)->tenant()->can('transaction.contact.view');
+        $display = TransactionFieldTypes::display($fields, $values);
         $files = TransactionAttachments::summaries(array_values(array_filter(
             $fields->where('data_type', 'attachment')->map(fn ($f) => $values[$f->key] ?? null)->all(), 'is_string')));
         $out = [];
@@ -105,7 +107,7 @@ class TransactionRunResource extends JsonResource
             if ($field->data_type === 'attachment' && is_string($value)) {
                 $value = $files[$value] ?? null;
             }
-            $out[] = ['key' => $field->key, 'label' => $field->label, 'data_type' => $field->data_type, 'value' => $value];
+            $out[] = ['key' => $field->key, 'label' => $field->label, 'data_type' => $field->data_type, 'value' => $value, 'display' => $display[$field->key] ?? null];
         }
 
         return $out;

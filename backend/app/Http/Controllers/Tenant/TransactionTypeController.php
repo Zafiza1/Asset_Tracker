@@ -21,7 +21,7 @@ use Illuminate\Validation\Rule;
  */
 class TransactionTypeController extends Controller
 {
-    private const RELATIONS = ['fields', 'categories:id,name', 'closesType:id,code,name'];
+    private const RELATIONS = ['fields', 'categories:id,name', 'closesType:id,code,name', 'activeFlow:id,version_number', 'draftFlow:id,type_definition_id,version_number,status'];
 
     public function __construct(private readonly TransactionTypeService $types) {}
 

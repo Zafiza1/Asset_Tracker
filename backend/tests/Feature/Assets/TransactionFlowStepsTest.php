@@ -203,11 +203,30 @@ class TransactionFlowStepsTest extends TestCase
         $row = $this->postJson('/api/transactions', ['asset_id' => $asset, 'type' => 'custom', 'type_definition_id' => $type['id'],
             'field_values' => ['bast' => $file['id']]])->assertCreated()->json('data');
         $this->assertSame(['id' => $file['id'], 'name' => 'bast.pdf'], array_intersect_key($row['field_values'][0]['value'], ['id' => 1, 'name' => 1]));
+        $this->assertSame('bast.pdf', $row['field_values'][0]['display']);
         $this->get("/api/transaction-attachments/{$file['id']}")->assertOk()->assertDownload('bast.pdf');
 
         // Claimed: it cannot be attached to a second transaction.
         $this->postJson('/api/transactions', ['asset_id' => $this->asset(), 'type' => 'custom', 'type_definition_id' => $type['id'],
             'field_values' => ['bast' => $file['id']]])->assertStatus(422);
+    }
+
+    public function test_forms_get_members_by_name_and_only_flow_managers_get_the_editor_options(): void
+    {
+        $supervisor = $this->createTenantUser($this->org, ['SUPERVISOR'], attributes: ['name' => 'Dewi Supervisor']);
+        $viewer = $this->createTenantUser($this->org, [$this->viewerRole($this->org)], attributes: ['name' => 'Vina Viewer']);
+
+        $this->actingAs($viewer, 'web');
+        $members = $this->getJson('/api/transaction-members?search=dewi')->assertOk()->json('data');
+        $this->assertSame([['id' => $supervisor->id, 'name' => 'Dewi Supervisor']], $members);
+        $this->assertErrorCode($this->getJson('/api/transaction-flow-options'), 403, 'FORBIDDEN');
+
+        $this->actingAs($this->admin, 'web');
+        $options = $this->getJson('/api/transaction-flow-options')->assertOk()->json('data');
+        $this->assertTrue(collect($options['members'])->firstWhere('id', $supervisor->id)['may_approve']);
+        $this->assertFalse(collect($options['members'])->firstWhere('id', $viewer->id)['may_approve']);
+        $this->assertSame('RUSAK_RINGAN', collect($options['conditions'])->firstWhere('label', 'Rusak Ringan')['value']);
+        $this->assertTrue(collect($options['roles'])->firstWhere('name', 'Supervisor')['may_approve']);
     }
 
     /** Start → Persetujuan → Aksi (Dalam Perbaikan) → Selesai / Ditolak. */

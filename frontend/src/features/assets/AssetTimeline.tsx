@@ -13,6 +13,7 @@ import {
   StickyNote,
   Undo2,
   UserRoundPlus,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -53,6 +54,7 @@ const TYPE_STYLE: Record<TransactionType, { icon: LucideIcon; tone: string }> = 
   restore: { icon: RotateCcw, tone: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
   outgoing: { icon: ArrowUpRight, tone: 'bg-amber-50 text-amber-700 ring-amber-200' },
   incoming: { icon: ArrowDownLeft, tone: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  custom: { icon: Workflow, tone: 'bg-brand-50 text-brand-700 ring-brand-200' },
 }
 
 const EDIT_STYLE = { icon: Pencil, tone: 'bg-slate-100 text-slate-600 ring-slate-200' }

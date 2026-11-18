@@ -34,6 +34,11 @@ class TransactionTypeResource extends JsonResource
                 'is_required' => $f->is_required,
             ])->values()),
             'transactions_count' => $this->whenCounted('transactions'),
+            // Flow versions (F-07b): the published one new transactions follow, and the draft.
+            'flow' => [
+                'active_version' => $this->whenLoaded('activeFlow', fn () => $this->activeFlow?->version_number),
+                'draft_version' => $this->whenLoaded('draftFlow', fn () => $this->draftFlow?->version_number),
+            ],
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

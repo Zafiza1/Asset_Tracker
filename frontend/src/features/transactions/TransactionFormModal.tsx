@@ -18,6 +18,9 @@ import { assetStatusLabel, type Asset, type AssetStatus } from '../assets/api'
 import { AssetStatusBadge } from '../assets/AssetStatusBadge'
 import { CategoryFilter } from '../assets/CategoryFilter'
 import { allowedTypes, ineligibleReason, localToday, manualTypes, outgoingNatureLabel, outgoingReasons, transactionTypeLabel, typePermission, type ManualTransactionType, type OutgoingNature } from './api'
+import { flowApi, laterFields, typesApi, type TransactionRun } from '../transactionTypes/api'
+import { CustomFieldInputs } from '../transactionTypes/CustomFieldInputs'
+import { toPayload, type FieldValues } from '../transactionTypes/values'
 
 const selectableStatuses: AssetStatus[] = ['in_use', 'available', 'under_maintenance', 'lost', 'disposed']
 const DEFAULT_COLUMNS = ['pick', 'code', 'name', 'serial_number', 'category', 'location', 'status']
@@ -55,6 +58,17 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
   const [filters, setFilters] = useState({ location_id: '', status: initialType === 'incoming' ? 'off_site' : '', category_ids: '' })
   const [visibleColumns, setVisibleColumns] = useState(DEFAULT_COLUMNS)
+  // The organization's own types (F-07): their fields shape the form; a published flow takes over after saving.
+  const [customId, setCustomId] = useState('')
+  const [customValues, setCustomValues] = useState<FieldValues>({})
+  const activeTypes = useQuery({ queryKey: ['/transaction-types', 'active'], queryFn: () => typesApi.list({ status: 'active' }), staleTime: 30_000 })
+  const customType = (activeTypes.data?.data ?? []).find((t) => t.id === customId)
+  const flow = useQuery({ queryKey: ['/transaction-types', customId, 'flow'], queryFn: () => flowApi.get(customId), enabled: !!customId })
+  const activeGraph = flow.data?.data.active?.graph
+  const later = laterFields(activeGraph)
+  const startFields = (customType?.fields ?? []).filter((f) => !later.has(f.key))
+  const chosen = type !== '' || !!customType
+  const tooMany = !!customType && !customType.multi_asset && assets.length > 1
 
   const locations = toOptions(useOptions('/locations').data)
   const categoryRows = useOptions('/tenant-masters/categories').data
@@ -114,7 +128,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   const candidates = useQuery({
     queryKey: ['/assets', 'picker', search, currentPage, filters, sort],
     queryFn: () => api.get<Paginated<Asset>>(`/assets${qs({ search, per_page: 10, page: currentPage, sort, ...filters })}`),
-    enabled: !fixedAsset && !!type,
+    enabled: !fixedAsset && chosen,
   })
   const pickable = (candidates.data?.data ?? []).filter((a) => !reason(a) && !isPicked(a))
 
@@ -138,13 +152,28 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
 
   const save = useMutation({
     mutationFn: () => {
+      if (customType) {
+        return api.post('/transactions', {
+          asset_ids: assets.map((a) => a.id), type: 'custom', type_definition_id: customType.id,
+          field_values: toPayload(startFields, customValues),
+          transaction_date: values.transaction_date || null, notes: values.notes?.trim() || null,
+        })
+      }
       const payload: Record<string, unknown> = { asset_ids: assets.map((a) => a.id), type }
       for (const [k, v] of Object.entries(values)) payload[k] = v.trim() === '' ? null : v.trim()
       return api.post('/transactions', payload)
     },
     onSuccess: async (response) => {
-      await Promise.all(['/transactions', '/assets', '/dashboard'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
-      if (type) toast.saved(response, 'Transaksi dicatat', `${transactionTypeLabel[type]} · ${assets.length === 1 ? assets[0].name : `${assets.length} aset`}`)
+      await Promise.all(['/transactions', '/transaction-runs', '/assets', '/dashboard', '/home'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
+      const what = assets.length === 1 ? assets[0].name : `${assets.length} aset`
+      const run = (response as { data?: TransactionRun }).data
+      if (customType && run && 'state' in run) {
+        toast.show({ tone: 'success', title: 'Transaksi dimulai', description: `${customType.name} ${run.transaction_number} · ${what}`, action: { label: 'Lihat transaksi', to: `/transaksi/berjalan/${run.id}` } })
+      } else if (customType) {
+        toast.success('Transaksi dicatat', `${customType.name} · ${what}`)
+      } else if (type) {
+        toast.saved(response, 'Transaksi dicatat', `${transactionTypeLabel[type]} · ${what}`)
+      }
       onClose()
     },
     onError: (e) => setFieldErrors(e instanceof ApiError ? e.fields : {}),
@@ -161,8 +190,8 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
           <Button variant="secondary" onClick={onClose}>
             Batal
           </Button>
-          <Button type="submit" form="transaction-form" loading={save.isPending} disabled={!type || assets.length === 0 || blocked.length > 0}>
-            {type === 'outgoing' ? 'Catat keluar' : type === 'incoming' ? 'Catat masuk' : 'Simpan transaksi'}
+          <Button type="submit" form="transaction-form" loading={save.isPending} disabled={!chosen || assets.length === 0 || blocked.length > 0 || tooMany}>
+            {type === 'outgoing' ? 'Catat keluar' : type === 'incoming' ? 'Catat masuk' : customType && activeGraph ? 'Mulai transaksi' : 'Simpan transaksi'}
             {!fixedAsset && assets.length > 0 ? ` (${assets.length} aset)` : ''}
           </Button>
         </>
@@ -184,8 +213,21 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
           {(p) => (
             <Select
               {...p}
-              value={type}
+              value={customId ? `custom:${customId}` : type}
               onChange={(e) => {
+                setFieldErrors({})
+                if (e.target.value.startsWith('custom:')) {
+                  const id = e.target.value.slice(7)
+                  const def = activeTypes.data?.data.find((t) => t.id === id)
+                  setType('')
+                  setCustomId(id)
+                  setCustomValues({})
+                  setValues((v) => ({ transaction_date: v.transaction_date ?? today(), notes: v.notes ?? '' }))
+                  // The picker starts at the type's categories; the API checks them again.
+                  setFilters((f) => ({ ...f, status: f.status === 'off_site' ? '' : f.status, category_ids: (def?.categories ?? []).map((c) => c.id).join(',') }))
+                  return
+                }
+                setCustomId('')
                 const next = e.target.value as ManualTransactionType | ''
                 setType(next)
                 // Fields of the previous type must not be sent with the new one.
@@ -203,9 +245,47 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
                   {transactionTypeLabel[t]}
                 </option>
               ))}
+              {(activeTypes.data?.data.length ?? 0) > 0 && (
+                <optgroup label="Jenis organisasi">
+                  {activeTypes.data!.data.map((t) => (
+                    <option key={t.id} value={`custom:${t.id}`}>
+                      {t.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </Select>
           )}
         </Field>
+
+        {customType && (
+          <>
+            {customType.description && <p className="text-sm text-slate-600">{customType.description}</p>}
+            {startFields.length > 0 && !flow.isPending && (
+              <CustomFieldInputs
+                typeId={customType.id}
+                fields={startFields}
+                values={customValues}
+                onChange={(key, value) => setCustomValues((v) => ({ ...v, [key]: value }))}
+                errors={fieldErrors}
+                // Fields asked at a later step are optional now; the API does the same.
+                required={startFields.filter((f) => f.is_required).map((f) => f.key)}
+              />
+            )}
+            {later.size > 0 && (
+              <p className="text-xs text-slate-500">
+                {(customType.fields ?? []).filter((f) => later.has(f.key)).map((f) => f.label).join(', ')} diisi di langkah berikutnya sesuai alur.
+              </p>
+            )}
+            {activeGraph ? (
+              <Alert tone="info" title="Setelah disimpan">
+                Transaksi berjalan mengikuti alur {customType.name} (v{flow.data?.data.active?.version_number}).
+                {customType.locks_assets ? ' Aset dikunci sampai transaksi selesai, ditolak, atau dibatalkan.' : ''}
+              </Alert>
+            ) : null}
+            {tooMany && <Alert tone="error">Jenis {customType.name} hanya untuk satu aset per transaksi.</Alert>}
+          </>
+        )}
 
         {type === 'transfer' && (
           <Field label="Lokasi tujuan" required error={err('to_location_id')}>
@@ -346,7 +426,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
           </Field>
         )}
 
-        {type && (
+        {chosen && (
           <>
             <Field label={type === 'outgoing' ? 'Tanggal keluar' : type === 'incoming' ? 'Tanggal masuk' : 'Tanggal transaksi'} required error={err('transaction_date')}>
               {(p) => <Input {...p} type="date" max={today()} value={values.transaction_date ?? ''} onChange={set('transaction_date')} />}
@@ -357,7 +437,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
           </>
         )}
 
-        {type && fixedAsset && (
+        {chosen && fixedAsset && (
           <div className="rounded-md bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
             <p className="font-medium text-slate-900">{fixedAsset.name}</p>
             <p className="text-slate-600">
@@ -367,7 +447,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
           </div>
         )}
 
-        {type && !fixedAsset && (
+        {chosen && !fixedAsset && (
           <div className="space-y-2">
             <label className="mb-1.5 block text-sm font-semibold text-slate-700">
               Aset <span className="text-red-600">*</span>

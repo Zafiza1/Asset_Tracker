@@ -4,6 +4,7 @@ import { Bell, Boxes, ChevronDown, ChevronRight, KeyRound, LogOut, Menu, PanelLe
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { APPROVALS_KEY, useApprovalSummary } from '../features/approvals/api'
+import { useTaskCount } from '../features/transactionTypes/hooks'
 import { toast } from '../components/ui/toast'
 import { onApprovalPending } from '../lib/api/client'
 import { OrganizationSwitcher } from '../features/organizations/OrganizationSwitcher'
@@ -194,6 +195,7 @@ function isItemActive(to: string, pathname: string) {
 function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate: () => void }) {
   const { pathname } = useLocation()
   const pendingApprovals = useApprovalSummary(sections.some((s) => s.items.some((i) => i.approvalBadge))).data?.data.pending ?? 0
+  const waitingTasks = useTaskCount(sections.some((s) => s.items.some((i) => i.taskBadge))).data ?? 0
   // Explicit open/closed choices per section title; a section without one is open only while it holds the current page.
   const [open, setOpen] = useState<Record<string, boolean>>(readOpenSections)
 
@@ -264,6 +266,11 @@ function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate:
                       {item.approvalBadge && pendingApprovals > 0 && (
                         <span className="rounded-full bg-red-500 px-1.5 text-xs font-semibold leading-5 text-white" aria-label={`${pendingApprovals} menunggu`}>
                           {pendingApprovals > 99 ? '99+' : pendingApprovals}
+                        </span>
+                      )}
+                      {item.taskBadge && waitingTasks > 0 && (
+                        <span className="rounded-full bg-amber-500 px-1.5 text-xs font-semibold leading-5 text-white" aria-label={`${waitingTasks} langkah menunggu Anda`}>
+                          {waitingTasks > 99 ? '99+' : waitingTasks}
                         </span>
                       )}
                     </>

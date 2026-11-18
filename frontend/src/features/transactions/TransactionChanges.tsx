@@ -3,6 +3,8 @@ import { Badge } from '../../components/ui/Badge'
 import { formatDate } from '../../lib/format'
 import { assetStatusLabel } from '../assets/api'
 import { daysLate, type AssetTransaction, type TransactionWithState } from './api'
+import { Link } from 'react-router'
+import { FieldValueList } from '../transactionTypes/FieldValueList'
 
 const locationChange = (trx: AssetTransaction) => trx.to_location && { from: trx.from_location?.name, to: trx.to_location.name }
 const statusChange = (trx: AssetTransaction) => trx.to_status && { from: trx.from_status && assetStatusLabel[trx.from_status], to: assetStatusLabel[trx.to_status] }
@@ -82,8 +84,14 @@ export function TransactionChanges({ trx }: { trx: AssetTransaction }) {
           {trx.due_date && <span className="text-slate-500"> · kembali {trx.due_date}</span>}
         </p>
       )}
+      {trx.field_values && <FieldValueList values={trx.field_values} />}
       {trx.notes && <p className="whitespace-pre-line text-slate-600">{trx.notes}</p>}
-      {rows.length === 0 && !trx.borrower_name && !trx.notes && !trx.counterparty_name && <p className="text-slate-400">—</p>}
+      {trx.run_id && (
+        <Link to={`/transaksi/berjalan/${trx.run_id}`} className="text-xs font-semibold text-brand-700 hover:underline">
+          Lihat alur transaksi
+        </Link>
+      )}
+      {rows.length === 0 && !trx.borrower_name && !trx.notes && !trx.counterparty_name && !trx.field_values?.some((v) => v.display) && <p className="text-slate-400">—</p>}
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { assetStatusLabel, type Asset, type AssetStatus, type Ref } from '../ass
 
 /** Asset Transactions module: API shapes and labels. Types mirror App\Domain\AssetTransactions\TransactionType. */
 
-export type TransactionType = 'registration' | 'transfer' | 'status_change' | 'loan' | 'return' | 'note' | 'archive' | 'restore' | 'outgoing' | 'incoming'
+export type TransactionType = 'registration' | 'transfer' | 'status_change' | 'loan' | 'return' | 'note' | 'archive' | 'restore' | 'outgoing' | 'incoming' | 'custom'
 
 /** Types recorded manually in the Transactions menu. */
 export type ManualTransactionType = 'transfer' | 'status_change' | 'loan' | 'return' | 'note' | 'outgoing' | 'incoming'
@@ -42,6 +42,11 @@ export interface AssetTransaction {
   days_out?: number | null
   created_by?: string | null
   created_at: string
+  /** An organization's own type (F-07): which one, and the values of its fields. */
+  type_definition?: { id: string; code?: string; name?: string }
+  field_values?: { key: string; label: string; data_type: string | null; value: unknown; display: string | null }[]
+  /** Written by a transaction going through a flow (F-07b). */
+  run_id?: string | null
 }
 
 export const transactionTypeLabel: Record<TransactionType, string> = {
@@ -55,6 +60,7 @@ export const transactionTypeLabel: Record<TransactionType, string> = {
   restore: 'Pengaktifan kembali',
   outgoing: 'Transaksi keluar',
   incoming: 'Transaksi masuk',
+  custom: 'Jenis organisasi',
 }
 
 /** Outgoing reasons per nature; mirrors App\Domain\AssetTransactions\OutgoingReason::REASONS. */

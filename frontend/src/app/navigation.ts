@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, KeyRound, LayoutDashboard, Layers, MapPin, QrCode, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, KeyRound, LayoutDashboard, Layers, ListChecks, MapPin, QrCode, Users, Workflow, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -10,6 +10,8 @@ export interface NavItem {
   hiddenWithPermission?: string
   /** Shows the number of pending approval requests next to the label. */
   approvalBadge?: boolean
+  /** Shows the number of transaction steps waiting for the user (F-07). */
+  taskBadge?: boolean
 }
 
 export interface NavSection {
@@ -32,6 +34,7 @@ export const tenantNavigation: NavSection[] = [
     items: [
       { to: '/aset', label: 'Data Aset', icon: Boxes, permission: 'asset.view' },
       { to: '/transaksi', label: 'Transaksi Aset', icon: ArrowLeftRight, permission: 'transaction.view' },
+      { to: '/transaksi/berjalan', label: 'Transaksi Berjalan', icon: ListChecks, permission: 'transaction.view', taskBadge: true },
       // Approval requests on one page: approvers (Super Admin, Supervisor) decide them under
       // "Persetujuan"; everyone else follows whether their own submissions were approved under "Pengajuan Saya".
       { to: '/notifikasi', label: 'Persetujuan', icon: Bell, permission: 'approval.manage', approvalBadge: true },
@@ -51,6 +54,7 @@ export const tenantNavigation: NavSection[] = [
     items: [
       { to: '/master/kategori', label: 'Kategori Aset', icon: FolderTree, permission: 'master.tenant.view' },
       { to: '/master/lokasi', label: 'Lokasi', icon: MapPin, permission: 'master.tenant.view' },
+      { to: '/transaksi/jenis', label: 'Jenis Transaksi', icon: Workflow, permission: 'transaction_type.manage' },
     ],
   },
   {
@@ -108,6 +112,9 @@ export const breadcrumbLabels: Record<string, string> = {
   'ubah-password': 'Ubah Password',
   aset: 'Data Aset',
   transaksi: 'Transaksi Aset',
+  jenis: 'Jenis Transaksi',
+  alur: 'Alur',
+  berjalan: 'Transaksi Berjalan',
   laporan: 'Laporan',
   template: 'Template Laporan',
   desain: 'Desainer',

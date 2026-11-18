@@ -6,6 +6,7 @@ use App\Domain\AssetTransactions\Models\AssetTransaction;
 use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\Services\TransactionAttachments;
 use App\Domain\AssetTransactions\TransactionType;
+use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -27,6 +28,8 @@ class AssetTransactionResource extends JsonResource
                 ? ['id' => $this->typeDefinition->id, 'code' => $this->typeDefinition->code, 'name' => $this->typeDefinition->name]
                 : ['id' => $this->type_definition_id]),
             'field_values' => $this->when($this->type === TransactionType::CUSTOM, fn () => $this->fieldValues()),
+            // Rows written by a flow run (F-07b) link to it.
+            'run_id' => $this->run_id,
             'transaction_date' => $this->transaction_date->toDateString(),
             'asset_id' => $this->asset_id,
             'asset' => $this->whenLoaded('asset', fn () => [
@@ -70,6 +73,7 @@ class AssetTransactionResource extends JsonResource
     {
         $values = $this->field_values ?? [];
         $fields = $this->relationLoaded('typeDefinition') && $this->typeDefinition ? $this->typeDefinition->fields : collect();
+        $display = TransactionFieldTypes::display($fields, $values);
         $files = TransactionAttachments::summaries(array_values(array_filter(
             $fields->where('data_type', 'attachment')->map(fn ($f) => $values[$f->key] ?? null)->all(), 'is_string')));
         $out = [];
@@ -78,11 +82,11 @@ class AssetTransactionResource extends JsonResource
             if ($field->data_type === 'attachment' && is_string($value)) {
                 $value = $files[$value] ?? null;
             }
-            $out[] = ['key' => $field->key, 'label' => $field->label, 'data_type' => $field->data_type, 'value' => $value];
+            $out[] = ['key' => $field->key, 'label' => $field->label, 'data_type' => $field->data_type, 'value' => $value, 'display' => $display[$field->key] ?? null];
             unset($values[$field->key]);
         }
         foreach ($values as $key => $value) {
-            $out[] = ['key' => $key, 'label' => $key, 'data_type' => null, 'value' => $value];
+            $out[] = ['key' => $key, 'label' => $key, 'data_type' => null, 'value' => $value, 'display' => is_scalar($value) ? (string) $value : null];
         }
         if (! self::canSeeContact()) {
             foreach ($out as &$item) {

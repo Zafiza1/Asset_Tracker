@@ -271,6 +271,44 @@ final class TransactionFieldTypes
         };
     }
 
+    /**
+     * Stored values as text for people (lists, detail pages, reports): option labels, member and
+     * location names, Ya/Tidak, file names. Outside-party contacts are left out here; callers that
+     * may show them add them.
+     *
+     * @param  iterable<TransactionTypeField>  $fields
+     * @param  array<string, mixed>  $values
+     * @return array<string, string|null> key => text
+     */
+    public static function display(iterable $fields, array $values): array
+    {
+        $fields = collect($fields);
+        $ids = fn (string $type) => $fields->where('data_type', $type)->map(fn ($f) => $values[$f->key] ?? null)->filter(fn ($v) => is_string($v))->values()->all();
+        $users = ($u = $ids('user')) === [] ? [] : User::query()->whereKey($u)->pluck('name', 'id')->all();
+        $locations = ($l = $ids('location')) === [] ? [] : Location::query()->whereKey($l)->pluck('name', 'id')->all();
+        $files = TransactionAttachments::summaries($ids('attachment'));
+
+        $out = [];
+        foreach ($fields as $field) {
+            $v = $values[$field->key] ?? null;
+            $options = collect($field->settings['options'] ?? [])->pluck('label', 'value');
+            $out[$field->key] = $v === null || $v === '' || $v === [] ? null : match ($field->data_type) {
+                'select' => (string) ($options[$v] ?? $v),
+                'multiselect' => implode(', ', array_map(fn ($x) => (string) ($options[$x] ?? $x), (array) $v)),
+                'boolean' => $v ? 'Ya' : 'Tidak',
+                'user' => $users[$v] ?? null,
+                'location' => $locations[$v] ?? null,
+                'attachment' => $files[$v]['name'] ?? null,
+                'counterparty' => is_array($v) ? ($v['name'] ?? null) : null,
+                'money' => 'Rp '.number_format((float) $v, 0, ',', '.'),
+                'number' => is_numeric($v) ? rtrim(rtrim(number_format((float) $v, 4, ',', '.'), '0'), ',') : (string) $v,
+                default => is_scalar($v) ? (string) $v : null,
+            };
+        }
+
+        return $out;
+    }
+
     /** An active location the user may record into. */
     private function locationInScope(): Closure
     {

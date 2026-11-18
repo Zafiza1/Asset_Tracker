@@ -3,6 +3,7 @@
 use App\Http\Controllers\Tenant\AssetTransactionController;
 use App\Http\Controllers\Tenant\TransactionAttachmentController;
 use App\Http\Controllers\Tenant\TransactionFlowController;
+use App\Http\Controllers\Tenant\TransactionOptionsController;
 use App\Http\Controllers\Tenant\TransactionRunController;
 use App\Http\Controllers\Tenant\TransactionTypeController;
 use Illuminate\Support\Facades\Route;
@@ -45,4 +46,8 @@ Route::middleware('module:transactions')->group(function () {
     Route::post('/transaction-types/{transactionType}/attachments', [TransactionAttachmentController::class, 'store'])
         ->middleware(['permission:transaction.view', 'throttle:30,1']);
     Route::get('/transaction-attachments/{transactionAttachment}', [TransactionAttachmentController::class, 'show'])->middleware('permission:transaction.view');
+
+    // Choices for transaction forms (members by name only) and for the flow editor (F-07).
+    Route::get('/transaction-members', [TransactionOptionsController::class, 'members'])->middleware('permission:transaction.view');
+    Route::get('/transaction-flow-options', [TransactionOptionsController::class, 'flow'])->middleware('permission:transaction_flow.manage');
 });

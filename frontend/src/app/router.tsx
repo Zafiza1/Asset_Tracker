@@ -27,6 +27,11 @@ import { ReportTemplateDetailPage } from '../features/reportDesigner/ReportTempl
 import { ReportTemplatesPage } from '../features/reportDesigner/ReportTemplatesPage'
 import { RoleFormPage } from '../features/roles/RoleFormPage'
 import { TransactionsPage } from '../features/transactions/TransactionsPage'
+import { FlowEditorPage } from '../features/transactionTypes/FlowEditorPage'
+import { TransactionRunPage } from '../features/transactionTypes/TransactionRunPage'
+import { TransactionRunsPage } from '../features/transactionTypes/TransactionRunsPage'
+import { TransactionTypeFormPage } from '../features/transactionTypes/TransactionTypeFormPage'
+import { TransactionTypesPage } from '../features/transactionTypes/TransactionTypesPage'
 import { NotificationsPage } from '../features/approvals/NotificationsPage'
 import { GuidePage } from '../features/guide/GuidePage'
 import { LegacyRoleRedirect, RolesPage } from '../features/roles/RolesPage'
@@ -76,6 +81,13 @@ export const router = createBrowserRouter([
                   { path: '/aset', element: tenant('asset.view', <AssetsPage />) },
                   { path: '/aset/:id', element: tenant('asset.view', <AssetDetailPage />) },
                   { path: '/transaksi', element: tenant('transaction.view', <TransactionsPage />) },
+                  // Organization transaction types, flows and running transactions (F-07).
+                  { path: '/transaksi/jenis', element: tenant('transaction.view', <TransactionTypesPage />) },
+                  { path: '/transaksi/jenis/baru', element: tenant('transaction_type.manage', <TransactionTypeFormPage />) },
+                  { path: '/transaksi/jenis/:id', element: tenant('transaction.view', <TransactionTypeFormPage />) },
+                  { path: '/transaksi/jenis/:id/alur', element: tenant('transaction.view', <FlowEditorPage />) },
+                  { path: '/transaksi/berjalan', element: tenant('transaction.view', <TransactionRunsPage />) },
+                  { path: '/transaksi/berjalan/:id', element: tenant('transaction.view', <TransactionRunPage />) },
                   { path: '/notifikasi', element: tenant(null, <NotificationsPage />) },
                   { path: '/panduan', element: tenant(null, <GuidePage />) },
                   { path: '/laporan', element: <Navigate to="/laporan/template" replace /> },

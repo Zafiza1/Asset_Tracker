@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * A transaction type defined by the organization (docs/factory/features/F-07): its code (the
@@ -74,6 +75,18 @@ class TransactionTypeDefinition extends Model
     public function transactions(): HasMany
     {
         return $this->hasMany(AssetTransaction::class, 'type_definition_id');
+    }
+
+    /** The published flow its new transactions follow (F-07b); none: they are recorded at once. */
+    public function activeFlow(): BelongsTo
+    {
+        return $this->belongsTo(TransactionFlowVersion::class, 'active_flow_version_id');
+    }
+
+    /** The flow version being drawn, if any (one per type). */
+    public function draftFlow(): HasOne
+    {
+        return $this->hasOne(TransactionFlowVersion::class, 'type_definition_id')->where('status', TransactionFlowVersion::DRAFT);
     }
 
     public function isActive(): bool
