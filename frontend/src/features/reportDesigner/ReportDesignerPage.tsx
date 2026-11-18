@@ -1,7 +1,7 @@
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, FileCheck2, Minus, Plus, Redo2, Save, Settings2, ShieldCheck, Undo2 } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { ArrowLeft, FileCheck2, Maximize2, Minus, Plus, Redo2, Save, Settings2, ShieldCheck, Undo2 } from 'lucide-react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
 import { Button, ButtonLink } from '../../components/ui/Button'
@@ -174,11 +174,24 @@ function DesignerEditor({ template, initialDesign, versionLabel, fields }: { tem
     }
   }
 
-  const zoomIndex = ZOOM_STEPS.indexOf(designer.zoom)
-  const zoomBy = (dir: 1 | -1) => {
-    const next = ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, (zoomIndex < 0 ? ZOOM_STEPS.indexOf(1) : zoomIndex) + dir))]
-    designer.setZoom(next)
-  }
+  // Steps move to the next preset above/below the current zoom, which may be a "fit" value between presets.
+  const zoomIn = ZOOM_STEPS.find((z) => z > designer.zoom + 0.001)
+  const zoomOut = [...ZOOM_STEPS].reverse().find((z) => z < designer.zoom - 0.001)
+  const [fitZoom, setFitZoom] = useState<number | null>(null)
+  const fitApplied = useRef(false)
+  const { setZoom } = designer
+  const handleFitZoom = useCallback(
+    (fit: number) => {
+      const rounded = Math.max(0.25, Math.min(2, Math.floor(fit * 100) / 100))
+      setFitZoom(rounded)
+      // Open the designer with the whole sheet visible; never enlarge past 100% on its own.
+      if (!fitApplied.current) {
+        fitApplied.current = true
+        setZoom(Math.min(1, rounded))
+      }
+    },
+    [setZoom],
+  )
 
   return (
     <>
@@ -212,12 +225,15 @@ function DesignerEditor({ template, initialDesign, versionLabel, fields }: { tem
                   <Redo2 className="size-4" aria-hidden />
                 </Button>
                 <span className="mx-1 hidden items-center gap-1 sm:flex" aria-label="Zoom">
-                  <Button variant="ghost" size="sm" onClick={() => zoomBy(-1)} disabled={zoomIndex <= 0} aria-label="Perkecil">
+                  <Button variant="ghost" size="sm" onClick={() => zoomOut !== undefined && designer.setZoom(zoomOut)} disabled={zoomOut === undefined} aria-label="Perkecil">
                     <Minus className="size-4" aria-hidden />
                   </Button>
                   <span className="w-12 text-center text-xs tabular-nums text-slate-500">{Math.round(designer.zoom * 100)}%</span>
-                  <Button variant="ghost" size="sm" onClick={() => zoomBy(1)} disabled={zoomIndex === ZOOM_STEPS.length - 1} aria-label="Perbesar">
+                  <Button variant="ghost" size="sm" onClick={() => zoomIn !== undefined && designer.setZoom(zoomIn)} disabled={zoomIn === undefined} aria-label="Perbesar">
                     <Plus className="size-4" aria-hidden />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => fitZoom !== null && designer.setZoom(fitZoom)} disabled={fitZoom === null} aria-label="Pas layar" title="Pas layar">
+                    <Maximize2 className="size-4" aria-hidden />
                   </Button>
                 </span>
                 <Button variant="secondary" size="sm" onClick={() => setPageSettingsOpen(true)}>
@@ -249,6 +265,7 @@ function DesignerEditor({ template, initialDesign, versionLabel, fields }: { tem
             editable={editable}
             zoom={designer.zoom}
             pageRef={pageRef}
+            onFitZoomChange={handleFitZoom}
             onSelect={designer.select}
             onMoveElement={(eid, x, y, transient) => designer.patchElement(eid, { x, y }, transient)}
           />

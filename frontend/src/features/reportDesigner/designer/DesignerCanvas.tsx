@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core'
 import clsx from 'clsx'
-import type { RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { PX_PER_MM, clampToContent, contentSizeMm, pageSizeMm, type DesignDocument } from '../design'
 import { ElementView } from './ElementView'
 
@@ -13,14 +13,35 @@ interface DesignerCanvasProps {
   pageRef: RefObject<HTMLDivElement | null>
   onSelect: (id: string | null) => void
   onMoveElement: (id: string, x: number, y: number, transient: boolean) => void
+  /** Reports the zoom at which the whole page fits the visible area, whenever that area resizes. */
+  onFitZoomChange?: (zoom: number) => void
 }
 
+/** Padding (px) kept around the page inside the scroll area; matches `p-6`. */
+const CANVAS_PADDING = 24
+
 /** The document page: a fixed-mm sheet scaled by zoom, with elements in its content box. */
-export function DesignerCanvas({ doc, selectedId, editable, zoom, pageRef, onSelect, onMoveElement }: DesignerCanvasProps) {
+export function DesignerCanvas({ doc, selectedId, editable, zoom, pageRef, onSelect, onMoveElement, onFitZoomChange }: DesignerCanvasProps) {
   const { setNodeRef, isOver } = useDroppable({ id: 'designer-canvas', disabled: !editable })
   const [pageW, pageH] = pageSizeMm(doc.page)
   const [contentW, contentH] = contentSizeMm(doc.page)
   const px = PX_PER_MM
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const node = scrollRef.current
+    if (!node || !onFitZoomChange || typeof ResizeObserver === 'undefined') return
+    const report = () => {
+      const width = node.clientWidth - CANVAS_PADDING * 2
+      const height = node.clientHeight - CANVAS_PADDING * 2
+      if (width <= 0 || height <= 0) return
+      onFitZoomChange(Math.min(width / (pageW * px), height / (pageH * px)))
+    }
+    report()
+    const observer = new ResizeObserver(report)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [onFitZoomChange, pageW, pageH, px])
 
   const move = (id: string, x: number, y: number, transient: boolean) => {
     const el = doc.elements.find((e) => e.id === id)
@@ -30,8 +51,9 @@ export function DesignerCanvas({ doc, selectedId, editable, zoom, pageRef, onSel
   }
 
   return (
-    <div className="min-w-0 flex-1 overflow-auto bg-slate-200/70 p-6" data-testid="designer-canvas-scroll">
-      <div className="mx-auto" style={{ width: pageW * px * zoom, height: pageH * px * zoom }}>
+    <div ref={scrollRef} className="flex min-w-0 flex-1 overflow-auto bg-slate-200/70 p-6" data-testid="designer-canvas-scroll">
+      {/* m-auto centres the sheet when it is smaller than the area and keeps it scrollable when larger. */}
+      <div className="relative m-auto shrink-0" style={{ width: pageW * px * zoom, height: pageH * px * zoom }}>
         <div
           ref={(node) => {
             pageRef.current = node
