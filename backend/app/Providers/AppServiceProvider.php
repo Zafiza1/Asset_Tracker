@@ -63,6 +63,8 @@ class AppServiceProvider extends ServiceProvider
         // Each sign-up creates a whole organization: keep it rare per client.
         RateLimiter::for('register', fn (Request $request) => Limit::perHour(3)->by('register:'.$request->ip()));
         RateLimiter::for('sensitive', fn (Request $request) => Limit::perMinute(5)->by('sensitive:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
+        // Each report run renders a PDF/Excel file of up to 500 rows (F-05).
+        RateLimiter::for('report-exports', fn (Request $request) => Limit::perMinute(20)->by('report-exports:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(240)->by('api:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
         // Invitation tokens are unguessable; this only keeps probing and sign-up bursts down.
         RateLimiter::for('invitation', fn (Request $request) => Limit::perMinute(10)->by('invitation:'.$request->ip()));

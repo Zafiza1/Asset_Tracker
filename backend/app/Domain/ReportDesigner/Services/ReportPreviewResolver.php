@@ -27,7 +27,7 @@ use Illuminate\Support\Collection;
 final class ReportPreviewResolver
 {
     /** Rows embedded inside table/repeating_section preview elements. */
-    private const ELEMENT_ROWS = 25;
+    public const ELEMENT_ROWS = 25;
 
     public function __construct(
         private readonly DesignValidator $validator,
@@ -53,9 +53,11 @@ final class ReportPreviewResolver
      * Resolve a version's design against filtered tenant data.
      *
      * @param  array<string, mixed>  $filters  already validated by ReportDataResolver::filterRules
+     * @param  int  $tableRows  rows filled into table elements: a sample on screen, every row (up to
+     *                          ReportDataResolver::MAX_ROWS) when generating a file
      * @return array<string, mixed>
      */
-    public function preview(ReportTemplate $template, ReportTemplateVersion $version, array $filters): array
+    public function preview(ReportTemplate $template, ReportTemplateVersion $version, array $filters, int $tableRows = self::ELEMENT_ROWS): array
     {
         $design = is_array($version->design) ? $version->design : [];
         $source = $template->data_source;
@@ -84,7 +86,7 @@ final class ReportPreviewResolver
         $first = $resolvedRows[0] ?? null;
         $elements = $this->resolveElements(
             is_array($design['elements'] ?? null) ? $design['elements'] : [],
-            $source, $split['source'], $context, $first, $resolvedRows,
+            $source, $split['source'], $context, $first, $resolvedRows, $tableRows,
         );
 
         return [
@@ -114,7 +116,7 @@ final class ReportPreviewResolver
      * @param  list<array{display: array<string, string>, raw: array<string, mixed>, model: Model}>  $resolvedRows
      * @return list<array<string, mixed>>
      */
-    private function resolveElements(array $elements, string $source, array $sourceKeys, array $context, ?array $first, array $resolvedRows): array
+    private function resolveElements(array $elements, string $source, array $sourceKeys, array $context, ?array $first, array $resolvedRows, int $tableRows = self::ELEMENT_ROWS): array
     {
         $out = [];
         foreach ($elements as $element) {
@@ -157,7 +159,7 @@ final class ReportPreviewResolver
                     'width' => is_array($c) ? ($c['width'] ?? null) : null,
                     'format' => is_array($c) ? ($c['format'] ?? null) : null,
                 ], $columns));
-                $resolved['rows'] = $this->elementRows($resolved['columns'], array_slice($resolvedRows, 0, self::ELEMENT_ROWS));
+                $resolved['rows'] = $this->elementRows($resolved['columns'], array_slice($resolvedRows, 0, $tableRows));
             }
 
             $out[] = $resolved;

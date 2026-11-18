@@ -1,16 +1,14 @@
 <?php
 
-use App\Http\Controllers\Tenant\ReportController;
+use App\Http\Controllers\Tenant\ReportExportController;
 use App\Http\Controllers\Tenant\ReportFieldController;
 use App\Http\Controllers\Tenant\ReportTemplateController;
 use Illuminate\Support\Facades\Route;
 
-// Asset Reports container (inside the tenant route group): the fixed asset register report
-// plus the Custom Report Designer (templates, field registry; generation lands in later phases).
+// Reports container (inside the tenant route group): every report is built by the organization
+// in the Report Designer (templates, field registry, running templates into PDF/Excel).
+// The fixed asset register report was removed at the product owner's request (2026-11-18).
 Route::middleware('module:reports')->group(function () {
-    Route::get('/reports/assets', [ReportController::class, 'assets'])->middleware('permission:report.view');
-    Route::get('/reports/assets/export', [ReportController::class, 'exportAssets'])->middleware('permission:report.export');
-
     // Field registry: the only bindings a template may use (read by the designer and validators).
     Route::get('/report-fields', [ReportFieldController::class, 'index'])->middleware('permission:report.view');
     Route::get('/report-fields/{source}', [ReportFieldController::class, 'show'])->middleware('permission:report.view');
@@ -29,6 +27,12 @@ Route::middleware('module:reports')->group(function () {
     Route::post('/report-templates/{reportTemplate}/archive', [ReportTemplateController::class, 'archive'])->middleware('permission:report.publish');
     // Data binding: registry validation while designing, live-data preview for authorized users.
     Route::post('/report-templates/{reportTemplate}/validate', [ReportTemplateController::class, 'validateDesign'])->middleware('permission:report.update');
+    // Running a published template (F-05): filters, live preview, PDF/Excel, history.
+    Route::get('/report-templates/{reportTemplate}/filters', [ReportExportController::class, 'filters'])->middleware('permission:report.generate');
+    Route::post('/report-templates/{reportTemplate}/run-preview', [ReportExportController::class, 'runPreview'])->middleware('permission:report.generate');
+    Route::post('/report-templates/{reportTemplate}/exports', [ReportExportController::class, 'store'])->middleware(['permission:report.generate', 'throttle:report-exports']);
+    Route::get('/report-exports', [ReportExportController::class, 'index'])->middleware('permission:report.view');
+    Route::get('/report-exports/{reportExport}/download', [ReportExportController::class, 'download'])->middleware('permission:report.download');
     Route::post('/report-templates/{reportTemplate}/preview', [ReportTemplateController::class, 'preview'])->middleware('permission:report.preview');
     Route::get('/report-templates/{reportTemplate}/versions', [ReportTemplateController::class, 'versions'])->middleware('permission:report.view');
 });

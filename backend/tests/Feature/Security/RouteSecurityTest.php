@@ -8,7 +8,9 @@ use App\Domain\Dashboards\Models\DashboardTemplate;
 use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
+use App\Domain\ReportDesigner\Models\ReportExport;
 use App\Domain\ReportDesigner\Models\ReportTemplate;
+use App\Domain\ReportDesigner\Models\ReportTemplateVersion;
 use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Route as RouteFacade;
@@ -122,6 +124,13 @@ class RouteSecurityTest extends TestCase
         $template = (new ReportTemplate)->forceFill(['organization_id' => $orgB->id, 'code' => 'B-TPL', 'name' => 'Beta',
             'data_source' => 'asset', 'status' => 'draft']);
         $template->save();
+        $version = (new ReportTemplateVersion)->forceFill(['organization_id' => $orgB->id, 'template_id' => $template->id,
+            'version_number' => 1, 'status' => 'draft', 'design' => []]);
+        $version->save();
+        $export = (new ReportExport)->forceFill(['organization_id' => $orgB->id, 'template_id' => $template->id,
+            'template_version_id' => $version->id, 'export_number' => 'RPT-2026-000001', 'format' => 'pdf', 'status' => 'completed',
+            'created_by' => $adminB->id, 'completed_at' => now(), 'expires_at' => now()->addDays(30)]);
+        $export->save();
         $dashboard = (new Dashboard)->forceFill(['organization_id' => $orgB->id, 'name' => 'Beta', 'dashboard_type' => 'custom',
             'visibility' => 'organization', 'created_by' => $adminB->id]);
         $dashboard->save();
@@ -135,6 +144,7 @@ class RouteSecurityTest extends TestCase
             // {source} is a registry key, not a record: an unknown one answers 404 for everyone.
             'source' => 'bukan-sumber',
             'reportTemplate' => $template->id,
+            'reportExport' => $export->id,
             'approvalRequest' => $approval->id,
             'invitation' => $invitation->id,
             'asset' => $asset->id,

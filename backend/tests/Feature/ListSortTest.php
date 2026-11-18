@@ -22,7 +22,6 @@ class ListSortTest extends TestCase
     /** List endpoint => the sort keys its table's columns use. */
     private const SORTS = [
         '/api/assets' => ['name', 'serial_number', 'category', 'location', 'status', 'acquisition_date', 'acquisition_cost', 'created_at'],
-        '/api/reports/assets' => ['name', 'serial_number', 'category', 'location', 'status', 'acquisition_date', 'acquisition_cost'],
         '/api/transactions' => ['number', 'date', 'asset', 'type', 'by'],
         '/api/approvals' => ['action', 'category', 'requester', 'decider', 'status', 'created_at'],
         '/api/audit-logs' => ['time', 'actor', 'action', 'module', 'object'],
