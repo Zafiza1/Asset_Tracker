@@ -21,7 +21,7 @@ import {
 } from '../features/platform/GenericMasterPages'
 import { PlatformOrganizationDetailPage } from '../features/platform/PlatformOrganizationDetailPage'
 import { PlatformOrganizationsPage } from '../features/platform/PlatformOrganizationsPage'
-import { AssetReportPage } from '../features/reports/AssetReportPage'
+import { ReportRunPage } from '../features/reportDesigner/ReportRunPage'
 import { ReportDesignerPage } from '../features/reportDesigner/ReportDesignerPage'
 import { ReportTemplateDetailPage } from '../features/reportDesigner/ReportTemplateDetailPage'
 import { ReportTemplatesPage } from '../features/reportDesigner/ReportTemplatesPage'
@@ -78,10 +78,11 @@ export const router = createBrowserRouter([
                   { path: '/transaksi', element: tenant('transaction.view', <TransactionsPage />) },
                   { path: '/notifikasi', element: tenant(null, <NotificationsPage />) },
                   { path: '/panduan', element: tenant(null, <GuidePage />) },
-                  { path: '/laporan', element: tenant('report.view', <AssetReportPage />) },
+                  { path: '/laporan', element: <Navigate to="/laporan/template" replace /> },
                   { path: '/laporan/template', element: tenant('report.view', <ReportTemplatesPage />) },
                   { path: '/laporan/template/:id', element: tenant('report.view', <ReportTemplateDetailPage />) },
                   { path: '/laporan/template/:id/desain', element: tenant('report.update', <ReportDesignerPage />) },
+                  { path: '/laporan/template/:id/jalankan', element: tenant('report.generate', <ReportRunPage />) },
                   { path: '/ubah-password', element: <ChangePasswordPage /> },
                   { path: '/organisasi', element: tenant('organization.view', <OrganizationPage />) },
                   { path: '/modul/barcode', element: tenant('settings.manage', <ModulesPage module="barcode" />) },

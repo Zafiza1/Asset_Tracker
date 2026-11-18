@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Copy, FileCheck2, FilePlus2, FileText, PencilRuler, Trash2 } from 'lucide-react'
+import { Archive, Copy, FileCheck2, FilePlus2, FileText, LayoutTemplate, PencilRuler, Play, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -17,6 +17,7 @@ import { errorMessage } from '../../lib/forms'
 import { useAuth } from '../../lib/auth/context'
 import { formatDate } from '../../lib/format'
 import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
+import { SampleTemplatesModal } from './SampleTemplatesModal'
 import { dataSourceLabel, templateStatusLabel, templateStatusTone, templatesApi, type ReportTemplate, type TemplateDataSource, type TemplateStatus } from './api'
 
 const FILTERS = ['page', 'per_page', 'search', 'status', 'data_source', 'sort'] as const
@@ -32,6 +33,7 @@ export function ReportTemplatesPage() {
   const { updateFilter, removeFilter } = usePersistedFilters('/laporan/template')
   const [search, setSearch] = useState(params.get('search') ?? '')
   const [createOpen, setCreateOpen] = useState(false)
+  const [samplesOpen, setSamplesOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ReportTemplate | null>(null)
 
   const filters = Object.fromEntries(FILTERS.map((k) => [k, params.get(k)]))
@@ -84,7 +86,9 @@ export function ReportTemplatesPage() {
   const rows = query.data?.data ?? []
 
   const rowActions = (t: ReportTemplate): RowMenuItem[] => {
-    const items: RowMenuItem[] = [{ label: 'Detail', onSelect: () => navigate(`/laporan/template/${t.id}`) }]
+    const items: RowMenuItem[] = []
+    if (t.status === 'published' && can('report.generate')) items.push({ label: 'Jalankan', icon: <Play aria-hidden />, onSelect: () => navigate(`/laporan/template/${t.id}/jalankan`) })
+    items.push({ label: 'Detail', onSelect: () => navigate(`/laporan/template/${t.id}`) })
     if (can('report.update')) items.push({ label: 'Buka Desainer', icon: <PencilRuler aria-hidden />, onSelect: () => navigate(`/laporan/template/${t.id}/desain`) })
     if (can('report.create')) items.push({ label: 'Duplikat', icon: <Copy aria-hidden />, onSelect: () => lifecycle.mutate({ template: t, action: 'duplicate' }) })
     if (can('report.publish') && t.status !== 'archived') {
@@ -137,12 +141,17 @@ export function ReportTemplatesPage() {
     <>
       <PageHeader
         title="Template Laporan"
-        description="Desain laporan kustom milik organisasi: buat di desainer visual, terbitkan, lalu generate PDF/Excel."
+        description="Susun sendiri format laporan dan data yang dilaporkan: seret elemen ke kertas di desainer, terbitkan, lalu jalankan untuk mengunduh PDF/Excel."
         actions={
           can('report.create') && (
-            <Button onClick={() => setCreateOpen(true)}>
-              <FilePlus2 className="size-4" aria-hidden /> Template Baru
-            </Button>
+            <>
+              <Button variant="secondary" onClick={() => setSamplesOpen(true)}>
+                <LayoutTemplate className="size-4" aria-hidden /> Mulai dari contoh
+              </Button>
+              <Button onClick={() => setCreateOpen(true)}>
+                <FilePlus2 className="size-4" aria-hidden /> Template Baru
+              </Button>
+            </>
           )
         }
       />
@@ -196,6 +205,7 @@ export function ReportTemplatesPage() {
         {query.data?.meta && <Pagination meta={query.data.meta} onPage={(p) => update({ page: String(p) })} onPerPage={(n) => update({ per_page: n === DEFAULT_PER_PAGE ? '' : String(n) })} />}
       </Card>
 
+      <SampleTemplatesModal open={samplesOpen} onClose={() => setSamplesOpen(false)} onCreated={(t) => navigate(can('report.update') ? `/laporan/template/${t.id}/desain` : `/laporan/template/${t.id}`)} />
       <CreateTemplateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={(t) => navigate(can('report.update') ? `/laporan/template/${t.id}/desain` : `/laporan/template/${t.id}`)} />
 
       <ConfirmDialog

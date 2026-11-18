@@ -1,5 +1,5 @@
 import type { BadgeTone } from '../../components/ui/badgeTones'
-import { api, qs } from '../../lib/api/client'
+import { api, downloadFile, qs } from '../../lib/api/client'
 import type { Paginated, Resource } from '../../lib/api/types'
 import type { DesignDocument } from './design'
 
@@ -147,6 +147,92 @@ export const templatesApi = {
     api.post<Resource<ReportPreview>>(`/report-templates/${id}/preview`, params ?? {}),
   /** All registry fields grouped by data source, for the designer's data panel. */
   fields: () => api.get<{ data: Record<string, ReportField[]> }>('/report-fields'),
+}
+
+/** Ready-made template from GET /report-templates/samples (F-04). */
+export interface SampleTemplate {
+  key: string
+  code: string
+  name: string
+  description: string
+  category: string | null
+  data_source: TemplateDataSource
+}
+
+export type RunFilterValue = string | boolean
+export type RunFilters = Record<string, RunFilterValue | undefined>
+
+/** One input on the run page, from GET /report-templates/{id}/filters. */
+export interface RunFilterField {
+  key: string
+  label: string
+  type: 'date' | 'select' | 'boolean' | 'text' | 'lookup'
+  /** Two date fields sharing a range name form one "from – to" pair. */
+  range?: string
+  options?: { value: string; label: string; group?: string | null }[]
+  /** Master list the page loads itself. */
+  lookup?: 'categories' | 'locations'
+  placeholder?: string
+}
+
+export interface RunFilterDefinition {
+  data_source: TemplateDataSource
+  defaults: RunFilters
+  fields: RunFilterField[]
+  max_rows: number
+}
+
+/** POST /report-templates/{id}/run-preview: the active version filled with live data. */
+export interface RunPreview extends ReportPreview {
+  filters: RunFilters
+  filter_description: string[]
+  max_rows: number
+}
+
+export type ExportFormat = 'pdf' | 'xlsx'
+export type ExportStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'expired'
+
+/** A row of the generate history (`report_exports`). */
+export interface ReportExportRow {
+  id: string
+  export_number: string
+  format: ExportFormat
+  status: ExportStatus
+  downloadable: boolean
+  filters: RunFilters
+  filter_description: string[]
+  row_count: number | null
+  file_size: number | null
+  template?: { id: string; code: string; name: string }
+  version_number?: number
+  created_by?: string | null
+  created_at: string
+  expires_at: string | null
+}
+
+export const formatLabel: Record<ExportFormat, string> = { pdf: 'PDF', xlsx: 'Excel' }
+
+/** Only filled values go to the API, so an emptied filter falls back to "all". */
+export function compactFilters(filters: RunFilters): Record<string, RunFilterValue> {
+  const out: Record<string, RunFilterValue> = {}
+  for (const [key, value] of Object.entries(filters)) {
+    if (value === undefined || value === '' || value === false) continue
+    out[key] = value
+  }
+  return out
+}
+
+/** Running a published template (F-05): filters, preview, PDF/Excel, history and download. */
+export const runApi = {
+  samples: () => api.get<{ data: SampleTemplate[] }>('/report-templates/samples'),
+  fromSample: (sample: string) => api.post<Resource<ReportTemplate>>('/report-templates/from-sample', { sample }),
+  filters: (id: string) => api.get<Resource<RunFilterDefinition>>(`/report-templates/${id}/filters`),
+  preview: (id: string, filters: RunFilters) =>
+    api.post<Resource<RunPreview>>(`/report-templates/${id}/run-preview`, { filters: compactFilters(filters) }),
+  generate: (id: string, format: ExportFormat, filters: RunFilters) =>
+    api.post<Resource<ReportExportRow>>(`/report-templates/${id}/exports`, { format, filters: compactFilters(filters) }),
+  history: (params: { template_id?: string; page?: number }) => api.get<Paginated<ReportExportRow>>(`/report-exports${qs(params)}`),
+  download: (row: ReportExportRow) => downloadFile(`/report-exports/${row.id}/download`, `${row.export_number}.${row.format}`),
 }
 
 export const templateStatusLabel: Record<TemplateStatus, string> = {

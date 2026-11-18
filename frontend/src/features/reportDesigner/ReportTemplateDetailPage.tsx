@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArrowLeft, Copy, FileCheck2, PencilRuler } from 'lucide-react'
+import { Archive, ArrowLeft, Copy, FileCheck2, PencilRuler, Play } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -91,8 +91,13 @@ export function ReportTemplateDetailPage() {
             <ButtonLink to="/laporan/template" variant="secondary" size="sm">
               <ArrowLeft className="size-4" aria-hidden /> Semua Template
             </ButtonLink>
+            {t.status === 'published' && can('report.generate') && (
+              <Button onClick={() => navigate(`/laporan/template/${t.id}/jalankan`)}>
+                <Play className="size-4" aria-hidden /> Jalankan
+              </Button>
+            )}
             {can('report.update') && (
-              <Button onClick={() => navigate(`/laporan/template/${t.id}/desain`)}>
+              <Button variant={t.status === 'published' && can('report.generate') ? 'secondary' : 'primary'} onClick={() => navigate(`/laporan/template/${t.id}/desain`)}>
                 <PencilRuler className="size-4" aria-hidden /> Buka Desainer
               </Button>
             )}

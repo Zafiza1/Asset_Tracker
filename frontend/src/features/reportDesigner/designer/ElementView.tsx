@@ -1,31 +1,9 @@
 import clsx from 'clsx'
 import { Braces, Image as ImageIcon, QrCode } from 'lucide-react'
-import { useEffect, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import QRCode from 'qrcode'
 import { PX_PER_MM, type DesignElement, type ElementType } from '../design'
-
-const FONT_FAMILY: Record<string, string> = {
-  sans: 'Inter, system-ui, -apple-system, sans-serif',
-  serif: 'Georgia, "Times New Roman", serif',
-  mono: 'ui-monospace, "Cascadia Mono", Consolas, monospace',
-}
-
-function textStyle(el: DesignElement): CSSProperties {
-  const s = el.style
-  return {
-    fontFamily: s.fontFamily ? FONT_FAMILY[s.fontFamily] : undefined,
-    fontSize: s.fontSize ? `${s.fontSize}pt` : undefined,
-    fontWeight: s.fontWeight === 'bold' ? 700 : 400,
-    color: s.color,
-    background: s.background,
-    textAlign: s.align,
-    padding: s.padding ? `${s.padding}mm` : undefined,
-    border: s.borderWidth ? `${s.borderWidth}mm solid ${s.borderColor ?? '#cbd5e1'}` : undefined,
-    borderRadius: s.radius ? `${s.radius}mm` : undefined,
-    lineHeight: 1.3,
-    overflow: 'hidden',
-  }
-}
+import { textStyle } from './elementStyle'
 
 /** Highlight {{…}} bindings inside dynamic text so they read as data, not literal text. */
 function BindingText({ text }: { text: string }) {
@@ -69,7 +47,7 @@ function TablePreview({ el }: { el: DesignElement }) {
   )
 }
 
-function QrPreview({ value }: { value: string }) {
+export function QrPreview({ value }: { value: string }) {
   const [src, setSrc] = useState<string | null>(null)
   useEffect(() => {
     let alive = true

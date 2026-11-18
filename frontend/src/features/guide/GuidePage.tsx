@@ -473,8 +473,8 @@ function Step8() {
         <PathCard title={<MenuLink to="/" permission="report.view">Dashboard</MenuLink>}>
           <p>Ringkasan jumlah, nilai, status, dan lokasi aset. Gunakan <Label>Atur tata letak</Label> untuk menyusun analisis yang ingin ditampilkan. Isi widget menyesuaikan lebarnya: makin lebar, makin lengkap analisisnya.</p>
         </PathCard>
-        <PathCard title={<MenuLink to="/laporan" permission="report.view">Laporan Aset</MenuLink>}>
-          <p>Saring aset yang diperlukan, lalu unduh dengan <Label>Export Excel</Label> atau <Label>Export PDF</Label>. Isi file mengikuti filter yang dipilih.</p>
+        <PathCard title={<MenuLink to="/laporan/template" permission="report.view">Template Laporan</MenuLink>}>
+          <p>Susun sendiri format laporan dan data yang ingin dilaporkan: seret elemen ke kertas, pilih field, lalu <Label>Terbitkan</Label>. Template yang sudah terbit dapat dijalankan dan diunduh sebagai PDF atau Excel.</p>
         </PathCard>
         <PathCard title={<MenuLink to="/audit" permission="audit.view">Audit Trail</MenuLink>}>
           <p>Jejak aktivitas di organisasi: siapa melakukan apa dan kapan. Gunakan saat perlu menelusuri suatu perubahan.</p>
