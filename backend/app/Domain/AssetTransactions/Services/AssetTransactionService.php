@@ -6,15 +6,18 @@ use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionLog;
 use App\Domain\AssetTransactions\TransactionType;
+use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Manual asset transactions. A transaction covers one or more assets; it is recorded and
@@ -32,6 +35,11 @@ use Illuminate\Support\Facades\DB;
  * or inactive assets to an outside party, temporarily (off_site, planned return date) or
  * permanently (disposed, needs asset.dispose); an incoming transaction brings an off_site asset
  * back and links to the outgoing row that sent it.
+ *
+ * Organization's own types (docs/factory/features/F-07a): type 'custom' with an active
+ * TransactionTypeDefinition; the entered values are validated against its fields and stored on
+ * the row. The asset must belong to one of the type's categories (or a subcategory). Such a
+ * transaction records information only; changes to the asset come with flow actions (F-07b).
  */
 final class AssetTransactionService
 {
@@ -53,6 +61,7 @@ final class AssetTransactionService
         private readonly TransactionLog $log,
         private readonly AuditLogger $audit,
         private readonly Tenancy $tenancy,
+        private readonly TransactionFieldTypes $fieldTypes,
     ) {}
 
     /**
@@ -67,18 +76,22 @@ final class AssetTransactionService
     {
         $type = $data['type'];
         $this->authorize($type, $data);
+        $definition = $type === TransactionType::CUSTOM ? $this->customType($data) : null;
+        if ($definition !== null) {
+            $data['field_values'] = $this->fieldTypes->values($definition->fields, $data['field_values'] ?? [], $this->log->today());
+        }
 
-        return DB::transaction(function () use ($type, $data) {
+        return DB::transaction(function () use ($type, $data, $definition) {
             $assets = $this->lockAssets($data['asset_ids']);
-            $number = $this->log->nextNumber($type);
+            $number = $this->log->nextNumber($type, $definition?->code);
 
             return array_map(fn (Asset $asset) => $this->withAssetContext($asset, count($assets) > 1,
-                fn () => $this->apply($asset, $type, $data, $number)), $assets);
+                fn () => $this->apply($asset, $type, $data, $number, $definition)), $assets);
         });
     }
 
     /** @param array<string, mixed> $data */
-    private function apply(Asset $asset, string $type, array $data, string $number): AssetTransaction
+    private function apply(Asset $asset, string $type, array $data, string $number, ?TransactionTypeDefinition $definition = null): AssetTransaction
     {
         if ($asset->isArchived()) {
             throw ApiException::conflict('ASSET_ARCHIVED', 'Aset nonaktif tidak dapat ditransaksikan. Aktifkan kembali terlebih dahulu.');
@@ -92,6 +105,7 @@ final class AssetTransactionService
             TransactionType::NOTE => [[], []],
             TransactionType::OUTGOING => $this->outgoing($asset, $data),
             TransactionType::INCOMING => $this->incoming($asset, $data),
+            TransactionType::CUSTOM => $this->custom($asset, $definition, $data),
         };
 
         if ($assetChanges !== []) {
@@ -102,6 +116,7 @@ final class AssetTransactionService
             'transaction_number' => $transaction->transaction_number,
             'asset_name' => $asset->name,
             'type' => $type,
+            ...($definition !== null ? ['type_name' => $definition->name] : []),
             ...$logChanges,
         ]);
 
@@ -298,6 +313,48 @@ final class AssetTransactionService
     }
 
     /** @param array<string, mixed> $data */
+    /**
+     * The active organization type a 'custom' transaction uses, with its fields and categories.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function customType(array $data): TransactionTypeDefinition
+    {
+        $definition = TransactionTypeDefinition::query()->with(['fields', 'categories:id'])->find($data['type_definition_id'] ?? null);
+        if ($definition === null) {
+            throw ValidationException::withMessages(['type_definition_id' => 'Jenis transaksi tidak ditemukan.']);
+        }
+        if (! $definition->isActive()) {
+            throw ApiException::unprocessable('TYPE_INACTIVE', "Jenis \"{$definition->name}\" tidak aktif sehingga tidak dapat dipakai mencatat transaksi.");
+        }
+        if (! $definition->multi_asset && count($data['asset_ids']) > 1) {
+            throw ValidationException::withMessages(['asset_ids' => "Jenis \"{$definition->name}\" hanya untuk satu aset per transaksi."]);
+        }
+
+        return $definition;
+    }
+
+    /**
+     * An organization's type records information only (F-07a): the asset must fall in one of the
+     * type's categories or their subcategories; nothing on the asset changes.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+     */
+    private function custom(Asset $asset, TransactionTypeDefinition $definition, array $data): array
+    {
+        $allowed = $definition->categories->pluck('id')->all();
+        if ($allowed !== []) {
+            $path = (string) $asset->category()->value('path');
+            $inside = array_filter($allowed, fn (string $id) => str_contains($path, '/'.$id.'/'));
+            if ($inside === []) {
+                throw ApiException::unprocessable('CATEGORY_NOT_ALLOWED', "Jenis \"{$definition->name}\" tidak berlaku untuk kategori aset ini.");
+            }
+        }
+
+        return [[], ['type_definition_id' => $definition->id, 'field_values' => $data['field_values']]];
+    }
+
     private function authorize(string $type, array $data): void
     {
         $context = $this->tenancy->tenant();

@@ -54,6 +54,7 @@ class AssetTransaction extends Model
         return [
             'transaction_date' => 'date',
             'due_date' => 'date',
+            'field_values' => 'array',
             'created_at' => 'datetime',
         ];
     }
@@ -61,6 +62,12 @@ class AssetTransaction extends Model
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
+    }
+
+    /** The organization's transaction type of a 'custom' row (F-07). */
+    public function typeDefinition(): BelongsTo
+    {
+        return $this->belongsTo(TransactionTypeDefinition::class, 'type_definition_id');
     }
 
     public function fromLocation(): BelongsTo

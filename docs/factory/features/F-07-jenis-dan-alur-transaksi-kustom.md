@@ -152,13 +152,13 @@ Semua tabel memakai RLS tenant dan pola `TenantSchema` yang sudah ada. Nomor tra
 | D-34 | Semua editor (desainer laporan, atur tata letak/tambah widget dashboard, template dashboard, jenis/field/alur transaksi) hanya di web pada layar ≥ 768px. Di ponsel/layar sempit hanya tampil hasil jadinya (dilihat dan dipakai), tanpa tombol ubah. Mencatat dan mengerjakan langkah transaksi tetap bisa dari ponsel | **Diputuskan** 2026-11-18 |
 
 ## 9. Rencana Task (setelah disetujui)
-| ID | Task | Agent | Bergantung |
-|---|---|---|---|
-| F-07a | Skema + backend jenis transaksi dan field; formulir transaksi dinamis; alur default lurus (Mulai → Isi data → Selesai) | database-engineer, backend-engineer, security-engineer | D-26, D-27, D-33 |
-| F-07b | Mesin alur: versi, langkah, tugas, kondisi, aksi, tunggu; penguncian aset; audit; test aturan dan lintas tenant | backend-engineer, security-engineer | F-07a, D-28..D-30 |
-| F-07c | Mockup: pengaturan jenis & field, editor alur, detail transaksi berjalan | ui-ux-designer | requirement disetujui |
-| F-07d | Frontend pengaturan jenis dan field + formulir dinamis | frontend-engineer | F-07a, F-07c |
-| F-07e | Frontend editor alur (React Flow), validasi, uji alur, versi | frontend-engineer | F-07b, F-07c, D-25 |
-| F-07f | Migrasi tujuh jenis bawaan ke jenis sistem + alur bawaan, tanpa mengubah perilaku (regression test seluruh `AssetTransactionTest`) | backend-engineer, qa-engineer | F-07b |
-| F-07g | Field kustom di Report Designer dan widget dashboard | backend + frontend | F-07a, F-06b |
-| F-07-QA | E2E: buat jenis *Mutasi Cabang* → gambar alur dengan kondisi & persetujuan → jalankan dua jalur → laporan | qa-engineer | F-07e |
+| ID | Task | Agent | Bergantung | Status |
+|---|---|---|---|---|
+| F-07a | Skema + backend jenis transaksi dan field; formulir transaksi dinamis; alur default lurus (Mulai → Isi data → Selesai) | database-engineer, backend-engineer, security-engineer | D-26, D-27, D-33 | in_review (`TransactionTypeTest`). Tipe field *lampiran* dan "wajib di langkah tertentu" dipindah ke F-07b karena butuh unggah berkas dan langkah alur |
+| F-07b | Mesin alur: versi, langkah, tugas, kondisi, aksi, tunggu; penguncian aset; audit; test aturan dan lintas tenant | backend-engineer, security-engineer | F-07a, D-28..D-30 | todo |
+| F-07c | Mockup: pengaturan jenis & field, editor alur, detail transaksi berjalan | ui-ux-designer | requirement disetujui | done (mockup disetujui 2026-11-18) |
+| F-07d | Frontend pengaturan jenis dan field + formulir dinamis | frontend-engineer | F-07a, F-07c | todo |
+| F-07e | Frontend editor alur (React Flow), validasi, uji alur, versi | frontend-engineer | F-07b, F-07c, D-25 | todo |
+| F-07f | Migrasi tujuh jenis bawaan ke jenis sistem + alur bawaan, tanpa mengubah perilaku (regression test seluruh `AssetTransactionTest`) | backend-engineer, qa-engineer | F-07b | todo |
+| F-07g | Field kustom di Report Designer dan widget dashboard | backend + frontend | F-07a, F-06b | todo |
+| F-07-QA | E2E: buat jenis *Mutasi Cabang* → gambar alur dengan kondisi & persetujuan → jalankan dua jalur → laporan | qa-engineer | F-07e | todo |

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Security;
 
 use App\Domain\Approvals\Models\ApprovalRequest;
+use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\Dashboards\Models\Dashboard;
 use App\Domain\Dashboards\Models\DashboardTemplate;
 use App\Domain\Identity\Models\OrganizationInvitation;
@@ -132,6 +133,8 @@ class RouteSecurityTest extends TestCase
             'template_version_id' => $version->id, 'export_number' => 'RPT-2026-000001', 'format' => 'pdf', 'status' => 'completed',
             'created_by' => $adminB->id, 'completed_at' => now(), 'expires_at' => now()->addDays(30)]);
         $export->save();
+        $transactionType = (new TransactionTypeDefinition)->forceFill(['organization_id' => $orgB->id, 'code' => 'MUT', 'name' => 'Mutasi', 'status' => 'active']);
+        $transactionType->save();
         $dashboard = (new Dashboard)->forceFill(['organization_id' => $orgB->id, 'name' => 'Beta', 'dashboard_type' => 'custom',
             'visibility' => 'organization', 'created_by' => $adminB->id]);
         $dashboard->save();
@@ -146,6 +149,7 @@ class RouteSecurityTest extends TestCase
             'source' => 'bukan-sumber',
             'reportTemplate' => $template->id,
             'reportExport' => $export->id,
+            'transactionType' => $transactionType->id,
             'approvalRequest' => $approval->id,
             'invitation' => $invitation->id,
             'asset' => $asset->id,

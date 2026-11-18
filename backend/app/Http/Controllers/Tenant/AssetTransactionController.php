@@ -24,7 +24,7 @@ use Illuminate\Validation\Rule;
 class AssetTransactionController extends Controller
 {
     /** incomingTransaction: return status and days outside of temporary outgoing rows. */
-    private const RELATIONS = ['asset', 'fromLocation', 'toLocation', 'creator', 'incomingTransaction:id,outgoing_transaction_id,transaction_date'];
+    private const RELATIONS = ['asset', 'fromLocation', 'toLocation', 'creator', 'incomingTransaction:id,outgoing_transaction_id,transaction_date', 'typeDefinition.fields'];
 
     private const MAX_ASSETS = 200;
 
@@ -71,7 +71,10 @@ class AssetTransactionController extends Controller
             'asset_id' => ['required_without:asset_ids', 'prohibits:asset_ids', 'uuid'],
             'asset_ids' => ['required_without:asset_id', 'array', 'min:1', 'max:'.self::MAX_ASSETS],
             'asset_ids.*' => ['required', 'uuid', 'distinct:ignore_case'],
-            'type' => ['required', Rule::in(TransactionType::MANUAL)],
+            'type' => ['required', Rule::in([...TransactionType::MANUAL, TransactionType::CUSTOM])],
+            // Organization's own types (F-07a): the definition and the values of its fields.
+            'type_definition_id' => ['required_if:type,'.TransactionType::CUSTOM, 'prohibited_unless:type,'.TransactionType::CUSTOM, 'nullable', 'uuid'],
+            'field_values' => ['prohibited_unless:type,'.TransactionType::CUSTOM, 'nullable', 'array'],
             'transaction_date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after:1999-12-31'],
             'to_location_id' => ['nullable', 'uuid'],
             'to_status' => ['nullable', Rule::in(AssetStatus::SELECTABLE)],

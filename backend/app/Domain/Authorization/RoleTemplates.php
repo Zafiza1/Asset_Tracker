@@ -74,6 +74,15 @@ final class RoleTemplates
         return in_array($templateCode, [self::SUPER_ADMIN, self::SUPERVISOR], true);
     }
 
+    /**
+     * Transaction types and flows (F-07, D-27) belong to Super Admin and Supervisor only, like approval:
+     * a flow decides who approves what, so whoever draws it must be able to approve.
+     */
+    public static function mayManageTransactionSetup(?string $templateCode): bool
+    {
+        return in_array($templateCode, [self::SUPER_ADMIN, self::SUPERVISOR], true);
+    }
+
     /** Only Super Admin invites users: no other role, default or custom, may hold the permission. */
     public static function mayInvite(?string $templateCode): bool
     {

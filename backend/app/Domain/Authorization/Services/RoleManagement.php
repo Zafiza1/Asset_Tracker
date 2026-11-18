@@ -28,6 +28,7 @@ final class RoleManagement
         $this->assertGrantable($permissions);
         $this->assertApprovalHolder(null, $permissions);
         $this->assertInviteHolder(null, $permissions);
+        $this->assertTransactionSetupHolder(null, $permissions);
         $this->assertOrganizationManager(null, $permissions);
 
         return DB::transaction(function () use ($data, $permissions) {
@@ -56,6 +57,7 @@ final class RoleManagement
             $this->assertGrantable($permissions);
             $this->assertApprovalHolder($role->template_code, $permissions);
             $this->assertInviteHolder($role->template_code, $permissions);
+            $this->assertTransactionSetupHolder($role->template_code, $permissions);
             $this->assertOrganizationManager($role->template_code, $permissions);
             $current = $role->permissions()->pluck('code')->all();
             $ceiling = RoleTemplates::ceiling($role->template_code);
@@ -131,6 +133,20 @@ final class RoleManagement
         $approval = array_values(array_intersect($permissions, PermissionCatalog::codesInGroups(['approval'])));
         if ($approval !== [] && ! RoleTemplates::mayHoldApproval($templateCode)) {
             throw new ApiException('APPROVAL_ROLE_ONLY', 'Permission approval hanya dapat dimiliki role Super Admin dan Supervisor.', 422, ['permissions' => $approval]);
+        }
+    }
+
+    /**
+     * Only the Super Admin and Supervisor roles manage transaction types and flows
+     * (RoleTemplates::mayManageTransactionSetup, D-27).
+     *
+     * @param  list<string>  $permissions
+     */
+    private function assertTransactionSetupHolder(?string $templateCode, array $permissions): void
+    {
+        $setup = array_values(array_intersect($permissions, PermissionCatalog::codesInGroups(['transaction_setup'])));
+        if ($setup !== [] && ! RoleTemplates::mayManageTransactionSetup($templateCode)) {
+            throw new ApiException('TRANSACTION_SETUP_ROLE_ONLY', 'Permission jenis dan alur transaksi hanya dapat dimiliki role Super Admin dan Supervisor.', 422, ['permissions' => $setup]);
         }
     }
 

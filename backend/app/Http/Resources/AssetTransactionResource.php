@@ -18,7 +18,14 @@ class AssetTransactionResource extends JsonResource
             'id' => $this->id,
             'transaction_number' => $this->transaction_number,
             'type' => $this->type,
-            'type_label' => TransactionType::LABELS[$this->type],
+            // An organization's own type shows its own name (F-07).
+            'type_label' => $this->type === TransactionType::CUSTOM && $this->relationLoaded('typeDefinition') && $this->typeDefinition
+                ? $this->typeDefinition->name
+                : TransactionType::LABELS[$this->type],
+            'type_definition' => $this->when($this->type === TransactionType::CUSTOM, fn () => $this->relationLoaded('typeDefinition') && $this->typeDefinition
+                ? ['id' => $this->typeDefinition->id, 'code' => $this->typeDefinition->code, 'name' => $this->typeDefinition->name]
+                : ['id' => $this->type_definition_id]),
+            'field_values' => $this->when($this->type === TransactionType::CUSTOM, fn () => $this->fieldValues()),
             'transaction_date' => $this->transaction_date->toDateString(),
             'asset_id' => $this->asset_id,
             'asset' => $this->whenLoaded('asset', fn () => [
@@ -49,6 +56,37 @@ class AssetTransactionResource extends JsonResource
             'created_by' => $this->whenLoaded('creator', fn () => $this->creator?->name),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Entered values with their field labels, in the type's field order; values of fields removed
+     * from the type since are kept at the end under their key. Outside-party contacts follow the
+     * same personal-data rule as outgoing transactions.
+     *
+     * @return list<array{key: string, label: string, data_type: string|null, value: mixed}>
+     */
+    private function fieldValues(): array
+    {
+        $values = $this->field_values ?? [];
+        $fields = $this->relationLoaded('typeDefinition') && $this->typeDefinition ? $this->typeDefinition->fields : collect();
+        $out = [];
+        foreach ($fields as $field) {
+            $out[] = ['key' => $field->key, 'label' => $field->label, 'data_type' => $field->data_type, 'value' => $values[$field->key] ?? null];
+            unset($values[$field->key]);
+        }
+        foreach ($values as $key => $value) {
+            $out[] = ['key' => $key, 'label' => $key, 'data_type' => null, 'value' => $value];
+        }
+        if (! self::canSeeContact()) {
+            foreach ($out as &$item) {
+                if ($item['data_type'] === 'counterparty' && is_array($item['value'])) {
+                    $item['value']['contact'] = null;
+                }
+            }
+            unset($item);
+        }
+
+        return $out;
     }
 
     private static function canSeeContact(): bool

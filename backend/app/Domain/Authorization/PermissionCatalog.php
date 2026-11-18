@@ -65,6 +65,10 @@ final class PermissionCatalog
         'transaction.post' => ['tenant', 'transaction', 'Memposting transaksi'],
         'transaction.reverse' => ['tenant', 'transaction', 'Membalik transaksi yang sudah diposting'],
         'transaction.correct' => ['tenant', 'transaction', 'Mengajukan transaksi koreksi'],
+        // Transaction types and flows of the organization (F-07, D-27): their own group so the Admin
+        // template (codesInGroups 'transaction') does not hold them; only Super Admin and Supervisor may.
+        'transaction_type.manage' => ['tenant', 'transaction_setup', 'Mengelola jenis transaksi dan field-nya'],
+        'transaction_flow.manage' => ['tenant', 'transaction_setup', 'Mengelola dan menerbitkan alur transaksi'],
         'report.view' => ['tenant', 'report', 'Melihat dashboard dan laporan'],
         'report.export' => ['tenant', 'report', 'Mengekspor laporan'],
         // Custom Report Designer: its own group so the Admin template (codesInGroups 'report')

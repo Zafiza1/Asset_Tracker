@@ -30,7 +30,10 @@ final class TransactionType
     /** A temporarily outgoing asset comes back; linked to its outgoing row. */
     public const INCOMING = 'incoming';
 
-    public const ALL = [self::REGISTRATION, self::TRANSFER, self::STATUS_CHANGE, self::LOAN, self::RETURN, self::NOTE, self::ARCHIVE, self::RESTORE, self::OUTGOING, self::INCOMING];
+    /** A transaction of a type the organization defined itself (F-07); see TransactionTypeDefinition. */
+    public const CUSTOM = 'custom';
+
+    public const ALL = [self::REGISTRATION, self::TRANSFER, self::STATUS_CHANGE, self::LOAN, self::RETURN, self::NOTE, self::ARCHIVE, self::RESTORE, self::OUTGOING, self::INCOMING, self::CUSTOM];
 
     /** Types a user records in the Transactions menu; the others are written by asset actions. */
     public const MANUAL = [self::TRANSFER, self::STATUS_CHANGE, self::LOAN, self::RETURN, self::NOTE, self::OUTGOING, self::INCOMING];
@@ -46,6 +49,7 @@ final class TransactionType
         self::RESTORE => 'Pengaktifan kembali',
         self::OUTGOING => 'Transaksi keluar',
         self::INCOMING => 'Transaksi masuk',
+        self::CUSTOM => 'Jenis organisasi',
     ];
 
     /** {TYPE} token of the transaction number format. */

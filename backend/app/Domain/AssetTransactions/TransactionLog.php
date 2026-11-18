@@ -18,7 +18,9 @@ final class TransactionLog
         'borrower_name', 'due_date',
         // outgoing / incoming
         'outgoing_nature', 'reason_code', 'counterparty_name', 'counterparty_org', 'counterparty_contact',
-        'document_number', 'outgoing_transaction_id'];
+        'document_number', 'outgoing_transaction_id',
+        // organization's own types (F-07)
+        'type_definition_id', 'field_values'];
 
     public function __construct(
         private readonly NumberSequence $numbers,
@@ -45,11 +47,12 @@ final class TransactionLog
         return $transaction;
     }
 
-    public function nextNumber(string $type): string
+    /** @param  string|null  $prefix  {TYPE} of an organization's own type (its code); system types use PREFIXES */
+    public function nextNumber(string $type, ?string $prefix = null): string
     {
         $format = OrganizationSetting::query()->value('transaction_number_format') ?: '{TYPE}-{YYYY}-{SEQ:6}';
 
-        return $this->numbers->next('transaction', $format, TransactionType::PREFIXES[$type]);
+        return $this->numbers->next('transaction', $format, $prefix ?? TransactionType::PREFIXES[$type]);
     }
 
     /** Today in the organization's time zone. */
