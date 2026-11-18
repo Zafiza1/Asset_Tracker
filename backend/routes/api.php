@@ -15,6 +15,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Tenant\ApprovalController;
 use App\Http\Controllers\Tenant\AuditLogController;
 use App\Http\Controllers\Tenant\CategoryAttributeController;
+use App\Http\Controllers\Tenant\Dashboards\HomeController;
 use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\GenericCatalogController;
 use App\Http\Controllers\Tenant\InvitationController;
@@ -192,6 +193,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     Route::put('/asset-definition-versions/{tenantVersion}/overrides', [TenantVersionController::class, 'syncOverrides'])->middleware($update);
     Route::patch('/asset-definition-attributes/{tenantAttribute}', [TenantVersionController::class, 'updateAttribute'])->middleware($update);
     Route::delete('/asset-definition-attributes/{tenantAttribute}', [TenantVersionController::class, 'destroyAttribute'])->middleware($update);
+
+    // Home page (F-06): the user's own work and notifications; each card checks its own permission.
+    Route::get('/home/cards', [HomeController::class, 'cards']);
 
     // Notifications menu: approval requests of transactions, assets and master data.
     Route::get('/approvals', [ApprovalController::class, 'index']);
