@@ -5,7 +5,7 @@
 | Tahap | 2–7 (ringkas): requirement, alur, data, security |
 | Versi | 0.1 |
 | Penyusun | product-analyst, system-architect, ui-ux-designer |
-| Status | **Approved** ([APR-0009](../../approvals/APR-0009-dashboard-utama-dan-manajemen-aset.md), 2026-11-18): mockup menyusul sebelum UI dikodekan |
+| Status | **Approved** ([APR-0009](../../approvals/APR-0009-dashboard-utama-dan-manajemen-aset.md), 2026-11-18). Mockup: [F-06-dashboard.html](../../design/mockups/F-06-dashboard.html), **disetujui** 2026-11-18 |
 | Dasar | Pemilik produk 2026-11-18: dashboard ada dua. (1) Dashboard utama berisi pekerjaan dan notifikasi pengguna, berbeda untuk Super Admin, Supervisor, dan Admin. (2) Dashboard tambahan untuk mengelola seluruh aset, berbeda per role, dengan banyak widget, termasuk dashboard per kategori yang punya template sendiri dan tombol **Tambah widget** |
 | Hubungan | Memperluas [F-01](F-01-dashboard-builder-ui.md). Backend dashboard builder F-01 dipakai ulang untuk Dashboard Manajemen Aset. Frontend F-01 belum dibangun, jadi F-01b/F-01c diganti task F-06 |
 
@@ -63,7 +63,7 @@ Kartu muncul berdasarkan **izin** yang dimiliki pengguna, bukan nama role. Denga
 
 ### 3.2 Perilaku
 - Diperbarui saat halaman dibuka dan setiap 60 detik selama tab aktif. Tidak memakai websocket ⚑ (D-20).
-- Pengguna dapat menyembunyikan dan mengurutkan kartu; pilihan disimpan per pengguna (`dashboard_preferences`).
+- Pengguna dapat menyembunyikan dan mengurutkan kartu; pilihan disimpan per pengguna (`dashboard_preferences`). Pengaturan ini hanya di web pada layar lebar (D-34).
 
 ## 4. Dashboard Manajemen Aset
 
@@ -78,6 +78,7 @@ Setiap organisasi mendapat tiga template bawaan yang dipetakan ke role bawaan. S
 
 - Pengguna pertama kali membuka Dashboard Aset → mendapat salinan template role-nya. Perubahan pribadi tidak mengubah template.
 - Tombol **Kembalikan ke template** mengulang salinan dari template role.
+- **Atur tata letak**, **Tambah widget**, dan pengaturan template hanya tersedia di web pada layar ≥ 768px. Di ponsel dashboard tampil sebagai hasil jadi (D-34).
 - Widget yang membutuhkan izin yang tidak dimiliki pengguna tidak ditawarkan di katalog dan tidak tampil.
 
 ### 4.2 Dashboard per kategori ⚑ (D-22)
@@ -160,7 +161,7 @@ Endpoint lama `GET /api/dashboard` dihapus setelah UI baru lulus E2E (D-11, suda
 | Beban | Kartu Beranda di-cache per pengguna 60 detik; widget memakai agregasi di database, bukan memuat baris ke PHP |
 
 ## 7. UI (mockup sebelum kode, APR-0008)
-Mockup `docs/design/mockups/F-06-dashboard.html` akan memuat: Beranda untuk tiga role, Dashboard Aset (ringkasan + tab kategori), katalog **Tambah widget**, mode atur tata letak, pengaturan template per role, dan tampilan 375px.
+Mockup [F-06-dashboard.html](../../design/mockups/F-06-dashboard.html) memuat: Beranda untuk tiga role, Dashboard Aset (ringkasan + tab kategori), katalog **Tambah widget**, mode atur tata letak, pengaturan template per role, dan tampilan 375px.
 
 ## 8. Keputusan yang Memerlukan Persetujuan
 | ID | Keputusan | Usulan |
@@ -172,6 +173,7 @@ Mockup `docs/design/mockups/F-06-dashboard.html` akan memuat: Beranda untuk tiga
 | D-22 | Dashboard kategori diwarisi subkategori yang tidak punya template; lima template contoh kategori disediakan | Ya |
 | D-23 | Frontend F-01b/F-01c digantikan task F-06 (backend F-01 dipakai ulang) | Ya |
 | D-24 | Penyusutan/nilai buku **tidak** termasuk: belum ada data penyusutan. Widget memakai nilai perolehan | Ya; penyusutan menjadi fitur terpisah bila diperlukan |
+| D-34 | Semua editor (desainer laporan, atur tata letak/tambah widget dashboard, template dashboard, jenis/field/alur transaksi) hanya di web pada layar ≥ 768px. Di ponsel/layar sempit hanya tampil hasil jadinya (dilihat dan dipakai), tanpa tombol ubah | **Diputuskan** 2026-11-18 |
 
 ## 9. Rencana Task (setelah disetujui)
 | ID | Task | Agent | Bergantung |

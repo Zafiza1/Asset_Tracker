@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup F-06 · Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  Mockup persetujuan UI (APR-0008) untuk docs/factory/features/F-06-dashboard-utama-dan-manajemen-aset.md.
+  CSS dasar sama dengan mockup F-05 (token docs/design/figma-tokens.json, komponen docs/09).
+-->
+<style>
+:root{
+  --brand-50:#eff6ff;--brand-100:#dbeafe;--brand-600:#2563eb;--brand-700:#1d4ed8;--brand-800:#1e40af;
+  --s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;--s300:#cbd5e1;--s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;--s900:#0f172a;
+  --g50:#f0fdf4;--g600:#16a34a;--g700:#15803d;--a50:#fffbeb;--a600:#d97706;--a800:#92400e;--r50:#fef2f2;--r600:#dc2626;--r700:#b91c1c;
+  --shadow-card:0 1px 2px #0f172a0a,0 1px 3px #0f172a0f;--shadow-raised:0 4px 12px -2px #0f172a14,0 2px 4px -2px #0f172a0f;--shadow-overlay:0 20px 40px -12px #0f172a40;
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 "Source Sans 3",system-ui,sans-serif;color:var(--s700);background:#e9edf2}
+h1,h2,h3{font-family:Lexend,"Source Sans 3",sans-serif;color:var(--s900);margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brand-600);outline-offset:2px}
+.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--s500)} .xs{font-size:12px}
+svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+svg.i.sm{width:14px;height:14px}
+
+/* Kontrol mockup (bukan bagian aplikasi) */
+.mk{position:sticky;top:0;z-index:50;background:var(--s900);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.mk b{font-family:Lexend;font-weight:500;margin-right:4px}
+.mk .grp{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.mk .grp span{font-size:12px;color:var(--s400);margin-right:4px}
+.mk button{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}
+.mk button[aria-pressed=true]{background:var(--brand-700);border-color:var(--brand-600);color:#fff}
+.note{max-width:1180px;margin:12px auto 0;padding:0 16px;font-size:13px;color:var(--s600)}
+.note code{background:#fff;border:1px solid var(--s200);border-radius:4px;padding:0 4px}
+
+/* Bingkai aplikasi */
+.stage{padding:16px;display:flex;justify-content:center}
+.frame{width:100%;max-width:1180px;background:var(--s50);border:1px solid var(--s300);border-radius:12px;overflow:hidden;container-type:inline-size;transition:max-width .2s}
+.frame.narrow{max-width:375px}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:760px}
+.side{background:#fff;border-right:1px solid var(--s200);padding:16px 12px}
+.logo{display:flex;gap:8px;align-items:center;font-family:Lexend;font-weight:600;color:var(--s900);padding:4px 8px 16px}
+.logo i{width:28px;height:28px;border-radius:8px;background:var(--brand-700);display:inline-block}
+.nav a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:var(--s600);text-decoration:none;margin-bottom:2px}
+.nav a.on{background:var(--brand-50);color:var(--brand-700);font-weight:600;box-shadow:inset 3px 0 0 var(--brand-700)}
+.main{min-width:0}
+.top{height:56px;background:#fff;border-bottom:1px solid var(--s200);display:flex;align-items:center;gap:12px;padding:0 20px}
+.burger{display:none}
+.gsearch{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;border:1px solid var(--s300);border-radius:8px;padding:0 10px;height:36px;color:var(--s400)}
+.gsearch kbd{margin-left:auto;font-size:11px;border:1px solid var(--s200);border-radius:4px;padding:0 4px}
+.avatar{margin-left:auto;width:32px;height:32px;border-radius:50%;background:var(--brand-100);color:var(--brand-700);display:grid;place-items:center;font-weight:600}
+.content{padding:24px}
+
+/* Komponen */
+.ph{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.ph h1{font-size:24px;font-weight:600}
+.ph p{margin:4px 0 0;color:var(--s500)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;border-radius:8px;border:1px solid transparent;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn.sm{min-height:32px;padding:0 10px;font-size:13px}
+.btn.primary{background:var(--brand-700);color:#fff}.btn.primary:hover{background:var(--brand-800)}
+.btn.secondary{background:#fff;border-color:var(--s300);color:var(--s700)}.btn.secondary:hover{background:var(--s50)}
+.btn.ghost{background:transparent;color:var(--s600)}.btn.ghost:hover{background:var(--s100)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.card{background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-card)}
+.card-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--s200)}
+.card-h h3{font-size:16px;font-weight:600;font-family:"Source Sans 3"}
+.pad{padding:16px}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:9999px;padding:1px 8px 1px 6px;font-size:12px;font-weight:600;white-space:nowrap;box-shadow:inset 0 0 0 1px currentColor}
+.badge.green{background:var(--g50);color:var(--g700)}.badge.amber{background:var(--a50);color:var(--a800)}.badge.red{background:var(--r50);color:var(--r700)}.badge.slate{background:var(--s100);color:var(--s700)}.badge.blue{background:var(--brand-50);color:var(--brand-700)}
+.badge.green,.badge.amber,.badge.red,.badge.slate,.badge.blue{box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 25%,transparent)}
+.pills{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}
+.pill{border:1px solid var(--s200);background:#fff;border-radius:9999px;padding:4px 12px;font-size:13px;cursor:pointer;color:var(--s600)}
+.pill[aria-selected=true]{background:var(--brand-50);border-color:var(--brand-600);color:var(--brand-700);font-weight:600}
+.pill .n{margin-left:4px;color:var(--s400);font-weight:500}
+.filters{padding:12px 16px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--s200)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.input,.select{height:40px;border:1px solid var(--s300);border-radius:8px;background:#fff;padding:0 10px;min-width:0}
+.input.err,.select.err{border-color:var(--r600);box-shadow:0 0 0 1px var(--r600)}
+textarea.input{height:auto;padding:8px 10px;min-height:64px;resize:vertical}
+.search{flex:1;min-width:200px;position:relative}
+.search .input{width:100%;padding-left:34px}
+.search svg{position:absolute;left:10px;top:12px;color:var(--s400)}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--s100);border-radius:9999px;padding:2px 6px 2px 10px;font-size:12px}
+.chip button{border:0;background:none;padding:2px;cursor:pointer;color:var(--s500);display:grid}
+.link{color:var(--brand-700);background:none;border:0;padding:0;cursor:pointer;font-weight:600;font-size:13px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;font-weight:600;color:var(--s600);background:var(--s50);padding:10px 12px;border-bottom:1px solid var(--s200);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--s100);vertical-align:top}
+tr.dis td{color:var(--s400)}
+tbody tr:hover td{background:#fbfdff}
+.pager{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:13px;color:var(--s500);flex-wrap:wrap;gap:8px}
+.sub{display:none}
+.alert{display:flex;gap:10px;border-radius:8px;padding:10px 12px;border:1px solid}
+.alert.red{background:var(--r50);border-color:#fecaca;color:var(--r700)}
+.alert.amber{background:var(--a50);border-color:#fde68a;color:var(--a800)}
+.alert.blue{background:var(--brand-50);border-color:var(--brand-100);color:var(--brand-800)}
+.alert p{margin:2px 0 0}
+.empty{text-align:center;padding:48px 16px}
+.empty .ic{width:48px;height:48px;border-radius:12px;background:var(--s100);display:grid;place-items:center;margin:0 auto 12px;color:var(--s500)}
+.empty h3{font-size:16px;font-family:"Source Sans 3";font-weight:600}
+.empty p{margin:4px auto 16px;max-width:360px;color:var(--s500)}
+.sk{background:linear-gradient(90deg,var(--s100),var(--s200),var(--s100));background-size:200% 100%;animation:sk 1.2s infinite;border-radius:6px;height:12px}
+@keyframes sk{to{background-position:-200% 0}}
+.err-state{text-align:center;padding:40px 16px}
+.err-state .ic{color:var(--r600);margin:0 auto 8px;width:40px;height:40px;display:grid;place-items:center;background:var(--r50);border-radius:12px}
+.toast{position:fixed;right:20px;bottom:20px;background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-overlay);padding:12px 14px;display:flex;gap:10px;max-width:360px;z-index:60}
+.toast .ok{color:var(--g600)}
+
+/* Modal */
+.overlay{position:absolute;inset:0;background:#0f172a66;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow:auto}
+.modal{background:#fff;border-radius:12px;box-shadow:var(--shadow-overlay);width:100%;max-width:880px}
+.modal-h{display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px;border-bottom:1px solid var(--s200)}
+.modal-h h2{font-size:18px;font-weight:600}
+.modal-b{padding:20px;display:flex;flex-direction:column;gap:20px}
+.modal-f{display:flex;justify-content:space-between;gap:8px;padding:14px 20px;border-top:1px solid var(--s200);background:var(--s50);border-radius:0 0 12px 12px;flex-wrap:wrap}
+.step{display:flex;gap:8px;align-items:center;font-weight:600;color:var(--s900);margin-bottom:10px}
+.step i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--brand-50);color:var(--brand-700);display:grid;place-items:center;font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-weight:600;color:var(--s700);font-size:13px}
+.field label .req{color:var(--r600)}
+.field .hint{font-size:12px;color:var(--s500)}
+.field .msg{font-size:12px;color:var(--r700);display:flex;gap:4px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--s300);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:8px 14px;cursor:pointer;min-height:40px}
+.seg button+button{border-left:1px solid var(--s300)}
+.seg button[aria-pressed=true]{background:var(--brand-50);color:var(--brand-700);font-weight:600}
+.typecards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tc{border:1px solid var(--s200);border-radius:8px;padding:10px;background:#fff;text-align:left;cursor:pointer;display:flex;gap:8px;align-items:flex-start}
+.tc small{display:block;color:var(--s500);font-size:12px;font-weight:400}
+.tc[aria-pressed=true]{border-color:var(--brand-600);background:var(--brand-50);box-shadow:0 0 0 1px var(--brand-600)}
+.picked{display:flex;flex-wrap:wrap;gap:6px}
+.picked .chip{background:var(--brand-50);color:var(--brand-800)}
+.box{border:1px solid var(--s200);border-radius:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.kv dt{color:var(--s500)} .kv dd{margin:0;color:var(--s900)}
+.detail{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.timeline{list-style:none;margin:0;padding:0}
+.timeline li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--s100)}
+.dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none}
+.hidden{display:none!important}
+
+/* 375px: container query mengikuti lebar bingkai */
+@container (max-width: 640px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .burger{display:grid}
+  .gsearch kbd,.gsearch .t{display:none}
+  .gsearch{max-width:40px;padding:0;justify-content:center}
+  .content{padding:16px}
+  .hm{display:none}
+  .sub{display:block;margin-top:4px}
+  .grid2,.detail{grid-template-columns:1fr}
+  .typecards{grid-template-columns:1fr 1fr}
+  .overlay{padding:0;align-items:stretch}
+  .modal{border-radius:0;max-width:none}
+  .modal-f{border-radius:0;position:sticky;bottom:0}
+  .modal-f .btn{flex:1}
+  .ph .btn{width:100%}
+  .search{min-width:0}
+  .lbl-long{display:none}
+}
+/* F-06 */
+/* D-34: di mobile tidak ada editor; hanya hasil jadi */
+.mob-only{display:none}
+@container (max-width: 640px){
+  .desk-only{display:none!important}
+  .mob-only{display:flex}
+  .edit .w{outline:none}
+  .edit .w .tools,.edit .w .rs{display:none}
+}
+.nav .sec{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--s400);padding:12px 10px 4px}
+.nav .cnt{margin-left:auto;background:var(--r600);color:#fff;border-radius:9999px;font-size:11px;font-weight:700;padding:0 6px;min-width:18px;text-align:center}
+.greet{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between;margin-bottom:16px}
+.greet h1{font-size:24px;font-weight:600}
+.greet p{margin:4px 0 0;color:var(--s500)}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.hc{display:flex;flex-direction:column}
+.hc .card-h h3{display:flex;gap:8px;align-items:center}
+.hc .big{display:flex;align-items:baseline;gap:8px;padding:14px 16px 4px}
+.hc .big b{font-family:Lexend;font-size:30px;font-weight:600;color:var(--s900)}
+.hc ul{list-style:none;margin:0;padding:4px 16px 8px}
+.hc li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--s100);font-size:13px}
+.hc li:last-child{border-bottom:0}
+.hc li .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--s900)}
+.hc .ft{margin-top:auto;padding:10px 16px;border-top:1px solid var(--s100)}
+.hc.urgent{box-shadow:inset 3px 0 0 var(--r600),var(--shadow-card)}
+.hc.warn{box-shadow:inset 3px 0 0 var(--a600),var(--shadow-card)}
+.hc .calm{padding:18px 16px;color:var(--s500);display:flex;gap:8px;align-items:center}
+.hc .calm svg{color:var(--g600)}
+.hc .drag{color:var(--s400);cursor:grab}
+.stack{display:flex;gap:6px;padding:4px 16px 10px;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--s200);margin-bottom:16px;overflow-x:auto}
+.tab{border:0;background:none;padding:10px 14px;cursor:pointer;color:var(--s600);font-weight:600;border-bottom:2px solid transparent;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--brand-700);border-bottom-color:var(--brand-700)}
+.wg{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+.w{background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;min-width:0;position:relative}
+.w3{grid-column:span 3}.w4{grid-column:span 4}.w6{grid-column:span 6}.w8{grid-column:span 8}.w12{grid-column:span 12}
+.w .wh{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px 0}
+.w .wh h4{margin:0;font-size:13px;font-weight:600;color:var(--s600);font-family:"Source Sans 3"}
+.w .wb{padding:10px 14px 14px;flex:1}
+.kpi b{font-family:Lexend;font-size:26px;font-weight:600;color:var(--s900);display:block}
+.kpi small{color:var(--s500)}
+.kpi .up{color:var(--g700)} .kpi .dn{color:var(--r700)}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:110px 1fr 56px;gap:8px;align-items:center;font-size:12px}
+.bar i{display:block;height:10px;border-radius:6px;background:var(--brand-600)}
+.bar span:last-child{text-align:right}
+.donut{display:flex;gap:16px;align-items:center}
+.donut .ring{width:110px;height:110px;border-radius:50%;flex:none;position:relative}
+.donut .ring::after{content:"";position:absolute;inset:22px;border-radius:50%;background:#fff}
+.legend{display:flex;flex-direction:column;gap:6px;font-size:12px}
+.legend span{display:flex;gap:6px;align-items:center}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.cols{display:flex;align-items:flex-end;gap:6px;height:120px;padding-top:6px}
+.cols div{flex:1;background:var(--brand-100);border-radius:4px 4px 0 0;position:relative}
+.cols div.hl{background:var(--brand-600)}
+.colx{display:flex;gap:6px;font-size:10px;color:var(--s400);margin-top:4px}
+.colx span{flex:1;text-align:center}
+.mini{width:100%;font-size:12px}
+.mini td,.mini th{padding:6px 4px}
+.edit .w{outline:2px dashed var(--brand-600);outline-offset:-2px}
+.w .tools{display:none;gap:4px}
+.edit .w .tools{display:flex}
+.edit .w .rs{position:absolute;right:4px;bottom:4px;width:14px;height:14px;border-right:2px solid var(--brand-600);border-bottom:2px solid var(--brand-600);cursor:nwse-resize}
+.w .rs{display:none}.edit .w .rs{display:block}
+.addslot{grid-column:span 12;border:2px dashed var(--s300);border-radius:12px;padding:20px;text-align:center;color:var(--s500);background:transparent;cursor:pointer}
+.editbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--brand-50);border:1px solid var(--brand-100);color:var(--brand-800);border-radius:10px;padding:8px 12px;margin-bottom:16px}
+.cat{display:grid;grid-template-columns:180px minmax(0,1fr);gap:16px}
+.cat > div{min-width:0}
+.catnav{display:flex;flex-direction:column;gap:2px}
+.catnav button{border:0;background:none;text-align:left;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--s600);display:flex;justify-content:space-between}
+.catnav button[aria-pressed=true]{background:var(--brand-50);color:var(--brand-700);font-weight:600}
+.wlist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.wi{border:1px solid var(--s200);border-radius:10px;padding:12px;background:#fff;text-align:left;cursor:pointer;display:flex;gap:10px}
+.wi[aria-pressed=true]{border-color:var(--brand-600);background:var(--brand-50);box-shadow:0 0 0 1px var(--brand-600)}
+.wi .ic{width:34px;height:34px;border-radius:8px;background:var(--s100);display:grid;place-items:center;flex:none;color:var(--brand-700)}
+.wi small{display:block;color:var(--s500);font-size:12px;margin-top:2px}
+.cfg{border-top:1px solid var(--s200);padding-top:16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cfg .seg{display:flex}.cfg .seg button{flex:1;padding:8px 6px}
+.lock{color:var(--s400)}
+@container (max-width: 640px){
+  .cards{grid-template-columns:1fr}
+  .wg{grid-template-columns:1fr}
+  .w3,.w4,.w6,.w8,.w12,.addslot{grid-column:auto}
+  .cat,.wlist,.cfg{grid-template-columns:1fr}
+  .catnav{flex-direction:row;overflow-x:auto}
+  .bar{grid-template-columns:80px 1fr 44px}
+  .editbar .btn{flex:1}
+}
+@container (min-width: 641px) and (max-width: 980px){
+  .cards{grid-template-columns:1fr 1fr}
+  .w3{grid-column:span 6}.w4{grid-column:span 6}.w8{grid-column:span 12}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 3l9 8M5 10v10h14V10"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 21h20zM12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 6.1A10 10 0 0 1 12 6c6 0 9 6 9 6a15 15 0 0 1-2.4 3.2M6.6 6.6C4 8.3 3 12 3 12s3 6 9 6a9 9 0 0 0 4-.9"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></symbol>
+  <symbol id="i-pie" viewBox="0 0 24 24"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-hash" viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M16 7l3 3"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M16 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-5-6.7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></symbol>
+  <symbol id="i-flow" viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h4a2 2 0 0 1 2 2v7"/></symbol>
+</svg>
+
+<div class="mk" role="toolbar" aria-label="Kontrol mockup">
+  <b>Mockup F-06</b>
+  <div class="grp"><span>Layar</span>
+    <button data-view="home" aria-pressed="true">Beranda</button>
+    <button data-view="assets">Dashboard Aset</button>
+    <button data-view="category">Per kategori</button>
+    <button data-view="edit">Atur tata letak</button>
+    <button data-view="catalog">Tambah widget</button>
+    <button data-view="templates">Template per role</button>
+  </div>
+  <div class="grp"><span>Role</span>
+    <button data-role="sa" aria-pressed="true">Super Admin</button>
+    <button data-role="spv">Supervisor</button>
+    <button data-role="adm">Admin</button>
+  </div>
+  <div class="grp"><span>Keadaan</span>
+    <button data-state="filled" aria-pressed="true">Isi</button>
+    <button data-state="empty">Kosong</button>
+    <button data-state="loading">Memuat</button>
+    <button data-state="error">Gagal</button>
+  </div>
+  <div class="grp"><span>Lebar</span>
+    <button data-w="wide" aria-pressed="true">Desktop</button>
+    <button data-w="narrow">375px</button>
+  </div>
+</div>
+<p class="note">Editor hanya ada di web pada layar lebar (D-34): pada 375px tombol Atur kartu, Atur tata letak, Tambah widget, dan pengaturan template tidak tampil; dashboard tampil sebagai hasil jadi. <b>Beranda</b> berisi tugas dan notifikasi milik pengguna; kartunya mengikuti izin (D-18), jadi berbeda untuk setiap role. <b>Dashboard Aset</b> berisi widget analisis dengan template per role (D-21) dan per kategori (D-22). Ganti <b>Role</b> untuk melihat perbedaannya. Keadaan "Gagal" ditunjukkan per kartu/widget: satu widget gagal tidak menjatuhkan halaman.</p>
+
+<div class="stage">
+<div class="frame" id="frame">
+<div class="app" style="position:relative">
+  <aside class="side">
+    <div class="logo"><i></i>Asset Tracker</div>
+    <nav class="nav">
+      <a href="#" data-nav="home"><svg class="i"><use href="#i-home"/></svg>Beranda <span class="cnt" data-role-show="sa spv">7</span><span class="cnt" data-role-show="adm">2</span></a>
+      <a href="#" data-nav="assets"><svg class="i"><use href="#i-dash"/></svg>Dashboard Aset</a>
+      <div class="sec">Operasional</div>
+      <a href="#"><svg class="i"><use href="#i-box"/></svg>Data Aset</a>
+      <a href="#"><svg class="i"><use href="#i-swap"/></svg>Transaksi Aset</a>
+      <a href="#" data-role-show="sa spv"><svg class="i"><use href="#i-bell"/></svg>Persetujuan <span class="cnt">4</span></a>
+      <a href="#" data-role-show="adm"><svg class="i"><use href="#i-bell"/></svg>Pengajuan Saya</a>
+      <div class="sec">Laporan</div>
+      <a href="#"><svg class="i"><use href="#i-doc"/></svg>Template Laporan</a>
+      <div class="sec" data-role-show="sa spv">Pengaturan</div>
+      <a href="#" data-nav="templates" data-role-show="sa spv"><svg class="i"><use href="#i-gear"/></svg>Template Dashboard</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <button class="btn ghost sm burger" aria-label="Buka menu"><svg class="i"><use href="#i-menu"/></svg></button>
+      <div class="gsearch"><svg class="i"><use href="#i-search"/></svg><span class="t">Cari aset atau menu</span><kbd>Ctrl K</kbd></div>
+      <div class="avatar" aria-label="Akun"><span data-role-show="sa">RS</span><span data-role-show="spv">DW</span><span data-role-show="adm">AP</span></div>
+    </header>
+
+    <!-- ============ BERANDA ============ -->
+    <section class="content" data-screen="home">
+      <div class="greet">
+        <div>
+          <h1>Selamat pagi, <span data-role-show="sa">Rina</span><span data-role-show="spv">Dewi</span><span data-role-show="adm">Andi</span></h1>
+          <p><span data-role-show="sa">Super Admin · PT Surya Inti Gas</span><span data-role-show="spv">Supervisor · seluruh lokasi</span><span data-role-show="adm">Admin · Gudang Bandung</span> · diperbarui 10.21</p>
+        </div>
+        <button class="btn ghost sm desk-only"><svg class="i sm"><use href="#i-grip"/></svg>Atur kartu</button>
+      </div>
+
+      <div class="cards">
+        <!-- Menunggu keputusan saya: approval.manage -->
+        <div class="card hc urgent" data-role-show="sa spv">
+          <div class="card-h"><h3><svg class="i"><use href="#i-bell"/></svg>Menunggu keputusan saya</h3><span class="badge red">4</span></div>
+          <div data-state-show="filled"><ul>
+            <li><span class="t">Pemindahan 3 aset ke Gudang Cirebon</span><span class="muted xs num">2 hari</span></li>
+            <li><span class="t">Ubah kategori "Genset" (Andi P.)</span><span class="muted xs num">1 hari</span></li>
+            <li><span class="t">Tambah lokasi "Pos Jaga 2"</span><span class="muted xs num">5 jam</span></li>
+            <li><span class="t">Keluar permanen: Printer HP M404</span><span class="muted xs num">1 jam</span></li>
+          </ul></div>
+          <div data-state-show="empty"><p class="calm"><svg class="i"><use href="#i-check"/></svg>Tidak ada yang menunggu keputusan Anda.</p></div>
+          <div data-state-show="loading" class="pad"><div class="sk" style="width:70%"></div><div class="sk" style="width:90%;margin-top:10px"></div><div class="sk" style="width:60%;margin-top:10px"></div></div>
+          <div class="ft"><button class="link">Buka Persetujuan →</button></div>
+        </div>
+
+        <!-- Langkah transaksi menunggu saya (F-07) -->
+        <div class="card hc warn">
+          <div class="card-h"><h3><svg class="i"><use href="#i-flow"/></svg>Langkah transaksi menunggu saya</h3><span class="badge amber" data-role-show="sa spv">3</span><span class="badge amber" data-role-show="adm">2</span></div>
+          <div data-state-show="filled"><ul>
+            <li data-role-show="sa spv"><span class="t"><span class="mono">MUT-2026-000012</span> · Persetujuan nilai &gt; Rp10 jt</span><span class="muted xs">Mutasi</span></li>
+            <li data-role-show="sa spv"><span class="t"><span class="mono">KAL-2026-000004</span> · Persetujuan vendor</span><span class="muted xs">Kalibrasi</span></li>
+            <li data-role-show="sa spv"><span class="t"><span class="mono">MUT-2026-000010</span> · Persetujuan</span><span class="muted xs">Mutasi</span></li>
+            <li data-role-show="adm"><span class="t"><span class="mono">MUT-2026-000009</span> · Isi No. BAST &amp; foto</span><span class="badge red">Lewat 1 hari</span></li>
+            <li data-role-show="adm"><span class="t"><span class="mono">KAL-2026-000003</span> · Unggah sertifikat</span><span class="muted xs">3 hari lagi</span></li>
+          </ul></div>
+          <div data-state-show="empty"><p class="calm"><svg class="i"><use href="#i-check"/></svg>Tidak ada langkah yang menunggu Anda.</p></div>
+          <div data-state-show="loading" class="pad"><div class="sk" style="width:80%"></div><div class="sk" style="width:65%;margin-top:10px"></div></div>
+          <div class="ft"><button class="link">Lihat semua tugas →</button></div>
+        </div>
+
+        <!-- Pengajuan saya: semua -->
+        <div class="card hc">
+          <div class="card-h"><h3><svg class="i"><use href="#i-doc"/></svg>Pengajuan saya</h3><span class="muted xs">30 hari</span></div>
+          <div data-state-show="filled">
+            <div class="stack"><span class="badge amber">2 menunggu</span><span class="badge green">9 disetujui</span><span class="badge red">1 ditolak</span></div>
+            <ul>
+              <li><span class="t"><span class="badge red">Ditolak</span> Ubah lokasi Laptop Dell 5440</span></li>
+              <li class="xs muted" style="border:0;padding-top:0">"Lokasi tujuan salah, pakai Gudang Bandung." · Dewi W.</li>
+              <li><span class="t"><span class="badge amber">Menunggu</span> Tambah kategori "Drone"</span></li>
+            </ul>
+          </div>
+          <div data-state-show="empty"><p class="calm"><svg class="i"><use href="#i-check"/></svg>Belum ada pengajuan dalam 30 hari.</p></div>
+          <div data-state-show="loading" class="pad"><div class="sk" style="width:50%"></div><div class="sk" style="width:85%;margin-top:10px"></div></div>
+          <div class="ft"><button class="link">Buka Pengajuan Saya →</button></div>
+        </div>
+
+        <!-- Keluar sementara lewat batas -->
+        <div class="card hc urgent">
+          <div class="card-h"><h3><svg class="i"><use href="#i-alert"/></svg>Keluar sementara lewat batas</h3><span class="badge red">3</span></div>
+          <div data-state-show="filled"><ul>
+            <li><span class="t">Proyektor Epson EB-X51 · Dinas Pendidikan</span><span class="badge red">8 hari</span></li>
+            <li><span class="t">Genset Yamaha EF2000 · CV Sinar Servis</span><span class="badge red">3 hari</span></li>
+            <li><span class="t">Kamera Canon EOS R50 · PT Media Kreatif</span><span class="badge red">1 hari</span></li>
+          </ul></div>
+          <div data-state-show="empty"><p class="calm"><svg class="i"><use href="#i-check"/></svg>Semua aset kembali tepat waktu.</p></div>
+          <div data-state-show="error" class="pad"><div class="alert red"><svg class="i"><use href="#i-alert"/></svg><div><b>Kartu gagal dimuat</b><p class="xs">ID permintaan: a71c-0f3e · <button class="link">Coba lagi</button></p></div></div></div>
+          <div data-state-show="loading" class="pad"><div class="sk" style="width:75%"></div><div class="sk" style="width:60%;margin-top:10px"></div></div>
+          <div class="ft"><button class="link">Lihat transaksi keluar →</button></div>
+        </div>
+
+        <!-- Admin/Supervisor: Transaksi belum selesai, Jatuh tempo, Pengingat, Data belum lengkap -->
+        <div class="card hc" data-role-show="spv adm">
+          <div class="card-h"><h3><svg class="i"><use href="#i-clock"/></svg>Jatuh tempo 7 hari</h3><span class="badge amber">5</span></div>
+          <div data-state-show="filled"><ul>
+            <li><span class="t">Laptop Lenovo T14 · dipinjam Budi</span><span class="muted xs num">20 Nov</span></li>
+            <li><span class="t">Bor Bosch GSB · CV Mitra Teknik</span><span class="muted xs num">21 Nov</span></li>
+            <li><span class="t">Tablet Samsung A9 · dipinjam Sari</span><span class="muted xs num">24 Nov</span></li>
+          </ul></div>
+          <div data-state-show="empty"><p class="calm"><svg class="i"><use href="#i-check"/></svg>Tidak ada yang jatuh tempo minggu ini.</p></div>
+          <div data-state-show="loading" class="pad"><div class="sk" style="width:70%"></div></div>
+          <div class="ft"><button class="link">Lihat semua →</button></div>
+        </div>
+        <div class="card hc" data-role-show="spv adm">
+          <div class="card-h"><h3><svg class="i"><use href="#i-bell"/></svg>Pengingat tanggal aset</h3><span class="muted xs">30 hari</span></div>
+          <div data-state-show="filled"><ul>
+            <li><span class="t">Toyota Avanza D 1234 AB · Pajak STNK</span><span class="badge amber">6 hari</span></li>
+            <li><span class="t">Timbangan Digital · Kalibrasi</span><span class="muted xs num">12 Des</span></li>
+            <li><span class="t">Server Dell R740 · Garansi berakhir</span><span class="muted xs num">15 Des</span></li>
+          </ul></div>
+          <div data-state-show="empty"><p class="calm"><svg class="i"><use href="#i-check"/></svg>Tidak ada pengingat 30 hari ke depan.</p></div>
+          <div data-state-show="loading" class="pad"><div class="sk" style="width:80%"></div></div>
+          <div class="ft"><button class="link">Lihat aset →</button></div>
+        </div>
+        <div class="card hc" data-role-show="adm">
+          <div class="card-h"><h3><svg class="i"><use href="#i-swap"/></svg>Transaksi belum selesai</h3><span class="badge slate">1</span></div>
+          <div data-state-show="filled"><ul><li><span class="t"><span class="mono">MUT-2026-000009</span> · di langkah "Serah terima"</span><span class="muted xs">2 hari</span></li></ul></div>
+          <div data-state-show="empty"><p class="calm"><svg class="i"><use href="#i-check"/></svg>Semua transaksi Anda sudah selesai.</p></div>
+          <div data-state-show="loading" class="pad"><div class="sk" style="width:70%"></div></div>
+          <div class="ft"><button class="link">Lihat transaksi saya →</button></div>
+        </div>
+        <div class="card hc" data-role-show="spv adm">
+          <div class="card-h"><h3><svg class="i"><use href="#i-list"/></svg>Data aset belum lengkap</h3><span class="badge slate">14</span></div>
+          <div data-state-show="filled"><ul>
+            <li><span class="t">Tanpa nomor seri</span><span class="num">8</span></li>
+            <li><span class="t">Atribut wajib kategori kosong</span><span class="num">5</span></li>
+            <li><span class="t">Tanpa lokasi</span><span class="num">1</span></li>
+          </ul></div>
+          <div data-state-show="empty"><p class="calm"><svg class="i"><use href="#i-check"/></svg>Data semua aset lengkap.</p></div>
+          <div data-state-show="loading" class="pad"><div class="sk" style="width:60%"></div></div>
+          <div class="ft"><button class="link">Perbaiki di Data Aset →</button></div>
+        </div>
+
+        <!-- Super Admin only -->
+        <div class="card hc warn" data-role-show="sa">
+          <div class="card-h"><h3><svg class="i"><use href="#i-key"/></svg>Lisensi &amp; kursi</h3><span class="badge amber">Berakhir 24 hari</span></div>
+          <div data-state-show="filled loading empty error">
+            <div class="big"><b class="num">18</b><span class="muted">dari 20 kursi terpakai</span></div>
+            <ul><li><span class="t">Berlaku sampai</span><span class="num">12 Des 2026</span></li><li><span class="t">Undangan menunggu</span><span class="num">2</span></li></ul>
+          </div>
+          <div class="ft"><button class="link">Kelola lisensi →</button></div>
+        </div>
+        <div class="card hc" data-role-show="sa spv">
+          <div class="card-h"><h3><svg class="i"><use href="#i-users"/></svg>Pengguna &amp; role</h3><span class="muted xs">30 hari</span></div>
+          <div data-state-show="filled loading empty error"><ul>
+            <li><span class="t">Pengguna baru</span><span class="num">3</span></li>
+            <li><span class="t">Pengguna nonaktif</span><span class="num">1</span></li>
+            <li data-role-show="sa"><span class="t">Undangan kedaluwarsa</span><span class="num">1</span></li>
+          </ul></div>
+          <div class="ft"><button class="link">Buka Pengguna →</button></div>
+        </div>
+        <div class="card hc">
+          <div class="card-h"><h3><svg class="i"><use href="#i-doc"/></svg>Laporan terakhir saya</h3></div>
+          <div data-state-show="filled"><ul>
+            <li><span class="t"><span class="mono">RPT-2026-000018</span> · Transaksi Keluar · PDF</span><button class="link">Unduh</button></li>
+            <li><span class="t"><span class="mono">RPT-2026-000017</span> · Aset per Lokasi · Excel</span><button class="link">Unduh</button></li>
+          </ul></div>
+          <div data-state-show="empty"><p class="calm">Belum ada laporan. <button class="link">Jalankan laporan</button></p></div>
+          <div data-state-show="loading" class="pad"><div class="sk" style="width:80%"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ DASHBOARD ASET ============ -->
+    <section class="content" data-screen="assets edit">
+      <div class="ph">
+        <div><h1>Dashboard Aset</h1><p>Template: <b data-role-show="sa">Ringkasan Eksekutif</b><b data-role-show="spv">Pengawasan Operasional</b><b data-role-show="adm">Operasional Harian</b> · salinan pribadi Anda</p></div>
+        <div class="row" data-screen-hide="edit">
+          <select class="select" aria-label="Lokasi"><option>Semua lokasi</option><option>Gudang Bandung</option></select>
+          <button class="btn secondary desk-only" data-open="edit"><svg class="i"><use href="#i-dash"/></svg>Atur tata letak</button>
+          <button class="btn primary desk-only" data-open="catalog"><svg class="i"><use href="#i-plus"/></svg>Tambah widget</button>
+        </div>
+      </div>
+      <div class="alert blue mob-only" style="margin-bottom:16px"><svg class="i"><use href="#i-dash"/></svg><div><b>Tampilan saja di ponsel</b><p class="xs">Atur tata letak dan tambah widget dilakukan di web pada layar lebar.</p></div></div>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true">Ringkasan</button>
+        <button class="tab" role="tab" data-open="category">Kendaraan</button>
+        <button class="tab" role="tab" data-open="category">Perangkat IT</button>
+        <button class="tab" role="tab" data-open="category">Mesin &amp; Peralatan</button>
+      </div>
+      <div class="editbar desk-only" data-screen-show="edit">
+        <span>Seret widget untuk memindah, tarik sudut kanan bawah untuk mengubah ukuran. Perubahan hanya untuk Anda.</span>
+        <span class="row"><button class="btn ghost sm"><svg class="i sm"><use href="#i-reset"/></svg>Kembalikan ke template</button><button class="btn secondary sm" data-open="assets">Batal</button><button class="btn primary sm" data-open="assets">Simpan tata letak</button></span>
+      </div>
+
+      <div class="wg" id="wg">
+        <!-- KPI -->
+        <div class="w w3"><div class="wh"><h4>Total aset</h4><span class="tools"><svg class="i sm drag"><use href="#i-grip"/></svg><button class="btn ghost sm" aria-label="Hapus widget"><svg class="i sm"><use href="#i-x"/></svg></button></span></div>
+          <div class="wb kpi" data-state-show="filled error empty"><b class="num">1.284</b><small><span class="up">+24</span> bulan ini</small></div>
+          <div class="wb" data-state-show="loading"><div class="sk" style="width:50%;height:24px"></div></div><span class="rs"></span></div>
+        <div class="w w3" data-role-show="sa"><div class="wh"><h4>Nilai perolehan</h4><span class="tools"><svg class="i sm drag"><use href="#i-grip"/></svg></span></div>
+          <div class="wb kpi" data-state-show="filled error empty"><b class="num">Rp 8,42 M</b><small>nilai perolehan, bukan nilai buku</small></div>
+          <div class="wb" data-state-show="loading"><div class="sk" style="width:60%;height:24px"></div></div><span class="rs"></span></div>
+        <div class="w w3" data-role-show="spv adm"><div class="wh"><h4>Keluar sementara</h4><span class="tools"><svg class="i sm drag"><use href="#i-grip"/></svg></span></div>
+          <div class="wb kpi" data-state-show="filled error empty"><b class="num">17</b><small><span class="dn">3 lewat batas</span></small></div>
+          <div class="wb" data-state-show="loading"><div class="sk" style="width:40%;height:24px"></div></div><span class="rs"></span></div>
+        <div class="w w3"><div class="wh"><h4 data-role-show="sa spv">Kelengkapan data</h4><h4 data-role-show="adm">Aset dipinjam</h4><span class="tools"><svg class="i sm drag"><use href="#i-grip"/></svg></span></div>
+          <div class="wb kpi" data-state-show="filled error empty"><b class="num" data-role-show="sa spv">96%</b><b class="num" data-role-show="adm">42</b><small data-role-show="sa spv">14 aset belum lengkap</small><small data-role-show="adm">5 jatuh tempo minggu ini</small></div>
+          <div class="wb" data-state-show="loading"><div class="sk" style="width:40%;height:24px"></div></div><span class="rs"></span></div>
+        <div class="w w3"><div class="wh"><h4 data-role-show="sa">Hilang / rusak</h4><h4 data-role-show="spv">Persetujuan menunggu</h4><h4 data-role-show="adm">Dalam perbaikan</h4><span class="tools"><svg class="i sm drag"><use href="#i-grip"/></svg></span></div>
+          <div class="wb kpi" data-state-show="filled empty"><b class="num" data-role-show="sa">9</b><b class="num" data-role-show="spv">4</b><b class="num" data-role-show="adm">6</b><small>klik untuk melihat daftar</small></div>
+          <div class="wb" data-state-show="error"><div class="alert red"><svg class="i"><use href="#i-alert"/></svg><div><b>Widget gagal dimuat</b><p class="xs"><button class="link">Coba lagi</button></p></div></div></div>
+          <div class="wb" data-state-show="loading"><div class="sk" style="width:40%;height:24px"></div></div><span class="rs"></span></div>
+
+        <!-- Distribution -->
+        <div class="w w6"><div class="wh"><h4 data-role-show="sa">Nilai per kategori</h4><h4 data-role-show="spv adm">Aset per status</h4><span class="tools"><svg class="i sm drag"><use href="#i-grip"/></svg><button class="btn ghost sm" aria-label="Atur widget"><svg class="i sm"><use href="#i-gear"/></svg></button></span></div>
+          <div class="wb" data-state-show="filled error">
+            <div class="bars" data-role-show="sa">
+              <div class="bar"><span>Kendaraan</span><i style="width:92%"></i><span class="num">Rp 3,1 M</span></div>
+              <div class="bar"><span>Perangkat IT</span><i style="width:61%"></i><span class="num">Rp 2,0 M</span></div>
+              <div class="bar"><span>Mesin</span><i style="width:48%"></i><span class="num">Rp 1,6 M</span></div>
+              <div class="bar"><span>Furnitur</span><i style="width:22%"></i><span class="num">Rp 0,7 M</span></div>
+              <div class="bar"><span>Lainnya</span><i style="width:30%"></i><span class="num">Rp 1,0 M</span></div>
+            </div>
+            <div class="donut" data-role-show="spv adm">
+              <div class="ring" style="background:conic-gradient(#16a34a 0 62%,#2563eb 62% 78%,#d97706 78% 90%,#64748b 90% 96%,#dc2626 96% 100%)"></div>
+              <div class="legend"><span><i style="background:#16a34a"></i>Tersedia 796</span><span><i style="background:#2563eb"></i>Dipakai 205</span><span><i style="background:#d97706"></i>Dipinjam / di luar 154</span><span><i style="background:#64748b"></i>Perbaikan 77</span><span><i style="background:#dc2626"></i>Hilang 52</span></div>
+            </div>
+          </div>
+          <div class="wb" data-state-show="empty"><p class="muted">Belum ada aset untuk filter ini.</p></div>
+          <div class="wb" data-state-show="loading"><div class="sk" style="height:90px"></div></div><span class="rs"></span></div>
+
+        <!-- Trend -->
+        <div class="w w6"><div class="wh"><h4 data-role-show="sa">Penambahan aset 12 bulan</h4><h4 data-role-show="spv">Transaksi per jenis 30 hari</h4><h4 data-role-show="adm">Keluar vs masuk 30 hari</h4><span class="tools"><svg class="i sm drag"><use href="#i-grip"/></svg></span></div>
+          <div class="wb" data-state-show="filled error">
+            <div class="cols" data-role-show="sa adm"><div style="height:40%"></div><div style="height:55%"></div><div style="height:35%"></div><div style="height:60%"></div><div style="height:48%"></div><div style="height:70%"></div><div style="height:52%"></div><div style="height:66%"></div><div style="height:44%"></div><div style="height:80%"></div><div style="height:58%"></div><div class="hl" style="height:72%"></div></div>
+            <div class="colx" data-role-show="sa adm"><span>Des</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>Mei</span><span>Jun</span><span>Jul</span><span>Agu</span><span>Sep</span><span>Okt</span><span>Nov</span></div>
+            <div class="bars" data-role-show="spv">
+              <div class="bar"><span>Pemindahan</span><i style="width:80%"></i><span class="num">64</span></div>
+              <div class="bar"><span>Keluar</span><i style="width:45%"></i><span class="num">36</span></div>
+              <div class="bar"><span>Masuk</span><i style="width:38%"></i><span class="num">30</span></div>
+              <div class="bar"><span>Mutasi Cabang</span><i style="width:20%;background:#7c3aed"></i><span class="num">16</span></div>
+              <div class="bar"><span>Kalibrasi</span><i style="width:8%;background:#7c3aed"></i><span class="num">6</span></div>
+            </div>
+          </div>
+          <div class="wb" data-state-show="empty"><p class="muted">Belum ada data pada periode ini.</p></div>
+          <div class="wb" data-state-show="loading"><div class="sk" style="height:110px"></div></div><span class="rs"></span></div>
+
+        <!-- Lists -->
+        <div class="w w8"><div class="wh"><h4 data-role-show="sa spv">Keluar sementara lewat batas</h4><h4 data-role-show="adm">Transaksi terbaru</h4><span class="tools"><svg class="i sm drag"><use href="#i-grip"/></svg></span></div>
+          <div class="wb" data-state-show="filled error"><div class="tablewrap"><table class="mini">
+            <thead><tr><th>Nomor</th><th>Aset</th><th class="hm">Pihak / lokasi</th><th>Keterangan</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">OUT-2026-000039</td><td>Proyektor Epson EB-X51</td><td class="hm">Dinas Pendidikan</td><td><span class="badge red">8 hari</span></td></tr>
+              <tr><td class="mono">OUT-2026-000041</td><td>Genset Yamaha EF2000</td><td class="hm">CV Sinar Servis</td><td><span class="badge red">3 hari</span></td></tr>
+              <tr><td class="mono">MUT-2026-000012</td><td>Laptop Dell 5440 (3)</td><td class="hm">Bandung → Cirebon</td><td><span class="badge amber">Menunggu persetujuan</span></td></tr>
+            </tbody></table></div></div>
+          <div class="wb" data-state-show="empty"><p class="muted">Tidak ada data.</p></div>
+          <div class="wb" data-state-show="loading"><div class="sk" style="height:70px"></div></div><span class="rs"></span></div>
+        <div class="w w4"><div class="wh"><h4>Aset per lokasi</h4><span class="tools"><svg class="i sm drag"><use href="#i-grip"/></svg></span></div>
+          <div class="wb bars" data-state-show="filled error">
+            <div class="bar"><span>Gudang Bandung</span><i style="width:90%"></i><span class="num">512</span></div>
+            <div class="bar"><span>Kantor Pusat</span><i style="width:60%"></i><span class="num">344</span></div>
+            <div class="bar"><span>Cirebon</span><i style="width:41%"></i><span class="num">236</span></div>
+            <div class="bar"><span>Proyek Tol</span><i style="width:30%"></i><span class="num">192</span></div>
+          </div>
+          <div class="wb" data-state-show="empty"><p class="muted">Tidak ada data.</p></div>
+          <div class="wb" data-state-show="loading"><div class="sk" style="height:80px"></div></div><span class="rs"></span></div>
+
+        <button class="addslot desk-only" data-screen-show="edit" data-open="catalog"><svg class="i"><use href="#i-plus"/></svg> Tambah widget</button>
+      </div>
+    </section>
+
+    <!-- ============ PER KATEGORI ============ -->
+    <section class="content" data-screen="category">
+      <div class="ph">
+        <div><h1>Dashboard Aset</h1><p>Template kategori <b>Kendaraan</b> · berlaku juga untuk subkategori Mobil dan Motor</p></div>
+        <div class="row desk-only"><button class="btn secondary"><svg class="i"><use href="#i-dash"/></svg>Atur tata letak</button><button class="btn primary" data-open="catalog"><svg class="i"><use href="#i-plus"/></svg>Tambah widget</button></div>
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-open="assets">Ringkasan</button>
+        <button class="tab" role="tab" aria-selected="true">Kendaraan</button>
+        <button class="tab" role="tab">Perangkat IT</button>
+        <button class="tab" role="tab">Mesin &amp; Peralatan</button>
+      </div>
+      <div class="wg">
+        <div class="w w3"><div class="wh"><h4>Kendaraan</h4></div><div class="wb kpi"><b class="num">48</b><small>32 mobil · 16 motor</small></div></div>
+        <div class="w w3"><div class="wh"><h4>Sedang dipinjam</h4></div><div class="wb kpi"><b class="num">11</b><small>2 jatuh tempo minggu ini</small></div></div>
+        <div class="w w3"><div class="wh"><h4>Pajak/STNK 30 hari</h4></div><div class="wb kpi"><b class="num" style="color:var(--a800)">4</b><small>1 dalam 7 hari</small></div></div>
+        <div class="w w3"><div class="wh"><h4>Nilai perolehan</h4></div><div class="wb kpi"><b class="num">Rp 3,1 M</b><small>rata-rata Rp 64,6 jt</small></div></div>
+        <div class="w w6"><div class="wh"><h4>Per merek <span class="badge slate">atribut: Merek</span></h4></div><div class="wb bars">
+          <div class="bar"><span>Toyota</span><i style="width:85%"></i><span class="num">20</span></div>
+          <div class="bar"><span>Honda</span><i style="width:66%"></i><span class="num">16</span></div>
+          <div class="bar"><span>Mitsubishi</span><i style="width:30%"></i><span class="num">7</span></div>
+          <div class="bar"><span>Suzuki</span><i style="width:21%"></i><span class="num">5</span></div></div></div>
+        <div class="w w6"><div class="wh"><h4>Jenis BBM <span class="badge slate">atribut: BBM</span></h4></div><div class="wb donut">
+          <div class="ring" style="background:conic-gradient(#2563eb 0 58%,#16a34a 58% 88%,#d97706 88% 100%)"></div>
+          <div class="legend"><span><i style="background:#2563eb"></i>Bensin 28</span><span><i style="background:#16a34a"></i>Solar 14</span><span><i style="background:#d97706"></i>Listrik 6</span></div></div></div>
+        <div class="w w12"><div class="wh"><h4>Pengingat: Pajak STNK, Servis berkala</h4></div><div class="wb"><div class="tablewrap"><table class="mini">
+          <thead><tr><th>Kendaraan</th><th>Pengingat</th><th>Tanggal</th><th class="hm">Lokasi</th></tr></thead>
+          <tbody>
+            <tr><td>Toyota Avanza D 1234 AB</td><td>Pajak STNK</td><td><span class="badge amber">24 Nov · 6 hari</span></td><td class="hm">Kantor Pusat</td></tr>
+            <tr><td>Honda Beat D 5678 CD</td><td>Servis berkala</td><td class="num">2 Des</td><td class="hm">Gudang Bandung</td></tr>
+            <tr><td>Mitsubishi L300 D 9012 EF</td><td>Pajak STNK</td><td class="num">10 Des</td><td class="hm">Proyek Tol</td></tr>
+          </tbody></table></div></div></div>
+      </div>
+    </section>
+
+    <!-- ============ TEMPLATE PER ROLE ============ -->
+    <section class="content" data-screen="templates">
+      <div class="ph"><div><h1>Template Dashboard</h1><p>Template yang dipakai saat pengguna pertama kali membuka Dashboard Aset. Perubahan pribadi pengguna tidak mengubah template.</p></div>
+        <button class="btn primary desk-only"><svg class="i"><use href="#i-plus"/></svg>Template baru</button></div>
+      <div class="alert blue mob-only" style="margin-bottom:16px"><svg class="i"><use href="#i-gear"/></svg><div><b>Pengaturan template hanya di web</b><p class="xs">Di ponsel, daftar ini hanya untuk dilihat. Buka di web pada layar lebar untuk mengubah template dan pemetaan role.</p></div></div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-h"><h3>Template per role</h3><span class="muted xs">Hanya <code>dashboard.manage</code></span></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Role</th><th>Template Dashboard Aset</th><th class="hm">Kartu Beranda</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b>Super Admin</b> <span class="badge slate">bawaan</span></td><td><select class="select"><option>Ringkasan Eksekutif</option><option>Pengawasan Operasional</option><option>Operasional Harian</option></select></td><td class="hm muted">Mengikuti izin role (D-18)</td><td><button class="btn secondary sm">Ubah template</button></td></tr>
+            <tr><td><b>Supervisor</b> <span class="badge slate">bawaan</span></td><td><select class="select"><option>Pengawasan Operasional</option></select></td><td class="hm muted">Mengikuti izin role</td><td><button class="btn secondary sm">Ubah template</button></td></tr>
+            <tr><td><b>Admin</b> <span class="badge slate">bawaan</span></td><td><select class="select"><option>Operasional Harian</option></select></td><td class="hm muted">Mengikuti izin role</td><td><button class="btn secondary sm">Ubah template</button></td></tr>
+            <tr><td><b>Teknisi Lapangan</b> <span class="badge blue">kustom</span></td><td><select class="select"><option>Operasional Harian</option><option>Teknisi (template organisasi)</option></select></td><td class="hm muted">Mengikuti izin role</td><td><button class="btn secondary sm">Ubah template</button></td></tr>
+          </tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Template per kategori</h3><span class="muted xs">Subkategori tanpa template memakai template induknya (D-22)</span></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Kategori</th><th>Template</th><th class="hm">Widget</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b>Kendaraan</b><div class="xs muted">Mobil, Motor ikut</div></td><td>Kendaraan (contoh)</td><td class="hm num">8</td><td><button class="btn secondary sm">Ubah</button></td></tr>
+            <tr><td><b>Perangkat IT</b></td><td>Perangkat IT (contoh)</td><td class="hm num">7</td><td><button class="btn secondary sm">Ubah</button></td></tr>
+            <tr><td><b>Furnitur</b></td><td class="muted">Belum ada</td><td class="hm">—</td><td><button class="btn secondary sm">Pilih template contoh</button></td></tr>
+          </tbody></table></div>
+      </div>
+    </section>
+
+    <!-- ============ KATALOG WIDGET (modal) ============ -->
+    <div class="overlay desk-only" data-screen="catalog">
+      <div class="modal" role="dialog" aria-label="Tambah widget">
+        <div class="modal-h"><div><h2>Tambah widget</h2><p class="muted xs" style="margin:2px 0 0">Ditambahkan ke Dashboard Aset Anda · widget yang butuh izin yang tidak Anda miliki tidak ditampilkan</p></div><button class="btn ghost sm" aria-label="Tutup" data-open="assets"><svg class="i"><use href="#i-x"/></svg></button></div>
+        <div class="modal-b">
+          <div class="row"><div class="search"><svg class="i"><use href="#i-search"/></svg><input class="input" placeholder="Cari widget, mis. jatuh tempo, merek, nilai"></div></div>
+          <div class="cat">
+            <div class="catnav">
+              <button aria-pressed="true">Semua <span class="muted">34</span></button>
+              <button>Angka (KPI) <span class="muted">12</span></button>
+              <button>Distribusi <span class="muted">10</span></button>
+              <button>Tren <span class="muted">4</span></button>
+              <button>Daftar <span class="muted">12</span></button>
+              <button>Atribut kategori <span class="muted">3</span></button>
+              <button>Lain-lain <span class="muted">2</span></button>
+            </div>
+            <div>
+              <div class="wlist">
+                <button class="wi"><span class="ic"><svg class="i"><use href="#i-hash"/></svg></span><span><b>Nilai perolehan total</b><small>Jumlah harga perolehan, mata uang organisasi</small></span></button>
+                <button class="wi"><span class="ic"><svg class="i"><use href="#i-hash"/></svg></span><span><b>Kelengkapan data</b><small>% aset dengan lokasi, no. seri, atribut wajib</small></span></button>
+                <button class="wi" aria-pressed="true"><span class="ic"><svg class="i"><use href="#i-pie"/></svg></span><span><b>Distribusi nilai atribut</b><small>Mis. per merek, jenis BBM, sistem operasi</small></span></button>
+                <button class="wi"><span class="ic"><svg class="i"><use href="#i-chart"/></svg></span><span><b>Transaksi per bulan per jenis</b><small>Termasuk jenis transaksi buatan organisasi</small></span></button>
+                <button class="wi"><span class="ic"><svg class="i"><use href="#i-list"/></svg></span><span><b>Aset tanpa aktivitas</b><small>Tidak ada transaksi lebih dari N hari</small></span></button>
+                <button class="wi"><span class="ic"><svg class="i"><use href="#i-list"/></svg></span><span><b>Aset paling sering berpindah</b><small>10 aset dengan pemindahan terbanyak</small></span></button>
+                <button class="wi"><span class="ic"><svg class="i"><use href="#i-pie"/></svg></span><span><b>Umur aset</b><small>Kelompok umur sejak perolehan</small></span></button>
+                <button class="wi"><span class="ic"><svg class="i"><use href="#i-flow"/></svg></span><span><b>Langkah transaksi menunggu</b><small>Transaksi berjalan per langkah (F-07)</small></span></button>
+                <button class="wi" disabled style="opacity:.6"><span class="ic lock"><svg class="i"><use href="#i-key"/></svg></span><span><b>Persetujuan menunggu</b><small>Perlu izin <code>approval.manage</code></small></span></button>
+                <button class="wi"><span class="ic"><svg class="i"><use href="#i-doc"/></svg></span><span><b>Catatan</b><small>Teks bebas untuk tim</small></span></button>
+              </div>
+              <div class="cfg" style="margin-top:16px">
+                <div class="field"><label>Judul</label><input class="input" value="Per merek"></div>
+                <div class="field"><label>Atribut <span class="req">*</span></label><select class="select"><option>Merek (Kendaraan)</option><option>Jenis BBM (Kendaraan)</option><option>Sistem operasi (Perangkat IT)</option></select><span class="hint">Hanya atribut pilihan/teks</span></div>
+                <div class="field"><label>Tampilan</label><div class="seg"><button aria-pressed="true">Bar</button><button>Donut</button><button>Daftar</button></div></div>
+                <div class="field"><label>Lokasi</label><select class="select"><option>Semua dalam cakupan saya</option></select></div>
+                <div class="field"><label>Jumlah teratas</label><input class="input" type="number" value="8"></div>
+                <div class="field"><label>Lebar</label><div class="seg"><button>1/4</button><button>1/3</button><button aria-pressed="true">1/2</button><button>Penuh</button></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-f"><span class="muted xs" style="align-self:center">Widget baru diletakkan di bagian bawah dashboard.</span><span class="row"><button class="btn secondary" data-open="assets">Batal</button><button class="btn primary" data-open="assets">Tambahkan</button></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+(function(){
+  var view='home', role='sa', state='filled', frame=document.getElementById('frame');
+  function press(sel,attr,val){document.querySelectorAll(sel).forEach(function(b){b.setAttribute('aria-pressed',String(b.getAttribute(attr)===val))})}
+  function render(){
+    var under=view==='catalog'?'assets':view;
+    document.querySelectorAll('[data-screen]').forEach(function(el){
+      var s=el.getAttribute('data-screen').split(' ');
+      el.classList.toggle('hidden',!(s.indexOf(view)>=0||s.indexOf(under)>=0));
+    });
+    document.querySelectorAll('[data-screen-show]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-screen-show')!==view)});
+    document.querySelectorAll('[data-screen-hide]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-screen-hide')===view)});
+    document.querySelectorAll('[data-role-show]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-role-show').split(' ').indexOf(role)<0)});
+    document.querySelectorAll('[data-state-show]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-state-show').split(' ').indexOf(state)<0)});
+    document.getElementById('wg').parentElement.classList.toggle('edit',view==='edit');
+    document.querySelectorAll('[data-nav]').forEach(function(a){var n=a.getAttribute('data-nav');a.classList.toggle('on',n===view||(n==='assets'&&['assets','edit','catalog','category'].indexOf(view)>=0))});
+    press('[data-view]','data-view',view); press('[data-role]','data-role',role); press('[data-state]','data-state',state);
+  }
+  document.querySelectorAll('[data-view]').forEach(function(b){b.onclick=function(){view=b.dataset.view;render()}});
+  document.querySelectorAll('[data-role]').forEach(function(b){b.onclick=function(){role=b.dataset.role;if(role==='adm'&&view==='templates')view='home';render()}});
+  document.querySelectorAll('[data-state]').forEach(function(b){b.onclick=function(){state=b.dataset.state;render()}});
+  document.querySelectorAll('[data-open]').forEach(function(b){b.onclick=function(e){e.preventDefault();view=b.dataset.open;render()}});
+  document.querySelectorAll('[data-nav]').forEach(function(a){a.onclick=function(e){e.preventDefault();view=a.dataset.nav;render()}});
+  document.querySelectorAll('[data-w]').forEach(function(b){b.onclick=function(){frame.classList.toggle('narrow',b.dataset.w==='narrow');press('[data-w]','data-w',b.dataset.w)}});
+  document.querySelectorAll('.wi:not([disabled])').forEach(function(b){b.onclick=function(){document.querySelectorAll('.wi').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))})}});
+  render();
+})();
+</script>
+</body>
+</html>

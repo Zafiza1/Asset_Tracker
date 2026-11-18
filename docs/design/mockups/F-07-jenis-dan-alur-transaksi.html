@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup F-07 · Jenis dan Alur Transaksi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  Mockup persetujuan UI (APR-0008) untuk docs/factory/features/F-07-jenis-dan-alur-transaksi-kustom.md.
+  CSS dasar sama dengan mockup F-05 (token docs/design/figma-tokens.json, komponen docs/09).
+-->
+<style>
+:root{
+  --brand-50:#eff6ff;--brand-100:#dbeafe;--brand-600:#2563eb;--brand-700:#1d4ed8;--brand-800:#1e40af;
+  --s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;--s300:#cbd5e1;--s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;--s900:#0f172a;
+  --g50:#f0fdf4;--g600:#16a34a;--g700:#15803d;--a50:#fffbeb;--a600:#d97706;--a800:#92400e;--r50:#fef2f2;--r600:#dc2626;--r700:#b91c1c;
+  --shadow-card:0 1px 2px #0f172a0a,0 1px 3px #0f172a0f;--shadow-raised:0 4px 12px -2px #0f172a14,0 2px 4px -2px #0f172a0f;--shadow-overlay:0 20px 40px -12px #0f172a40;
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 "Source Sans 3",system-ui,sans-serif;color:var(--s700);background:#e9edf2}
+h1,h2,h3{font-family:Lexend,"Source Sans 3",sans-serif;color:var(--s900);margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brand-600);outline-offset:2px}
+.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--s500)} .xs{font-size:12px}
+svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+svg.i.sm{width:14px;height:14px}
+
+/* Kontrol mockup (bukan bagian aplikasi) */
+.mk{position:sticky;top:0;z-index:50;background:var(--s900);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.mk b{font-family:Lexend;font-weight:500;margin-right:4px}
+.mk .grp{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.mk .grp span{font-size:12px;color:var(--s400);margin-right:4px}
+.mk button{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}
+.mk button[aria-pressed=true]{background:var(--brand-700);border-color:var(--brand-600);color:#fff}
+.note{max-width:1180px;margin:12px auto 0;padding:0 16px;font-size:13px;color:var(--s600)}
+.note code{background:#fff;border:1px solid var(--s200);border-radius:4px;padding:0 4px}
+
+/* Bingkai aplikasi */
+.stage{padding:16px;display:flex;justify-content:center}
+.frame{width:100%;max-width:1180px;background:var(--s50);border:1px solid var(--s300);border-radius:12px;overflow:hidden;container-type:inline-size;transition:max-width .2s}
+.frame.narrow{max-width:375px}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:760px}
+.side{background:#fff;border-right:1px solid var(--s200);padding:16px 12px}
+.logo{display:flex;gap:8px;align-items:center;font-family:Lexend;font-weight:600;color:var(--s900);padding:4px 8px 16px}
+.logo i{width:28px;height:28px;border-radius:8px;background:var(--brand-700);display:inline-block}
+.nav a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:var(--s600);text-decoration:none;margin-bottom:2px}
+.nav a.on{background:var(--brand-50);color:var(--brand-700);font-weight:600;box-shadow:inset 3px 0 0 var(--brand-700)}
+.main{min-width:0}
+.top{height:56px;background:#fff;border-bottom:1px solid var(--s200);display:flex;align-items:center;gap:12px;padding:0 20px}
+.burger{display:none}
+.gsearch{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;border:1px solid var(--s300);border-radius:8px;padding:0 10px;height:36px;color:var(--s400)}
+.gsearch kbd{margin-left:auto;font-size:11px;border:1px solid var(--s200);border-radius:4px;padding:0 4px}
+.avatar{margin-left:auto;width:32px;height:32px;border-radius:50%;background:var(--brand-100);color:var(--brand-700);display:grid;place-items:center;font-weight:600}
+.content{padding:24px}
+
+/* Komponen */
+.ph{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.ph h1{font-size:24px;font-weight:600}
+.ph p{margin:4px 0 0;color:var(--s500)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;border-radius:8px;border:1px solid transparent;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn.sm{min-height:32px;padding:0 10px;font-size:13px}
+.btn.primary{background:var(--brand-700);color:#fff}.btn.primary:hover{background:var(--brand-800)}
+.btn.secondary{background:#fff;border-color:var(--s300);color:var(--s700)}.btn.secondary:hover{background:var(--s50)}
+.btn.ghost{background:transparent;color:var(--s600)}.btn.ghost:hover{background:var(--s100)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.card{background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-card)}
+.card-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--s200)}
+.card-h h3{font-size:16px;font-weight:600;font-family:"Source Sans 3"}
+.pad{padding:16px}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:9999px;padding:1px 8px 1px 6px;font-size:12px;font-weight:600;white-space:nowrap;box-shadow:inset 0 0 0 1px currentColor}
+.badge.green{background:var(--g50);color:var(--g700)}.badge.amber{background:var(--a50);color:var(--a800)}.badge.red{background:var(--r50);color:var(--r700)}.badge.slate{background:var(--s100);color:var(--s700)}.badge.blue{background:var(--brand-50);color:var(--brand-700)}
+.badge.green,.badge.amber,.badge.red,.badge.slate,.badge.blue{box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 25%,transparent)}
+.pills{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}
+.pill{border:1px solid var(--s200);background:#fff;border-radius:9999px;padding:4px 12px;font-size:13px;cursor:pointer;color:var(--s600)}
+.pill[aria-selected=true]{background:var(--brand-50);border-color:var(--brand-600);color:var(--brand-700);font-weight:600}
+.pill .n{margin-left:4px;color:var(--s400);font-weight:500}
+.filters{padding:12px 16px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--s200)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.input,.select{height:40px;border:1px solid var(--s300);border-radius:8px;background:#fff;padding:0 10px;min-width:0}
+.input.err,.select.err{border-color:var(--r600);box-shadow:0 0 0 1px var(--r600)}
+textarea.input{height:auto;padding:8px 10px;min-height:64px;resize:vertical}
+.search{flex:1;min-width:200px;position:relative}
+.search .input{width:100%;padding-left:34px}
+.search svg{position:absolute;left:10px;top:12px;color:var(--s400)}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--s100);border-radius:9999px;padding:2px 6px 2px 10px;font-size:12px}
+.chip button{border:0;background:none;padding:2px;cursor:pointer;color:var(--s500);display:grid}
+.link{color:var(--brand-700);background:none;border:0;padding:0;cursor:pointer;font-weight:600;font-size:13px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;font-weight:600;color:var(--s600);background:var(--s50);padding:10px 12px;border-bottom:1px solid var(--s200);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--s100);vertical-align:top}
+tr.dis td{color:var(--s400)}
+tbody tr:hover td{background:#fbfdff}
+.pager{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:13px;color:var(--s500);flex-wrap:wrap;gap:8px}
+.sub{display:none}
+.alert{display:flex;gap:10px;border-radius:8px;padding:10px 12px;border:1px solid}
+.alert.red{background:var(--r50);border-color:#fecaca;color:var(--r700)}
+.alert.amber{background:var(--a50);border-color:#fde68a;color:var(--a800)}
+.alert.blue{background:var(--brand-50);border-color:var(--brand-100);color:var(--brand-800)}
+.alert p{margin:2px 0 0}
+.empty{text-align:center;padding:48px 16px}
+.empty .ic{width:48px;height:48px;border-radius:12px;background:var(--s100);display:grid;place-items:center;margin:0 auto 12px;color:var(--s500)}
+.empty h3{font-size:16px;font-family:"Source Sans 3";font-weight:600}
+.empty p{margin:4px auto 16px;max-width:360px;color:var(--s500)}
+.sk{background:linear-gradient(90deg,var(--s100),var(--s200),var(--s100));background-size:200% 100%;animation:sk 1.2s infinite;border-radius:6px;height:12px}
+@keyframes sk{to{background-position:-200% 0}}
+.err-state{text-align:center;padding:40px 16px}
+.err-state .ic{color:var(--r600);margin:0 auto 8px;width:40px;height:40px;display:grid;place-items:center;background:var(--r50);border-radius:12px}
+.toast{position:fixed;right:20px;bottom:20px;background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-overlay);padding:12px 14px;display:flex;gap:10px;max-width:360px;z-index:60}
+.toast .ok{color:var(--g600)}
+
+/* Modal */
+.overlay{position:absolute;inset:0;background:#0f172a66;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow:auto}
+.modal{background:#fff;border-radius:12px;box-shadow:var(--shadow-overlay);width:100%;max-width:880px}
+.modal-h{display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px;border-bottom:1px solid var(--s200)}
+.modal-h h2{font-size:18px;font-weight:600}
+.modal-b{padding:20px;display:flex;flex-direction:column;gap:20px}
+.modal-f{display:flex;justify-content:space-between;gap:8px;padding:14px 20px;border-top:1px solid var(--s200);background:var(--s50);border-radius:0 0 12px 12px;flex-wrap:wrap}
+.step{display:flex;gap:8px;align-items:center;font-weight:600;color:var(--s900);margin-bottom:10px}
+.step i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--brand-50);color:var(--brand-700);display:grid;place-items:center;font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-weight:600;color:var(--s700);font-size:13px}
+.field label .req{color:var(--r600)}
+.field .hint{font-size:12px;color:var(--s500)}
+.field .msg{font-size:12px;color:var(--r700);display:flex;gap:4px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--s300);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:8px 14px;cursor:pointer;min-height:40px}
+.seg button+button{border-left:1px solid var(--s300)}
+.seg button[aria-pressed=true]{background:var(--brand-50);color:var(--brand-700);font-weight:600}
+.typecards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tc{border:1px solid var(--s200);border-radius:8px;padding:10px;background:#fff;text-align:left;cursor:pointer;display:flex;gap:8px;align-items:flex-start}
+.tc small{display:block;color:var(--s500);font-size:12px;font-weight:400}
+.tc[aria-pressed=true]{border-color:var(--brand-600);background:var(--brand-50);box-shadow:0 0 0 1px var(--brand-600)}
+.picked{display:flex;flex-wrap:wrap;gap:6px}
+.picked .chip{background:var(--brand-50);color:var(--brand-800)}
+.box{border:1px solid var(--s200);border-radius:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.kv dt{color:var(--s500)} .kv dd{margin:0;color:var(--s900)}
+.detail{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.timeline{list-style:none;margin:0;padding:0}
+.timeline li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--s100)}
+.dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none}
+.hidden{display:none!important}
+
+/* 375px: container query mengikuti lebar bingkai */
+@container (max-width: 640px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .burger{display:grid}
+  .gsearch kbd,.gsearch .t{display:none}
+  .gsearch{max-width:40px;padding:0;justify-content:center}
+  .content{padding:16px}
+  .hm{display:none}
+  .sub{display:block;margin-top:4px}
+  .grid2,.detail{grid-template-columns:1fr}
+  .typecards{grid-template-columns:1fr 1fr}
+  .overlay{padding:0;align-items:stretch}
+  .modal{border-radius:0;max-width:none}
+  .modal-f{border-radius:0;position:sticky;bottom:0}
+  .modal-f .btn{flex:1}
+  .ph .btn{width:100%}
+  .search{min-width:0}
+  .lbl-long{display:none}
+}
+/* F-07 */
+/* D-34: di mobile tidak ada editor; hanya hasil jadi */
+.mob-only{display:none}
+@container (max-width: 640px){
+  .desk-only{display:none!important}
+  .mob-only{display:flex}
+  /* Read-only diagram: the whole flow scaled to the phone width. */
+  .flow-shell{min-height:0}
+  .flowcanvas{height:auto;overflow:hidden}
+  .flowcanvas .inner{zoom:.45}
+  .flowcanvas .zoom{display:none}
+  .node.sel{outline:none}
+}
+.app.focus{grid-template-columns:1fr}.app.focus .side{display:none}
+.nav .sec{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--s400);padding:12px 10px 4px}
+.purple{--p50:#f5f3ff;--p600:#7c3aed;--p700:#6d28d9}
+.badge.purple{background:#f5f3ff;color:#6d28d9;box-shadow:inset 0 0 0 1px #6d28d940}
+.fieldrows{display:flex;flex-direction:column}
+.fr{display:grid;grid-template-columns:24px 1.4fr 1fr 1fr 110px 40px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--s100)}
+.fr.head{font-size:12px;font-weight:600;color:var(--s600);background:var(--s50)}
+.fr .drag{color:var(--s400);cursor:grab}
+.fr b{color:var(--s900)}
+.fr .k{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--s500)}
+.typeic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--brand-50);color:var(--brand-700);flex:none}
+.flow-shell{display:grid;grid-template-columns:150px 1fr 290px;min-height:600px;border-top:1px solid var(--s200)}
+.palette{background:#fff;border-right:1px solid var(--s200);padding:12px;display:flex;flex-direction:column;gap:8px}
+.palette h3,.props h3{font-size:13px;font-weight:700;font-family:"Source Sans 3";color:var(--s700)}
+.pi{display:flex;gap:8px;align-items:center;border:1px solid var(--s200);border-radius:8px;padding:8px;background:#fff;cursor:grab;font-size:13px;font-weight:600;color:var(--s700)}
+.pi i{width:18px;height:14px;flex:none;display:inline-block}
+.flowcanvas{position:relative;background:var(--s100);background-image:radial-gradient(var(--s300) 1px,transparent 1px);background-size:16px 16px;overflow:auto}
+.flowcanvas .inner{position:relative;width:720px;height:600px}
+.flowcanvas svg.edges{position:absolute;inset:0;width:700px;height:600px;overflow:visible}
+.edges path{fill:none;stroke:var(--s400);stroke-width:2}
+.edges path.on{stroke:var(--brand-600);stroke-width:3}
+.edges path.bad{stroke:var(--r600);stroke-dasharray:6 4}
+.edges text{font:600 11px "Source Sans 3",sans-serif;fill:var(--s600)}
+.edges rect.lbl{fill:#fff;stroke:var(--s200)}
+.node{position:absolute;background:#fff;border:2px solid var(--s300);border-radius:10px;padding:8px 10px;width:170px;font-size:12px;box-shadow:var(--shadow-card);cursor:pointer}
+.node b{display:block;font-size:13px;color:var(--s900)}
+.node small{color:var(--s500)}
+.node .kind{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.node.start,.node.end{border-radius:9999px;text-align:center;width:150px}
+.node.start{border-color:var(--g600)} .node.start .kind{color:var(--g700)}
+.node.end{border-color:var(--s500)} .node.end .kind{color:var(--s600)}
+.node.end.rej{border-color:var(--r600)} .node.end.rej .kind{color:var(--r700)}
+.node.nd-input .kind{color:var(--s600)}
+.node.approve{border-color:var(--brand-600)} .node.approve .kind{color:var(--brand-700)}
+.node.action{border-color:#7c3aed} .node.action .kind{color:#6d28d9}
+.node.wait{border-color:var(--a600)} .node.wait .kind{color:var(--a800)}
+.node.cond{width:150px;height:96px;border:0;background:none;box-shadow:none;display:grid;place-items:center;text-align:center;padding:0}
+.node.cond::before{content:"";position:absolute;inset:6px 14px;background:#fff;border:2px solid var(--a600);transform:rotate(45deg) scale(.72);border-radius:8px;box-shadow:var(--shadow-card)}
+.node.cond > *{position:relative}
+.node.cond .kind{color:var(--a800)}
+.node.sel{outline:3px solid var(--brand-600);outline-offset:2px}
+.node.path{box-shadow:0 0 0 4px var(--brand-100),var(--shadow-card)}
+.node.done{background:var(--g50)} .node.now{box-shadow:0 0 0 4px #fde68a,var(--shadow-card)}
+.node.err{border-color:var(--r600);background:var(--r50)}
+.node .port{position:absolute;width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid var(--s400)}
+.node .port.r{right:-6px;top:calc(50% - 5px)} .node .port.l{left:-6px;top:calc(50% - 5px)}
+.ftool{display:flex;gap:6px;align-items:center;justify-content:space-between;padding:8px 12px;background:#fff;border-bottom:1px solid var(--s200);flex-wrap:wrap}
+.zoom{position:absolute;left:12px;bottom:12px;display:flex;gap:4px;background:#fff;border:1px solid var(--s200);border-radius:8px;padding:2px;z-index:2}
+.props{background:#fff;border-left:1px solid var(--s200);padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.rule{border:1px solid var(--s200);border-radius:8px;padding:8px;display:grid;grid-template-columns:1fr;gap:6px;background:var(--s50)}
+.rule .row .select,.rule .row .input{height:34px;font-size:13px}
+.issues{display:flex;flex-direction:column;gap:6px}
+.issues li{list-style:none}
+.testbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:10px 12px;background:var(--brand-50);border-bottom:1px solid var(--brand-100)}
+.testbar .field{min-width:150px}
+.progress{display:flex;gap:0;align-items:center;overflow-x:auto;padding:16px}
+.ps{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:96px;text-align:center;font-size:12px;position:relative}
+.ps .dotx{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--s300);background:#fff;color:var(--s400);font-weight:700}
+.ps.done .dotx{background:var(--g600);border-color:var(--g600);color:#fff}
+.ps.now .dotx{background:var(--a50);border-color:var(--a600);color:var(--a800)}
+.ps.skip{opacity:.45}
+.ps::after{content:"";position:absolute;top:15px;left:calc(50% + 18px);width:calc(100% - 36px);height:2px;background:var(--s300)}
+.ps:last-child::after{display:none}
+.ps.done::after{background:var(--g600)}
+@container (max-width: 640px){
+  .flow-shell{grid-template-columns:1fr}
+  .palette{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--s200)}
+  .palette h3{display:none}
+  .pi{flex:none}
+  .flow-shell{min-height:0}
+  .flowcanvas{height:auto}
+  .props{border-left:0;border-top:1px solid var(--s200)}
+  .fr{grid-template-columns:20px 1fr 90px 36px}
+  .fr .hm2{display:none}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 3l9 8M5 10v10h14V10"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></symbol>
+  <symbol id="i-flow" viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h4a2 2 0 0 1 2 2v7"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 21h20zM12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h4"/></symbol>
+  <symbol id="i-max" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-truck" viewBox="0 0 24 24"><path d="M1 4h14v12H1zM15 9h4l4 4v3h-8"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l4-4M3 14a9 9 0 0 1 18 0"/></symbol>
+</svg>
+
+<div class="mk" role="toolbar" aria-label="Kontrol mockup">
+  <b>Mockup F-07</b>
+  <div class="grp"><span>Layar</span>
+    <button data-view="types" aria-pressed="true">Jenis Transaksi</button>
+    <button data-view="fields">Pengaturan jenis &amp; field</button>
+    <button data-view="flow">Editor alur</button>
+    <button data-view="test">Uji alur</button>
+    <button data-view="form">Formulir transaksi</button>
+    <button data-view="detail">Transaksi berjalan</button>
+  </div>
+  <div class="grp"><span>Keadaan</span>
+    <button data-state="filled" aria-pressed="true">Isi</button>
+    <button data-state="invalid">Error validasi</button>
+    <button data-state="empty">Kosong</button>
+  </div>
+  <div class="grp"><span>Lebar</span>
+    <button data-w="wide" aria-pressed="true">Desktop</button>
+    <button data-w="narrow">375px</button>
+  </div>
+</div>
+<p class="note">Editor hanya ada di web pada layar lebar (D-34): pada 375px, jenis, field, dan alur tampil sebagai hasil jadi (hanya dilihat), sedangkan mencatat dan mengerjakan transaksi tetap bisa. Editor alur memakai layar penuh: menu samping diciutkan selama menggambar. Contoh jenis buatan organisasi: <b>Mutasi Cabang</b>. Alurnya: nilai aset di atas Rp10 jt harus disetujui Supervisor, lalu aset berstatus <i>Dalam pengiriman</i>, penerima mengisi No. BAST, dan aset pindah ke lokasi tujuan. Keadaan "Error validasi" berlaku di <b>Editor alur</b> (alur belum boleh diterbitkan) dan <b>Formulir transaksi</b> (prasyarat ditolak). Hanya Super Admin/Supervisor yang mengubah jenis dan alur (D-27).</p>
+
+<div class="stage">
+<div class="frame" id="frame">
+<div class="app" id="app" style="position:relative">
+  <aside class="side">
+    <div class="logo"><i></i>Asset Tracker</div>
+    <nav class="nav">
+      <a href="#"><svg class="i"><use href="#i-home"/></svg>Beranda</a>
+      <a href="#"><svg class="i"><use href="#i-dash"/></svg>Dashboard Aset</a>
+      <div class="sec">Operasional</div>
+      <a href="#"><svg class="i"><use href="#i-box"/></svg>Data Aset</a>
+      <a href="#" data-nav="form"><svg class="i"><use href="#i-swap"/></svg>Transaksi Aset</a>
+      <div class="sec">Pengaturan</div>
+      <a href="#" data-nav="types"><svg class="i"><use href="#i-flow"/></svg>Jenis Transaksi</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <button class="btn ghost sm burger" aria-label="Buka menu"><svg class="i"><use href="#i-menu"/></svg></button>
+      <div class="gsearch"><svg class="i"><use href="#i-search"/></svg><span class="t">Cari aset atau menu</span><kbd>Ctrl K</kbd></div>
+      <div class="avatar" aria-label="Akun">DW</div>
+    </header>
+
+    <!-- ============ JENIS TRANSAKSI ============ -->
+    <section class="content" data-screen="types">
+      <div class="ph">
+        <div><h1>Jenis Transaksi</h1><p>Jenis transaksi organisasi beserta field dan alurnya. Alur yang diterbitkan otomatis berlaku untuk setiap transaksi jenis itu.</p></div>
+        <button class="btn primary desk-only" data-open="fields"><svg class="i"><use href="#i-plus"/></svg>Jenis baru</button>
+      </div>
+      <div class="alert blue mob-only" style="margin-bottom:16px"><svg class="i"><use href="#i-flow"/></svg><div><b>Tampilan saja di ponsel</b><p class="xs">Membuat dan mengubah jenis, field, dan alur dilakukan di web pada layar lebar. Di ponsel Anda dapat melihat alurnya dan mencatat transaksi.</p></div></div>
+      <div class="card">
+        <div class="filters"><div class="row"><div class="search"><svg class="i"><use href="#i-search"/></svg><input class="input" placeholder="Cari nama atau kode jenis"></div><select class="select"><option>Semua jenis</option><option>Buatan organisasi</option><option>Sistem</option></select></div></div>
+        <div data-state-show="filled invalid"><div class="tablewrap"><table>
+          <thead><tr><th>Jenis</th><th class="hm">Kategori aset</th><th>Alur</th><th class="hm">Dipakai</th><th style="width:150px"></th></tr></thead>
+          <tbody>
+            <tr><td><div class="row"><span class="typeic"><svg class="i"><use href="#i-truck"/></svg></span><div><b style="color:var(--s900)">Mutasi Cabang</b><div class="mono muted">MUT · 7 field</div></div></div></td><td class="hm">Semua</td><td><span class="badge green">Terbit v3</span> <span class="badge amber">Draft v4</span></td><td class="hm num">16 transaksi</td><td><button class="btn secondary sm" data-open="flow"><svg class="i sm"><use href="#i-flow"/></svg>Alur</button> <button class="btn ghost sm desk-only" data-open="fields">Field</button></td></tr>
+            <tr><td><div class="row"><span class="typeic"><svg class="i"><use href="#i-gauge"/></svg></span><div><b style="color:var(--s900)">Kalibrasi</b><div class="mono muted">KAL · 5 field · berpasangan dengan "Kembali dari kalibrasi"</div></div></div></td><td class="hm">Mesin &amp; Peralatan</td><td><span class="badge green">Terbit v1</span></td><td class="hm num">6 transaksi</td><td><button class="btn secondary sm" data-open="flow"><svg class="i sm"><use href="#i-flow"/></svg>Alur</button> <button class="btn ghost sm desk-only">Field</button></td></tr>
+            <tr><td><div class="row"><span class="typeic"><svg class="i"><use href="#i-doc"/></svg></span><div><b style="color:var(--s900)">Stock Opname</b><div class="mono muted">OPN · 3 field</div></div></div></td><td class="hm">Semua</td><td><span class="badge amber">Draft v1</span></td><td class="hm num">—</td><td><button class="btn secondary sm" data-open="flow"><svg class="i sm"><use href="#i-flow"/></svg>Alur</button> <button class="btn ghost sm desk-only">Field</button></td></tr>
+            <tr class="dis"><td><div class="row"><span class="typeic" style="background:var(--s100);color:var(--s500)"><svg class="i"><use href="#i-swap"/></svg></span><div><b>Pemindahan lokasi</b> <span class="badge slate"><svg class="i sm"><use href="#i-lock"/></svg>Sistem</span><div class="mono">TRF · aturan inti tetap</div></div></div></td><td class="hm">Semua</td><td><span class="badge green">Terbit v1</span></td><td class="hm num">412 transaksi</td><td><button class="btn secondary sm" data-open="flow">Alur</button> <button class="btn ghost sm desk-only">Field</button></td></tr>
+            <tr class="dis"><td><div class="row"><span class="typeic" style="background:var(--s100);color:var(--s500)"><svg class="i"><use href="#i-swap"/></svg></span><div><b>Transaksi keluar</b> <span class="badge slate"><svg class="i sm"><use href="#i-lock"/></svg>Sistem</span><div class="mono">OUT · aturan inti tetap</div></div></div></td><td class="hm">Semua</td><td><span class="badge green">Terbit v2</span></td><td class="hm num">88 transaksi</td><td><button class="btn secondary sm">Alur</button> <button class="btn ghost sm desk-only">Field</button></td></tr>
+          </tbody></table></div>
+          <div class="pager"><span>Menampilkan 5 dari 10 jenis (7 sistem, 3 buatan organisasi)</span></div>
+        </div>
+        <div data-state-show="empty" class="empty"><div class="ic"><svg class="i"><use href="#i-flow"/></svg></div><h3>Belum ada jenis buatan organisasi</h3><p>Tujuh jenis sistem sudah tersedia. Buat jenis sendiri, mis. Mutasi Cabang atau Kalibrasi, lengkap dengan field dan alurnya.</p><button class="btn primary" data-open="fields">Jenis baru</button></div>
+      </div>
+    </section>
+
+    <!-- ============ PENGATURAN JENIS & FIELD ============ -->
+    <section class="content" data-screen="fields">
+      <div class="ph">
+        <div><h1>Mutasi Cabang</h1><p>Pengaturan jenis dan field formulir. Langkah dan aturan diatur di <button class="link" data-open="flow">Editor alur</button>.</p></div>
+        <div class="row desk-only"><button class="btn secondary" data-open="types">Batal</button><button class="btn primary"><svg class="i"><use href="#i-save"/></svg>Simpan</button></div>
+      </div>
+      <div class="alert blue mob-only" style="margin-bottom:16px"><svg class="i"><use href="#i-lock"/></svg><div><b>Hanya dapat dilihat di ponsel</b><p class="xs">Ubah jenis dan field di web pada layar lebar.</p></div></div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-h"><h3>Jenis</h3><span class="badge green">Aktif</span></div>
+        <div class="pad grid2">
+          <div class="field"><label>Nama <span class="req">*</span></label><input class="input" value="Mutasi Cabang"></div>
+          <div class="field"><label>Kode / prefix nomor <span class="req">*</span></label><input class="input" value="MUT"><span class="hint">Nomor: MUT-2026-000017</span></div>
+          <div class="field"><label>Berlaku untuk kategori</label><select class="select"><option>Semua kategori</option><option>Pilih kategori…</option></select></div>
+          <div class="field"><label>Jumlah aset per transaksi</label><div class="seg"><button>Satu aset</button><button aria-pressed="true">Banyak aset</button></div></div>
+          <div class="field"><label>Menutup jenis lain</label><select class="select"><option>Tidak berpasangan</option><option>Kalibrasi</option></select><span class="hint">Mis. "Kembali dari kalibrasi" menutup "Kalibrasi"</span></div>
+          <div class="field"><label>Kunci aset selama berjalan</label><label class="toggle"><input type="checkbox" checked> Aset tidak dapat ikut transaksi lain sampai selesai (D-29)</label></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Field formulir</h3><button class="btn secondary sm"><svg class="i sm"><use href="#i-plus"/></svg>Tambah field</button></div>
+        <div class="fieldrows">
+          <div class="fr head"><span></span><span>Field</span><span class="hm2">Tipe</span><span class="hm2">Wajib di langkah</span><span>Aturan</span><span></span></div>
+          <div class="fr"><svg class="i sm drag"><use href="#i-grip"/></svg><span><b>Lokasi tujuan</b><div class="k">lokasi_tujuan</div></span><span class="hm2">Lokasi</span><span class="hm2">Mulai</span><span class="xs muted">dalam cakupan</span><button class="btn ghost sm" aria-label="Hapus"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="fr"><svg class="i sm drag"><use href="#i-grip"/></svg><span><b>Alasan mutasi</b><div class="k">alasan</div></span><span class="hm2">Pilihan</span><span class="hm2">Mulai</span><span class="xs muted">4 opsi</span><button class="btn ghost sm" aria-label="Hapus"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="fr"><svg class="i sm drag"><use href="#i-grip"/></svg><span><b>Rencana tiba</b><div class="k">rencana_tiba</div></span><span class="hm2">Tanggal</span><span class="hm2">Mulai</span><span class="xs muted">≥ hari ini</span><button class="btn ghost sm" aria-label="Hapus"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="fr"><svg class="i sm drag"><use href="#i-grip"/></svg><span><b>Penerima</b><div class="k">penerima</div></span><span class="hm2">Pengguna</span><span class="hm2">Serah terima</span><span class="xs muted">anggota lokasi tujuan</span><button class="btn ghost sm" aria-label="Hapus"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="fr"><svg class="i sm drag"><use href="#i-grip"/></svg><span><b>No. BAST</b><div class="k">no_bast</div></span><span class="hm2">Teks pendek</span><span class="hm2">Serah terima</span><span class="xs muted">pola BAST/…</span><button class="btn ghost sm" aria-label="Hapus"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="fr"><svg class="i sm drag"><use href="#i-grip"/></svg><span><b>Foto serah terima</b><div class="k">foto</div></span><span class="hm2">Lampiran</span><span class="hm2">Serah terima</span><span class="xs muted">gambar, maks 10 MB</span><button class="btn ghost sm" aria-label="Hapus"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="fr"><svg class="i sm drag"><use href="#i-grip"/></svg><span><b>Catatan</b><div class="k">catatan</div></span><span class="hm2">Teks panjang</span><span class="hm2 muted">Tidak wajib</span><span class="xs muted">—</span><button class="btn ghost sm" aria-label="Hapus"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+        </div>
+        <div class="pad xs muted">Field otomatis tersedia di Report Designer (sumber Riwayat Transaksi) dan widget dashboard (D-31).</div>
+      </div>
+    </section>
+
+    <!-- ============ EDITOR ALUR / UJI ALUR ============ -->
+    <section data-screen="flow test">
+      <div class="content" style="padding-bottom:12px">
+        <div class="ph" style="margin-bottom:0">
+          <div><button class="link" data-open="types">← Jenis Transaksi</button><h1>Alur: Mutasi Cabang</h1><p><span class="badge amber">Draft v4</span> · versi aktif v3 tetap dipakai transaksi yang sedang berjalan (D-28)</p></div>
+          <div class="row desk-only">
+            <button class="btn secondary" data-open="test"><svg class="i"><use href="#i-play"/></svg>Uji alur</button>
+            <button class="btn secondary"><svg class="i"><use href="#i-shield"/></svg>Validasi</button>
+            <button class="btn secondary"><svg class="i"><use href="#i-save"/></svg>Simpan draft</button>
+            <button class="btn primary" data-state-disable="invalid">Terbitkan v4</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin:0 24px"><div class="alert blue mob-only" style="margin-bottom:16px"><svg class="i"><use href="#i-lock"/></svg><div><b>Alur hanya dapat dilihat di ponsel</b><p class="xs">Menggambar, menguji, dan menerbitkan alur dilakukan di web pada layar lebar.</p></div></div></div>
+      <div class="card" style="margin:0 24px 24px;overflow:hidden">
+        <div class="ftool desk-only">
+          <span class="row"><button class="btn ghost sm" aria-label="Urungkan"><svg class="i sm"><use href="#i-undo"/></svg></button><button class="btn ghost sm" aria-label="Ulangi"><svg class="i sm"><use href="#i-redo"/></svg></button><span class="xs muted">Tarik garis dari titik di sisi kanan langkah ke langkah berikutnya</span></span>
+          <span data-state-show="filled empty"><span class="badge green"><svg class="i sm"><use href="#i-check"/></svg>Alur valid</span></span>
+          <span data-state-show="invalid"><span class="badge red"><svg class="i sm"><use href="#i-alert"/></svg>2 masalah</span></span>
+        </div>
+        <div class="testbar desk-only" data-screen-show="test">
+          <div class="field"><label>Aset contoh</label><select class="select"><option>Laptop Dell 5440 · Rp 14,5 jt · Tersedia</option><option>Kursi kantor · Rp 1,2 jt · Tersedia</option></select></div>
+          <div class="field"><label>Lokasi tujuan</label><select class="select"><option>Gudang Cirebon</option></select></div>
+          <div class="field"><label>Hasil persetujuan</label><div class="seg"><button aria-pressed="true">Disetujui</button><button>Ditolak</button></div></div>
+          <div class="alert blue" style="flex:1;min-width:220px"><svg class="i"><use href="#i-play"/></svg><div><b>Jalur: 6 langkah, 1 persetujuan</b><p class="xs">Nilai Rp 14,5 jt &gt; Rp 10 jt → Persetujuan Supervisor. Tidak ada transaksi yang disimpan.</p></div></div>
+        </div>
+        <div class="flow-shell">
+          <div class="palette desk-only">
+            <h3>Langkah</h3>
+            <div class="pi"><i style="border:2px solid var(--g600);border-radius:9px"></i>Mulai</div>
+            <div class="pi"><i style="border:2px solid var(--s400);border-radius:3px"></i>Isi data</div>
+            <div class="pi"><i style="border:2px solid var(--brand-600);border-radius:3px"></i>Persetujuan</div>
+            <div class="pi"><i style="border:2px solid var(--a600);transform:rotate(45deg) scale(.7)"></i>Kondisi</div>
+            <div class="pi"><i style="border:2px solid #7c3aed;border-radius:3px"></i>Aksi sistem</div>
+            <div class="pi"><i style="border:2px solid var(--a600);border-radius:3px;border-style:dashed"></i>Tunggu</div>
+            <div class="pi"><i style="border:2px solid var(--s500);border-radius:9px"></i>Selesai</div>
+          </div>
+          <div class="flowcanvas">
+            <div class="inner">
+              <svg class="edges" viewBox="0 0 700 600">
+                <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#94a3b8"/></marker>
+                <marker id="arr-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#2563eb"/></marker></defs>
+                <path data-p="1" d="M180 54 H228" marker-end="url(#arr)"/>
+                <path data-p="1" d="M315 88 V112" marker-end="url(#arr)"/>
+                <path data-p="1" d="M380 158 H438" marker-end="url(#arr)"/>
+                <path d="M315 202 V248" marker-end="url(#arr)"/>
+                <path data-p="1" d="M530 192 V284 H392" marker-end="url(#arr)"/>
+                <path d="M622 158 C690 158 690 415 612 415" marker-end="url(#arr)" class="bad-ifinvalid"/>
+                <path data-p="1" d="M315 318 V368" marker-end="url(#arr)"/>
+                <path data-p="1" d="M315 440 V478" marker-end="url(#arr)"/>
+                <path data-p="1" d="M230 514 H182" marker-end="url(#arr)"/>
+                <g><rect class="lbl" x="394" y="138" width="24" height="18" rx="4"/><text x="399" y="151">Ya</text></g>
+                <g><rect class="lbl" x="322" y="214" width="38" height="18" rx="4"/><text x="327" y="227">Tidak</text></g>
+                <g><rect class="lbl" x="536" y="222" width="64" height="18" rx="4"/><text x="541" y="235">Disetujui</text></g>
+                <g class="bad-ifinvalid"><rect class="lbl" x="652" y="272" width="54" height="18" rx="4"/><text x="656" y="285">Ditolak</text></g>
+              </svg>
+              <div class="node start path" style="left:30px;top:20px"><div class="kind">Mulai</div><b>Admin / Supervisor</b><small>prasyarat: 1 aturan</small><span class="port r"></span></div>
+              <div class="node nd-input path" style="left:230px;top:20px"><div class="kind">Isi data</div><b>Data mutasi</b><small>lokasi tujuan, alasan, rencana tiba</small><span class="port l"></span></div>
+              <div class="node cond path sel" style="left:240px;top:110px"><div><div class="kind">Kondisi</div><b>Nilai aset &gt; Rp10 jt?</b></div></div>
+              <div class="node approve path" style="left:440px;top:124px;width:180px"><div class="kind">Persetujuan</div><b>Supervisor</b><small>min. 1 · bukan pengaju</small><span class="port l"></span><span class="port r"></span></div>
+              <div class="node action path" style="left:240px;top:250px;width:150px"><div class="kind">Aksi sistem</div><b>Dalam pengiriman</b><small>ubah status aset</small></div>
+              <div class="node nd-input path" style="left:230px;top:370px"><div class="kind">Isi data · Penerima</div><b>Serah terima</b><small>No. BAST, foto · batas 3 hari</small></div>
+              <div class="node action path" style="left:230px;top:480px"><div class="kind">Aksi sistem</div><b>Pindah ke lokasi tujuan</b><small>status: Tersedia</small></div>
+              <div class="node end path" style="left:30px;top:480px"><div class="kind">Selesai</div><b>Selesai</b></div>
+              <div class="node end rej" style="left:460px;top:380px;width:150px" data-state-hide="invalid"><div class="kind">Selesai</div><b>Ditolak</b></div>
+              <div class="node approve err" style="left:460px;top:490px;width:180px" data-state-show="invalid"><div class="kind">Persetujuan</div><b>Manajer Keuangan</b><small>tidak terhubung</small><span class="port l"></span><span class="port r"></span></div>
+              <div class="zoom"><button class="btn ghost sm" aria-label="Perkecil"><svg class="i sm"><use href="#i-minus"/></svg></button><span class="xs muted" style="align-self:center;padding:0 4px">100%</span><button class="btn ghost sm" aria-label="Perbesar"><svg class="i sm"><use href="#i-plus"/></svg></button><button class="btn ghost sm" aria-label="Pas layar"><svg class="i sm"><use href="#i-max"/></svg></button></div>
+            </div>
+          </div>
+          <div class="props desk-only">
+            <div data-state-show="invalid">
+              <h3>Masalah alur</h3>
+              <ul class="issues" style="padding:0;margin:6px 0 0">
+                <li class="alert red"><svg class="i"><use href="#i-alert"/></svg><div><b>Langkah tidak terhubung</b><p class="xs">"Persetujuan Manajer Keuangan" tidak punya garis masuk maupun keluar.</p></div></li>
+                <li class="alert red"><svg class="i"><use href="#i-alert"/></svg><div><b>Cabang belum lengkap</b><p class="xs">"Persetujuan Supervisor" belum punya garis <i>Ditolak</i>.</p></div></li>
+              </ul>
+              <p class="xs muted">Perbaiki dulu sebelum diterbitkan. Draft tetap dapat disimpan.</p>
+            </div>
+            <h3>Kondisi: Nilai aset &gt; Rp10 jt?</h3>
+            <div class="field"><label>Nama langkah</label><input class="input" value="Nilai aset > Rp10 jt?"></div>
+            <div class="field"><label>Syarat (cabang "Ya")</label>
+              <div class="rule">
+                <div class="row"><select class="select" style="flex:1"><option>Aset · Nilai perolehan</option><option>Aset · Status</option><option>Aset · Kategori</option><option>Field · Alasan mutasi</option><option>Pelaksana · Role</option></select></div>
+                <div class="row"><select class="select" style="width:120px"><option>lebih dari</option><option>sama dengan</option><option>termasuk salah satu</option><option>kosong</option></select><input class="input" style="flex:1" value="10.000.000"></div>
+              </div>
+              <button class="link" style="align-self:flex-start">+ dan / atau syarat lain</button>
+            </div>
+            <div class="field"><label>Untuk transaksi banyak aset</label><select class="select"><option>Ya bila salah satu aset memenuhi</option><option>Ya bila semua aset memenuhi</option><option>Ya bila total nilai memenuhi</option></select></div>
+            <div class="field"><label>Garis keluar</label><div class="xs"><span class="badge green">Ya → Persetujuan Supervisor</span> <span class="badge slate">Tidak → Status: Dalam pengiriman</span></div></div>
+            <div class="alert blue"><svg class="i"><use href="#i-lock"/></svg><div><b>Aturan inti tetap berlaku</b><p class="xs">Aset dipinjam, di luar organisasi, atau nonaktif tidak dapat dimutasi, apa pun alurnya.</p></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FORMULIR TRANSAKSI ============ -->
+    <section class="content" data-screen="form">
+      <div class="ph"><div><h1>Catat transaksi</h1><p>Formulir dibentuk dari field jenis yang dipilih. Langkah berikutnya mengikuti alur yang aktif.</p></div></div>
+      <div class="card">
+        <div class="pad" style="display:flex;flex-direction:column;gap:20px">
+          <div><div class="step"><i>1</i>Jenis transaksi</div>
+            <div class="typecards">
+              <button class="tc"><svg class="i"><use href="#i-swap"/></svg><span>Pemindahan<small>Sistem</small></span></button>
+              <button class="tc"><svg class="i"><use href="#i-swap"/></svg><span>Keluar<small>Sistem</small></span></button>
+              <button class="tc" aria-pressed="true"><svg class="i"><use href="#i-truck"/></svg><span>Mutasi Cabang<small>Perlu persetujuan bila &gt; Rp10 jt</small></span></button>
+              <button class="tc"><svg class="i"><use href="#i-gauge"/></svg><span>Kalibrasi<small>Mesin &amp; Peralatan</small></span></button>
+            </div></div>
+          <div><div class="step"><i>2</i>Aset</div>
+            <div class="picked"><span class="chip">Laptop Dell 5440 · Rp 14,5 jt <button aria-label="Hapus"><svg class="i sm"><use href="#i-x"/></svg></button></span><span class="chip">Laptop Dell 5440 #2 <button aria-label="Hapus"><svg class="i sm"><use href="#i-x"/></svg></button></span><span class="chip" data-state-show="invalid" style="background:var(--r50);color:var(--r700)">Proyektor Epson EB-X51 · Di luar organisasi <button aria-label="Hapus"><svg class="i sm"><use href="#i-x"/></svg></button></span></div>
+            <div class="alert red" data-state-show="invalid" style="margin-top:10px"><svg class="i"><use href="#i-alert"/></svg><div><b>Proyektor Epson EB-X51 tidak dapat dimutasi</b><p class="xs">Aset dengan status <i>Di luar organisasi</i> harus dicatat masuk terlebih dahulu. (prasyarat buatan organisasi)</p></div></div>
+          </div>
+          <div><div class="step"><i>3</i>Data mutasi</div>
+            <div class="grid2">
+              <div class="field"><label>Lokasi tujuan <span class="req">*</span></label><select class="select"><option>Gudang Cirebon</option></select></div>
+              <div class="field"><label>Alasan mutasi <span class="req">*</span></label><select class="select"><option>Kebutuhan proyek</option><option>Penutupan cabang</option></select></div>
+              <div class="field"><label>Rencana tiba <span class="req">*</span></label><input class="input" type="date" value="2026-11-21"></div>
+              <div class="field"><label>Catatan</label><input class="input" placeholder="Opsional"></div>
+            </div>
+            <p class="xs muted" style="margin:8px 0 0">No. BAST dan foto diisi penerima di langkah <b>Serah terima</b>.</p>
+          </div>
+          <div class="alert blue"><svg class="i"><use href="#i-flow"/></svg><div><b>Setelah disimpan</b><p class="xs">Nilai aset melebihi Rp10 jt, jadi transaksi menunggu persetujuan Supervisor. Kedua laptop dikunci sampai transaksi selesai atau ditolak.</p></div></div>
+        </div>
+        <div class="modal-f"><button class="btn secondary">Batal</button><button class="btn primary" data-state-disable="invalid">Mulai transaksi</button></div>
+      </div>
+    </section>
+
+    <!-- ============ TRANSAKSI BERJALAN ============ -->
+    <section class="content" data-screen="detail">
+      <div class="ph">
+        <div><h1><span class="mono" style="font-size:20px">MUT-2026-000012</span> · Mutasi Cabang</h1><p><span class="badge amber">Berjalan · Serah terima</span> · 2 aset · Bandung → Cirebon · dimulai Andi P., 16 Nov 2026</p></div>
+        <div class="row"><button class="btn secondary">Batalkan</button><button class="btn primary">Kerjakan langkah ini</button></div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-h"><h3>Alur (versi v3)</h3><button class="link" data-open="flow">Lihat diagram lengkap</button></div>
+        <div class="progress">
+          <div class="ps done"><span class="dotx"><svg class="i sm"><use href="#i-check"/></svg></span><b>Mulai</b><span class="muted">Andi P.</span></div>
+          <div class="ps done"><span class="dotx"><svg class="i sm"><use href="#i-check"/></svg></span><b>Data mutasi</b><span class="muted">16 Nov</span></div>
+          <div class="ps done"><span class="dotx"><svg class="i sm"><use href="#i-check"/></svg></span><b>Nilai &gt; Rp10 jt</b><span class="muted">Ya</span></div>
+          <div class="ps done"><span class="dotx"><svg class="i sm"><use href="#i-check"/></svg></span><b>Persetujuan Supervisor</b><span class="muted">Dewi W. · 17 Nov</span></div>
+          <div class="ps done"><span class="dotx"><svg class="i sm"><use href="#i-check"/></svg></span><b>Dalam pengiriman</b><span class="muted">otomatis</span></div>
+          <div class="ps now"><span class="dotx">6</span><b>Serah terima</b><span class="muted">Penerima · batas 19 Nov</span></div>
+          <div class="ps"><span class="dotx">7</span><b>Pindah lokasi</b><span class="muted">otomatis</span></div>
+          <div class="ps"><span class="dotx">8</span><b>Selesai</b></div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="card"><div class="card-h"><h3>Riwayat langkah</h3></div>
+          <ul class="timeline pad" style="padding-top:0">
+            <li><span class="dot" style="background:var(--g50);color:var(--g700)"><svg class="i sm"><use href="#i-check"/></svg></span><div><b>Status aset → Dalam pengiriman</b><div class="xs muted">Aksi sistem · 17 Nov 2026 09.12</div></div></li>
+            <li><span class="dot" style="background:var(--brand-50);color:var(--brand-700)"><svg class="i sm"><use href="#i-shield"/></svg></span><div><b>Disetujui oleh Dewi W. (Supervisor)</b><div class="xs muted">17 Nov 2026 09.12 · "Sesuai kebutuhan proyek Cirebon."</div></div></li>
+            <li><span class="dot" style="background:var(--a50);color:var(--a800)"><svg class="i sm"><use href="#i-flow"/></svg></span><div><b>Kondisi: nilai &gt; Rp10 jt → Ya</b><div class="xs muted">Laptop Dell 5440 Rp 14,5 jt</div></div></li>
+            <li><span class="dot" style="background:var(--s100);color:var(--s600)"><svg class="i sm"><use href="#i-doc"/></svg></span><div><b>Data mutasi diisi oleh Andi P.</b><div class="xs muted">16 Nov 2026 15.40</div></div></li>
+          </ul></div>
+        <div class="card"><div class="card-h"><h3>Data</h3></div>
+          <dl class="kv pad"><dt>Lokasi tujuan</dt><dd>Gudang Cirebon</dd><dt>Alasan</dt><dd>Kebutuhan proyek</dd><dt>Rencana tiba</dt><dd>21 Nov 2026</dd><dt>Penerima</dt><dd class="muted">diisi di langkah 6</dd><dt>No. BAST</dt><dd class="muted">diisi di langkah 6</dd><dt>Aset</dt><dd>Laptop Dell 5440 (2) <span class="badge slate"><svg class="i sm"><use href="#i-lock"/></svg>dikunci</span></dd></dl></div>
+      </div>
+    </section>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+(function(){
+  var view='types', state='filled', frame=document.getElementById('frame');
+  function press(sel,attr,val){document.querySelectorAll(sel).forEach(function(b){b.setAttribute('aria-pressed',String(b.getAttribute(attr)===val))})}
+  function render(){
+    document.querySelectorAll('[data-screen]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-screen').split(' ').indexOf(view)<0)});
+    document.querySelectorAll('[data-screen-show]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-screen-show')!==view)});
+    var eff=(view==='flow'||view==='form'||view==='types')?state:'filled';
+    if(view==='types'&&state==='invalid')eff='filled';
+    if(view!=='types'&&state==='empty')eff='filled';
+    document.querySelectorAll('[data-state-show]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-state-show').split(' ').indexOf(eff)<0)});
+    document.querySelectorAll('[data-state-hide]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-state-hide')===eff)});
+    document.querySelectorAll('[data-state-disable]').forEach(function(el){el.disabled=el.getAttribute('data-state-disable')===eff});
+    document.getElementById('app').classList.toggle('focus',view==='flow'||view==='test');
+    var testing=view==='test';
+    document.querySelectorAll('.edges path[data-p]').forEach(function(p){p.classList.toggle('on',testing);p.setAttribute('marker-end',testing?'url(#arr-on)':'url(#arr)')});
+    document.querySelectorAll('.node').forEach(function(n){n.classList.toggle('path',testing&&n.classList.contains('path-src'))});
+    document.querySelectorAll('.bad-ifinvalid').forEach(function(p){p.classList.toggle('hidden',eff==='invalid')});
+    document.querySelectorAll('[data-nav]').forEach(function(a){var n=a.getAttribute('data-nav');a.classList.toggle('on',n===view||(n==='types'&&['fields','flow','test'].indexOf(view)>=0)||(n==='form'&&view==='detail'))});
+    press('[data-view]','data-view',view); press('[data-state]','data-state',state);
+  }
+  document.querySelectorAll('.node.path').forEach(function(n){n.classList.add('path-src')});
+  document.querySelectorAll('[data-view]').forEach(function(b){b.onclick=function(){view=b.dataset.view;render()}});
+  document.querySelectorAll('[data-state]').forEach(function(b){b.onclick=function(){state=b.dataset.state;render()}});
+  document.querySelectorAll('[data-open]').forEach(function(b){b.onclick=function(e){e.preventDefault();view=b.dataset.open;render()}});
+  document.querySelectorAll('[data-nav]').forEach(function(a){a.onclick=function(e){e.preventDefault();view=a.dataset.nav;render()}});
+  document.querySelectorAll('[data-w]').forEach(function(b){b.onclick=function(){frame.classList.toggle('narrow',b.dataset.w==='narrow');press('[data-w]','data-w',b.dataset.w)}});
+  document.querySelectorAll('.node').forEach(function(n){n.onclick=function(){document.querySelectorAll('.node').forEach(function(x){x.classList.toggle('sel',x===n)})}});
+  render();
+})();
+</script>
+</body>
+</html>

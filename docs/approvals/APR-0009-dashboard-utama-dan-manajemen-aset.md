@@ -22,6 +22,16 @@
 | D-23 | Frontend F-01b/F-01c digantikan task F-06; backend F-01 dipakai ulang |
 | D-24 | Penyusutan/nilai buku tidak termasuk; widget memakai nilai perolehan |
 
+## Keputusan Tambahan (2026-11-18)
+| ID | Keputusan |
+|---|---|
+| D-34 | Semua editor (desainer laporan, atur tata letak/tambah widget dashboard, template dashboard, jenis/field/alur transaksi) hanya di web pada layar ≥ 768px. Di ponsel/layar sempit hanya tampil hasil jadinya (dilihat dan dipakai), tanpa tombol ubah |
+
+"Untuk versi mobile ndak usah ada editor, edit cukup di web aja; di mobile yang udah jadinya." (pemilik produk, 2026-11-18)
+
+## Mockup
+[F-06-dashboard.html](../design/mockups/F-06-dashboard.html) disetujui pemilik produk 2026-11-18 ("Setuju"), termasuk tampilan ponsel tanpa editor (D-34). Syarat APR-0008 terpenuhi; UI boleh dikodekan.
+
 ## Syarat
 Mockup F-06 disetujui pemilik produk sebelum UI dikodekan ([APR-0008](APR-0008-mockup-sebelum-figma.md)).
 

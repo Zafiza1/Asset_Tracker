@@ -24,6 +24,16 @@
 | D-32 | Fase pertama tanpa mobile |
 | D-33 | Bertahap: jenis + field, lalu mesin dan editor alur, lalu migrasi jenis bawaan |
 
+## Keputusan Tambahan (2026-11-18)
+| ID | Keputusan |
+|---|---|
+| D-34 | Semua editor (desainer laporan, atur tata letak/tambah widget dashboard, template dashboard, jenis/field/alur transaksi) hanya di web pada layar ≥ 768px. Di ponsel/layar sempit hanya tampil hasil jadinya (dilihat dan dipakai), tanpa tombol ubah |
+
+"Untuk versi mobile ndak usah ada editor, edit cukup di web aja; di mobile yang udah jadinya." (pemilik produk, 2026-11-18)
+
+## Mockup
+[F-07-jenis-dan-alur-transaksi.html](../design/mockups/F-07-jenis-dan-alur-transaksi.html) disetujui pemilik produk 2026-11-18 ("Setuju"), termasuk tampilan ponsel tanpa editor (D-34). Syarat APR-0008 terpenuhi; UI boleh dikodekan.
+
 ## Syarat
 Mockup F-07 disetujui pemilik produk sebelum UI dikodekan ([APR-0008](APR-0008-mockup-sebelum-figma.md)). Migrasi jenis bawaan (F-07f) tidak boleh mengubah perilaku: seluruh test transaksi yang ada tetap lulus.
 

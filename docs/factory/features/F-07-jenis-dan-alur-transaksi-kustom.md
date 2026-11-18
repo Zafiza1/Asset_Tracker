@@ -5,7 +5,7 @@
 | Tahap | 2–7 (ringkas): requirement, alur, data, security |
 | Versi | 0.1 |
 | Penyusun | product-analyst, system-architect, database-engineer, security-engineer |
-| Status | **Approved** ([APR-0010](../../approvals/APR-0010-jenis-dan-alur-transaksi-kustom.md), 2026-11-18): mockup menyusul sebelum UI dikodekan |
+| Status | **Approved** ([APR-0010](../../approvals/APR-0010-jenis-dan-alur-transaksi-kustom.md), 2026-11-18). Mockup: [F-07-jenis-dan-alur-transaksi.html](../../design/mockups/F-07-jenis-dan-alur-transaksi.html), **disetujui** 2026-11-18 |
 | Dasar | Pemilik produk 2026-11-18: setiap perusahaan punya jenis dan aturan transaksi sendiri. Pengguna membuat jenis transaksi beserta field-nya, lalu menggambar alurnya di halaman khusus (kotak/oval yang dihubungkan garis: "harus ini dulu baru bisa ke sini; kalau begini tidak bisa begitu"). Alur itu otomatis berlaku untuk setiap transaksi jenis tersebut |
 
 ## 1. Masalah
@@ -103,6 +103,7 @@ flowchart LR
 - **Validasi sebelum terbit:** tepat satu *Mulai*; setiap langkah terhubung dan dapat mencapai *Selesai*; *Persetujuan* memiliki garis *Disetujui* dan *Ditolak*; *Kondisi* memiliki semua cabang; perulangan hanya boleh melalui langkah manusia (mencegah loop tanpa akhir); field yang dirujuk ada.
 - **Uji alur:** pengguna memilih aset contoh dan mengisi nilai, lalu melihat jalur yang akan ditempuh tanpa menyimpan transaksi.
 - Riwayat versi seperti template laporan: draft → terbit → versi lama tetap terbaca.
+- Editor hanya di web pada layar ≥ 768px (D-34). Di ponsel, jenis, field, dan alur tampil sebagai hasil jadi (diagram diperkecil, hanya dilihat).
 
 ## 5. Menjalankan Transaksi
 - Formulir transaksi dibentuk dari field jenisnya, dan field yang wajib mengikuti langkah yang sedang berjalan.
@@ -148,6 +149,7 @@ Semua tabel memakai RLS tenant dan pola `TenantSchema` yang sudah ada. Nomor tra
 | D-31 | Field kustom otomatis tersedia di Report Designer dan widget dashboard | Ya |
 | D-32 | Fase pertama tanpa mobile; langkah di mobile menyusul | Ya |
 | D-33 | Dikerjakan bertahap (§9): jenis + field dahulu dengan alur lurus sederhana, lalu editor alur, lalu migrasi jenis bawaan | Ya |
+| D-34 | Semua editor (desainer laporan, atur tata letak/tambah widget dashboard, template dashboard, jenis/field/alur transaksi) hanya di web pada layar ≥ 768px. Di ponsel/layar sempit hanya tampil hasil jadinya (dilihat dan dipakai), tanpa tombol ubah. Mencatat dan mengerjakan langkah transaksi tetap bisa dari ponsel | **Diputuskan** 2026-11-18 |
 
 ## 9. Rencana Task (setelah disetujui)
 | ID | Task | Agent | Bergantung |

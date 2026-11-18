@@ -126,4 +126,5 @@ Mockup: [F-05 Jalankan laporan](../../design/mockups/F-05-jalankan-laporan.html)
 | F-05a | Backend: `filters` endpoint, `exports` (PDF TCPDF + Excel), download, riwayat, pembersihan kedaluwarsa, audit; test scope, izin, formula injection | backend-engineer, security-engineer | approval | in_review (`ReportExportTest`, `RouteSecurityTest`) |
 | F-05b | Frontend: halaman Jalankan (filter, pratinjau halaman, unduh, riwayat), aksi Jalankan, Mulai dari contoh | frontend-engineer | F-05a, mockup disetujui | in_review (`reportRun.test.tsx`) |
 | F-05c | Desainer: panel Filter bawaan + Pratinjau draft | frontend-engineer | F-05a | todo |
+| F-05d | Desainer laporan dan pembuatan template hanya di web pada layar ≥ 768px; di ponsel template hanya dilihat dan dijalankan (D-34, [APR-0009](../../approvals/APR-0009-dashboard-utama-dan-manajemen-aset.md)) | frontend-engineer | — | in_review |
 | F-05-QA | E2E: buat template transaksi → filter Keluar → unduh PDF/Excel → riwayat | qa-engineer | F-05b | todo |
