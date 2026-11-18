@@ -5,6 +5,7 @@ namespace App\Domain\Assets\Services;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
+use App\Domain\AssetTransactions\Services\AssetTransactionService;
 use App\Domain\AssetTransactions\TransactionLog;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Audit\AuditLogger;
@@ -181,6 +182,8 @@ final class AssetService
         }
 
         return DB::transaction(function () use ($asset, $reason) {
+            // An asset held by a running flow transaction stays until that one ends (F-07b, D-29).
+            AssetTransactionService::assertNotHeldByRun([$asset]);
             $userId = $this->tenancy->tenant()->userId();
             $asset->forceFill(['archived_at' => now(), 'archived_by' => $userId, 'updated_by' => $userId, 'lock_version' => $asset->lock_version + 1])->save();
             $this->log->record($asset, TransactionType::ARCHIVE, notes: $reason);

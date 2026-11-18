@@ -5,13 +5,17 @@ namespace App\Http\Controllers\Tenant;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
+use App\Domain\AssetTransactions\Flows\FlowEngine;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\AssetTransactions\Models\TransactionRun;
+use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\Services\AssetTransactionService;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AssetTransactionResource;
+use App\Http\Resources\TransactionRunResource;
 use App\Http\Support\ListQuery;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -31,6 +35,7 @@ class AssetTransactionController extends Controller
     public function __construct(
         private readonly AssetTransactionService $transactions,
         private readonly AssetScope $scope,
+        private readonly FlowEngine $engine,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -92,6 +97,12 @@ class AssetTransactionController extends Controller
 
         $single = isset($data['asset_id']);
         $data['asset_ids'] = array_map('strtolower', $single ? [$data['asset_id']] : $data['asset_ids']);
+
+        // A type with a published flow starts a run (F-07b) instead of recording at once.
+        if ($data['type'] === TransactionType::CUSTOM && ($run = $this->startRun($data)) !== null) {
+            return (new TransactionRunResource($run))->withDetail()->response()->setStatusCode(201);
+        }
+
         $transactions = (new Collection($this->transactions->create($data)))->load(self::RELATIONS);
 
         return $single
@@ -115,6 +126,24 @@ class AssetTransactionController extends Controller
             TransactionType::INCOMING => $count(['type' => TransactionType::INCOMING]),
             'not_returned' => $count(['not_returned' => '1']),
         ]]);
+    }
+
+    /**
+     * The run a 'custom' transaction starts when its type has a published flow; null when the
+     * type has none and the transaction is recorded at once (F-07a).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function startRun(array $data): ?TransactionRun
+    {
+        $definition = TransactionTypeDefinition::query()->find($data['type_definition_id']);
+        $flow = $definition === null ? null : $this->engine->activeFlow($definition);
+        if ($definition === null || $flow === null) {
+            return null;
+        }
+
+        return $this->engine->start($definition, $flow, $data)
+            ->load(['definition.fields', 'flowVersion', 'assets', 'creator', 'steps.actor', 'tasks']);
     }
 
     /** @return array<string, list<mixed>> */

@@ -6,6 +6,7 @@ use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\AssetTransactions\Models\TransactionRun;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionLog;
@@ -40,6 +41,11 @@ use Illuminate\Validation\ValidationException;
  * TransactionTypeDefinition; the entered values are validated against its fields and stored on
  * the row. The asset must belong to one of the type's categories (or a subcategory). Such a
  * transaction records information only; changes to the asset come with flow actions (F-07b).
+ *
+ * Flows (F-07b): an asset held by a running transaction (transaction_run_assets.locked) takes no
+ * other transaction until that one ends (D-29). Flow actions go through applyForRun(), which
+ * applies the same core rules under the run's number, without the user's permission or scope
+ * checks: the run was authorized when it started.
  */
 final class AssetTransactionService
 {
@@ -52,6 +58,9 @@ final class AssetTransactionService
         TransactionType::OUTGOING => 'asset.outgoing',
         TransactionType::INCOMING => 'asset.incoming',
     ];
+
+    /** Set while a flow action applies (applyForRun): permission and scope were checked at the start. */
+    private bool $flowAction = false;
 
     /** Status an incoming asset may come back with. */
     private const INCOMING_STATUSES = [AssetStatus::AVAILABLE, AssetStatus::UNDER_MAINTENANCE];
@@ -83,6 +92,7 @@ final class AssetTransactionService
 
         return DB::transaction(function () use ($type, $data, $definition) {
             $assets = $this->lockAssets($data['asset_ids']);
+            $this->assertNotHeldByRun($assets);
             $number = $this->log->nextNumber($type, $definition?->code);
 
             return array_map(fn (Asset $asset) => $this->withAssetContext($asset, count($assets) > 1,
@@ -108,6 +118,9 @@ final class AssetTransactionService
             TransactionType::CUSTOM => $this->custom($asset, $definition, $data),
         };
 
+        if (isset($data['run_id'])) {
+            $logChanges['run_id'] = $data['run_id'];
+        }
         if ($assetChanges !== []) {
             $asset->forceFill([...$assetChanges, 'lock_version' => $asset->lock_version + 1, 'updated_by' => $this->tenancy->tenant()->userId()])->save();
         }
@@ -314,6 +327,53 @@ final class AssetTransactionService
 
     /** @param array<string, mixed> $data */
     /**
+     * A flow action (F-07b): a status change or a move of every asset of the run, recorded under the
+     * run's number. Assets already in the wanted state are left alone. Core rules still apply.
+     *
+     * @param  array<string, mixed>  $data  to_status or to_location_id
+     * @return int number of assets changed
+     */
+    public function applyForRun(TransactionRun $run, string $type, array $data): int
+    {
+        $this->flowAction = true;
+        try {
+            $assets = Asset::query()->whereIn('id', $run->assets()->select('assets.id'))->orderBy('id')->lockForUpdate()->get();
+            $changed = 0;
+            foreach ($assets as $asset) {
+                $unchanged = ($type === TransactionType::STATUS_CHANGE && $asset->status === ($data['to_status'] ?? null))
+                    || ($type === TransactionType::TRANSFER && $asset->location_id === ($data['to_location_id'] ?? null));
+                if ($unchanged) {
+                    continue;
+                }
+                $this->withAssetContext($asset, $assets->count() > 1, fn () => $this->apply($asset, $type, [
+                    ...$data, 'run_id' => $run->id, 'transaction_date' => $run->transaction_date->toDateString(), 'notes' => $data['notes'] ?? null,
+                ], $run->transaction_number));
+                $changed++;
+            }
+
+            return $changed;
+        } finally {
+            $this->flowAction = false;
+        }
+    }
+
+    /**
+     * Assets held by a running transaction take no other transaction (D-29).
+     *
+     * @param  list<Asset>  $assets
+     */
+    public static function assertNotHeldByRun(array $assets): void
+    {
+        $held = DB::table('transaction_run_assets as ra')->join('transaction_runs as r', 'r.id', '=', 'ra.run_id')
+            ->whereIn('ra.asset_id', array_map(fn (Asset $a) => $a->id, $assets))->where('ra.locked', true)
+            ->first(['ra.asset_id', 'r.transaction_number']);
+        if ($held !== null) {
+            $name = collect($assets)->firstWhere('id', $held->asset_id)?->name;
+            throw ApiException::conflict('ASSET_LOCKED', "{$name} sedang dalam transaksi {$held->transaction_number} yang belum selesai.", ['asset_id' => $held->asset_id, 'transaction_number' => $held->transaction_number]);
+        }
+    }
+
+    /**
      * The active organization type a 'custom' transaction uses, with its fields and categories.
      *
      * @param  array<string, mixed>  $data
@@ -343,16 +403,22 @@ final class AssetTransactionService
      */
     private function custom(Asset $asset, TransactionTypeDefinition $definition, array $data): array
     {
+        self::assertCategoryAllowed($asset, $definition);
+
+        return [[], ['type_definition_id' => $definition->id, 'field_values' => $data['field_values']]];
+    }
+
+    /** The asset falls in one of the type's categories or their subcategories (none: every category). */
+    public static function assertCategoryAllowed(Asset $asset, TransactionTypeDefinition $definition): void
+    {
         $allowed = $definition->categories->pluck('id')->all();
         if ($allowed !== []) {
             $path = (string) $asset->category()->value('path');
             $inside = array_filter($allowed, fn (string $id) => str_contains($path, '/'.$id.'/'));
             if ($inside === []) {
-                throw ApiException::unprocessable('CATEGORY_NOT_ALLOWED', "Jenis \"{$definition->name}\" tidak berlaku untuk kategori aset ini.");
+                throw ApiException::unprocessable('CATEGORY_NOT_ALLOWED', "Jenis \"{$definition->name}\" tidak berlaku untuk kategori aset {$asset->name}.");
             }
         }
-
-        return [[], ['type_definition_id' => $definition->id, 'field_values' => $data['field_values']]];
     }
 
     private function authorize(string $type, array $data): void
@@ -404,7 +470,7 @@ final class AssetTransactionService
         if (! Location::query()->whereKey($id)->where('status', MasterStatus::ACTIVE)->exists()) {
             throw $this->fieldError('to_location_id', 'Lokasi tidak ditemukan atau tidak aktif.');
         }
-        if (! $this->scope->allowsLocation($id)) {
+        if (! $this->flowAction && ! $this->scope->allowsLocation($id)) {
             throw $this->fieldError('to_location_id', 'Lokasi berada di luar cakupan data Anda.');
         }
     }

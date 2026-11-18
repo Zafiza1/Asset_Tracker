@@ -1,7 +1,10 @@
 <?php
 
+use App\Domain\AssetTransactions\Flows\FlowEngine;
+use App\Domain\AssetTransactions\Flows\FlowVersionService;
 use App\Domain\Identity\Services\OrganizationInvitations;
 use App\Domain\ReportDesigner\Services\ReportExportService;
+use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -21,3 +24,9 @@ Artisan::command('reports:expire', function (ReportExportService $exports) {
 })->purpose('Delete report export files past their expiry (F-05, D-14) and mark them expired');
 
 Schedule::command('reports:expire')->daily();
+
+Artisan::command('transactions:resume', function (Tenancy $tenancy, FlowEngine $engine) {
+    $this->info(FlowVersionService::resumeWaiting($tenancy, $engine).' transaksi berjalan melanjutkan langkahnya.');
+})->purpose('Move running flow transactions on when their wait step date has come (F-07b)');
+
+Schedule::command('transactions:resume')->daily();

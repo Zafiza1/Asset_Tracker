@@ -147,17 +147,19 @@ final class TransactionFieldTypes
      * Validate the entered values against the type's fields and return what is stored: every
      * field key, normalized (numbers as numbers, unknown keys refused).
      *
-     * @param  iterable<TransactionTypeField>  $fields
+     * @param  iterable<TransactionTypeField>  $fields  the fields accepted here (a flow step may take a subset)
      * @param  array<string, mixed>  $input
+     * @param  list<string>|null  $required  keys required here; null: each field's own is_required
      * @return array<string, mixed>
      */
-    public function values(iterable $fields, array $input, string $today): array
+    public function values(iterable $fields, array $input, string $today, ?array $required = null): array
     {
         $rules = [];
         $byKey = [];
         foreach ($fields as $field) {
             $byKey[$field->key] = $field;
-            foreach ($this->valueRules($field, $today) as $path => $rule) {
+            $isRequired = $required === null ? $field->is_required : in_array($field->key, $required, true);
+            foreach ($this->valueRules($field, $today, $isRequired) as $path => $rule) {
                 $rules[$path === '' ? "field_values.{$field->key}" : "field_values.{$field->key}.{$path}"] = $rule;
             }
         }
@@ -182,9 +184,9 @@ final class TransactionFieldTypes
     }
 
     /** @return array<string, list<mixed>> path below the field ('' = the field itself) => rules */
-    private function valueRules(TransactionTypeField $field, string $today): array
+    private function valueRules(TransactionTypeField $field, string $today, bool $isRequired): array
     {
-        $presence = $field->is_required ? ['required'] : ['nullable'];
+        $presence = $isRequired ? ['required'] : ['nullable'];
         $s = $field->settings ?? [];
 
         return match ($field->data_type) {
@@ -197,15 +199,15 @@ final class TransactionFieldTypes
             'datetime' => ['' => [...$presence, 'date']],
             'select' => ['' => [...$presence, 'string', Rule::in(array_column($s['options'] ?? [], 'value'))]],
             'multiselect' => [
-                '' => [...$presence, 'array', ...($field->is_required ? ['min:1'] : [])],
+                '' => [...$presence, 'array', ...($isRequired ? ['min:1'] : [])],
                 '*' => ['string', 'distinct', Rule::in(array_column($s['options'] ?? [], 'value'))],
             ],
-            'boolean' => ['' => [...($field->is_required ? ['present'] : ['nullable']), 'boolean']],
+            'boolean' => ['' => [...($isRequired ? ['present'] : ['nullable']), 'boolean']],
             'user' => ['' => [...$presence, 'uuid', $this->activeMember()]],
             'location' => ['' => [...$presence, 'uuid', $this->locationInScope()]],
             'counterparty' => [
                 '' => [...$presence, 'array:name,contact'],
-                'name' => [$field->is_required ? 'required' : 'required_with:field_values.'.$field->key.'.contact', 'nullable', 'string', 'max:150'],
+                'name' => [$isRequired ? 'required' : 'required_with:field_values.'.$field->key.'.contact', 'nullable', 'string', 'max:150'],
                 'contact' => ['nullable', 'string', 'max:150'],
             ],
         };

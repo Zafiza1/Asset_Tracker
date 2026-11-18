@@ -3,6 +3,9 @@
 namespace Tests\Feature\Security;
 
 use App\Domain\Approvals\Models\ApprovalRequest;
+use App\Domain\AssetTransactions\Models\TransactionFlowVersion;
+use App\Domain\AssetTransactions\Models\TransactionRun;
+use App\Domain\AssetTransactions\Models\TransactionTask;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\Dashboards\Models\Dashboard;
 use App\Domain\Dashboards\Models\DashboardTemplate;
@@ -135,6 +138,16 @@ class RouteSecurityTest extends TestCase
         $export->save();
         $transactionType = (new TransactionTypeDefinition)->forceFill(['organization_id' => $orgB->id, 'code' => 'MUT', 'name' => 'Mutasi', 'status' => 'active']);
         $transactionType->save();
+        $flowVersion = (new TransactionFlowVersion)->forceFill(['organization_id' => $orgB->id, 'type_definition_id' => $transactionType->id,
+            'version_number' => 1, 'status' => 'draft', 'graph' => ['nodes' => [], 'edges' => []]]);
+        $flowVersion->save();
+        $run = (new TransactionRun)->forceFill(['organization_id' => $orgB->id, 'type_definition_id' => $transactionType->id,
+            'flow_version_id' => $flowVersion->id, 'transaction_number' => 'MUT-2026-000001', 'state' => 'running',
+            'transaction_date' => now()->toDateString(), 'created_by' => $adminB->id]);
+        $run->save();
+        $task = (new TransactionTask)->forceFill(['organization_id' => $orgB->id, 'run_id' => $run->id, 'node_id' => 'isi',
+            'kind' => 'input', 'assignee_type' => 'user', 'assignee_id' => $adminB->id]);
+        $task->save();
         $dashboard = (new Dashboard)->forceFill(['organization_id' => $orgB->id, 'name' => 'Beta', 'dashboard_type' => 'custom',
             'visibility' => 'organization', 'created_by' => $adminB->id]);
         $dashboard->save();
@@ -150,6 +163,8 @@ class RouteSecurityTest extends TestCase
             'reportTemplate' => $template->id,
             'reportExport' => $export->id,
             'transactionType' => $transactionType->id,
+            'transactionRun' => $run->id,
+            'task' => $task->id,
             'approvalRequest' => $approval->id,
             'invitation' => $invitation->id,
             'asset' => $asset->id,

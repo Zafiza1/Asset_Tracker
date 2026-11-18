@@ -20,7 +20,9 @@ final class TransactionLog
         'outgoing_nature', 'reason_code', 'counterparty_name', 'counterparty_org', 'counterparty_contact',
         'document_number', 'outgoing_transaction_id',
         // organization's own types (F-07)
-        'type_definition_id', 'field_values'];
+        'type_definition_id', 'field_values',
+        // rows written by a flow run share its number (F-07b)
+        'run_id'];
 
     public function __construct(
         private readonly NumberSequence $numbers,
