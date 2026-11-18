@@ -15,6 +15,7 @@ import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { toast } from '../../components/ui/toast'
 import { errorMessage } from '../../lib/forms'
 import { useAuth } from '../../lib/auth/context'
+import { useCanUseEditor } from '../../lib/useMediaQuery'
 import { formatDate } from '../../lib/format'
 import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { SampleTemplatesModal } from './SampleTemplatesModal'
@@ -34,6 +35,9 @@ export function ReportTemplatesPage() {
   const [search, setSearch] = useState(params.get('search') ?? '')
   const [createOpen, setCreateOpen] = useState(false)
   const [samplesOpen, setSamplesOpen] = useState(false)
+  // Creating and designing templates is web-only on wide screens (D-34).
+  const canUseEditor = useCanUseEditor()
+  const canCreate = can('report.create') && canUseEditor
   const [deleteTarget, setDeleteTarget] = useState<ReportTemplate | null>(null)
 
   const filters = Object.fromEntries(FILTERS.map((k) => [k, params.get(k)]))
@@ -89,7 +93,7 @@ export function ReportTemplatesPage() {
     const items: RowMenuItem[] = []
     if (t.status === 'published' && can('report.generate')) items.push({ label: 'Jalankan', icon: <Play aria-hidden />, onSelect: () => navigate(`/laporan/template/${t.id}/jalankan`) })
     items.push({ label: 'Detail', onSelect: () => navigate(`/laporan/template/${t.id}`) })
-    if (can('report.update')) items.push({ label: 'Buka Desainer', icon: <PencilRuler aria-hidden />, onSelect: () => navigate(`/laporan/template/${t.id}/desain`) })
+    if (can('report.update') && canUseEditor) items.push({ label: 'Buka Desainer', icon: <PencilRuler aria-hidden />, onSelect: () => navigate(`/laporan/template/${t.id}/desain`) })
     if (can('report.create')) items.push({ label: 'Duplikat', icon: <Copy aria-hidden />, onSelect: () => lifecycle.mutate({ template: t, action: 'duplicate' }) })
     if (can('report.publish') && t.status !== 'archived') {
       if (t.draft_version) items.push({ label: 'Terbitkan draft', icon: <FileCheck2 className="size-4" aria-hidden />, onSelect: () => lifecycle.mutate({ template: t, action: 'publish' }) })
@@ -143,7 +147,7 @@ export function ReportTemplatesPage() {
         title="Template Laporan"
         description="Susun sendiri format laporan dan data yang dilaporkan: seret elemen ke kertas di desainer, terbitkan, lalu jalankan untuk mengunduh PDF/Excel."
         actions={
-          can('report.create') && (
+          canCreate && (
             <>
               <Button variant="secondary" onClick={() => setSamplesOpen(true)}>
                 <LayoutTemplate className="size-4" aria-hidden /> Mulai dari contoh
@@ -197,7 +201,7 @@ export function ReportTemplatesPage() {
             icon={FileText}
             title="Belum ada template laporan"
             description="Buat template pertama untuk mulai mendesain laporan kustom."
-            action={can('report.create') ? <Button onClick={() => setCreateOpen(true)}>Template Baru</Button> : undefined}
+            action={canCreate ? <Button onClick={() => setCreateOpen(true)}>Template Baru</Button> : undefined}
           />
         ) : (
           <DataTable columns={columns} rows={rows} sort={sort} onSort={(next) => update({ sort: next })} rowHref={(t) => `/laporan/template/${t.id}`} />

@@ -239,3 +239,41 @@ describe('ReportDesignerPage', () => {
     expect(JSON.parse(String((call![1] as RequestInit).body)).design.schema).toBe(1)
   })
 })
+
+describe('on a phone (D-34: editors are web-only)', () => {
+  function narrowScreen() {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {} }))
+  }
+
+  it('the designer shows a notice instead of the editor', async () => {
+    narrowScreen()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string) => {
+        const url = String(input)
+        if (url === `/api/report-templates/${TEMPLATE.id}`) return new Response(JSON.stringify({ data: TEMPLATE }), { status: 200 })
+        if (url.startsWith(`/api/report-templates/${TEMPLATE.id}/versions`)) return new Response(JSON.stringify({ data: [VERSION], meta: { current_page: 1, last_page: 1, per_page: 50, total: 1 } }), { status: 200 })
+        return new Response(JSON.stringify({ data: FIELDS }), { status: 200 })
+      }),
+    )
+    renderWith(<ReportDesignerPage />, ['report.view', 'report.update'], `/laporan/template/${TEMPLATE.id}/desain`)
+    expect(await screen.findByText('Desainer laporan hanya tersedia di web')).toBeInTheDocument()
+    expect(screen.queryByText(/Seret elemen dari panel kiri/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Simpan' })).not.toBeInTheDocument()
+  })
+
+  it('the template list offers no create or designer actions', async () => {
+    narrowScreen()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ data: [TEMPLATE], meta: { current_page: 1, last_page: 1, per_page: 15, total: 1, from: 1, to: 1 } }), { status: 200 })),
+    )
+    renderWith(<ReportTemplatesPage />, ['report.view', 'report.create', 'report.update'], '/laporan/template')
+    await screen.findByText('Laporan Stok')
+    expect(screen.queryByRole('button', { name: /Template Baru/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Mulai dari contoh/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Aksi Laporan Stok' }))
+    expect(screen.getByRole('menuitem', { name: 'Detail' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Buka Desainer' })).not.toBeInTheDocument()
+  })
+})

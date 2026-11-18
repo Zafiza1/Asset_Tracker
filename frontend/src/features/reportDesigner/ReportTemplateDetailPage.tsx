@@ -11,6 +11,7 @@ import { DataTable, type Column } from '../../components/ui/Table'
 import { toast } from '../../components/ui/toast'
 import { errorMessage } from '../../lib/forms'
 import { useAuth } from '../../lib/auth/context'
+import { useCanUseEditor } from '../../lib/useMediaQuery'
 import { formatDate } from '../../lib/format'
 import { dataSourceLabel, templateStatusLabel, templateStatusTone, templatesApi, type TemplateVersion } from './api'
 
@@ -23,6 +24,7 @@ export function ReportTemplateDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [pending, setPending] = useState<PendingAction>(null)
+  const canUseEditor = useCanUseEditor()
 
   const templateQuery = useQuery({ queryKey: ['report-template', id], queryFn: () => templatesApi.get(id!), enabled: Boolean(id) })
   const versionsQuery = useQuery({ queryKey: ['report-template-versions', id], queryFn: () => templatesApi.versions(id!), enabled: Boolean(id) })
@@ -96,7 +98,7 @@ export function ReportTemplateDetailPage() {
                 <Play className="size-4" aria-hidden /> Jalankan
               </Button>
             )}
-            {can('report.update') && (
+            {can('report.update') && canUseEditor && (
               <Button variant={t.status === 'published' && can('report.generate') ? 'secondary' : 'primary'} onClick={() => navigate(`/laporan/template/${t.id}/desain`)}>
                 <PencilRuler className="size-4" aria-hidden /> Buka Desainer
               </Button>

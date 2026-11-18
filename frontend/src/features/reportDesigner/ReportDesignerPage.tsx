@@ -5,14 +5,15 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
 import { Button, ButtonLink } from '../../components/ui/Button'
-import { PageHeader } from '../../components/ui/Card'
+import { Card, PageHeader } from '../../components/ui/Card'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { ErrorState, Spinner } from '../../components/ui/Feedback'
+import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
 import { Field, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { toast } from '../../components/ui/toast'
 import { errorMessage } from '../../lib/forms'
 import { useAuth } from '../../lib/auth/context'
+import { useCanUseEditor } from '../../lib/useMediaQuery'
 import { dataSourceLabel, templateStatusLabel, templateStatusTone, templatesApi, type ReportField, type ReportTemplate } from './api'
 import { DesignerCanvas } from './designer/DesignerCanvas'
 import { ElementsPanel } from './designer/ElementsPanel'
@@ -45,6 +46,7 @@ export function ReportDesignerPage() {
   const templateQuery = useQuery({ queryKey: ['report-template', id], queryFn: () => templatesApi.get(id!), enabled: Boolean(id) })
   const versionsQuery = useQuery({ queryKey: ['report-template-versions', id], queryFn: () => templatesApi.versions(id!), enabled: Boolean(id) })
   const fieldsQuery = useQuery({ queryKey: ['report-fields'], queryFn: templatesApi.fields, staleTime: 5 * 60 * 1000 })
+  const canUseEditor = useCanUseEditor()
 
   if (templateQuery.isLoading || versionsQuery.isLoading) return <Spinner label="Memuat desainer…" />
   if (templateQuery.isError) return <ErrorState error={templateQuery.error} onRetry={() => void templateQuery.refetch()} />
@@ -54,6 +56,8 @@ export function ReportDesignerPage() {
   const versions = [...(versionsQuery.data?.data ?? [])].sort((a, b) => b.version_number - a.version_number)
   const draft = versions.find((v) => v.status === 'draft') ?? versions[0]
 
+  if (!canUseEditor) return <DesignerNeedsWideScreen template={template} />
+
   return (
     <DesignerEditor
       key={template.id}
@@ -62,6 +66,30 @@ export function ReportDesignerPage() {
       versionLabel={draft ? `v${draft.version_number}` : 'belum ada versi'}
       fields={fieldsQuery.data?.data}
     />
+  )
+}
+
+/** Phones show finished reports only: designing happens on the web on a wide screen (D-34). */
+function DesignerNeedsWideScreen({ template }: { template: ReportTemplate }) {
+  const { can } = useAuth()
+  return (
+    <>
+      <PageHeader title={template.name} />
+      <Card>
+        <EmptyState
+          title="Desainer laporan hanya tersedia di web"
+          description="Buka halaman ini di komputer atau layar yang lebih lebar untuk mengubah format laporan. Di ponsel, template dapat dilihat dan dijalankan."
+          action={
+            <>
+              <ButtonLink to={`/laporan/template/${template.id}`} variant="secondary">
+                Detail template
+              </ButtonLink>
+              {template.status === 'published' && can('report.generate') && <ButtonLink to={`/laporan/template/${template.id}/jalankan`}>Jalankan</ButtonLink>}
+            </>
+          }
+        />
+      </Card>
+    </>
   )
 }
 
