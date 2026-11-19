@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, KeyRound, LayoutDashboard, Layers, ListChecks, MapPin, QrCode, Users, Workflow, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, Home, KeyRound, LayoutDashboard, Layers, ListChecks, MapPin, QrCode, Users, Workflow, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -27,7 +27,12 @@ export interface NavSection {
  * a user menu; developers inspect it with `php artisan asset:inspect`.
  */
 export const tenantNavigation: NavSection[] = [
-  { items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard }] },
+  {
+    items: [
+      { to: '/', label: 'Beranda', icon: Home },
+      { to: '/dashboard-aset', label: 'Dashboard Aset', icon: LayoutDashboard, permission: 'report.view' },
+    ],
+  },
   {
     group: 'Operasional',
     title: 'Manajemen Aset',

@@ -196,6 +196,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
 
     // Home page (F-06): the user's own work and notifications; each card checks its own permission.
     Route::get('/home/cards', [HomeController::class, 'cards']);
+    Route::put('/home/preferences', [HomeController::class, 'updatePreferences']);
 
     // Notifications menu: approval requests of transactions, assets and master data.
     Route::get('/approvals', [ApprovalController::class, 'index']);

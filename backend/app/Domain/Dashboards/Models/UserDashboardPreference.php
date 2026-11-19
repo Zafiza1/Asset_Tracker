@@ -18,16 +18,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $user_id
  * @property string|null $default_dashboard_id
  * @property array<string, mixed> $sidebar_preferences
+ * @property array{order?: list<string>, hidden?: list<string>} $home_cards Home card order and hidden cards (F-06 §3.2)
  */
 class UserDashboardPreference extends Model
 {
     use BelongsToOrganization, HasUuids;
 
-    protected $fillable = ['default_dashboard_id', 'sidebar_preferences'];
+    protected $fillable = ['default_dashboard_id', 'sidebar_preferences', 'home_cards'];
 
     protected function casts(): array
     {
-        return ['sidebar_preferences' => JsonObject::class];
+        return ['sidebar_preferences' => JsonObject::class, 'home_cards' => JsonObject::class];
     }
 
     public function user(): BelongsTo

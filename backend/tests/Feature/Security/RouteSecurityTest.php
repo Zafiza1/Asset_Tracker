@@ -42,9 +42,9 @@ class RouteSecurityTest extends TestCase
      * Tenant routes open to every member without a permission: the Notifications menu, where
      * each user follows their own approval requests (ApprovalController narrows the rows; only
      * approve/reject need approval.manage), and the home page, whose cards each check their own
-     * permission (HomeCards::CARDS).
+     * permission (HomeCards::CARDS) and whose card order is the member's own preference.
      */
-    private const MEMBER_ROUTES = ['api/home/cards', 'api/approvals', 'api/approvals/summary', 'api/approvals/counts', 'api/approvals/{approvalRequest}', 'api/approvals/{approvalRequest}/cancel'];
+    private const MEMBER_ROUTES = ['api/home/cards', 'api/home/preferences', 'api/approvals', 'api/approvals/summary', 'api/approvals/counts', 'api/approvals/{approvalRequest}', 'api/approvals/{approvalRequest}/cancel'];
 
     public function test_every_api_route_is_authenticated_scoped_and_permission_checked(): void
     {

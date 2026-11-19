@@ -13,4 +13,5 @@ npm run e2e
 
 | Spec | Flow |
 |---|---|
+| `home.spec.ts` | F-06d: Beranda after login → hide a card, still hidden after reload → "Dashboard Aset" menu |
 | `outgoing-incoming.spec.ts` | F-QA: temporary outgoing → listed under "Belum kembali" → incoming from the asset detail → the outgoing report sample shows it as returned |

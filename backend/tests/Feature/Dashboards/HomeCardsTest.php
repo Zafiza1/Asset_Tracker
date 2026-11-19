@@ -127,6 +127,28 @@ class HomeCardsTest extends TestCase
         $this->assertSame(2, $this->card('approvals_to_decide')['count']);
     }
 
+    public function test_each_member_keeps_their_own_card_order_and_hidden_cards(): void
+    {
+        $this->assertSame(['order' => [], 'hidden' => []], $this->getJson('/api/home/cards')->json('meta.preferences'));
+
+        $this->putJson('/api/home/preferences', ['order' => ['my_requests', 'approvals_to_decide'], 'hidden' => ['recent_activity']])
+            ->assertOk()->assertJsonPath('data.hidden', ['recent_activity']);
+        $this->assertSame(['order' => ['my_requests', 'approvals_to_decide'], 'hidden' => ['recent_activity']],
+            $this->getJson('/api/home/cards')->json('meta.preferences'));
+
+        // Only card keys, each once.
+        $this->putJson('/api/home/preferences', ['order' => ['bukan_kartu'], 'hidden' => []])->assertUnprocessable();
+        $this->putJson('/api/home/preferences', ['order' => ['my_requests', 'my_requests'], 'hidden' => []])->assertUnprocessable();
+        $this->putJson('/api/home/preferences', ['order' => []])->assertUnprocessable();
+
+        // A member without any dashboard permission has their own, untouched preferences.
+        $this->actingAs($this->member([]), 'web');
+        $this->assertSame(['order' => [], 'hidden' => []], $this->getJson('/api/home/cards')->json('meta.preferences'));
+        $this->putJson('/api/home/preferences', ['order' => [], 'hidden' => ['my_requests']])->assertOk();
+        $this->actingAs($this->admin, 'web');
+        $this->assertSame(['recent_activity'], $this->getJson('/api/home/cards')->json('meta.preferences.hidden'));
+    }
+
     /** @return list<array<string, mixed>> */
     private function cards(): array
     {

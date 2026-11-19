@@ -33,6 +33,8 @@ import { TransactionRunsPage } from '../features/transactionTypes/TransactionRun
 import { TransactionTypeFormPage } from '../features/transactionTypes/TransactionTypeFormPage'
 import { TransactionTypesPage } from '../features/transactionTypes/TransactionTypesPage'
 import { NotificationsPage } from '../features/approvals/NotificationsPage'
+import { DashboardPage } from '../features/dashboard/DashboardPage'
+import { HomePage } from '../features/home/HomePage'
 import { GuidePage } from '../features/guide/GuidePage'
 import { LegacyRoleRedirect, RolesPage } from '../features/roles/RolesPage'
 import { UserCreatePage } from '../features/users/UserCreatePage'
@@ -40,7 +42,6 @@ import { UserDetailPage } from '../features/users/UserDetailPage'
 import { InvitationsPage } from '../features/users/InvitationsPage'
 import { UsersPage } from '../features/users/UsersPage'
 import { AppLayout } from './AppLayout'
-import { Landing } from './Landing'
 import { RootLayout } from './RootLayout'
 import { NotFound, RequireAuth, RequirePermission, RequireUserType, RouteError } from './guards'
 
@@ -77,7 +78,10 @@ export const router = createBrowserRouter([
                 // A page that throws keeps the sidebar and header; only the content shows the error.
                 errorElement: <RouteError />,
                 children: [
-                  { path: '/', element: tenant(null, <Landing />) },
+                  // Beranda for every member: their own work and notifications (F-06 §3).
+                  { path: '/', element: tenant(null, <HomePage />) },
+                  // Asset analytics; replaced by the per-role Dashboard Aset in F-06e.
+                  { path: '/dashboard-aset', element: tenant('report.view', <DashboardPage />) },
                   { path: '/aset', element: tenant('asset.view', <AssetsPage />) },
                   { path: '/aset/:id', element: tenant('asset.view', <AssetDetailPage />) },
                   { path: '/transaksi', element: tenant('transaction.view', <TransactionsPage />) },
