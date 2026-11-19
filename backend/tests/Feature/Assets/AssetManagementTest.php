@@ -294,6 +294,9 @@ class AssetManagementTest extends TestCase
         $this->assertSame('transfer', $events[0]['transaction']['type']);
         $this->assertSame('Kantor', $events[0]['transaction']['to_location']['name']);
         $this->assertSame('registration', $events[2]['transaction']['type']);
+        // Same shape as /transactions: a built-in type has no field_values (not an empty object).
+        $this->assertArrayNotHasKey('field_values', $events[0]['transaction']);
+        $this->assertArrayNotHasKey('type_definition', $events[0]['transaction']);
         $this->assertSame($this->admin->name, $events[1]['actor']);
         $changes = collect($events[1]['changes'])->keyBy('field');
         $this->assertSame(['Laptop', 'Laptop Dell'], [$changes['name']['before'], $changes['name']['after']]);

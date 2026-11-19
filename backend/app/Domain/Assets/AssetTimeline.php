@@ -63,7 +63,9 @@ final class AssetTimeline
                 'kind' => 'transaction',
                 'occurred_at' => $t->created_at?->toIso8601String(),
                 'actor' => $t->creator?->name,
-                'transaction' => (new AssetTransactionResource($t))->toArray($request),
+                // resolve(), not toArray(): it drops the resource's when() fields that do not apply
+                // (field_values of a built-in type), which toArray() would send as an empty object.
+                'transaction' => (new AssetTransactionResource($t))->resolve($request),
                 '_day' => $t->transaction_date->toDateString(),
                 '_at' => $t->created_at?->format('Y-m-d H:i:s.u'),
             ]);
