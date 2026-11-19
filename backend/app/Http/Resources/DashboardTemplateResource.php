@@ -18,6 +18,8 @@ class DashboardTemplateResource extends JsonResource
             'description' => $this->description,
             'dashboard_type' => $this->dashboard_type,
             'category_type_key' => $this->category_type_key,
+            'role_id' => $this->role_id,
+            'role' => $this->whenLoaded('role', fn () => $this->role?->only(['id', 'code', 'name'])),
             'scope' => $this->scope,
             'version' => $this->version,
             'is_default' => $this->is_default,

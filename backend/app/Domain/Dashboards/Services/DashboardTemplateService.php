@@ -17,12 +17,17 @@ use Illuminate\Validation\Rule;
  * organization copies one to change it. A template starts empty, as a copy of another
  * template, or as a capture of a dashboard's widgets. Replacing a template's widgets raises
  * its version; dashboards made from it keep their widgets until a template update is applied.
+ *
+ * `role_id` maps an asset-board template to the role whose members get it (F-06 §4.1, D-21);
+ * at most one active template per role.
  */
 final class DashboardTemplateService
 {
-    private const AUDIT = ['name', 'description', 'dashboard_type', 'category_type_key', 'version', 'is_default', 'is_active'];
+    private const AUDIT = ['name', 'description', 'dashboard_type', 'category_type_key', 'role_id', 'version', 'is_default', 'is_active'];
 
     private const CATEGORY_TYPE_KEY = ['nullable', 'string', 'max:60', 'regex:/^[A-Za-z0-9_-]+$/'];
+
+    private const ROLE_ID = ['nullable', 'uuid'];
 
     public function __construct(
         private readonly DashboardBuilderService $builder,
@@ -38,6 +43,7 @@ final class DashboardTemplateService
             'description' => ['nullable', 'string', 'max:1000'],
             'dashboard_type' => ['required', Rule::in(DashboardType::ALL)],
             'category_type_key' => self::CATEGORY_TYPE_KEY,
+            'role_id' => self::ROLE_ID,
             'is_default' => ['sometimes', 'boolean'],
             'source_template_id' => ['nullable', 'uuid', 'prohibits:dashboard_id'],
             'dashboard_id' => ['nullable', 'uuid'],
@@ -51,6 +57,7 @@ final class DashboardTemplateService
             'name' => ['sometimes', 'string', 'min:2', 'max:150'],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'category_type_key' => ['sometimes', ...self::CATEGORY_TYPE_KEY],
+            'role_id' => ['sometimes', ...self::ROLE_ID],
             'is_default' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
             'dashboard_id' => ['sometimes', 'uuid'],
@@ -61,6 +68,7 @@ final class DashboardTemplateService
     public function create(array $data, User $user): DashboardTemplate
     {
         $this->assertCategoryKey($data['dashboard_type'], $data['category_type_key'] ?? null);
+        $this->assertRoleMapping($data['dashboard_type'], $data['role_id'] ?? null, null);
         $source = ! empty($data['source_template_id'])
             ? (DashboardTemplate::query()->whereKey($data['source_template_id'])->first()
                 ?? throw ApiException::unprocessable('INVALID_TEMPLATE', 'Template sumber tidak ditemukan.'))
@@ -80,6 +88,7 @@ final class DashboardTemplateService
             $template->version = 1;
             $template->created_by = $user->id;
             $template->source_template_id = $source?->id;
+            $template->role_id = $data['role_id'] ?? null;
             $template->save();
             if (! empty($data['is_default'])) {
                 $this->makeDefault($template);
@@ -101,19 +110,28 @@ final class DashboardTemplateService
     public function update(DashboardTemplate $template, array $data): DashboardTemplate
     {
         $this->assertOwned($template);
-        if (array_key_exists('category_type_key', $data)) {
-            $this->assertCategoryKey($template->dashboard_type, $data['category_type_key']);
-        }
+        $type = $data['dashboard_type'] ?? $template->dashboard_type;
+        $categoryKey = array_key_exists('category_type_key', $data) ? $data['category_type_key'] : $template->category_type_key;
+        $roleId = array_key_exists('role_id', $data) ? $data['role_id'] : $template->role_id;
+        $this->assertCategoryKey($type, $categoryKey);
+        $this->assertRoleMapping($type, $roleId, $template->id);
         $dashboard = ! empty($data['dashboard_id']) ? $this->readableDashboard($data['dashboard_id']) : null;
         $active = $data['is_active'] ?? $template->is_active;
         if (! empty($data['is_default']) && ! $active) {
             throw ApiException::unprocessable('TEMPLATE_INACTIVE', 'Template nonaktif tidak dapat menjadi template default.');
         }
 
-        return DB::transaction(function () use ($template, $data, $dashboard, $active) {
+        return DB::transaction(function () use ($template, $data, $dashboard, $active, $categoryKey, $roleId) {
             $before = $template->only(self::AUDIT);
             $wantDefault = $active && (array_key_exists('is_default', $data) ? (bool) $data['is_default'] : $template->is_default);
-            $template->fill(collect($data)->only(['name', 'description', 'category_type_key', 'is_active'])->all());
+            $template->fill(collect($data)->only(['name', 'description'])->all());
+            if (array_key_exists('category_type_key', $data)) {
+                $template->category_type_key = $categoryKey;
+            }
+            if (array_key_exists('role_id', $data)) {
+                $template->role_id = $roleId;
+            }
+            $template->is_active = $active;
             // Cleared first: the (type, category key) slot may belong to another default until makeDefault.
             $template->is_default = false;
             if ($dashboard !== null) {
@@ -151,6 +169,28 @@ final class DashboardTemplateService
     {
         if ($key !== null && $type !== DashboardType::CATEGORY) {
             throw ApiException::unprocessable('INVALID_CATEGORY_TYPE_KEY', 'Kunci tipe kategori hanya berlaku untuk template dashboard kategori.');
+        }
+    }
+
+    /** Role mapping belongs to asset-board templates and names one of the organization's roles, at most one active template each. */
+    private function assertRoleMapping(string $type, ?string $roleId, ?string $exceptTemplateId): void
+    {
+        if ($roleId === null) {
+            return;
+        }
+        if ($type !== DashboardType::ASSET_BOARD) {
+            throw ApiException::unprocessable('INVALID_ROLE_MAPPING', 'Pemetaan role hanya berlaku untuk template Dashboard Aset.');
+        }
+        $roleExists = DB::table('roles')->where('id', $roleId)->exists();
+        if (! $roleExists) {
+            throw ApiException::unprocessable('INVALID_ROLE', 'Role tidak ditemukan.');
+        }
+        $taken = DashboardTemplate::query()->where('dashboard_type', DashboardType::ASSET_BOARD)
+            ->where('role_id', $roleId)->where('is_active', true)
+            ->when($exceptTemplateId !== null, fn ($q) => $q->whereKeyNot($exceptTemplateId))
+            ->exists();
+        if ($taken) {
+            throw ApiException::unprocessable('ROLE_TEMPLATE_EXISTS', 'Role ini sudah memiliki template Dashboard Aset.');
         }
     }
 

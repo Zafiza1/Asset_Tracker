@@ -87,6 +87,83 @@ final class SystemTemplates
             'category_vehicle' => $category('AST_KENDARAAN', 'Aset Kendaraan', 'Pengingat STNK', 'Tanggal STNK Berakhir'),
             'category_machine' => $category('AST_MESIN', 'Aset Mesin & Peralatan', 'Jadwal Maintenance', 'Jadwal Maintenance Berikutnya'),
             'category_property' => $category('AST_PROPERTI', 'Aset Bangunan & Properti', 'Pengingat Berakhirnya Hak', 'Tanggal Berakhir Hak'),
+            // Kategori lain memakai widget kategori umum; yang punya atribut tanggal
+            // atau enum khas mendapat widget tambahan (label, bukan key — key atribut beda per organisasi).
+            'category_tools' => [
+                'name' => 'Aset Alat Kerja',
+                'description' => 'Template bawaan untuk kategori Aset Alat Kerja.',
+                'dashboard_type' => DashboardType::CATEGORY,
+                'category_type_key' => 'AST_ALAT_KERJA',
+                'version' => 1,
+                'is_default' => true,
+                'widgets' => [
+                    ...$categoryWidgets,
+                    ['widget' => 'attribute_distribution', 'title' => 'Jenis Alat', 'configuration' => ['attribute_label' => 'Jenis Alat', 'visualization' => 'bar'], 'layout' => ['w' => 6, 'h' => 2]],
+                ],
+            ],
+            'category_operational' => [
+                'name' => 'Aset Operasional',
+                'description' => 'Template bawaan untuk kategori Aset Operasional.',
+                'dashboard_type' => DashboardType::CATEGORY,
+                'category_type_key' => 'AST_OPERASIONAL',
+                'version' => 1,
+                'is_default' => true,
+                'widgets' => [
+                    ...$categoryWidgets,
+                    ['widget' => 'attribute_distribution', 'title' => 'Jenis Peralatan', 'configuration' => ['attribute_label' => 'Jenis Peralatan', 'visualization' => 'bar'], 'layout' => ['w' => 6, 'h' => 2]],
+                    ['widget' => 'date_reminders', 'title' => 'Jadwal Kalibrasi Berikutnya', 'configuration' => ['attribute_label' => 'Jadwal Kalibrasi Berikutnya', 'days_ahead' => 30], 'layout' => ['w' => 12, 'h' => 2]],
+                ],
+            ],
+            'category_medical' => [
+                'name' => 'Aset Medis & Kesehatan',
+                'description' => 'Template bawaan untuk kategori Aset Medis & Kesehatan.',
+                'dashboard_type' => DashboardType::CATEGORY,
+                'category_type_key' => 'AST_MEDIS',
+                'version' => 1,
+                'is_default' => true,
+                'widgets' => [
+                    ...$categoryWidgets,
+                    ['widget' => 'attribute_distribution', 'title' => 'Jenis Alat Medis', 'configuration' => ['attribute_label' => 'Jenis Alat Medis', 'visualization' => 'bar'], 'layout' => ['w' => 6, 'h' => 2]],
+                    ['widget' => 'date_reminders', 'title' => 'Jadwal Kalibrasi Berikutnya', 'configuration' => ['attribute_label' => 'Jadwal Kalibrasi Berikutnya', 'days_ahead' => 30], 'layout' => ['w' => 12, 'h' => 2]],
+                ],
+            ],
+            'category_infrastructure' => [
+                'name' => 'Aset Infrastruktur',
+                'description' => 'Template bawaan untuk kategori Aset Infrastruktur.',
+                'dashboard_type' => DashboardType::CATEGORY,
+                'category_type_key' => 'AST_INFRASTRUKTUR',
+                'version' => 1,
+                'is_default' => true,
+                'widgets' => [
+                    ...$categoryWidgets,
+                    ['widget' => 'attribute_distribution', 'title' => 'Jenis Infrastruktur', 'configuration' => ['attribute_label' => 'Jenis Infrastruktur', 'visualization' => 'bar'], 'layout' => ['w' => 6, 'h' => 2]],
+                    ['widget' => 'date_reminders', 'title' => 'Garansi Berakhir', 'configuration' => ['attribute_label' => 'Garansi Berakhir', 'days_ahead' => 30], 'layout' => ['w' => 12, 'h' => 2]],
+                ],
+            ],
+            'category_furniture' => [
+                'name' => 'Aset Furniture & Perlengkapan',
+                'description' => 'Template bawaan untuk kategori Aset Furniture & Perlengkapan.',
+                'dashboard_type' => DashboardType::CATEGORY,
+                'category_type_key' => 'AST_FURNITURE',
+                'version' => 1,
+                'is_default' => true,
+                'widgets' => [
+                    ...$categoryWidgets,
+                    ['widget' => 'attribute_distribution', 'title' => 'Jenis Furniture', 'configuration' => ['attribute_label' => 'Jenis Furniture', 'visualization' => 'bar'], 'layout' => ['w' => 6, 'h' => 2]],
+                ],
+            ],
+            'category_inventory' => [
+                'name' => 'Aset Inventaris Umum',
+                'description' => 'Template bawaan untuk kategori Aset Inventaris Umum.',
+                'dashboard_type' => DashboardType::CATEGORY,
+                'category_type_key' => 'AST_INVENTARIS',
+                'version' => 1,
+                'is_default' => true,
+                'widgets' => [
+                    ...$categoryWidgets,
+                    ['widget' => 'attribute_distribution', 'title' => 'Jenis Inventaris', 'configuration' => ['attribute_label' => 'Jenis Inventaris', 'visualization' => 'bar'], 'layout' => ['w' => 6, 'h' => 2]],
+                ],
+            ],
             'custom_operations' => [
                 'name' => 'Operasional Aset',
                 'description' => 'Titik awal dashboard sendiri: status, aset terbaru, dan aktivitas transaksi.',

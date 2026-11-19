@@ -10,6 +10,8 @@ use App\Domain\AssetTransactions\Models\TransactionTask;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\Dashboards\Models\Dashboard;
 use App\Domain\Dashboards\Models\DashboardTemplate;
+use App\Domain\Dashboards\Models\DashboardWidget;
+use App\Domain\Dashboards\Models\WidgetCatalog;
 use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
@@ -156,12 +158,18 @@ class RouteSecurityTest extends TestCase
         $dashboard = (new Dashboard)->forceFill(['organization_id' => $orgB->id, 'name' => 'Beta', 'dashboard_type' => 'custom',
             'visibility' => 'organization', 'created_by' => $adminB->id]);
         $dashboard->save();
+        $catalog = WidgetCatalog::query()->firstOrFail();
+        $widget = (new DashboardWidget)->forceFill(['organization_id' => $orgB->id, 'dashboard_id' => $dashboard->id,
+            'widget_catalog_id' => $catalog->id, 'configuration' => [], 'layout' => $catalog->default_layout,
+            'sort_order' => 0, 'is_visible' => true]);
+        $widget->save();
         $dashboardTemplate = (new DashboardTemplate)->forceFill(['organization_id' => $orgB->id, 'template_key' => 'beta', 'name' => 'Beta',
             'dashboard_type' => 'custom', 'scope' => 'organization']);
         $dashboardTemplate->save();
 
         return [
             'dashboard' => $dashboard->id,
+            'widget' => $widget->id,
             'dashboardTemplate' => $dashboardTemplate->id,
             // {source} is a registry key, not a record: an unknown one answers 404 for everyone.
             'source' => 'bukan-sumber',

@@ -284,9 +284,10 @@ final class TransactionFieldTypes
     {
         $fields = collect($fields);
         $ids = fn (string $type) => $fields->where('data_type', $type)->map(fn ($f) => $values[$f->key] ?? null)->filter(fn ($v) => is_string($v))->values()->all();
-        $users = ($u = $ids('user')) === [] ? [] : User::query()->whereKey($u)->pluck('name', 'id')->all();
-        $locations = ($l = $ids('location')) === [] ? [] : Location::query()->whereKey($l)->pluck('name', 'id')->all();
-        $files = TransactionAttachments::summaries($ids('attachment'));
+        // Reports resolve many rows: the id→name lookups are memoized per id set.
+        $users = ($u = $ids('user')) === [] ? [] : self::memo('user', $u, fn () => User::query()->whereKey($u)->pluck('name', 'id')->all());
+        $locations = ($l = $ids('location')) === [] ? [] : self::memo('location', $l, fn () => Location::query()->whereKey($l)->pluck('name', 'id')->all());
+        $files = ($a = $ids('attachment')) === [] ? [] : self::memo('attachment', $a, fn () => TransactionAttachments::summaries($a));
 
         $out = [];
         foreach ($fields as $field) {
@@ -307,6 +308,21 @@ final class TransactionFieldTypes
         }
 
         return $out;
+    }
+
+    /** @var array<string, array<string, mixed>> */
+    private static array $displayMemo = [];
+
+    /**
+     * @param  list<string>  $ids
+     * @param  Closure(): array<string, mixed>  $loader
+     * @return array<string, mixed>
+     */
+    private static function memo(string $kind, array $ids, Closure $loader): array
+    {
+        $key = $kind.'|'.implode(',', $ids);
+
+        return self::$displayMemo[$key] ??= $loader();
     }
 
     /** An active location the user may record into. */

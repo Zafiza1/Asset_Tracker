@@ -20,8 +20,9 @@ use Illuminate\Validation\Rule;
 
 /**
  * Dashboard lifecycle: the Overview and category dashboards (created by the system on first
- * use, from TemplateResolver), custom dashboards (from a template or empty), settings, soft
- * deletion, explicit template updates and each member's default dashboard.
+ * use, from TemplateResolver), the member's asset board (a personal copy of their role's
+ * template), custom dashboards (from a template or empty), settings, soft deletion,
+ * explicit template updates and each member's default dashboard.
  *
  * Callers authorize through DashboardPolicy first; the checks here are business rules.
  */
@@ -96,6 +97,28 @@ final class DashboardService
         );
     }
 
+    /**
+     * The member's asset board (F-06 §4.1, D-21): a personal dashboard provisioned on first
+     * open from the organization template mapped to their role. Their edits stay personal;
+     * applying the template again starts a fresh copy.
+     */
+    public function assetBoard(User $user): Dashboard
+    {
+        return $this->findOrCreate(
+            fn () => Dashboard::query()->where('dashboard_type', DashboardType::ASSET_BOARD)
+                ->where('created_by', $user->id)->where('status', Dashboard::STATUS_ACTIVE)->first(),
+            function () use ($user) {
+                $dashboard = new Dashboard(['name' => 'Dashboard Aset', 'description' => 'Dashboard aset Anda, dari template role Anda.', 'visibility' => DashboardType::PERSONAL, 'status' => Dashboard::STATUS_ACTIVE]);
+                $dashboard->dashboard_type = DashboardType::ASSET_BOARD;
+                $dashboard->created_by = $user->id;
+                $dashboard->save();
+                $this->fillFromTemplate($dashboard, $this->resolver->forRole($user));
+
+                return $dashboard;
+            },
+        );
+    }
+
     /** @param  array<string, mixed>  $data */
     public function createCustom(array $data, User $user): Dashboard
     {
@@ -147,8 +170,8 @@ final class DashboardService
             }
         }
         $status = $data['status'] ?? $dashboard->status;
-        if ($status === Dashboard::STATUS_ARCHIVED && ($dashboard->isOverview() || ($data['is_default'] ?? $dashboard->is_default))) {
-            throw ApiException::unprocessable('DASHBOARD_NOT_ARCHIVABLE', 'Overview dan dashboard default organisasi tidak dapat diarsipkan.');
+        if ($status === Dashboard::STATUS_ARCHIVED && ($dashboard->isOverview() || $dashboard->isAssetBoard() || ($data['is_default'] ?? $dashboard->is_default))) {
+            throw ApiException::unprocessable('DASHBOARD_NOT_ARCHIVABLE', 'Overview, dashboard aset, dan dashboard default organisasi tidak dapat diarsipkan.');
         }
         if (array_key_exists('is_default', $data) && (bool) $data['is_default'] !== $dashboard->is_default) {
             if (! $manager) {
@@ -179,7 +202,7 @@ final class DashboardService
     public function delete(Dashboard $dashboard): void
     {
         if (! $dashboard->isCustom()) {
-            throw ApiException::unprocessable('DASHBOARD_NOT_DELETABLE', 'Overview dan dashboard kategori tidak dapat dihapus.');
+            throw ApiException::unprocessable('DASHBOARD_NOT_DELETABLE', 'Overview, dashboard kategori, dan dashboard aset tidak dapat dihapus.');
         }
         DB::transaction(function () use ($dashboard) {
             $dashboard->is_default = false;
@@ -193,17 +216,21 @@ final class DashboardService
      * Explicit template update: replace the widgets with a fresh copy of a template — the given
      * one, else the dashboard's own template, else (system dashboards) the resolved one.
      */
-    public function applyTemplate(Dashboard $dashboard, ?string $templateId): Dashboard
+    public function applyTemplate(Dashboard $dashboard, ?string $templateId, ?User $user = null): Dashboard
     {
         if ($templateId !== null) {
             $template = DashboardTemplate::query()->whereKey($templateId)->where('is_active', true)->first();
-            if ($template === null || (! $dashboard->isCustom() && $template->dashboard_type !== $dashboard->dashboard_type)) {
+            if ($template === null || (! $dashboard->isCustom() && ! $dashboard->isAssetBoard() && $template->dashboard_type !== $dashboard->dashboard_type)) {
                 throw ApiException::unprocessable('INVALID_TEMPLATE', 'Template tidak ditemukan, tidak aktif, atau tidak sesuai jenis dashboard.');
+            }
+            if ($dashboard->isAssetBoard() && $template->dashboard_type !== DashboardType::ASSET_BOARD) {
+                throw ApiException::unprocessable('INVALID_TEMPLATE', 'Template tidak sesuai jenis dashboard.');
             }
         } else {
             $template = $dashboard->template()->where('is_active', true)->first() ?? match ($dashboard->dashboard_type) {
                 DashboardType::OVERVIEW => $this->resolver->forOverview(),
                 DashboardType::CATEGORY => $this->resolver->forCategory($dashboard->category()->firstOrFail()),
+                DashboardType::ASSET_BOARD => $user !== null ? $this->resolver->forRole($user) : null,
                 default => null,
             };
             if ($template === null) {

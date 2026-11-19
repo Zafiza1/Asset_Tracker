@@ -91,15 +91,24 @@ final class FieldCatalog
         ];
     }
 
-    /** Field keys of one source, for validation and the fields API. */
+    /**
+     * Field keys of one source, for validation and the fields API. Besides the static
+     * registry this merges the organization's own transaction-type fields
+     * (TransactionReportFields, F-07g) — dynamic entries that exist only in a tenant context.
+     */
     public static function fields(string $source): array
     {
-        return self::all()[$source] ?? [];
+        $fields = self::all()[$source] ?? [];
+        if ($source === 'asset_transaction') {
+            $fields += app(TransactionReportFields::class)->fields();
+        }
+
+        return $fields;
     }
 
     public static function has(string $source, string $fieldKey): bool
     {
-        return isset(self::all()[$source][$fieldKey]);
+        return isset(self::fields($source)[$fieldKey]);
     }
 
     /** Idempotent sync into report_field_registry; runs in the system context (seeder). */

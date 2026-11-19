@@ -179,7 +179,7 @@ Mockup [F-06-dashboard.html](../../design/mockups/F-06-dashboard.html) memuat: B
 | ID | Task | Agent | Bergantung | Status |
 |---|---|---|---|---|
 | F-06a | Backend Beranda: `GET /home/cards`, kartu §3.1, cache, test scope/izin | backend-engineer, security-engineer | D-18..D-20 | in_review (`HomeCardsTest`); dua kartu F-07 menyusul di F-06g |
-| F-06b | Backend widget baru §4.3 + `role_id` template + template role & kategori bawaan | backend-engineer, database-engineer | D-21, D-22 | todo |
+| F-06b | Backend widget baru §4.3 + `role_id` template + template role & kategori bawaan | backend-engineer, database-engineer | D-21, D-22 | in_review (`DashboardWidgetsTest`): `widget_catalog.required_permission`, widget catatan/pintasan, CRUD + urutan widget (`/dashboards/{id}/widgets`), data per widget (`/widgets/{id}/data`, izin widget + data scope), `dashboard_templates.role_id` (satu template aktif per role), Dashboard Aset pribadi `asset_board` dibuat dari template role saat pertama dibuka (`GET /dashboards/asset-board`), template kategori bawaan |
 | F-06c | Mockup F-06 dan persetujuan | ui-ux-designer | requirement disetujui | done |
 | F-06d | Frontend Beranda, termasuk menyimpan urutan/kartu tersembunyi per pengguna | frontend-engineer, backend-engineer | F-06a, F-06c | todo |
 | F-06e | Frontend Dashboard Aset: tab ringkasan/kategori, Tambah widget, atur tata letak, template per role | frontend-engineer | F-06b, F-06c | todo |
