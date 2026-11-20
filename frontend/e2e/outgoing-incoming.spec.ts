@@ -55,7 +55,8 @@ test('keluar sementara → masuk → laporan transaksi keluar', async ({ page })
   // 3. The asset is outside the organization; record it coming back from its detail page.
   await row.getByRole('link', { name: ASSET }).click()
   await expect(page.getByText('Di Luar Organisasi').first()).toBeVisible()
-  await expect(page.getByText(number)).toBeVisible()
+  // The number shows in the "Di luar organisasi" note and again in the asset's history.
+  await expect(page.getByText(number).first()).toBeVisible()
   await page.getByRole('button', { name: 'Catat masuk' }).click()
   const back = page.getByRole('dialog')
   await expect(back.getByLabel('Jenis transaksi')).toHaveValue('incoming')

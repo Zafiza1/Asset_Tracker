@@ -25,7 +25,7 @@ final class MiscWidgets
             ->where('entity_type', 'Asset')
             ->when($from !== null, fn ($q) => $q->where('created_at', '>=', $from))
             ->when($to !== null, fn ($q) => $q->whereDate('created_at', '<=', $to))
-            ->whereIn('entity_id', $ctx->assets(includeArchived: true)->select('assets.id'));
+            ->whereIn('entity_id', $ctx->assets(includeArchived: true)->selectRaw('assets.id::text')); // entity_id is varchar
 
         $rows = $query->with('actor:id,name')->orderByDesc('created_at')->limit($limit)->get();
         $names = Asset::query()->whereIn('id', $rows->pluck('entity_id')->filter()->unique())->pluck('name', 'id');

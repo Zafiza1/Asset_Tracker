@@ -737,7 +737,7 @@ final class AssetWidgets
      * `attribute_label`) whose stored value is one of $values. EXISTS keeps the asset query
      * untouched for the caller.
      */
-    private function conditionValuesQuery(array $values): Builder
+    private function conditionValuesQuery(array $values): QueryBuilder
     {
         return DB::table('tenant_category_attributes as a')
             ->whereColumn('a.category_id', 'assets.category_id')
