@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Domain\Analytics\AssetAnalytics;
+use App\Domain\Assets\AssetDataQuality;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\AssetTimeline;
@@ -47,7 +47,6 @@ class AssetController extends Controller
      * Category fields ({key: value}) only touch the keys sent; a key is ignored on assets whose
      * category does not have it.
      */
-
     public function __construct(
         private readonly AssetService $assets,
         private readonly AssetScope $scope,
@@ -78,7 +77,7 @@ class AssetController extends Controller
             'status' => ['nullable', Rule::in(AssetStatus::ALL)],
             'archived' => ['nullable', Rule::in(['only', 'all'])],
             // An optional field left empty (dashboard "Kelengkapan data").
-            'missing' => ['nullable', Rule::in(array_keys(AssetAnalytics::QUALITY_FIELDS))],
+            'missing' => ['nullable', Rule::in(array_keys(AssetDataQuality::FIELDS))],
             // Acquisition date range (inclusive); assets without a date never match.
             'acquired_from' => ['nullable', 'date_format:Y-m-d'],
             'acquired_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:acquired_from'],
@@ -95,7 +94,7 @@ class AssetController extends Controller
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
             ->when($request->query('acquired_from'), fn ($q, $date) => $q->whereDate('acquisition_date', '>=', $date))
             ->when($request->query('acquired_to'), fn ($q, $date) => $q->whereDate('acquisition_date', '<=', $date))
-            ->when($request->query('missing'), fn ($q, $field) => $q->whereRaw('NOT ('.AssetAnalytics::filledCondition($field).')'));
+            ->when($request->query('missing'), fn ($q, $field) => $q->whereRaw('NOT ('.AssetDataQuality::filledCondition($field).')'));
 
         match ($request->query('archived')) {
             'only' => $query->whereNotNull('archived_at'),

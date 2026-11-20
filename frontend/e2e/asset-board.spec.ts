@@ -3,7 +3,7 @@ import { E2E_PASSWORD } from './env.ts'
 
 /**
  * F-06e: Dashboard Aset from the role template, every widget loads its own data, a category
- * tab, and adding a widget from the catalog. Data: DemoSeeder, PT Maju Jaya.
+ * tab, and adding a widget from the catalog; then each built-in role. Data: DemoSeeder, PT Maju Jaya.
  */
 test('Dashboard Aset: widget template role, tab kategori, tambah widget', async ({ page }) => {
   await page.goto('/login')
@@ -47,3 +47,36 @@ test('Dashboard Aset: widget template role, tab kategori, tambah widget', async 
   await dialog.getByRole('button', { name: 'Tambahkan' }).click()
   await expect(page.getByRole('region', { name: 'Catatan' }).getByText('Stock opname 1 Desember')).toBeVisible()
 })
+
+/**
+ * F-06f: each built-in role opens its own template (D-21) and every widget of it answers.
+ * pemilik@grup.test is the demo's only Admin and belongs to two organizations.
+ */
+const ROLES = [
+  { role: 'Super Admin', email: 'admin@majujaya.test', template: 'Ringkasan Eksekutif' },
+  { role: 'Supervisor', email: 'supervisor@majujaya.test', template: 'Pengawasan Operasional' },
+  { role: 'Admin', email: 'pemilik@grup.test', template: 'Operasional Harian' },
+]
+
+for (const { role, email, template } of ROLES) {
+  test(`Dashboard Aset ${role}: template role, semua widget termuat`, async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Password').fill(E2E_PASSWORD)
+    await page.getByRole('button', { name: 'Masuk' }).click()
+    await page.waitForURL((url) => !url.pathname.startsWith('/login'))
+    if (new URL(page.url()).pathname === '/pilih-organisasi') {
+      await page.getByRole('button', { name: /PT Maju Jaya/ }).click()
+      await page.waitForURL((url) => url.pathname !== '/pilih-organisasi')
+    }
+
+    await page.getByRole('link', { name: 'Dashboard Aset' }).click()
+    await expect(page.getByText(`Template: ${template} · salinan pribadi Anda`)).toBeVisible()
+    const widgets = page.locator('main section[aria-label]')
+    await expect(widgets.first()).toBeVisible()
+    await expect(page.getByRole('status', { name: /^Memuat / })).toHaveCount(0, { timeout: 20_000 })
+    await expect(page.getByText('Widget gagal dimuat')).toHaveCount(0)
+    await expect(page.getByText(/mengalami kesalahan/)).toHaveCount(0)
+    expect(await widgets.count()).toBeGreaterThan(2)
+  })
+}

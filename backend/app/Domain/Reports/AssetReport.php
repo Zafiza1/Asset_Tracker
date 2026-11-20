@@ -2,7 +2,7 @@
 
 namespace App\Domain\Reports;
 
-use App\Domain\Analytics\AssetAnalytics;
+use App\Domain\Assets\AssetDataQuality;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
@@ -55,7 +55,7 @@ final class AssetReport
             'acquired_from' => ['nullable', 'date_format:Y-m-d'],
             'acquired_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:acquired_from'],
             // An optional field left empty (same keys as the dashboard's "Kelengkapan data").
-            'missing' => ['nullable', Rule::in(array_keys(AssetAnalytics::QUALITY_FIELDS))],
+            'missing' => ['nullable', Rule::in(array_keys(AssetDataQuality::FIELDS))],
             // Acquisition cost range in rupiah (inclusive); assets without a cost never match.
             'cost_min' => ['nullable', 'numeric', 'min:0', 'max:999999999999999'],
             'cost_max' => ['nullable', 'numeric', 'min:0', 'max:999999999999999', 'gte:cost_min'],
@@ -82,7 +82,7 @@ final class AssetReport
             ->when($filters['acquired_to'] ?? null, fn ($q, $date) => $q->whereDate('assets.acquisition_date', '<=', $date))
             ->when(self::filled($filters, 'cost_min'), fn ($q) => $q->where('assets.acquisition_cost', '>=', $filters['cost_min']))
             ->when(self::filled($filters, 'cost_max'), fn ($q) => $q->where('assets.acquisition_cost', '<=', $filters['cost_max']))
-            ->when($filters['missing'] ?? null, fn ($q, $field) => $q->whereRaw('NOT ('.AssetAnalytics::filledCondition($field).')'));
+            ->when($filters['missing'] ?? null, fn ($q, $field) => $q->whereRaw('NOT ('.AssetDataQuality::filledCondition($field).')'));
 
         match ($filters['archived'] ?? null) {
             'only' => $query->whereNotNull('assets.archived_at'),
@@ -173,7 +173,7 @@ final class AssetReport
             $lines[] = 'Nilai perolehan: '.($min ?? '…').' s.d. '.($max ?? '…');
         }
         if ($filters['missing'] ?? null) {
-            $lines[] = 'Belum diisi: '.AssetAnalytics::QUALITY_FIELDS[$filters['missing']];
+            $lines[] = 'Belum diisi: '.AssetDataQuality::FIELDS[$filters['missing']];
         }
 
         return $lines;

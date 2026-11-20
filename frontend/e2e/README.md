@@ -14,5 +14,5 @@ npm run e2e
 | Spec | Flow |
 |---|---|
 | `home.spec.ts` | F-06d: Beranda after login → hide a card, still hidden after reload → "Dashboard Aset" menu |
-| `asset-board.spec.ts` | F-06e: Dashboard Aset from the role template → every widget loads its data → a category tab → add a widget from the catalog |
+| `asset-board.spec.ts` | F-06e: Dashboard Aset from the role template → every widget loads its data → a category tab → add a widget from the catalog. F-06f: Super Admin, Supervisor and Admin each get their own template, every widget loads |
 | `outgoing-incoming.spec.ts` | F-QA: temporary outgoing → listed under "Belum kembali" → incoming from the asset detail → the outgoing report sample shows it as returned |

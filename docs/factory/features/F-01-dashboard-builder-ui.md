@@ -44,4 +44,4 @@
 | F-01a | T-18: putuskan dan perbaiki L-1/L-2 di backend | backend-engineer | — |
 | F-01b | UI navigasi + tampilan + preferensi | frontend-engineer | desain `12 Dashboard` |
 | F-01c | Mode edit, buat dashboard, template | frontend-engineer | F-01b |
-| F-01d | Hapus `GET /api/dashboard` lama | backend + frontend | F-01c, E2E |
+| F-01d | Hapus `GET /api/dashboard` lama | backend + frontend | F-01c, E2E → dikerjakan sebagai F-06f (D-23) |

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Identity\Models\User;
 use App\Domain\Internal\AssetInspector;
+use App\Domain\Organization\Models\Organization;
 use Database\Seeders\DemoSeeder;
 use Tests\TestCase;
 
@@ -20,10 +21,19 @@ class DemoSeederTest extends TestCase
             $this->assertSame([], app(AssetInspector::class)->verify($asset), $asset->asset_number);
         }
 
-        $this->actingAs(User::query()->where('email', 'admin@sentosagas.test')->firstOrFail(), 'web');
-        $data = $this->getJson('/api/dashboard')->assertOk()->json('data');
-        $this->assertSame(8, $data['summary']['total']);
-        $this->assertSame(1, $data['attention']['counts']['overdue_loan']);
+        $admin = User::query()->where('email', 'admin@sentosagas.test')->firstOrFail();
+        $sentosa = Organization::query()->where('code', 'SENTOSA')->firstOrFail();
+        $this->actingAs($admin, 'web');
+        $this->assertSame(8, $this->widgetData($sentosa, $admin, 'total_assets')['value']);
+        $this->assertSame(1, $this->widgetData($sentosa, $admin, 'assets_on_loan')['value']);
+
+        // The member's Dashboard Aset comes from their role template, and every widget answers.
+        $board = $this->getJson('/api/dashboards/asset-board')->assertOk()->json('data');
+        $this->assertNotEmpty($board['template']);
+        $this->assertNotEmpty($board['widgets']);
+        foreach ($board['widgets'] as $widget) {
+            $this->getJson("/api/dashboards/{$board['id']}/widgets/{$widget['id']}/data")->assertOk();
+        }
 
         // Enough seats for every demo member, so the demo organizations can change data.
         $license = $this->getJson('/api/license')->assertOk()->json('data');

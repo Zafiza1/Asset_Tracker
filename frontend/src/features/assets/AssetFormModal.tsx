@@ -98,7 +98,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
   const [documentError, setDocumentError] = useState<string | null>(null)
   // Set once the data is stored: when only the image then fails, a retry edits instead of registering twice.
   const [saved, setSaved] = useState<Asset | undefined>(asset)
-  const refresh = () => Promise.all(['/assets', '/dashboard', '/transactions'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
+  const refresh = () => Promise.all(['/assets', '/dashboards', '/transactions'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
 
   const saveImage = (id: string) => {
     const form = new FormData()

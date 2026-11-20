@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Swatch } from '../dashboard/charts'
-import { CATEGORICAL } from '../dashboard/palette'
+import { Swatch } from '../../components/charts/charts'
+import { CATEGORICAL } from '../../components/charts/palette'
 
 export interface Series {
   key: string

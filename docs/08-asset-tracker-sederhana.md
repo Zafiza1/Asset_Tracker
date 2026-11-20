@@ -24,7 +24,7 @@ Setiap modul punya folder domain, controller, file route, dan folder fitur front
 |---|---|---|---|---|
 | Asset Management | `app/Domain/Assets` | `routes/modules/assets.php` | `src/features/assets` | Pendataan Aset |
 | Asset Transactions | `app/Domain/AssetTransactions` | `routes/modules/transactions.php` | `src/features/transactions` | Transaksi Aset |
-| Asset Analytics | `app/Domain/Analytics` | `routes/modules/analytics.php` | `src/features/dashboard` | Dashboard |
+| Asset Analytics | `app/Domain/Dashboards` | `routes/modules/analytics.php` | `src/features/assetBoard`, `src/features/home` | Beranda, Dashboard Aset |
 | Master Data (User Data) | `app/Domain/TenantMaster`, `app/Domain/Organization` | `routes/api.php` | `src/features/master` | Master Data |
 | Generic Data (internal) | `app/Domain/Internal`, `app/Domain/GenericMaster` | — (console saja) | — | tidak ada |
 
@@ -97,13 +97,12 @@ Semua transaksi manual memerlukan `transaction.create`; aset nonaktif tidak dapa
 
 ## 5. Dashboard (Asset Analytics)
 
-`GET /api/dashboard` (`report.view`) dihitung langsung dari database, dalam data scope user:
+Sejak F-06 (2026-11-20) dashboard tetap `GET /api/dashboard` dihapus. Gantinya ([F-06](factory/features/F-06-dashboard-utama-dan-manajemen-aset.md)):
 
-- ringkasan: aset aktif, nonaktif, total nilai perolehan, ditambahkan bulan ini;
-- distribusi per status, kategori, lokasi (termasuk "Tanpa lokasi");
-- transaksi 30 hari per jenis + 8 transaksi terbaru;
-- tren 12 bulan: aset ditambahkan vs perubahan (semua transaksi lain), berdasarkan tanggal transaksi;
-- perlu perhatian: peminjaman lewat batas, dalam perbaikan, belum ada lokasi.
+- **Beranda** (`/`, `GET /api/home/cards`): kartu tugas dan notifikasi sesuai izin pengguna.
+- **Dashboard Aset** (`/dashboard-aset`, `dashboard.view`): salinan pribadi template role (`GET /api/dashboards/asset-board`) dan dashboard per kategori, tersusun dari widget katalog (`GET /api/widget-catalog`). Setiap widget mengambil datanya sendiri (`GET /api/dashboards/{id}/widgets/{widget}/data`), dihitung langsung dari database dalam data scope pengguna dan dengan izin data widget itu.
+
+Bagian dashboard lama tanpa padanan widget: tingkat utilisasi (%), daftar aset tertua, umur per kategori, dan **peminjaman internal lewat batas** (widget *Jatuh tempo* hanya menghitung dari hari ini; *Keluar sementara lewat batas* hanya untuk pihak luar).
 
 ## 6. API
 
@@ -119,7 +118,7 @@ Semua transaksi manual memerlukan `transaction.create`; aset nonaktif tidak dapa
 | `GET /api/assets/{id}/transactions` | `asset.view` + `transaction.view` |
 | `GET /api/transactions` — `search`, `type`, `asset_id`, `date_from`, `date_to` | `transaction.view` |
 | `POST /api/transactions` · `GET /api/transactions/{id}` | `transaction.create` · `transaction.view` |
-| `GET /api/dashboard` | `report.view` |
+| `GET /api/dashboards/asset-board` · `GET /api/dashboards/categories/{id}` · `GET /api/dashboards/{id}/widgets/{widget}/data` · `GET /api/widget-catalog` | `dashboard.view` (+ izin data per widget) |
 | `GET /api/approvals` — `status`, `category`, `mine`, `search` · `GET /api/approvals/summary` · `GET /api/approvals/{id}` · `POST /api/approvals/{id}/cancel` | semua anggota (non-approver hanya melihat pengajuannya sendiri) |
 | `POST /api/approvals/{id}/approve` · `/reject` (`note` opsional) | `approval.manage` |
 

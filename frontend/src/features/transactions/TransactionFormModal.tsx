@@ -164,7 +164,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
       return api.post('/transactions', payload)
     },
     onSuccess: async (response) => {
-      await Promise.all(['/transactions', '/transaction-runs', '/assets', '/dashboard', '/home'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
+      await Promise.all(['/transactions', '/transaction-runs', '/assets', '/dashboards', '/home'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
       const what = assets.length === 1 ? assets[0].name : `${assets.length} aset`
       const run = (response as { data?: TransactionRun }).data
       if (customType && run && 'state' in run) {

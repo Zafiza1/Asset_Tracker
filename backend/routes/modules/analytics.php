@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\Dashboards\DashboardController as DashboardBuilderController;
 use App\Http\Controllers\Tenant\Dashboards\DashboardPreferenceController;
 use App\Http\Controllers\Tenant\Dashboards\DashboardTemplateController;
@@ -11,9 +10,6 @@ use Illuminate\Support\Facades\Route;
 
 // Asset Analytics container (inside the tenant route group).
 Route::middleware('module:analytics')->group(function () {
-    // Fixed dashboard figures of the current UI (kept until the Dashboard Builder UI replaces it).
-    Route::get('/dashboard', [DashboardController::class, 'show'])->middleware('permission:report.view');
-
     // Dashboard Builder. dashboard.view is the coarse check; DashboardPolicy decides per
     // dashboard (owner, shares, dashboard.manage). Widget data checks the data permissions.
     $view = 'permission:dashboard.view';

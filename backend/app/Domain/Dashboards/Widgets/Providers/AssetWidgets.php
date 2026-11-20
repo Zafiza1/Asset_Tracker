@@ -2,7 +2,7 @@
 
 namespace App\Domain\Dashboards\Widgets\Providers;
 
-use App\Domain\Analytics\AssetAnalytics;
+use App\Domain\Assets\AssetDataQuality;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
@@ -51,7 +51,7 @@ final class AssetWidgets
         return $this->stat($ctx->assets(includeArchived: (bool) $ctx->config('include_archived'))->count());
     }
 
-    /** Assets in service: in use, on loan, or temporarily outside (the "active inventory" of AssetAnalytics). */
+    /** Assets in service: in use, on loan, or temporarily outside (the "active inventory"). */
     public function activeAssets(WidgetContext $ctx): array
     {
         return $this->stat($ctx->assets()->whereIn('status', [AssetStatus::IN_USE, AssetStatus::ON_LOAN, AssetStatus::OFF_SITE])->count());
@@ -99,17 +99,17 @@ final class AssetWidgets
     }
 
     /**
-     * Share of filled data slots: the five optional asset fields plus "no missing required
-     * category attribute". Mirrors AssetAnalytics::dataQuality, extended with required fields.
+     * Share of filled data slots: the five optional asset fields (AssetDataQuality) plus
+     * "no missing required category attribute".
      *
      * @return array<string, mixed>
      */
     public function dataCompleteness(WidgetContext $ctx): array
     {
-        $fields = array_keys(AssetAnalytics::QUALITY_FIELDS);
+        $fields = array_keys(AssetDataQuality::FIELDS);
         $select = ['count(*) AS total'];
         foreach ($fields as $column) {
-            $select[] = 'count(*) FILTER (WHERE '.AssetAnalytics::filledCondition($column).") AS {$column}";
+            $select[] = 'count(*) FILTER (WHERE '.AssetDataQuality::filledCondition($column).") AS {$column}";
         }
         $required = DB::table('tenant_category_attributes as a')
             ->whereColumn('a.category_id', 'assets.category_id')->where('a.is_required', true)
@@ -799,7 +799,7 @@ final class AssetWidgets
             });
     }
 
-    /** Shared open temporary-outgoing query (same rule as HomeCards/AssetAnalytics). */
+    /** Shared open temporary-outgoing query (same rule as HomeCards). */
     private function openOutgoing(WidgetContext $ctx): Builder
     {
         return AssetTransaction::query()

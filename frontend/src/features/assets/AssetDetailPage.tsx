@@ -340,7 +340,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 function useRefreshAsset() {
   const queryClient = useQueryClient()
-  return () => Promise.all(['/assets', '/dashboard', '/transactions'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
+  return () => Promise.all(['/assets', '/dashboards', '/transactions'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
 }
 
 function RestoreButton({ asset }: { asset: Asset }) {
