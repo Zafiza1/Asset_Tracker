@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, Home, KeyRound, LayoutDashboard, Layers, ListChecks, MapPin, QrCode, Users, Workflow, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, Home, KeyRound, LayoutDashboard, ListChecks, MapPin, QrCode, Users, Workflow, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -81,24 +81,6 @@ export const tenantNavigation: NavSection[] = [
   { items: [{ to: '/panduan', label: 'Panduan', icon: BookOpen }] },
 ]
 
-export const platformNavigation: NavSection[] = [
-  {
-    title: 'Platform',
-    items: [
-      { to: '/platform/organisasi', label: 'Organisasi', icon: Building2, permission: 'platform.organization.view' },
-      { to: '/platform/audit', label: 'Audit Platform', icon: FileClock, permission: 'platform.audit.view' },
-    ],
-  },
-  {
-    title: 'Generic Master',
-    items: [
-      { to: '/platform/master/kategori', label: 'Kategori', icon: FolderTree, permission: 'master.generic.view' },
-      { to: '/platform/master/definisi', label: 'Definisi & Versi', icon: Layers, permission: 'master.generic.view' },
-      { to: '/platform/master/referensi', label: 'Referensi', icon: BookOpen, permission: 'master.generic.view' },
-    ],
-  },
-]
-
 /** Breadcrumb labels per first path segment. */
 export const breadcrumbLabels: Record<string, string> = {
   organisasi: 'Organisasi',
@@ -112,7 +94,6 @@ export const breadcrumbLabels: Record<string, string> = {
   audit: 'Audit Trail',
   notifikasi: 'Persetujuan',
   panduan: 'Panduan',
-  platform: 'Platform',
   baru: 'Baru',
   'ubah-password': 'Ubah Password',
   aset: 'Data Aset',
@@ -132,4 +113,4 @@ export const breadcrumbLabels: Record<string, string> = {
 }
 
 /** Intermediate path segments without a page of their own: shown as text, not links. */
-export const breadcrumbTextOnly = new Set(['/platform', '/master', '/modul','/platform/master', '/platform/master/versi'])
+export const breadcrumbTextOnly = new Set(['/master', '/modul'])

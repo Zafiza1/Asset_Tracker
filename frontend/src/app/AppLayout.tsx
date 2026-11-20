@@ -11,7 +11,7 @@ import { OrganizationSwitcher } from '../features/organizations/OrganizationSwit
 import { useAuth } from '../lib/auth/context'
 import { GlobalSearch } from './GlobalSearch'
 import { ModuleBoundary } from './ModuleBoundary'
-import { breadcrumbLabels, breadcrumbTextOnly, platformNavigation, tenantNavigation, type NavSection } from './navigation'
+import { breadcrumbLabels, breadcrumbTextOnly, tenantNavigation, type NavSection } from './navigation'
 
 export function AppLayout() {
   const { profile, can, logout } = useAuth()
@@ -51,8 +51,7 @@ export function AppLayout() {
 
   if (!profile) return null
 
-  const isPlatform = profile.user.user_type === 'platform'
-  const sections = (isPlatform ? platformNavigation : tenantNavigation)
+  const sections = tenantNavigation
     .map((s) => ({ ...s, items: s.items.filter((i) => (!i.permission || can(i.permission)) && !(i.hiddenWithPermission && can(i.hiddenWithPermission))) }))
     .filter((s) => s.items.length > 0)
 
@@ -104,10 +103,10 @@ export function AppLayout() {
             </button>
           )}
           <div className="min-w-0 flex-1">
-            {isPlatform ? <p className="truncate font-display text-sm font-semibold text-slate-900">Administrasi Platform</p> : <OrganizationSwitcher />}
+            <OrganizationSwitcher />
           </div>
-          <GlobalSearch sections={sections} searchAssets={!isPlatform && can('asset.view')} />
-          {!isPlatform && <NotificationBell approver={can('approval.manage')} />}
+          <GlobalSearch sections={sections} searchAssets={can('asset.view')} />
+          <NotificationBell approver={can('approval.manage')} />
           <UserMenu name={profile.user.name} email={profile.user.email} onLogout={handleLogout} />
         </header>
 
@@ -122,7 +121,7 @@ export function AppLayout() {
           </div>
         </main>
       </div>
-      {!isPlatform && <ApprovalNotifier />}
+      <ApprovalNotifier />
     </div>
   )
 }
