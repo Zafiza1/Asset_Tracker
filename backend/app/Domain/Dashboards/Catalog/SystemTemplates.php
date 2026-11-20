@@ -180,6 +180,63 @@ final class SystemTemplates
                     ['widget' => 'recent_assets'],
                 ],
             ],
+            // F-06 §4.1 (D-21): three role-based asset board templates. Not defaults: the role mapping
+            // of the organization copies (OrganizationProvisioner) picks one, and only one default
+            // per dashboard type is allowed (dashboard_templates_default).
+            'asset_board_super_admin' => [
+                'name' => 'Ringkasan Eksekutif',
+                'description' => 'Template Dashboard Aset untuk Super Admin: nilai dan skala aset seluruh organisasi.',
+                'dashboard_type' => DashboardType::ASSET_BOARD,
+                'category_type_key' => null,
+                'version' => 1,
+                'is_default' => false,
+                'widgets' => [
+                    ['widget' => 'total_assets'],
+                    ['widget' => 'total_value'],
+                    ['widget' => 'active_assets'],
+                    ['widget' => 'inactive_assets'],
+                    ['widget' => 'assets_by_category', 'layout' => ['w' => 12, 'h' => 2]],
+                    ['widget' => 'assets_by_location', 'layout' => ['w' => 6, 'h' => 2]],
+                    ['widget' => 'assets_added_monthly', 'layout' => ['w' => 12, 'h' => 2]],
+                    ['widget' => 'value_by_category', 'layout' => ['w' => 6, 'h' => 2]],
+                    ['widget' => 'data_completeness'],
+                    ['widget' => 'assets_lost_damaged'],
+                ],
+            ],
+            'asset_board_supervisor' => [
+                'name' => 'Pengawasan Operasional',
+                'description' => 'Template Dashboard Aset untuk Supervisor: kepatuhan dan pergerakan aset.',
+                'dashboard_type' => DashboardType::ASSET_BOARD,
+                'category_type_key' => null,
+                'version' => 1,
+                'is_default' => false,
+                'widgets' => [
+                    ['widget' => 'assets_off_site'],
+                    ['widget' => 'pending_approvals'],
+                    ['widget' => 'transactions_monthly', 'layout' => ['w' => 12, 'h' => 2]],
+                    ['widget' => 'outgoing_vs_incoming'],
+                    ['widget' => 'assets_by_status', 'layout' => ['w' => 6, 'h' => 2]],
+                    ['widget' => 'date_reminders', 'title' => 'Pengingat Umum', 'configuration' => ['attribute_label' => 'Pengingat Umum', 'days_ahead' => 30], 'layout' => ['w' => 12, 'h' => 2]],
+                    ['widget' => 'most_transferred'],
+                ],
+            ],
+            'asset_board_admin' => [
+                'name' => 'Operasional Harian',
+                'description' => 'Template Dashboard Aset untuk Admin: pekerjaan pencatatan sehari-hari.',
+                'dashboard_type' => DashboardType::ASSET_BOARD,
+                'category_type_key' => null,
+                'version' => 1,
+                'is_default' => false,
+                'widgets' => [
+                    ['widget' => 'assets_on_loan'],
+                    ['widget' => 'due_soon_list'],
+                    ['widget' => 'recent_transactions'],
+                    ['widget' => 'recent_assets'],
+                    ['widget' => 'assets_by_condition', 'layout' => ['w' => 6, 'h' => 2]],
+                    ['widget' => 'data_completeness'],
+                    ['widget' => 'date_reminders', 'title' => 'Pengingat Umum', 'configuration' => ['attribute_label' => 'Pengingat Umum', 'days_ahead' => 30], 'layout' => ['w' => 12, 'h' => 2]],
+                ],
+            ],
         ];
     }
 

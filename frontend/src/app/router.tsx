@@ -12,15 +12,6 @@ import { OrganizationPage } from '../features/organization/OrganizationPage'
 import { CreateOrganizationPage, SelectOrganizationPage } from '../features/organizations/OrganizationPages'
 import { ModulesPage } from '../features/organization/ModulesPage'
 import { SettingsPage } from '../features/organization/SettingsPage'
-import {
-  PlatformCategoriesPage,
-  PlatformDefinitionDetailPage,
-  PlatformDefinitionsPage,
-  PlatformReferencePage,
-  PlatformVersionPage,
-} from '../features/platform/GenericMasterPages'
-import { PlatformOrganizationDetailPage } from '../features/platform/PlatformOrganizationDetailPage'
-import { PlatformOrganizationsPage } from '../features/platform/PlatformOrganizationsPage'
 import { ReportRunPage } from '../features/reportDesigner/ReportRunPage'
 import { ReportDesignerPage } from '../features/reportDesigner/ReportDesignerPage'
 import { ReportTemplateDetailPage } from '../features/reportDesigner/ReportTemplateDetailPage'
@@ -33,7 +24,7 @@ import { TransactionRunsPage } from '../features/transactionTypes/TransactionRun
 import { TransactionTypeFormPage } from '../features/transactionTypes/TransactionTypeFormPage'
 import { TransactionTypesPage } from '../features/transactionTypes/TransactionTypesPage'
 import { NotificationsPage } from '../features/approvals/NotificationsPage'
-import { DashboardPage } from '../features/dashboard/DashboardPage'
+import { AssetBoardPage } from '../features/assetBoard/AssetBoardPage'
 import { HomePage } from '../features/home/HomePage'
 import { GuidePage } from '../features/guide/GuidePage'
 import { LegacyRoleRedirect, RolesPage } from '../features/roles/RolesPage'
@@ -43,15 +34,10 @@ import { InvitationsPage } from '../features/users/InvitationsPage'
 import { UsersPage } from '../features/users/UsersPage'
 import { AppLayout } from './AppLayout'
 import { RootLayout } from './RootLayout'
-import { NotFound, RequireAuth, RequirePermission, RequireUserType, RouteError } from './guards'
+import { NotFound, RequireAuth, RequirePermission, RequireTenantUser, RouteError } from './guards'
 
 const tenant = (permission: string | null, element: React.ReactNode) => (
-  <RequireUserType type="tenant">{permission ? <RequirePermission permission={permission}>{element}</RequirePermission> : element}</RequireUserType>
-)
-const platform = (permission: string, element: React.ReactNode) => (
-  <RequireUserType type="platform">
-    <RequirePermission permission={permission}>{element}</RequirePermission>
-  </RequireUserType>
+  <RequireTenantUser>{permission ? <RequirePermission permission={permission}>{element}</RequirePermission> : element}</RequireTenantUser>
 )
 
 export const router = createBrowserRouter([
@@ -80,8 +66,8 @@ export const router = createBrowserRouter([
                 children: [
                   // Beranda for every member: their own work and notifications (F-06 §3).
                   { path: '/', element: tenant(null, <HomePage />) },
-                  // Asset analytics; replaced by the per-role Dashboard Aset in F-06e.
-                  { path: '/dashboard-aset', element: tenant('report.view', <DashboardPage />) },
+                  // Dashboard Aset (F-06 §4): the member's copy of their role template, plus category dashboards.
+                  { path: '/dashboard-aset', element: tenant('dashboard.view', <AssetBoardPage />) },
                   { path: '/aset', element: tenant('asset.view', <AssetsPage />) },
                   { path: '/aset/:id', element: tenant('asset.view', <AssetDetailPage />) },
                   { path: '/transaksi', element: tenant('transaction.view', <TransactionsPage />) },
@@ -116,14 +102,6 @@ export const router = createBrowserRouter([
                   { path: '/audit', element: tenant('audit.view', <AuditLogPage endpoint="/audit-logs" title="Audit Trail" />) },
                   { path: '/master/kategori', element: tenant('master.tenant.view', <TenantCategoriesPage />) },
                   { path: '/master/lokasi', element: tenant('master.tenant.view', <LocationsPage />) },
-                  { path: '/platform/organisasi', element: platform('platform.organization.view', <PlatformOrganizationsPage />) },
-                  { path: '/platform/organisasi/:id', element: platform('platform.organization.view', <PlatformOrganizationDetailPage />) },
-                  { path: '/platform/master/kategori', element: platform('master.generic.view', <PlatformCategoriesPage />) },
-                  { path: '/platform/master/definisi', element: platform('master.generic.view', <PlatformDefinitionsPage />) },
-                  { path: '/platform/master/definisi/:id', element: platform('master.generic.view', <PlatformDefinitionDetailPage />) },
-                  { path: '/platform/master/versi/:id', element: platform('master.generic.view', <PlatformVersionPage />) },
-                  { path: '/platform/master/referensi', element: platform('master.generic.view', <PlatformReferencePage />) },
-                  { path: '/platform/audit', element: platform('platform.audit.view', <AuditLogPage endpoint="/platform/audit-logs" title="Audit Platform" />) },
                   { path: '*', element: <NotFound /> },
                 ],
               },

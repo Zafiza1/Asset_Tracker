@@ -124,6 +124,23 @@ class DashboardWidgetsTest extends TestCase
         $this->assertErrorCode($this->getJson("/api/dashboards/{$foreign->id}/widgets/{$widget->id}/data"), 404, 'NOT_FOUND');
     }
 
+    public function test_every_catalog_widget_answers_with_data(): void
+    {
+        // Regression: assets_lost_damaged answered 500 (wrong builder type) and only E2E noticed.
+        $masters = $this->createMasterFixtures($this->orgA, 'A');
+        $this->createAssetFixture($this->orgA, $masters, 'A1');
+        $this->actingAs($this->adminA);
+        $dashboard = $this->customDashboard($this->adminA, $this->orgA, 'organization');
+
+        $keys = WidgetCatalog::query()->where('is_active', true)->orderBy('widget_key')->pluck('widget_key');
+        $this->assertNotEmpty($keys);
+        foreach ($keys as $key) {
+            $widget = $this->widgetOn($dashboard, $key);
+            $response = $this->getJson("/api/dashboards/{$dashboard->id}/widgets/{$widget->id}/data");
+            $this->assertSame(200, $response->status(), "{$key}: ".$response->getContent());
+        }
+    }
+
     public function test_asset_board_is_provisioned_from_the_role_template(): void
     {
         // Organization template mapped to the DASH_VIEW role.
@@ -144,6 +161,29 @@ class DashboardWidgetsTest extends TestCase
         // Second open returns the same board.
         $this->assertSame($board['id'], $this->getJson('/api/dashboards/asset-board')->json('data.id'));
         $this->assertSame(1, Dashboard::query()->where('dashboard_type', 'asset_board')->count());
+    }
+
+    public function test_a_new_organization_maps_the_built_in_roles_to_their_asset_board_templates(): void
+    {
+        // Provisioning copied the three system templates and mapped each to its built-in role (D-21).
+        $expected = ['SUPER_ADMIN' => 'asset_board_super_admin', 'SUPERVISOR' => 'asset_board_supervisor', 'ADMIN' => 'asset_board_admin'];
+        foreach ($expected as $roleCode => $templateKey) {
+            $user = $this->createTenantUser($this->orgA, [$roleCode]);
+            $this->actingAs($user);
+            $board = $this->getJson('/api/dashboards/asset-board')->assertOk()->json('data');
+
+            $template = DB::table('dashboard_templates')->where('id', $board['template']['id'] ?? null)->first();
+            $this->assertNotNull($template, $roleCode);
+            $this->assertSame($this->orgA->id, $template->organization_id, $roleCode);
+            $this->assertSame($templateKey, $template->template_key, $roleCode);
+            $this->assertSame($this->roleId($this->orgA, $roleCode), $template->role_id, $roleCode);
+
+            // The member's copy carries the template's widgets, in order.
+            $expectedWidgets = DB::table('template_widgets')->join('widget_catalog as c', 'c.id', '=', 'template_widgets.widget_catalog_id')
+                ->where('template_widgets.template_id', $template->id)->orderBy('template_widgets.sort_order')->pluck('c.widget_key')->all();
+            $this->assertNotEmpty($expectedWidgets, $roleCode);
+            $this->assertSame($expectedWidgets, collect($board['widgets'])->sortBy('sort_order')->pluck('widget_key')->values()->all(), $roleCode);
+        }
     }
 
     public function test_role_mapping_is_only_for_asset_boards_and_unique_per_role(): void

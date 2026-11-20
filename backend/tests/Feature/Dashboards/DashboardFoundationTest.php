@@ -56,7 +56,10 @@ class DashboardFoundationTest extends TestCase
             $template = DashboardTemplate::query()->whereNull('organization_id')->where('template_key', $key)->firstOrFail();
             $this->assertSame(array_column($spec['widgets'], 'widget'), $template->widgets()->with('catalog')->get()->pluck('catalog.widget_key')->all(), $key);
         }
-        $this->assertSame(0, DB::table('template_widgets')->whereNotNull('organization_id')->count());
+        // Organization template widgets exist only on the role-mapped asset board copies made at
+        // provisioning (F-06 §4.1, D-21), never from seeding the system templates.
+        $this->assertSame(0, DB::table('template_widgets')->join('dashboard_templates as t', 't.id', '=', 'template_widgets.template_id')
+            ->whereNotNull('template_widgets.organization_id')->whereNull('t.role_id')->count());
         // Empty configurations are {} (CHECK jsonb_typeof = 'object'), not [].
         $this->assertSame(0, DB::table('template_widgets')->whereRaw("jsonb_typeof(configuration) <> 'object' OR jsonb_typeof(layout) <> 'object'")->count());
         $layout = DB::table('template_widgets')->join('widget_catalog as c', 'c.id', '=', 'template_widgets.widget_catalog_id')
@@ -274,7 +277,12 @@ class DashboardFoundationTest extends TestCase
             foreach (['dashboards', 'dashboard_widgets', 'dashboard_shares', 'user_dashboard_preferences'] as $table) {
                 $this->assertSame(0, DB::table($table)->count(), $table);
             }
-            $this->assertSame(0, DB::table('dashboard_templates')->whereNotNull('organization_id')->count());
+            // Only the organization's own templates: the three role-mapped asset board copies made at
+            // provisioning (F-06 §4.1, D-21), none of them a default.
+            $this->assertSame(0, DB::table('dashboard_templates')->where('organization_id', $this->orgA->id)->count());
+            $own = DB::table('dashboard_templates')->whereNotNull('organization_id')->get();
+            $this->assertEqualsCanonicalizing(['asset_board_super_admin', 'asset_board_supervisor', 'asset_board_admin'], $own->pluck('template_key')->all());
+            $this->assertTrue($own->every(fn ($t) => $t->organization_id === $this->orgB->id && $t->role_id !== null && ! $t->is_default));
             $this->assertSame(0, Dashboard::query()->count());
             $this->assertSame(0, DB::table('dashboards')->where('id', $dashboard)->update(['name' => 'Taken']));
             $this->expectQueryError('42501', fn () => $this->insertDashboard($this->orgA));

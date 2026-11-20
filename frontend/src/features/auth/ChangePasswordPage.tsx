@@ -37,7 +37,7 @@ export function ChangePasswordPage() {
       setProfile(updated)
       toast.success('Password diubah', 'Gunakan password baru saat login berikutnya.')
       // A forced change is still part of signing in, so it continues to the organization picker.
-      navigate(forced ? landingPath(updated) : updated.user.user_type === 'platform' ? '/platform/organisasi' : '/', { replace: true })
+      navigate(forced ? landingPath(updated) : '/', { replace: true })
     } catch (e) {
       setFormError(applyApiErrors(e, setError))
     }
