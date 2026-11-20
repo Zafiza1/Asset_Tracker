@@ -7,9 +7,9 @@
 | Tahap / gate | S4 |
 | Area | User experience, data |
 | Artefak | `docs/factory/features/F-08-transaction-builder-terpandu.md` v0.1, mockup [F-08-transaction-builder-terpandu.html](../design/mockups/F-08-transaction-builder-terpandu.html) |
-| Status | **Diajukan**, menunggu keputusan pemilik produk |
-| Diputuskan oleh | — |
-| Tanggal diputuskan | — |
+| Status | **Approved** |
+| Diputuskan oleh | Pemilik produk |
+| Tanggal diputuskan | 2026-11-20 |
 
 ## Latar
 Pemilik produk 2026-11-20: Custom Transaction Builder boleh *powerful*, tetapi UX-nya harus template first, guided setup, human-readable rules, contextual configuration, simulation, auto documentation, dan simple by default / advanced on demand. Builder F-07 baru memenuhi *simulation* penuh; prinsip lain belum atau sebagian (F-08 §1).
@@ -33,4 +33,4 @@ Mockup mencakup: titik awal + galeri template, formulir dengan pratinjau, aturan
 - Risiko: mode sederhana dan kanvas harus menyatakan alur yang sama; dimitigasi dengan F08-28/F08-29 (alur di luar mode sederhana hanya dibaca di mode itu).
 
 ## Keputusan
-—
+"Ya." (pemilik produk, 2026-11-20): mockup dan D-40..D-45 disetujui. Syarat APR-0008 terpenuhi; UI F-08 boleh dikodekan setelah F-07f (D-45).

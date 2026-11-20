@@ -5,7 +5,7 @@
 | Tahap | 2–7 (ringkas): requirement, alur, data, security |
 | Versi | 0.1 |
 | Penyusun | product-analyst, ui-ux-designer, system-architect, security-engineer |
-| Status | **Draft**, menunggu persetujuan pemilik produk (APR-0011). Mockup: [F-08-transaction-builder-terpandu.html](../../design/mockups/F-08-transaction-builder-terpandu.html), menunggu persetujuan |
+| Status | **Approved** ([APR-0011](../../approvals/APR-0011-transaction-builder-terpandu.md), 2026-11-20). Mockup: [F-08-transaction-builder-terpandu.html](../../design/mockups/F-08-transaction-builder-terpandu.html), **disetujui** 2026-11-20 |
 | Dasar | Pemilik produk 2026-11-20: Custom Transaction Builder boleh *powerful*, tetapi UX-nya harus (1) template first, (2) guided setup, (3) human-readable rules, (4) contextual configuration, (5) simulation, (6) auto documentation, (7) simple by default, advanced on demand |
 | Hubungan | Mengubah UX [F-07](F-07-jenis-dan-alur-transaksi-kustom.md) (jenis, field, dan editor alur). Mesin alur F-07b, versi alur, dan izin D-27 **tidak berubah**. Memakai ulang jenis sistem F-07f sebagai template |
 
@@ -181,7 +181,7 @@ Tidak ada perubahan mesin alur, tabel transaksi, atau RLS. Tambahan:
 ## 9. Rencana Task (setelah disetujui)
 | ID | Task | Agent | Bergantung | Status |
 |---|---|---|---|---|
-| F-08a | Mockup wizard, galeri template, mode sederhana, skenario, dokumentasi (desktop + 375px) | ui-ux-designer | requirement | in_review (mockup menunggu persetujuan) |
+| F-08a | Mockup wizard, galeri template, mode sederhana, skenario, dokumentasi (desktop + 375px) | ui-ux-designer | requirement | done (disetujui 2026-11-20) |
 | F-08b | `FlowDescriber` + `GET flow/describe` (kalimat per langkah/syarat, perbedaan versi) + test semua subjek/operator/jenis langkah | backend-engineer | D-41 | todo |
 | F-08c | Katalog template + `from-template` + `duplicate` + `source_template_key`; test setiap template valid dan semua skenarionya sampai Selesai | backend-engineer, database-engineer | F-07f, D-40 | todo |
 | F-08d | `flow/scenarios`: enumerasi jalur (maks. 12), aset contoh untuk prasyarat | backend-engineer, security-engineer | F-07b | todo |
