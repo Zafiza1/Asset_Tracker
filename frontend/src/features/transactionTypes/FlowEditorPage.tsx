@@ -25,7 +25,9 @@ import { toPayload, type FieldValues } from './values'
 import { FlowDiagram } from './FlowDiagram'
 import {
   flowApi,
+  isCoreNode,
   nodeTypeLabel,
+  systemStarterGraph,
   outcomeLabel,
   typesApi,
   type EdgeOutcome,
@@ -90,8 +92,8 @@ export function FlowEditorPage() {
   const queryClient = useQueryClient()
 
   const type = useQuery({ queryKey: ['/transaction-types', typeId], queryFn: () => typesApi.get(typeId) })
-  // System types get flows with F-07f-2; until then the API refuses to save one (SYSTEM_TYPE_READONLY).
-  const editable = can('transaction_flow.manage') && canUseEditor && !type.data?.data.system_type
+  // A system type's flow (F-07f-3) is edited too, around its core step, which stays.
+  const editable = can('transaction_flow.manage') && canUseEditor
   const flow = useQuery({ queryKey: ['/transaction-types', typeId, 'flow'], queryFn: () => flowApi.get(typeId) })
   const options = useQuery({ queryKey: ['/transaction-flow-options'], queryFn: () => flowApi.options(), enabled: editable, staleTime: 60_000 })
 
@@ -106,10 +108,12 @@ export function FlowEditorPage() {
   const [publishing, setPublishing] = useState(false)
   const [note, setNote] = useState('')
 
-  // Start from the draft, else the published version, else Mulai → Selesai.
+  // Start from the draft, else the published version, else Mulai → Selesai (Mulai → Aksi inti → Selesai for a system type).
   const state = flow.data?.data
-  if (state && !graph) {
-    setGraph(structuredClone((editable ? state.draft?.graph : null) ?? state.active?.graph ?? (editable ? starterGraph() : { nodes: [], edges: [] })))
+  const loadedType = type.data?.data
+  if (state && loadedType && !graph) {
+    const starter = loadedType.system_type ? systemStarterGraph(loadedType.name) : starterGraph()
+    setGraph(structuredClone((editable ? state.draft?.graph : null) ?? state.active?.graph ?? (editable ? starter : { nodes: [], edges: [] })))
     setIssues(editable ? (state.draft?.issues ?? null) : null)
   }
 
@@ -181,7 +185,7 @@ export function FlowEditorPage() {
         if (c.type === 'position' && c.position) {
           next = { ...next, nodes: next.nodes.map((n) => (n.id === c.id ? { ...n, position: { x: Math.round(c.position!.x), y: Math.round(c.position!.y) } } : n)) }
           record = record || !c.dragging
-        } else if (c.type === 'remove') {
+        } else if (c.type === 'remove' && !next.nodes.some((n) => n.id === c.id && isCoreNode(n))) {
           next = { nodes: next.nodes.filter((n) => n.id !== c.id), edges: next.edges.filter((e) => e.source !== c.id && e.target !== c.id) }
           record = true
           if (selected === c.id) setSelected(null)
@@ -405,6 +409,7 @@ export function FlowEditorPage() {
                   graph={graph}
                   fields={fields}
                   options={options.data?.data}
+                  typeName={t.name}
                   onLabel={(label) => updateNode(node.id, { label })}
                   onConfig={(patch) => updateConfig(node.id, patch)}
                   onRemove={() => {
@@ -456,11 +461,12 @@ export function FlowEditorPage() {
 }
 
 /** Settings of the selected step (F-07 §4.1). */
-function NodePanel({ node, graph, fields, options, onLabel, onConfig, onRemove, onRemoveEdge }: {
+function NodePanel({ node, graph, fields, options, typeName, onLabel, onConfig, onRemove, onRemoveEdge }: {
   node: FlowNode
   graph: FlowGraph
   fields: TypeField[]
   options?: FlowOptions
+  typeName: string
   onLabel: (label: string) => void
   onConfig: (patch: Partial<NodeConfig>) => void
   onRemove: () => void
@@ -471,14 +477,20 @@ function NodePanel({ node, graph, fields, options, onLabel, onConfig, onRemove, 
   const label = (id: string) => graph.nodes.find((n) => n.id === id)?.label ?? id
   const roles = options?.roles ?? []
   const members = options?.members ?? []
+  const core = isCoreNode(node)
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-bold text-slate-700">{nodeTypeLabel[node.type]}</p>
-        <Button variant="ghost" size="sm" onClick={onRemove} aria-label="Hapus langkah">
-          <Trash2 className="size-4" aria-hidden />
-        </Button>
+        <p className="flex items-center gap-1.5 text-sm font-bold text-slate-700">
+          {core && <Lock className="size-3.5" aria-hidden />}
+          {core ? 'Aksi inti' : nodeTypeLabel[node.type]}
+        </p>
+        {!core && (
+          <Button variant="ghost" size="sm" onClick={onRemove} aria-label="Hapus langkah">
+            <Trash2 className="size-4" aria-hidden />
+          </Button>
+        )}
       </div>
       <Field label="Nama langkah">{(p) => <Input {...p} maxLength={100} value={node.label ?? ''} onChange={(e) => onLabel(e.target.value)} />}</Field>
 
@@ -580,7 +592,13 @@ function NodePanel({ node, graph, fields, options, onLabel, onConfig, onRemove, 
         </>
       )}
 
-      {node.type === 'action' && <ActionsEditor actions={c.actions ?? []} fields={fields} options={options} onChange={(actions) => onConfig({ actions })} />}
+      {core ? (
+        <Alert tone="info" title="Langkah ini tetap ada">
+          Mencatat {typeName} dengan isian formulirnya dan aturan inti (mis. aset yang dipinjam tidak dapat dipindah). Langkah ini tidak dapat dihapus atau diganti; tambahkan persetujuan, isi data, atau aksi lain sebelum atau sesudahnya.
+        </Alert>
+      ) : (
+        node.type === 'action' && <ActionsEditor actions={c.actions ?? []} fields={fields} options={options} onChange={(actions) => onConfig({ actions })} />
+      )}
 
       {node.type === 'wait' && (
         <>

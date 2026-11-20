@@ -63,10 +63,14 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   const [customValues, setCustomValues] = useState<FieldValues>({})
   const activeTypes = useQuery({ queryKey: ['/transaction-types', 'active'], queryFn: () => typesApi.list({ status: 'active' }), staleTime: 30_000 })
   const customType = (activeTypes.data?.data ?? []).find((t) => t.id === customId)
-  const flow = useQuery({ queryKey: ['/transaction-types', customId, 'flow'], queryFn: () => flowApi.get(customId), enabled: !!customId })
+  // A built-in type is its system type (F-07f): the fields and the flow the organization added to it apply.
+  const systemTypes = useQuery({ queryKey: ['/transaction-types', 'system'], queryFn: () => typesApi.list({ include_system: '1', status: 'active' }), staleTime: 30_000 })
+  const systemType = type ? (systemTypes.data?.data ?? []).find((t) => t.system_type === type) : undefined
+  const definition = customType ?? systemType
+  const flow = useQuery({ queryKey: ['/transaction-types', definition?.id, 'flow'], queryFn: () => flowApi.get(definition!.id), enabled: !!definition })
   const activeGraph = flow.data?.data.active?.graph
   const later = laterFields(activeGraph)
-  const startFields = (customType?.fields ?? []).filter((f) => !later.has(f.key))
+  const startFields = (definition?.fields ?? []).filter((f) => !later.has(f.key))
   const chosen = type !== '' || !!customType
   const tooMany = !!customType && !customType.multi_asset && assets.length > 1
 
@@ -161,14 +165,17 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
       }
       const payload: Record<string, unknown> = { asset_ids: assets.map((a) => a.id), type }
       for (const [k, v] of Object.entries(values)) payload[k] = v.trim() === '' ? null : v.trim()
+      if (startFields.length > 0) payload.field_values = toPayload(startFields, customValues)
       return api.post('/transactions', payload)
     },
     onSuccess: async (response) => {
       await Promise.all(['/transactions', '/transaction-runs', '/assets', '/dashboards', '/home'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
       const what = assets.length === 1 ? assets[0].name : `${assets.length} aset`
+      // A type with a published flow answers with the run it started, not with transactions.
       const run = (response as { data?: TransactionRun }).data
-      if (customType && run && 'state' in run) {
-        toast.show({ tone: 'success', title: 'Transaksi dimulai', description: `${customType.name} ${run.transaction_number} · ${what}`, action: { label: 'Lihat transaksi', to: `/transaksi/berjalan/${run.id}` } })
+      if (run && !Array.isArray(run) && 'state' in run) {
+        const name = definition?.name ?? (type ? transactionTypeLabel[type] : '')
+        toast.show({ tone: 'success', title: 'Transaksi dimulai', description: `${name} ${run.transaction_number} · ${what}`, action: { label: 'Lihat transaksi', to: `/transaksi/berjalan/${run.id}` } })
       } else if (customType) {
         toast.success('Transaksi dicatat', `${customType.name} · ${what}`)
       } else if (type) {
@@ -191,7 +198,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
             Batal
           </Button>
           <Button type="submit" form="transaction-form" loading={save.isPending} disabled={!chosen || assets.length === 0 || blocked.length > 0 || tooMany}>
-            {type === 'outgoing' ? 'Catat keluar' : type === 'incoming' ? 'Catat masuk' : customType && activeGraph ? 'Mulai transaksi' : 'Simpan transaksi'}
+            {activeGraph ? 'Mulai transaksi' : type === 'outgoing' ? 'Catat keluar' : type === 'incoming' ? 'Catat masuk' : 'Simpan transaksi'}
             {!fixedAsset && assets.length > 0 ? ` (${assets.length} aset)` : ''}
           </Button>
         </>
@@ -228,6 +235,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
                   return
                 }
                 setCustomId('')
+                setCustomValues({})
                 const next = e.target.value as ManualTransactionType | ''
                 setType(next)
                 // Fields of the previous type must not be sent with the new one.
@@ -284,6 +292,27 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
               </Alert>
             ) : null}
             {tooMany && <Alert tone="error">Jenis {customType.name} hanya untuk satu aset per transaksi.</Alert>}
+          </>
+        )}
+
+        {systemType && (
+          <>
+            {startFields.length > 0 && !flow.isPending && (
+              <CustomFieldInputs
+                typeId={systemType.id}
+                fields={startFields}
+                values={customValues}
+                onChange={(key, value) => setCustomValues((v) => ({ ...v, [key]: value }))}
+                errors={fieldErrors}
+                required={startFields.filter((f) => f.is_required).map((f) => f.key)}
+              />
+            )}
+            {activeGraph && (
+              <Alert tone="info" title="Setelah disimpan">
+                Transaksi berjalan mengikuti alur {systemType.name} (v{flow.data?.data.active?.version_number}); aset baru berubah di langkah Aksi inti.
+                {systemType.locks_assets ? ' Aset dikunci sampai transaksi selesai, ditolak, atau dibatalkan.' : ''}
+              </Alert>
+            )}
           </>
         )}
 

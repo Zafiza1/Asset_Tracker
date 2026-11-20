@@ -83,7 +83,8 @@ class SystemTypeFlowTest extends TestCase
         ])->assertCreated()->json('data');
         $this->assertSame(['running', 'setuju', 'loan'], [$run['state'], $run['current_step']['id'], $run['type_definition']['system_type']]);
         $this->assertStringStartsWith('PJM-', $run['transaction_number']);
-        $this->assertSame('Budi', $run['system_values']['borrower_name']);
+        // The built-in input reads like field values on the run page.
+        $this->assertSame(['Peminjam', 'Budi'], [$run['system_values'][0]['label'], $run['system_values'][0]['display']]);
         // Nothing changed yet, and the asset is held by the run (D-29).
         $this->getJson("/api/assets/{$asset}")->assertJsonPath('data.status', 'available');
         $this->assertErrorCode($this->postJson('/api/transactions', ['asset_id' => $asset, 'type' => 'transfer', 'to_location_id' => $this->otherLocation()]), 409, 'ASSET_LOCKED');
@@ -160,6 +161,7 @@ class SystemTypeFlowTest extends TestCase
         $this->publishFlow($transfer);
         $run = $this->postJson('/api/transactions', ['asset_id' => $asset, 'type' => 'transfer', 'to_location_id' => $this->masters['location']->id, 'field_values' => ['no_bast' => 'BAST-2']])
             ->assertCreated()->json('data');
+        $this->assertSame([['Lokasi tujuan', $this->masters['location']->name]], array_map(fn ($v) => [$v['label'], $v['display']], $run['system_values']));
         $this->actingAs($this->approver, 'web');
         $this->postJson("/api/transaction-runs/{$run['id']}/tasks/{$run['open_task']['id']}/complete", ['decision' => 'approved'])->assertOk();
         $last = $this->rows($asset)[2];

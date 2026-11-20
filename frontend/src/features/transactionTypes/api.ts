@@ -127,7 +127,8 @@ export interface Who {
 }
 
 export interface FlowAction {
-  kind: 'set_status' | 'move_to_field_location' | 'set_condition' | 'loan_to_field_user' | 'return' | 'notify'
+  /** 'core': a system type's core action (F-07f-2), exactly once in its flow and never offered to add. */
+  kind: 'set_status' | 'move_to_field_location' | 'set_condition' | 'loan_to_field_user' | 'return' | 'notify' | 'core'
   status?: string
   field?: string
   value?: string
@@ -258,7 +259,7 @@ export interface TransactionRun {
   transaction_number: string
   state: RunState
   state_label: string
-  type_definition?: { id: string; code: string; name: string }
+  type_definition?: { id: string; code: string; name: string; system_type?: string | null }
   flow_version?: number
   current_step: { id: string; type: NodeType; label: string | null } | null
   assets?: { id: string; name: string; locked: boolean }[]
@@ -269,6 +270,8 @@ export interface TransactionRun {
   created_at: string
   ended_at: string | null
   field_values?: RunFieldValue[]
+  /** What the built-in form asked (borrower, target location...), recorded by a system type's core action. */
+  system_values?: RunFieldValue[]
   graph?: FlowGraph
   steps?: { node_id: string; type: NodeType; label: string | null; outcome: string | null; actor: string | null; note: string | null; created_at: string }[]
   open_task?: OpenTask | null
@@ -309,6 +312,29 @@ export const runsApi = {
   complete: (id: string, taskId: string, body: { decision?: 'approved' | 'rejected'; field_values?: Record<string, unknown>; note?: string }) =>
     api.post<{ data: TransactionRun }>(`/transaction-runs/${id}/tasks/${taskId}/complete`, body),
   cancel: (id: string, note?: string) => api.post<{ data: TransactionRun }>(`/transaction-runs/${id}/cancel`, { note: note || null }),
+}
+
+/** An action step holding a system type's core action: it stays in the flow and keeps its action. */
+export function isCoreNode(node: FlowNode): boolean {
+  return node.type === 'action' && (node.config.actions ?? []).some((a) => a.kind === 'core')
+}
+
+/**
+ * A system type's first flow (F-07f-3): Mulai → its core action → Selesai, so it records exactly
+ * as without a flow until approvals or data steps are added around the core step.
+ */
+export function systemStarterGraph(typeName: string): FlowGraph {
+  return {
+    nodes: [
+      { id: 'start', type: 'start', label: 'Mulai', position: { x: 0, y: 80 }, config: {} },
+      { id: 'inti', type: 'action', label: `Catat ${typeName.toLowerCase()}`, position: { x: 280, y: 80 }, config: { actions: [{ kind: 'core' }] } },
+      { id: 'selesai', type: 'end', label: 'Selesai', position: { x: 560, y: 80 }, config: { result: 'completed' } },
+    ],
+    edges: [
+      { id: 'e_start_inti', source: 'start', target: 'inti', outcome: null },
+      { id: 'e_inti_selesai', source: 'inti', target: 'selesai', outcome: null },
+    ],
+  }
 }
 
 /** Fields filled in at a later "Isi data" step of the flow: not asked when starting. */

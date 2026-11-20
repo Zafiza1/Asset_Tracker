@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Asset } from '../features/assets/api'
 import { TransactionFormModal } from '../features/transactions/TransactionFormModal'
-import { laterFields, type FlowGraph, type TransactionRun, type TransactionTypeDefinition } from '../features/transactionTypes/api'
+import { isCoreNode, laterFields, systemStarterGraph, type FlowGraph, type TransactionRun, type TransactionTypeDefinition } from '../features/transactionTypes/api'
 import { TransactionRunPage } from '../features/transactionTypes/TransactionRunPage'
 import { TransactionTypeFormPage } from '../features/transactionTypes/TransactionTypeFormPage'
 import { TransactionTypesPage } from '../features/transactionTypes/TransactionTypesPage'
@@ -109,7 +109,7 @@ describe('Jenis Transaksi page', () => {
     expect(screen.queryByRole('link', { name: /Jenis baru/ })).not.toBeInTheDocument()
   })
 
-  it('lists the system types read-only, after the organization types, and filters by kind', async () => {
+  it('lists the system types after the organization types, with their flow, and filters by kind', async () => {
     const loan: TransactionTypeDefinition = { ...mutasi, id: 't-pjm', code: 'PJM', name: 'Peminjaman', system_type: 'loan', fields: [], transactions_count: 0, flow: {} }
     const { fetchMock, wrap } = setup(['transaction.view', 'transaction_type.manage'], () => ({ data: [loan, mutasi] }))
     wrap(<TransactionTypesPage />)
@@ -122,7 +122,7 @@ describe('Jenis Transaksi page', () => {
     expect(screen.getByText('PJM · aturan inti tetap')).toBeInTheDocument()
     expect(screen.getByText('Langsung tercatat')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Alur Mutasi Cabang' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Alur Peminjaman' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Alur Peminjaman' })).toHaveAttribute('href', '/transaksi/jenis/t-pjm/alur')
 
     fireEvent.change(screen.getByLabelText('Filter jenis'), { target: { value: 'system' } })
     expect(screen.queryByText('Mutasi Cabang')).not.toBeInTheDocument()
@@ -138,22 +138,66 @@ describe('Jenis Transaksi page', () => {
     expect(screen.getByText(/1 jenis sistem sudah tersedia/)).toBeInTheDocument()
   })
 
-  it('shows a system type read-only even to a manager, without the flow editor', async () => {
-    const loan: TransactionTypeDefinition = { ...mutasi, id: 't-pjm', code: 'PJM', name: 'Peminjaman', system_type: 'loan', fields: [], flow: {} }
-    const { wrap } = setup(['transaction.view', 'transaction_type.manage', 'transaction_flow.manage'], (url) =>
+  it('lets a manager add fields to a system type, and sends only the fields', async () => {
+    const loan: TransactionTypeDefinition = {
+      ...mutasi, id: 't-pjm', code: 'PJM', name: 'Peminjaman', system_type: 'loan', flow: {}, transactions_count: 0,
+      fields: [{ key: 'no_bast', label: 'No. BAST', data_type: 'text', settings: {}, is_required: true }],
+    }
+    const { fetchMock, wrap } = setup(['transaction.view', 'transaction_type.manage', 'transaction_flow.manage'], (url) =>
       url.includes('/transaction-types/t-pjm') ? { data: loan } : { data: [] }, '/transaksi/jenis/t-pjm')
     wrap(<TransactionTypeFormPage />, '/transaksi/jenis/:id')
 
     expect(await screen.findByText('Jenis sistem')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Simpan/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Editor alur|Lihat alur/ })).not.toBeInTheDocument()
+    // Name and rules stay; the fields and the flow are the organization's.
+    expect(screen.getByLabelText(/^Nama/)).toBeDisabled()
+    expect(screen.getByDisplayValue('No. BAST')).toBeEnabled()
+    expect(screen.getByRole('link', { name: /Editor alur/ })).toHaveAttribute('href', '/transaksi/jenis/t-pjm/alur')
     expect(screen.queryByRole('button', { name: /Hapus jenis/ })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Simpan/ }))
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true))
+    const put = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT')!
+    expect(Object.keys(JSON.parse(put[1]!.body as string))).toEqual(['fields'])
   })
 
   it('offers "Jenis baru" to transaction_type.manage', async () => {
     const { wrap } = setup(['transaction.view', 'transaction_type.manage'], () => ({ data: [] }))
     wrap(<TransactionTypesPage />)
     expect((await screen.findAllByRole('link', { name: /Jenis baru/ })).length).toBeGreaterThan(0)
+  })
+})
+
+describe('system type flows', () => {
+  it('starts a system flow at its core step, which counts as core only in an action step', () => {
+    const start = systemStarterGraph('Peminjaman')
+    expect(start.nodes.map((n) => [n.type, n.label])).toEqual([['start', 'Mulai'], ['action', 'Catat peminjaman'], ['end', 'Selesai']])
+    expect(start.nodes.filter(isCoreNode).map((n) => n.id)).toEqual(['inti'])
+    expect(start.edges.map((e) => `${e.source}>${e.target}`)).toEqual(['start>inti', 'inti>selesai'])
+    expect(isCoreNode({ ...start.nodes[1], config: { actions: [{ kind: 'set_status', status: 'in_use' }] } })).toBe(false)
+  })
+
+  it('asks the fields added to a built-in type and starts its published flow', async () => {
+    const loan: TransactionTypeDefinition = {
+      ...mutasi, id: 't-pjm', code: 'PJM', name: 'Peminjaman', system_type: 'loan',
+      fields: [{ key: 'no_bast', label: 'No. BAST', data_type: 'text', settings: {}, is_required: true }],
+    }
+    const run = { id: 'r9', transaction_number: 'PJM-2026-000003', state: 'running' } as TransactionRun
+    const { fetchMock, wrap } = setup(['transaction.view', 'transaction.create', 'asset.assign'], (url, init) => {
+      if (init?.method === 'POST') return { data: run }
+      if (url.includes('/transaction-types/t-pjm/flow')) return { data: { active: { id: 'v1', version_number: 1, status: 'published', graph: systemStarterGraph('Peminjaman') }, draft: null, versions: [] } }
+      if (url.startsWith('/api/transaction-types')) return { data: url.includes('include_system=1') ? [loan] : [] }
+      return { data: [] }
+    })
+    wrap(<TransactionFormModal asset={laptop} initialType="loan" onClose={vi.fn()} />)
+
+    fireEvent.change(await screen.findByLabelText(/No\. BAST/), { target: { value: 'BAST-7' } })
+    fireEvent.change(screen.getByLabelText(/Nama peminjam/), { target: { value: 'Budi' } })
+    expect(await screen.findByText(/mengikuti alur Peminjaman \(v1\)/)).toBeInTheDocument()
+
+    fireEvent.click((await screen.findByText(/Mulai transaksi/)).closest('button')!)
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(true))
+    const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')!
+    expect(JSON.parse(post[1]!.body as string)).toMatchObject({ type: 'loan', borrower_name: 'Budi', field_values: { no_bast: 'BAST-7' } })
   })
 })
 

@@ -146,6 +146,8 @@ export function TransactionRunPage() {
         </Card>
         <Card title="Data">
           <div className="space-y-4 p-5">
+            {/* A system type's built-in input (borrower, target location...), recorded at its core step. */}
+            <FieldValueList values={r.system_values ?? []} variant="grid" />
             <FieldValueList values={r.field_values ?? []} variant="grid" emptyText={() => 'belum diisi'} />
             <div>
               <p className="mb-1 text-sm text-slate-500">Aset</p>

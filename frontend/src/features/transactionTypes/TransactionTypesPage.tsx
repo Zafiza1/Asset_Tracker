@@ -20,7 +20,7 @@ type Kind = '' | 'organization' | 'system'
  * Jenis Transaksi (F-07 §3): the organization's own transaction types with their fields and
  * flows. Creating and changing them is for Super Admin and Supervisor on wide screens (D-27,
  * D-34); everyone with transaction.view sees the list and the flows. The seven system types
- * (F-07f-1) are listed too, read-only, until their flows arrive (F-07f-2).
+ * (F-07f) are listed too: their name and rules stay, their fields and flow can be added.
  */
 export function TransactionTypesPage() {
   const { can } = useAuth()
@@ -114,8 +114,8 @@ export function TransactionTypesPage() {
       key: 'actions',
       header: '',
       className: 'w-24 text-right',
-      // Flows for system types arrive with F-07f-2; until then they record at once.
-      cell: (t) => t.system_type ? null : (
+      // A system type's flow is built around its core step (F-07f-3).
+      cell: (t) => (
         <ButtonLink to={`/transaksi/jenis/${t.id}/alur`} variant="secondary" size="sm" aria-label={`Alur ${t.name}`}>
           <Workflow className="size-4" aria-hidden />
           Alur
