@@ -12,6 +12,15 @@ import { OrganizationPage } from '../features/organization/OrganizationPage'
 import { CreateOrganizationPage, SelectOrganizationPage } from '../features/organizations/OrganizationPages'
 import { ModulesPage } from '../features/organization/ModulesPage'
 import { SettingsPage } from '../features/organization/SettingsPage'
+import {
+  PlatformCategoriesPage,
+  PlatformDefinitionDetailPage,
+  PlatformDefinitionsPage,
+  PlatformReferencePage,
+  PlatformVersionPage,
+} from '../features/platform/GenericMasterPages'
+import { PlatformOrganizationDetailPage } from '../features/platform/PlatformOrganizationDetailPage'
+import { PlatformOrganizationsPage } from '../features/platform/PlatformOrganizationsPage'
 import { ReportRunPage } from '../features/reportDesigner/ReportRunPage'
 import { ReportDesignerPage } from '../features/reportDesigner/ReportDesignerPage'
 import { ReportTemplateDetailPage } from '../features/reportDesigner/ReportTemplateDetailPage'
@@ -34,10 +43,15 @@ import { InvitationsPage } from '../features/users/InvitationsPage'
 import { UsersPage } from '../features/users/UsersPage'
 import { AppLayout } from './AppLayout'
 import { RootLayout } from './RootLayout'
-import { NotFound, RequireAuth, RequirePermission, RequireTenantUser, RouteError } from './guards'
+import { NotFound, RequireAuth, RequirePermission, RequireUserType, RouteError } from './guards'
 
 const tenant = (permission: string | null, element: React.ReactNode) => (
-  <RequireTenantUser>{permission ? <RequirePermission permission={permission}>{element}</RequirePermission> : element}</RequireTenantUser>
+  <RequireUserType type="tenant">{permission ? <RequirePermission permission={permission}>{element}</RequirePermission> : element}</RequireUserType>
+)
+const platform = (permission: string, element: React.ReactNode) => (
+  <RequireUserType type="platform">
+    <RequirePermission permission={permission}>{element}</RequirePermission>
+  </RequireUserType>
 )
 
 export const router = createBrowserRouter([
@@ -102,6 +116,14 @@ export const router = createBrowserRouter([
                   { path: '/audit', element: tenant('audit.view', <AuditLogPage endpoint="/audit-logs" title="Audit Trail" />) },
                   { path: '/master/kategori', element: tenant('master.tenant.view', <TenantCategoriesPage />) },
                   { path: '/master/lokasi', element: tenant('master.tenant.view', <LocationsPage />) },
+                  { path: '/platform/organisasi', element: platform('platform.organization.view', <PlatformOrganizationsPage />) },
+                  { path: '/platform/organisasi/:id', element: platform('platform.organization.view', <PlatformOrganizationDetailPage />) },
+                  { path: '/platform/master/kategori', element: platform('master.generic.view', <PlatformCategoriesPage />) },
+                  { path: '/platform/master/definisi', element: platform('master.generic.view', <PlatformDefinitionsPage />) },
+                  { path: '/platform/master/definisi/:id', element: platform('master.generic.view', <PlatformDefinitionDetailPage />) },
+                  { path: '/platform/master/versi/:id', element: platform('master.generic.view', <PlatformVersionPage />) },
+                  { path: '/platform/master/referensi', element: platform('master.generic.view', <PlatformReferencePage />) },
+                  { path: '/platform/audit', element: platform('platform.audit.view', <AuditLogPage endpoint="/platform/audit-logs" title="Audit Platform" />) },
                   { path: '*', element: <NotFound /> },
                 ],
               },
