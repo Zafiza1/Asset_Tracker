@@ -7,6 +7,7 @@ import type { Asset } from '../features/assets/api'
 import { TransactionFormModal } from '../features/transactions/TransactionFormModal'
 import { laterFields, type FlowGraph, type TransactionRun, type TransactionTypeDefinition } from '../features/transactionTypes/api'
 import { TransactionRunPage } from '../features/transactionTypes/TransactionRunPage'
+import { TransactionTypeFormPage } from '../features/transactionTypes/TransactionTypeFormPage'
 import { TransactionTypesPage } from '../features/transactionTypes/TransactionTypesPage'
 import { keyFromLabel, toPayload } from '../features/transactionTypes/values'
 import type { Profile } from '../lib/api/types'
@@ -106,6 +107,47 @@ describe('Jenis Transaksi page', () => {
     expect(screen.getByText('Terbit v3')).toBeInTheDocument()
     expect(screen.getByText('Draft v4')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Jenis baru/ })).not.toBeInTheDocument()
+  })
+
+  it('lists the system types read-only, after the organization types, and filters by kind', async () => {
+    const loan: TransactionTypeDefinition = { ...mutasi, id: 't-pjm', code: 'PJM', name: 'Peminjaman', system_type: 'loan', fields: [], transactions_count: 0, flow: {} }
+    const { fetchMock, wrap } = setup(['transaction.view', 'transaction_type.manage'], () => ({ data: [loan, mutasi] }))
+    wrap(<TransactionTypesPage />)
+
+    expect(await screen.findByText('Peminjaman')).toBeInTheDocument()
+    expect(String(fetchMock.mock.calls[0][0])).toContain('include_system=1')
+    const links = screen.getAllByRole('link').map((l) => l.textContent).filter((n) => n === 'Mutasi Cabang' || n === 'Peminjaman')
+    expect(links).toEqual(['Mutasi Cabang', 'Peminjaman'])
+    expect(screen.getByText('Sistem', { ignore: 'option' })).toBeInTheDocument()
+    expect(screen.getByText('PJM · aturan inti tetap')).toBeInTheDocument()
+    expect(screen.getByText('Langsung tercatat')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Alur Mutasi Cabang' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Alur Peminjaman' })).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Filter jenis'), { target: { value: 'system' } })
+    expect(screen.queryByText('Mutasi Cabang')).not.toBeInTheDocument()
+    expect(screen.getByText('Peminjaman')).toBeInTheDocument()
+  })
+
+  it('tells an organization without its own types that the system types exist', async () => {
+    const loan: TransactionTypeDefinition = { ...mutasi, id: 't-pjm', code: 'PJM', name: 'Peminjaman', system_type: 'loan', fields: [], flow: {} }
+    const { wrap } = setup(['transaction.view'], () => ({ data: [loan] }))
+    wrap(<TransactionTypesPage />)
+    fireEvent.change(await screen.findByLabelText('Filter jenis'), { target: { value: 'organization' } })
+    expect(await screen.findByText('Belum ada jenis buatan organisasi')).toBeInTheDocument()
+    expect(screen.getByText(/1 jenis sistem sudah tersedia/)).toBeInTheDocument()
+  })
+
+  it('shows a system type read-only even to a manager, without the flow editor', async () => {
+    const loan: TransactionTypeDefinition = { ...mutasi, id: 't-pjm', code: 'PJM', name: 'Peminjaman', system_type: 'loan', fields: [], flow: {} }
+    const { wrap } = setup(['transaction.view', 'transaction_type.manage', 'transaction_flow.manage'], (url) =>
+      url.includes('/transaction-types/t-pjm') ? { data: loan } : { data: [] }, '/transaksi/jenis/t-pjm')
+    wrap(<TransactionTypeFormPage />, '/transaksi/jenis/:id')
+
+    expect(await screen.findByText('Jenis sistem')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Simpan/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Editor alur|Lihat alur/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Hapus jenis/ })).not.toBeInTheDocument()
   })
 
   it('offers "Jenis baru" to transaction_type.manage', async () => {

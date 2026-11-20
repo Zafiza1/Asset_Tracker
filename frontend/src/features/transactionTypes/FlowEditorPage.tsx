@@ -87,10 +87,11 @@ export function FlowEditorPage() {
   const typeId = id!
   const { can } = useAuth()
   const canUseEditor = useCanUseEditor()
-  const editable = can('transaction_flow.manage') && canUseEditor
   const queryClient = useQueryClient()
 
   const type = useQuery({ queryKey: ['/transaction-types', typeId], queryFn: () => typesApi.get(typeId) })
+  // System types get flows with F-07f-2; until then the API refuses to save one (SYSTEM_TYPE_READONLY).
+  const editable = can('transaction_flow.manage') && canUseEditor && !type.data?.data.system_type
   const flow = useQuery({ queryKey: ['/transaction-types', typeId, 'flow'], queryFn: () => flowApi.get(typeId) })
   const options = useQuery({ queryKey: ['/transaction-flow-options'], queryFn: () => flowApi.options(), enabled: editable, staleTime: 60_000 })
 

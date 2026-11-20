@@ -5,6 +5,7 @@ namespace App\Domain\AssetTransactions\Models;
 use App\Domain\Identity\Models\User;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +29,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $closes_type_id
  * @property string $status
  * @property string|null $created_by
+ * @property string|null $system_type one of the built-in types (F-07f); NULL for the organization's own types
  */
 class TransactionTypeDefinition extends Model
 {
@@ -49,6 +51,18 @@ class TransactionTypeDefinition extends Model
             'multi_asset' => 'boolean',
             'locks_assets' => 'boolean',
         ];
+    }
+
+    /** One of the seven built-in types kept as a row of the organization (F-07f, D-26). */
+    public function isSystem(): bool
+    {
+        return $this->system_type !== null;
+    }
+
+    /** The organization's own types: what "Jenis organisasi" means everywhere except the type list. */
+    public function scopeOrganizationOwn(Builder $query): Builder
+    {
+        return $query->whereNull('system_type');
     }
 
     public function fields(): HasMany

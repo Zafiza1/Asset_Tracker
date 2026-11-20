@@ -402,7 +402,8 @@ final class AssetTransactionService
      */
     private function customType(array $data): TransactionTypeDefinition
     {
-        $definition = TransactionTypeDefinition::query()->with(['fields', 'categories:id'])->find($data['type_definition_id'] ?? null);
+        // A system type is recorded as its built-in type, never as 'custom' (its core rules would be skipped).
+        $definition = TransactionTypeDefinition::query()->organizationOwn()->with(['fields', 'categories:id'])->find($data['type_definition_id'] ?? null);
         if ($definition === null) {
             throw ValidationException::withMessages(['type_definition_id' => 'Jenis transaksi tidak ditemukan.']);
         }

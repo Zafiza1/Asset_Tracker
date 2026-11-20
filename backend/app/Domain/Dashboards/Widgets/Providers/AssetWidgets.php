@@ -753,7 +753,7 @@ final class AssetWidgets
         $configured = array_values(array_filter((array) $ctx->config('transaction_types'),
             fn ($v) => is_string($v) && ! in_array($v, TransactionType::ALL, true)));
 
-        return TransactionTypeDefinition::query()->where('status', '!=', TransactionTypeDefinition::DRAFT)
+        return TransactionTypeDefinition::query()->organizationOwn()->where('status', '!=', TransactionTypeDefinition::DRAFT)
             ->when($configured !== [], fn ($q) => $q->whereIn('id', $configured))
             ->with('fields')->orderBy('name')->get();
     }

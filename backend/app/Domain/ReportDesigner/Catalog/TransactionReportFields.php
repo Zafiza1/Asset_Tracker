@@ -44,7 +44,7 @@ final class TransactionReportFields
         }
 
         $fields = [];
-        TransactionTypeDefinition::query()->where('status', '!=', TransactionTypeDefinition::DRAFT)
+        TransactionTypeDefinition::query()->organizationOwn()->where('status', '!=', TransactionTypeDefinition::DRAFT)
             ->with('fields')->get()
             ->each(function (TransactionTypeDefinition $definition) use (&$fields) {
                 foreach ($definition->fields as $field) {

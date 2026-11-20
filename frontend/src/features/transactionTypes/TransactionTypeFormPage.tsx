@@ -82,12 +82,14 @@ export function TransactionTypeFormPage() {
   const queryClient = useQueryClient()
   const { can } = useAuth()
   const canUseEditor = useCanUseEditor()
-  const editable = can('transaction_type.manage') && canUseEditor
   const [draft, setDraft] = useState<Draft>(() => toDraft(undefined))
   const [errors, setErrors] = useState<Record<string, string[]>>({})
   const [deleting, setDeleting] = useState(false)
 
   const type = useQuery({ queryKey: ['/transaction-types', id], queryFn: () => typesApi.get(id!), enabled: !isNew })
+  // A system type (F-07f-1) follows the built-in core rules and is read-only for everyone.
+  const system = !!type.data?.data.system_type
+  const editable = can('transaction_type.manage') && canUseEditor && !system
   const others = useQuery({ queryKey: ['/transaction-types', 'all'], queryFn: () => typesApi.list() })
   const categories = toOptions(useOptions('/tenant-masters/categories').data)
 
@@ -156,7 +158,19 @@ export function TransactionTypeFormPage() {
     <>
       <PageHeader
         title={isNew ? 'Jenis transaksi baru' : (t?.name ?? '')}
-        badges={t && <Badge tone={typeStatusTone[t.status]}>{typeStatusLabel[t.status]}</Badge>}
+        badges={
+          t && (
+            <>
+              {system && (
+                <Badge tone="slate">
+                  <Lock className="size-3" aria-hidden />
+                  Sistem
+                </Badge>
+              )}
+              <Badge tone={typeStatusTone[t.status]}>{typeStatusLabel[t.status]}</Badge>
+            </>
+          )
+        }
         description={
           <>
             Pengaturan jenis dan field formulir. Langkah dan aturan diatur di editor alur{isNew ? ' setelah jenis disimpan' : ''}.
@@ -164,7 +178,7 @@ export function TransactionTypeFormPage() {
         }
         actions={
           <>
-            {!isNew && (
+            {!isNew && !system && (
               <ButtonLink to={`/transaksi/jenis/${id}/alur`} variant="secondary">
                 <Workflow className="size-4" aria-hidden />
                 {editable ? 'Editor alur' : 'Lihat alur'}
@@ -180,7 +194,13 @@ export function TransactionTypeFormPage() {
         }
       />
 
-      {!editable && (
+      {system ? (
+        <div className="mb-4">
+          <Alert tone="info" title="Jenis sistem">
+            Jenis ini bawaan aplikasi dan memakai aturan inti (mis. aset yang dipinjam tidak dapat dipindah). Pencatatannya lewat menu Transaksi, langsung tercatat tanpa alur. Jenis sistem belum dapat diubah.
+          </Alert>
+        </div>
+      ) : !editable && (
         <div className="mb-4">
           <Alert tone="info" title={canUseEditor ? 'Hanya dapat dilihat' : 'Hanya dapat dilihat di ponsel'}>
             {canUseEditor ? 'Mengubah jenis dan field dilakukan oleh Super Admin atau Supervisor.' : 'Ubah jenis dan field di web pada layar lebar.'}

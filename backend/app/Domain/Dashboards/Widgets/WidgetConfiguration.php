@@ -136,7 +136,7 @@ final class WidgetConfiguration
             return;
         }
         $custom = array_values(array_filter($value, fn ($v) => is_string($v) && ! in_array($v, TransactionType::ALL, true)));
-        if ($custom !== [] && TransactionTypeDefinition::query()->whereIn('id', array_unique($custom))->count() !== count(array_unique($custom))) {
+        if ($custom !== [] && TransactionTypeDefinition::query()->organizationOwn()->whereIn('id', array_unique($custom))->count() !== count(array_unique($custom))) {
             $errors[$key] = ['Jenis transaksi tidak ditemukan.'];
         }
     }

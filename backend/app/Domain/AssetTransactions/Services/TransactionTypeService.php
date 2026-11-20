@@ -49,6 +49,7 @@ final class TransactionTypeService
     {
         return DB::transaction(function () use ($definition, $data) {
             $definition = TransactionTypeDefinition::query()->lockForUpdate()->findOrFail($definition->id);
+            self::assertNotSystem($definition);
             $before = $this->snapshot($definition);
 
             if (isset($data['code']) && strtoupper($data['code']) !== $definition->code) {
@@ -78,6 +79,7 @@ final class TransactionTypeService
     public function delete(TransactionTypeDefinition $definition): void
     {
         DB::transaction(function () use ($definition) {
+            self::assertNotSystem($definition);
             if ($definition->transactions()->exists()) {
                 throw ApiException::conflict('TYPE_IN_USE', 'Jenis ini sudah dipakai transaksi. Nonaktifkan jenisnya bila tidak dipakai lagi.');
             }
@@ -98,12 +100,23 @@ final class TransactionTypeService
     {
         $attributes = array_intersect_key($data, array_flip(['name', 'description', 'icon', 'multi_asset', 'locks_assets', 'closes_type_id']));
         if (! empty($attributes['closes_type_id'])) {
-            if ($attributes['closes_type_id'] === $current?->id || ! TransactionTypeDefinition::query()->whereKey($attributes['closes_type_id'])->exists()) {
+            if ($attributes['closes_type_id'] === $current?->id || ! TransactionTypeDefinition::query()->organizationOwn()->whereKey($attributes['closes_type_id'])->exists()) {
                 throw ValidationException::withMessages(['closes_type_id' => 'Jenis yang ditutup tidak ditemukan.']);
             }
         }
 
         return $attributes;
+    }
+
+    /**
+     * System types (F-07f-1) are read-only until flows for them arrive (F-07f-2): their rules
+     * are the built-in core rules, and they cannot be deleted.
+     */
+    public static function assertNotSystem(TransactionTypeDefinition $definition): void
+    {
+        if ($definition->isSystem()) {
+            throw ApiException::conflict('SYSTEM_TYPE_READONLY', "Jenis sistem {$definition->name} memakai aturan bawaan aplikasi dan tidak dapat diubah atau dihapus.");
+        }
     }
 
     /** Upper-case, not a system prefix, not used by another type of the organization. */

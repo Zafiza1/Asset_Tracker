@@ -107,7 +107,7 @@ class AssetTransactionController extends Controller
         // Recorded at once; for a closing type, the runs waiting for this pair move on (F-07b).
         $transactions = DB::transaction(function () use ($data) {
             $rows = $this->transactions->create($data);
-            if ($data['type'] === TransactionType::CUSTOM && ($definition = TransactionTypeDefinition::query()->find($data['type_definition_id'])) !== null) {
+            if ($data['type'] === TransactionType::CUSTOM && ($definition = TransactionTypeDefinition::query()->organizationOwn()->find($data['type_definition_id'])) !== null) {
                 $this->engine->resumePaired($definition, $data['asset_ids']);
             }
 
@@ -146,7 +146,7 @@ class AssetTransactionController extends Controller
      */
     private function startRun(array $data): ?TransactionRun
     {
-        $definition = TransactionTypeDefinition::query()->find($data['type_definition_id']);
+        $definition = TransactionTypeDefinition::query()->organizationOwn()->find($data['type_definition_id']);
         $flow = $definition === null ? null : $this->engine->activeFlow($definition);
         if ($definition === null || $flow === null) {
             return null;

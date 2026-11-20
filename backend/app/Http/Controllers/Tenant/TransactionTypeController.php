@@ -30,8 +30,11 @@ class TransactionTypeController extends Controller
         $request->validate([
             'status' => ['nullable', Rule::in(TransactionTypeDefinition::STATUSES)],
             'search' => ['nullable', 'string', 'max:100'],
+            // The type list also shows the system types (F-07f); every other picker wants the organization's own.
+            'include_system' => ['nullable', 'boolean'],
         ]);
         $query = TransactionTypeDefinition::query()->with(self::RELATIONS)->withCount('transactions')
+            ->when(! $request->boolean('include_system'), fn ($q) => $q->organizationOwn())
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
             ->when(trim((string) $request->query('search')), fn ($q, $term) => $q->where(fn ($w) => $w
                 ->where('name', 'ilike', ListQuery::like($term))->orWhere('code', 'ilike', ListQuery::like($term))))

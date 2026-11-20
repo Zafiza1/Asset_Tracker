@@ -13,10 +13,14 @@ import { useAuth } from '../../lib/auth/context'
 import { useCanUseEditor } from '../../lib/useMediaQuery'
 import { typeStatusLabel, typeStatusTone, typesApi, type TransactionTypeDefinition, type TypeStatus } from './api'
 
+/** '' every type, the organization's own, or the seven system types (F-07f). */
+type Kind = '' | 'organization' | 'system'
+
 /**
  * Jenis Transaksi (F-07 §3): the organization's own transaction types with their fields and
  * flows. Creating and changing them is for Super Admin and Supervisor on wide screens (D-27,
- * D-34); everyone with transaction.view sees the list and the flows.
+ * D-34); everyone with transaction.view sees the list and the flows. The seven system types
+ * (F-07f-1) are listed too, read-only, until their flows arrive (F-07f-2).
  */
 export function TransactionTypesPage() {
   const { can } = useAuth()
@@ -26,13 +30,19 @@ export function TransactionTypesPage() {
   const [search, setSearch] = useState('')
   const [applied, setApplied] = useState('')
   const [status, setStatus] = useState<TypeStatus | ''>('')
+  const [kind, setKind] = useState<Kind>('')
 
   const query = useQuery({
-    queryKey: ['/transaction-types', applied, status],
-    queryFn: () => typesApi.list({ search: applied || undefined, status: status || undefined }),
+    queryKey: ['/transaction-types', 'with-system', applied, status],
+    queryFn: () => typesApi.list({ search: applied || undefined, status: status || undefined, include_system: '1' }),
     placeholderData: (prev) => prev,
   })
-  const rows = query.data?.data ?? []
+  const all = query.data?.data ?? []
+  // The organization's own types first; the seven system types after them.
+  const rows = all
+    .filter((t) => (kind === 'system' ? t.system_type : kind === 'organization' ? !t.system_type : true))
+    .sort((a, b) => Number(!!a.system_type) - Number(!!b.system_type))
+  const systemCount = all.filter((t) => t.system_type).length
   const filtered = applied !== '' || status !== ''
 
   const columns: Column<TransactionTypeDefinition>[] = [
@@ -42,12 +52,26 @@ export function TransactionTypesPage() {
       className: 'whitespace-normal',
       cell: (t) => (
         <div className="min-w-0">
-          <Link to={`/transaksi/jenis/${t.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
-            {t.name}
-          </Link>
+          <span className="flex flex-wrap items-center gap-1.5">
+            <Link to={`/transaksi/jenis/${t.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
+              {t.name}
+            </Link>
+            {t.system_type && (
+              <Badge tone="slate">
+                <Lock className="size-3" aria-hidden />
+                Sistem
+              </Badge>
+            )}
+          </span>
           <span className="block truncate font-mono text-xs text-slate-500">
-            {t.code} · {t.fields?.length ?? 0} field
-            {t.closes_type ? ` · menutup "${t.closes_type.name}"` : ''}
+            {t.system_type ? (
+              `${t.code} · aturan inti tetap`
+            ) : (
+              <>
+                {t.code} · {t.fields?.length ?? 0} field
+                {t.closes_type ? ` · menutup "${t.closes_type.name}"` : ''}
+              </>
+            )}
           </span>
         </div>
       ),
@@ -78,13 +102,20 @@ export function TransactionTypesPage() {
       header: 'Dipakai',
       className: 'w-28 text-right',
       hideOnMobile: true,
-      cell: (t) => <span className="tabular-nums">{t.transactions_count ? `${t.transactions_count} transaksi` : '—'}</span>,
+      // A system type's transactions are recorded as the built-in type, not counted against the row.
+      cell: (t) =>
+        t.system_type ? (
+          <span className="text-xs text-slate-500">Menu Transaksi</span>
+        ) : (
+          <span className="tabular-nums">{t.transactions_count ? `${t.transactions_count} transaksi` : '—'}</span>
+        ),
     },
     {
       key: 'actions',
       header: '',
       className: 'w-24 text-right',
-      cell: (t) => (
+      // Flows for system types arrive with F-07f-2; until then they record at once.
+      cell: (t) => t.system_type ? null : (
         <ButtonLink to={`/transaksi/jenis/${t.id}/alur`} variant="secondary" size="sm" aria-label={`Alur ${t.name}`}>
           <Workflow className="size-4" aria-hidden />
           Alur
@@ -124,14 +155,21 @@ export function TransactionTypesPage() {
             placeholder="Cari nama atau kode jenis"
             label="Cari jenis transaksi"
             aside={
-              <Select value={status} onChange={(e) => setStatus(e.target.value as TypeStatus | '')} aria-label="Filter status" className="sm:w-40">
-                <option value="">Status: semua</option>
-                {(Object.keys(typeStatusLabel) as TypeStatus[]).map((s) => (
-                  <option key={s} value={s}>
-                    {typeStatusLabel[s]}
-                  </option>
-                ))}
-              </Select>
+              <>
+                <Select value={kind} onChange={(e) => setKind(e.target.value as Kind)} aria-label="Filter jenis" className="sm:w-48">
+                  <option value="">Semua jenis</option>
+                  <option value="organization">Buatan organisasi</option>
+                  <option value="system">Sistem</option>
+                </Select>
+                <Select value={status} onChange={(e) => setStatus(e.target.value as TypeStatus | '')} aria-label="Filter status" className="sm:w-40">
+                  <option value="">Status: semua</option>
+                  {(Object.keys(typeStatusLabel) as TypeStatus[]).map((s) => (
+                    <option key={s} value={s}>
+                      {typeStatusLabel[s]}
+                    </option>
+                  ))}
+                </Select>
+              </>
             }
           />
         </FilterPanel>
@@ -140,13 +178,13 @@ export function TransactionTypesPage() {
         ) : query.isError ? (
           <ErrorState error={query.error} onRetry={() => query.refetch()} />
         ) : rows.length === 0 ? (
-          filtered ? (
-            <EmptyState title="Jenis tidak ditemukan" description="Ubah kata kunci atau filter status." />
+          filtered || kind === 'system' ? (
+            <EmptyState title="Jenis tidak ditemukan" description="Ubah kata kunci atau filter." />
           ) : (
             <EmptyState
               icon={Workflow}
               title="Belum ada jenis buatan organisasi"
-              description="Buat jenis sendiri, mis. Mutasi Cabang atau Kalibrasi, lengkap dengan field dan alurnya. Jenis bawaan (pemindahan, peminjaman, keluar/masuk) tetap tersedia di menu Transaksi."
+              description={`${systemCount ? `${systemCount} jenis sistem sudah tersedia. ` : ''}Buat jenis sendiri, mis. Mutasi Cabang atau Kalibrasi, lengkap dengan field dan alurnya.`}
               action={
                 canManage && (
                   <ButtonLink to="/transaksi/jenis/baru">

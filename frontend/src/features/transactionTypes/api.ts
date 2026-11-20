@@ -64,6 +64,11 @@ export const typeStatusTone: Record<TypeStatus, 'slate' | 'green' | 'amber'> = {
 export interface TransactionTypeDefinition {
   id: string
   code: string
+  /**
+   * One of the seven built-in types (F-07f); null for the organization's own. Listed only with
+   * `include_system=1`, read-only, and recorded through the Transaksi menu as before.
+   */
+  system_type?: string | null
   name: string
   description: string | null
   icon: string | null

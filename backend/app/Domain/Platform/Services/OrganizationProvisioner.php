@@ -2,6 +2,7 @@
 
 namespace App\Domain\Platform\Services;
 
+use App\Domain\AssetTransactions\SystemTransactionTypes;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Authorization\Models\Permission;
 use App\Domain\Authorization\Models\Role;
@@ -68,6 +69,7 @@ final class OrganizationProvisioner
 
             $roles = $this->createRoles($org);
             $this->mapAssetBoardTemplates($org, $roles);
+            SystemTransactionTypes::install($org->id);
             if ($standardCategories) {
                 $this->categories->installStandard($org->id);
             }
