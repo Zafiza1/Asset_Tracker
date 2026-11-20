@@ -628,6 +628,34 @@ final class AssetWidgets
         ];
     }
 
+    /** Internal loans past their planned return date (the outgoing list covers outside parties). */
+    public function overdueLoansList(WidgetContext $ctx): array
+    {
+        $limit = $ctx->intConfig('limit') ?: 10;
+        $today = $ctx->today();
+        $query = fn () => $ctx->assets()->where('status', AssetStatus::ON_LOAN)->where('loan_due_date', '<', $today->toDateString());
+
+        $rows = $query()->with('location:id,name')->orderBy('loan_due_date')->limit($limit)->get();
+
+        return [
+            'columns' => [
+                ['key' => 'asset', 'label' => 'Aset'],
+                ['key' => 'borrower', 'label' => 'Peminjam'],
+                ['key' => 'location', 'label' => 'Lokasi'],
+                ['key' => 'due_date', 'label' => 'Rencana kembali'],
+                ['key' => 'days_late', 'label' => 'Terlambat'],
+            ],
+            'rows' => $rows->map(fn (Asset $a) => [
+                'asset' => ['id' => $a->id, 'name' => $a->name, 'asset_number' => $a->asset_number],
+                'borrower' => $a->borrower_name,
+                'location' => $a->location?->name,
+                'due_date' => $a->loan_due_date?->toDateString(),
+                'days_late' => $a->loan_due_date === null ? null : (int) CarbonImmutable::parse($a->loan_due_date->toDateString(), 'UTC')->diffInDays(CarbonImmutable::parse($today->toDateString(), 'UTC'), false),
+            ])->all(),
+            'count' => $query()->count(),
+        ];
+    }
+
     /** Loans and temporary outgoing assets due within `days_ahead` days. */
     public function dueSoonList(WidgetContext $ctx): array
     {

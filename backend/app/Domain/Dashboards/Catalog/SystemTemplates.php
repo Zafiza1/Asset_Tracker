@@ -229,6 +229,7 @@ final class SystemTemplates
                 'is_default' => false,
                 'widgets' => [
                     ['widget' => 'assets_on_loan'],
+                    ['widget' => 'overdue_loans_list'],
                     ['widget' => 'due_soon_list'],
                     ['widget' => 'recent_transactions'],
                     ['widget' => 'recent_assets'],

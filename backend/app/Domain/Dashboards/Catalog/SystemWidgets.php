@@ -377,6 +377,15 @@ final class SystemWidgets
                 'fields' => ['category_ids' => $categories, 'location_ids' => $locations, 'limit' => $limit(10)],
                 'layout' => $wide,
             ],
+            'overdue_loans_list' => [
+                'name' => 'Peminjaman Lewat Batas',
+                'description' => 'Aset yang dipinjam dan belum kembali melewati rencana kembali.',
+                'component_type' => 'table',
+                'data_sources' => ['assets'],
+                'permission' => 'transaction.view',
+                'fields' => ['category_ids' => $categories, 'location_ids' => $locations, 'limit' => $limit(10)],
+                'layout' => $wide,
+            ],
             'due_soon_list' => [
                 'name' => 'Jatuh Tempo Segera',
                 'description' => 'Peminjaman dan keluar sementara yang akan jatuh tempo.',

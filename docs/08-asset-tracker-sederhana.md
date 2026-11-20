@@ -102,7 +102,7 @@ Sejak F-06 (2026-11-20) dashboard tetap `GET /api/dashboard` dihapus. Gantinya (
 - **Beranda** (`/`, `GET /api/home/cards`): kartu tugas dan notifikasi sesuai izin pengguna.
 - **Dashboard Aset** (`/dashboard-aset`, `dashboard.view`): salinan pribadi template role (`GET /api/dashboards/asset-board`) dan dashboard per kategori, tersusun dari widget katalog (`GET /api/widget-catalog`). Setiap widget mengambil datanya sendiri (`GET /api/dashboards/{id}/widgets/{widget}/data`), dihitung langsung dari database dalam data scope pengguna dan dengan izin data widget itu.
 
-Bagian dashboard lama tanpa padanan widget: tingkat utilisasi (%), daftar aset tertua, umur per kategori, dan **peminjaman internal lewat batas** (widget *Jatuh tempo* hanya menghitung dari hari ini; *Keluar sementara lewat batas* hanya untuk pihak luar).
+Peminjaman internal lewat batas tampil sebagai kartu Beranda dan widget *Peminjaman lewat batas* (F-06h). Bagian dashboard lama tanpa padanan widget: tingkat utilisasi (%), daftar aset tertua, dan umur per kategori.
 
 ## 6. API
 

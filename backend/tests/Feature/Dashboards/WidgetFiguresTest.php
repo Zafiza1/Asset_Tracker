@@ -68,6 +68,10 @@ class WidgetFiguresTest extends TestCase
         $this->assertSame(2, $this->widget('inactive_assets')['value']); // available + under maintenance
         $this->assertSame(1, $this->widget('assets_on_loan')['value']);
         $this->assertSame(1, $this->widget('assets_under_maintenance')['value']);
+        // The laptop's loan was due 3 days ago.
+        $overdueLoans = $this->widget('overdue_loans_list');
+        $this->assertSame(1, $overdueLoans['count']);
+        $this->assertSame(['Laptop', 'Budi', 3], [$overdueLoans['rows'][0]['asset']['name'], $overdueLoans['rows'][0]['borrower'], $overdueLoans['rows'][0]['days_late']]);
 
         $byStatus = array_column($this->widget('assets_by_status')['items'], 'count', 'status');
         $this->assertSame(['in_use' => 1, 'available' => 1, 'under_maintenance' => 1, 'on_loan' => 1, 'off_site' => 0, 'lost' => 0, 'disposed' => 0], $byStatus);
@@ -122,6 +126,7 @@ class WidgetFiguresTest extends TestCase
         $dueSoon = $this->widget('due_soon_list');
         $this->assertSame(1, $dueSoon['count']);
         $this->assertSame('Printer', $dueSoon['rows'][0]['asset']['name']);
+        $this->assertSame(['Laptop'], array_column(array_column($this->widget('overdue_loans_list')['rows'], 'asset'), 'name'));
 
         // < 1, 1–3, 3–5, 5–10, ≥ 10 years; assets without an acquisition date are left out.
         $this->assertSame([1, 1, 0, 1, 0], $this->widget('asset_age')['series'][0]['data']);

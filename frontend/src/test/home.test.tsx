@@ -29,8 +29,8 @@ const cards: HomeCard[] = [
   },
 ]
 
-function setup(response: Partial<HomeCardsResponse['meta']['preferences']> = {}, wide = true) {
-  const payload: HomeCardsResponse = { data: cards, meta: { refresh_seconds: 60, preferences: { order: [], hidden: [], ...response } } }
+function setup(response: Partial<HomeCardsResponse['meta']['preferences']> = {}, wide = true, extra: HomeCard[] = []) {
+  const payload: HomeCardsResponse = { data: [...cards, ...extra], meta: { refresh_seconds: 60, preferences: { order: [], hidden: [], ...response } } }
   const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
     new Response(JSON.stringify(init?.method === 'PUT' ? { data: JSON.parse(String(init.body)) } : payload), { status: 200 }),
   )
@@ -56,6 +56,18 @@ function setup(response: Partial<HomeCardsResponse['meta']['preferences']> = {},
 const cardTitles = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
 
 describe('Beranda', () => {
+  it('lists internal loans past their return date, most overdue first', async () => {
+    setup({}, true, [{ key: 'overdue_loans', count: 2, items: [
+      { asset: { id: 'a7', name: 'Laptop Dell' }, borrower_name: 'Budi', due_date: '2026-11-14', days_late: 6 },
+      { asset: { id: 'a8', name: 'Kamera Canon' }, borrower_name: null, due_date: '2026-11-19', days_late: 1 },
+    ] }])
+    expect(await screen.findByRole('heading', { level: 2, name: 'Peminjaman lewat batas' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Laptop Dell/ })).toHaveAttribute('href', '/aset/a7')
+    expect(screen.getByText('dipinjam Budi')).toBeInTheDocument()
+    expect(screen.getByText('6 hari')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Lihat aset dipinjam/ })).toHaveAttribute('href', '/aset?status=on_loan')
+  })
+
   it('shows the cards the server sent, with a calm message when nothing waits', async () => {
     setup()
     expect(await screen.findByText('Pemindahan 3 aset ke Gudang Cirebon')).toBeInTheDocument()

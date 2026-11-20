@@ -6,6 +6,7 @@ export const HOME_CARD_KEYS = [
   'transaction_tasks',
   'my_requests',
   'overdue_outgoing',
+  'overdue_loans',
   'due_soon',
   'date_reminders',
   'incomplete_assets',
@@ -36,6 +37,7 @@ export interface HomeCardData {
     items: { id: string; summary: string; status: string; decision_note: string | null; decided_by: string | null; created_at: string | null }[]
   }
   overdue_outgoing: { count: number; items: { transaction_number: string; asset: AssetRef; counterparty_name: string | null; due_date: string | null; days_late: number }[] }
+  overdue_loans: { count: number; items: { asset: AssetRef; borrower_name: string | null; due_date: string | null; days_late: number }[] }
   due_soon: { days: number; count: number; items: { kind: 'loan' | 'outgoing'; asset: AssetRef; party: string | null; due_date: string | null }[] }
   date_reminders: { days: number; count: number; items: { asset: AssetRef; label: string; due_date: string }[] }
   incomplete_assets: { count: number; counts: { no_serial_number: number; missing_required_attribute: number; no_location: number } }

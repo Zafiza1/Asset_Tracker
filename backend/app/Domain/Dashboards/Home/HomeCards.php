@@ -50,6 +50,7 @@ final class HomeCards
         'transaction_tasks' => 'transaction.view',
         'my_requests' => null,
         'overdue_outgoing' => 'transaction.view',
+        'overdue_loans' => 'transaction.view',
         'due_soon' => 'transaction.view',
         'date_reminders' => 'asset.view',
         'incomplete_assets' => 'asset.update',
@@ -105,6 +106,7 @@ final class HomeCards
             'transaction_tasks' => $this->transactionTasks($today),
             'my_requests' => $this->myRequests($today),
             'overdue_outgoing' => $this->overdueOutgoing($today),
+            'overdue_loans' => $this->overdueLoans($today),
             'due_soon' => $this->dueSoon($today),
             'date_reminders' => $this->dateReminders($today),
             'incomplete_assets' => $this->incompleteAssets(),
@@ -190,6 +192,23 @@ final class HomeCards
                     'counterparty_name' => $t->counterparty_name,
                     'due_date' => $t->due_date?->toDateString(),
                     'days_late' => $this->daysBetween($t->due_date?->toDateString(), $today),
+                ])->all(),
+        ];
+    }
+
+    /** Internal loans past their planned return date, most overdue first. */
+    private function overdueLoans(CarbonImmutable $today): array
+    {
+        $query = $this->assets()->where('status', AssetStatus::ON_LOAN)->where('loan_due_date', '<', $today->toDateString());
+
+        return [
+            'count' => (clone $query)->count(),
+            'items' => $query->orderBy('loan_due_date')->limit(self::ITEMS)->get(['id', 'name', 'borrower_name', 'loan_due_date'])
+                ->map(fn (Asset $a) => [
+                    'asset' => ['id' => $a->id, 'name' => $a->name],
+                    'borrower_name' => $a->borrower_name,
+                    'due_date' => $a->loan_due_date?->toDateString(),
+                    'days_late' => $this->daysBetween($a->loan_due_date?->toDateString(), $today),
                 ])->all(),
         ];
     }

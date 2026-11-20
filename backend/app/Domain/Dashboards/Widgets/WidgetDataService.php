@@ -53,6 +53,7 @@ final class WidgetDataService
         'asset_change_history' => [MiscWidgets::class, 'assetChangeHistory'],
         'date_reminders' => [AssetWidgets::class, 'dateReminders'],
         'overdue_outgoing_list' => [AssetWidgets::class, 'overdueOutgoingList'],
+        'overdue_loans_list' => [AssetWidgets::class, 'overdueLoansList'],
         'due_soon_list' => [AssetWidgets::class, 'dueSoonList'],
         'incomplete_assets_list' => [AssetWidgets::class, 'incompleteAssetsList'],
         'most_transferred' => [AssetWidgets::class, 'mostTransferred'],

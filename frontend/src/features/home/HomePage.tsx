@@ -6,6 +6,7 @@ import {
   ArrowUp,
   Bell,
   CalendarClock,
+  CalendarX,
   CheckCircle2,
   ClipboardList,
   Clock,
@@ -40,6 +41,7 @@ const cardTitle: Record<HomeCardKey, string> = {
   transaction_tasks: 'Langkah transaksi menunggu saya',
   my_requests: 'Pengajuan saya',
   overdue_outgoing: 'Keluar sementara lewat batas',
+  overdue_loans: 'Peminjaman lewat batas',
   due_soon: 'Jatuh tempo 7 hari',
   date_reminders: 'Pengingat tanggal aset',
   incomplete_assets: 'Data aset belum lengkap',
@@ -55,6 +57,7 @@ const cardIcon: Record<HomeCardKey, LucideIcon> = {
   transaction_tasks: ListChecks,
   my_requests: ClipboardList,
   overdue_outgoing: AlertTriangle,
+  overdue_loans: CalendarX,
   due_soon: Clock,
   date_reminders: CalendarClock,
   incomplete_assets: ClipboardList,
@@ -340,6 +343,23 @@ function cardContent(card: HomeCard): CardContent {
           </Rows>
         ),
         link: { to: '/transaksi?not_returned=1', label: 'Lihat aset belum kembali' },
+      }
+    case 'overdue_loans':
+      return {
+        badge: count(card.count, 'red'),
+        tone: card.count > 0 ? 'red' : undefined,
+        empty: card.count === 0 ? 'Semua aset pinjaman kembali tepat waktu.' : undefined,
+        body: (
+          <Rows>
+            {card.items.map((l) => (
+              <Row key={l.asset.id} to={`/aset/${l.asset.id}`} end={<Badge tone="red">{l.days_late} hari</Badge>}>
+                {l.asset.name}
+                {l.borrower_name && <Sub>dipinjam {l.borrower_name}</Sub>}
+              </Row>
+            ))}
+          </Rows>
+        ),
+        link: { to: '/aset?status=on_loan', label: 'Lihat aset dipinjam' },
       }
     case 'due_soon':
       return {

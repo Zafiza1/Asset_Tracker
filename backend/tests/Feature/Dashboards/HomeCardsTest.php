@@ -40,7 +40,7 @@ class HomeCardsTest extends TestCase
         $this->assertSame(array_keys(HomeCards::CARDS), $keys);   // Super Admin: everything, in order
 
         $this->actingAs($this->member(['transaction.view', 'asset.view']), 'web');
-        $this->assertSame(['transaction_tasks', 'my_requests', 'overdue_outgoing', 'due_soon', 'date_reminders'], array_column($this->cards(), 'key'));
+        $this->assertSame(['transaction_tasks', 'my_requests', 'overdue_outgoing', 'overdue_loans', 'due_soon', 'date_reminders'], array_column($this->cards(), 'key'));
 
         $this->actingAs($this->member([]), 'web');
         $this->assertSame(['my_requests'], array_column($this->cards(), 'key'));
@@ -83,6 +83,29 @@ class HomeCardsTest extends TestCase
 
         $this->actingAs($this->member(['transaction.view', 'asset.view'], location: $this->masters['location']->id), 'web');
         $this->assertSame(['Proyektor'], array_column(array_column($this->card('overdue_outgoing')['items'], 'asset'), 'name'));
+    }
+
+    public function test_overdue_loans_are_internal_loans_past_their_return_date_in_scope(): void
+    {
+        $late = $this->asset('Laptop', $this->masters['location']->id);
+        $later = $this->asset('Kamera', $this->masters['location']->id);
+        $elsewhere = $this->asset('Proyektor', $this->otherLocation());
+        $onTime = $this->asset('Printer', $this->masters['location']->id);
+        $this->loan($late, now()->subDays(10), now()->subDays(4), 'Budi');
+        $this->loan($later, now()->subDays(5), now()->subDays(1), 'Sari');
+        $this->loan($elsewhere, now()->subDays(10), now()->subDays(2), 'Andi');
+        $this->loan($onTime, now()->subDay(), now()->addDays(3), 'Dewi');
+        // Temporary outgoing past its date is a different card.
+        $this->outgoing($this->asset('Genset', $this->masters['location']->id), now()->addDay());
+        $this->travel(2)->days();
+
+        $card = $this->card('overdue_loans');
+        $this->assertSame(3, $card['count']);
+        $this->assertSame(['Laptop', 'Proyektor', 'Kamera'], array_column(array_column($card['items'], 'asset'), 'name'));   // most overdue first
+        $this->assertSame(['Budi', 6], [$card['items'][0]['borrower_name'], $card['items'][0]['days_late']]);
+
+        $this->actingAs($this->member(['transaction.view', 'asset.view'], location: $this->masters['location']->id), 'web');
+        $this->assertSame(['Laptop', 'Kamera'], array_column(array_column($this->card('overdue_loans')['items'], 'asset'), 'name'));
     }
 
     public function test_date_reminders_and_incomplete_assets(): void
@@ -204,6 +227,14 @@ class HomeCardsTest extends TestCase
     private function otherLocation(): string
     {
         return $this->postJson('/api/locations', ['name' => 'Gudang Lain '.Str::random(4)])->assertCreated()->json('data.id');
+    }
+
+    private function loan(string $assetId, \DateTimeInterface $on, \DateTimeInterface $due, string $borrower): void
+    {
+        $this->postJson('/api/transactions', [
+            'asset_id' => $assetId, 'type' => 'loan', 'borrower_name' => $borrower,
+            'transaction_date' => $on->format('Y-m-d'), 'due_date' => $due->format('Y-m-d'),
+        ])->assertCreated();
     }
 
     private function outgoing(string $assetId, \DateTimeInterface $due): void
