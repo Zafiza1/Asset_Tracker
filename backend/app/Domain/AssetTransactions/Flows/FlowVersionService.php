@@ -5,7 +5,6 @@ namespace App\Domain\AssetTransactions\Flows;
 use App\Domain\AssetTransactions\Models\TransactionFlowVersion;
 use App\Domain\AssetTransactions\Models\TransactionRun;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
-use App\Domain\AssetTransactions\Services\TransactionTypeService;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
@@ -34,9 +33,7 @@ final class FlowVersionService
     /** @param array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>} $graph */
     public function saveDraft(TransactionTypeDefinition $definition, array $graph, ?string $note): TransactionFlowVersion
     {
-        // Flows for system types come with F-07f-2; until then they record at once.
-        TransactionTypeService::assertNotSystem($definition);
-
+        // A system type's flow (F-07f-2) is checked like any other; publishing needs its core action.
         return DB::transaction(function () use ($definition, $graph, $note) {
             TransactionTypeDefinition::query()->whereKey($definition->id)->lockForUpdate()->first();
             $draft = $this->draft($definition);
@@ -57,8 +54,6 @@ final class FlowVersionService
 
     public function publish(TransactionTypeDefinition $definition): TransactionFlowVersion
     {
-        TransactionTypeService::assertNotSystem($definition);
-
         return DB::transaction(function () use ($definition) {
             $definition = TransactionTypeDefinition::query()->with('fields')->lockForUpdate()->findOrFail($definition->id);
             $draft = $this->draft($definition) ?? throw ApiException::conflict('NO_DRAFT', 'Belum ada draft alur untuk diterbitkan.');

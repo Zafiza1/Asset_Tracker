@@ -59,6 +59,12 @@ class TransactionTypeDefinition extends Model
         return $this->system_type !== null;
     }
 
+    /** The current organization's row of a built-in type (installed for every organization). */
+    public static function system(string $type): ?self
+    {
+        return self::query()->where('system_type', $type)->first();
+    }
+
     /** The organization's own types: what "Jenis organisasi" means everywhere except the type list. */
     public function scopeOrganizationOwn(Builder $query): Builder
     {

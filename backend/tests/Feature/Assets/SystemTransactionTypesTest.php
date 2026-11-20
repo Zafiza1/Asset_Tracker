@@ -9,13 +9,14 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\TenantContext;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * F-07f-1 (D-26): the seven built-in transaction types are rows of every organization. Until
- * flows for them arrive (F-07f-2) they are read-only, never usable as an organization type,
- * and recording them behaves exactly as before (AssetTransactionTest stays unchanged).
+ * F-07f-1 (D-26): the seven built-in transaction types are rows of every organization. They keep
+ * their name, code and rules, are never usable as an organization type, and without a flow
+ * recording them behaves exactly as before (AssetTransactionTest stays unchanged).
  */
 class SystemTransactionTypesTest extends TestCase
 {
@@ -75,14 +76,10 @@ class SystemTransactionTypesTest extends TestCase
     {
         $loan = $this->systemTypes()[TransactionType::LOAN];
 
+        // Only the fields and the flow of a system type change (F-07f-2, SystemTypeFlowTest).
         $this->assertErrorCode($this->putJson("/api/transaction-types/{$loan->id}", ['name' => 'Pinjam']), 409, 'SYSTEM_TYPE_READONLY');
+        $this->assertErrorCode($this->putJson("/api/transaction-types/{$loan->id}", ['name' => 'Pinjam', 'fields' => []]), 409, 'SYSTEM_TYPE_READONLY');
         $this->assertErrorCode($this->deleteJson("/api/transaction-types/{$loan->id}"), 409, 'SYSTEM_TYPE_READONLY');
-        $graph = ['nodes' => [
-            ['id' => 'start', 'type' => 'start', 'label' => 'Mulai', 'position' => ['x' => 0, 'y' => 0], 'config' => []],
-            ['id' => 'end', 'type' => 'end', 'label' => 'Selesai', 'position' => ['x' => 200, 'y' => 0], 'config' => ['result' => 'completed']],
-        ], 'edges' => [['id' => 'e1', 'source' => 'start', 'target' => 'end', 'outcome' => null]]];
-        $this->assertErrorCode($this->putJson("/api/transaction-types/{$loan->id}/flow", ['graph' => $graph]), 409, 'SYSTEM_TYPE_READONLY');
-        $this->assertErrorCode($this->postJson("/api/transaction-types/{$loan->id}/flow/publish"), 409, 'SYSTEM_TYPE_READONLY');
 
         // Recording a system type as an organization type would skip its core rules.
         ['asset' => $asset] = $this->createAssetFixture($this->org, $this->createMasterFixtures($this->org), 'A1');
@@ -108,7 +105,7 @@ class SystemTransactionTypesTest extends TestCase
             fn () => DB::table('transaction_type_definitions')->where('id', $loan->id)->update(['code' => 'PJMX']));
     }
 
-    /** @return \Illuminate\Support\Collection<string, object> */
+    /** @return Collection<string, object> */
     private function systemTypes()
     {
         return $this->tenancy()->runAsTenant(new TenantContext($this->org, $this->admin),

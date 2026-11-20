@@ -45,6 +45,7 @@ final class FlowEngine
         private readonly FlowActions $actions,
         private readonly RunAccess $access,
         private readonly AuditLogger $audit,
+        private readonly AssetTransactionService $transactions,
     ) {}
 
     /** The type's published flow, if it has one; without, its transactions are recorded at once (F-07a). */
@@ -78,8 +79,12 @@ final class FlowEngine
         $later = collect($graph['nodes'])->where('type', 'input')->flatMap(fn ($n) => (array) ($n['config']['fields'] ?? []))->unique()->all();
         $required = $definition->fields->filter(fn ($f) => $f->is_required && ! in_array($f->key, $later, true))->pluck('key')->all();
         $values = $this->fieldTypes->values($definition->fields, $data['field_values'] ?? [], $this->today(), $required);
+        // A system type (F-07f-2) keeps the built-in input for its core action.
+        $system = $definition->isSystem()
+            ? array_filter(array_intersect_key($data, array_flip(AssetTransactionService::SYSTEM_INPUT)), fn ($v) => $v !== null)
+            : [];
 
-        $run = DB::transaction(function () use ($definition, $version, $graph, $startNode, $config, $roles, $values, $data) {
+        $run = DB::transaction(function () use ($definition, $version, $graph, $startNode, $config, $roles, $values, $data, $system) {
             $assets = $this->scope->apply(Asset::query())->with('category:id,path')->whereKey($data['asset_ids'])->orderBy('id')->lockForUpdate()->get();
             if ($assets->count() !== count($data['asset_ids'])) {
                 throw new ApiException('NOT_FOUND', 'Aset tidak ditemukan.', 404, ['fields' => ['asset_ids' => ['Aset tidak ditemukan.']]]);
@@ -91,6 +96,11 @@ final class FlowEngine
                 AssetTransactionService::assertCategoryAllowed($asset, $definition);
             }
             $closes = AssetTransactionService::assertNotHeldByRun($assets->all(), $definition);
+            if ($definition->isSystem()) {
+                // The user may record this built-in type, and its core rules hold now, not only after approval.
+                $this->transactions->assertApplicable($definition->system_type, $assets->all(),
+                    [...$system, 'transaction_date' => $data['transaction_date'] ?? $this->today(), 'notes' => $data['notes'] ?? null]);
+            }
 
             $pre = $config['preconditions'] ?? [];
             if (! FlowConditions::passes($pre['rules'] ?? [], $pre['match'] ?? 'all', $pre['assets'] ?? 'all', $assets, $values, $roles)) {
@@ -105,6 +115,7 @@ final class FlowEngine
                 'state' => TransactionRun::RUNNING,
                 'current_node_id' => $startNode['id'],
                 'field_values' => $values,
+                'system_values' => $system === [] ? null : $system,
                 'notes' => $data['notes'] ?? null,
                 'transaction_date' => $data['transaction_date'] ?? $this->today(),
                 'created_by' => $this->userId(),
@@ -379,14 +390,18 @@ final class FlowEngine
      */
     private function pairRecorded(TransactionRun $run): bool
     {
-        $closing = TransactionTypeDefinition::query()->where('closes_type_id', $run->type_definition_id)->pluck('id')->all();
+        $closingTypes = TransactionTypeDefinition::query()->where('closes_type_id', $run->type_definition_id)->get(['id', 'system_type']);
+        $closing = $closingTypes->pluck('id')->all();
         if ($closing === []) {
             return false;
         }
+        // A closing system type records as its built-in type (an incoming closes an outgoing, F-07f-2).
+        $builtIn = $closingTypes->pluck('system_type')->filter()->values()->all();
         $assetIds = DB::table('transaction_run_assets')->where('run_id', $run->id)->pluck('asset_id');
         foreach ($assetIds as $assetId) {
-            $recorded = DB::table('asset_transactions')->where('asset_id', $assetId)->where('type', TransactionType::CUSTOM)
-                ->whereIn('type_definition_id', $closing)->whereNull('run_id')->where('created_at', '>=', $run->created_at)->exists()
+            $recorded = DB::table('asset_transactions')->where('asset_id', $assetId)->whereNull('run_id')->where('created_at', '>=', $run->created_at)
+                ->where(fn ($q) => $q->where(fn ($c) => $c->where('type', TransactionType::CUSTOM)->whereIn('type_definition_id', $closing))
+                    ->orWhereIn('type', $builtIn))->exists()
                 || DB::table('transaction_run_assets as ra')->join('transaction_runs as r', 'r.id', '=', 'ra.run_id')
                     ->where('ra.asset_id', $assetId)->whereIn('r.type_definition_id', $closing)
                     ->whereIn('r.state', [TransactionRun::RUNNING, TransactionRun::COMPLETED])->where('r.created_at', '>=', $run->created_at)->exists();
@@ -433,7 +448,8 @@ final class FlowEngine
         DB::table('transaction_run_assets')->where('run_id', $run->id)->update(['locked' => false]);
         TransactionTask::query()->where('run_id', $run->id)->where('status', TransactionTask::OPEN)->update(['status' => TransactionTask::CANCELLED]);
 
-        if ($state === TransactionRun::COMPLETED) {
+        // A system type's core action already recorded the built-in transaction under the run's number (F-07f-2).
+        if ($state === TransactionRun::COMPLETED && ! $run->definition()->whereNotNull('system_type')->exists()) {
             foreach ($run->assets()->get() as $asset) {
                 $this->log->record($asset, TransactionType::CUSTOM, [
                     'type_definition_id' => $run->type_definition_id, 'field_values' => $run->field_values, 'run_id' => $run->id,

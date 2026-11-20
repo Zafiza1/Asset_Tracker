@@ -27,6 +27,13 @@ final class FlowActions
 {
     public const KINDS = ['set_status', 'move_to_field_location', 'set_condition', 'loan_to_field_user', 'return', 'notify'];
 
+    /**
+     * The core action of a system type's flow (F-07f-2): records the built-in transaction with what
+     * its form asked at the start. Every system flow has exactly one; no other flow may use it, so
+     * it is not offered with KINDS.
+     */
+    public const CORE = 'core';
+
     public const MAX_MESSAGE = 500;
 
     public function __construct(
@@ -46,6 +53,8 @@ final class FlowActions
         $values = $run->field_values;
 
         return match ($action['kind']) {
+            self::CORE => $this->transactions->applyCoreForRun($run, (string) $run->definition()->value('system_type'),
+                [...($run->system_values ?? []), 'field_values' => $values]),
             'set_status' => $this->transactions->applyForRun($run, TransactionType::STATUS_CHANGE, ['to_status' => $action['status']]),
             'move_to_field_location' => $this->transactions->applyForRun($run, TransactionType::TRANSFER,
                 ['to_location_id' => $this->required($values, $action['field'], 'Lokasi tujuan belum diisi sehingga aset tidak dapat dipindahkan.')]),

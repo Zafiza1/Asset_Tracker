@@ -49,7 +49,10 @@ final class TransactionTypeService
     {
         return DB::transaction(function () use ($definition, $data) {
             $definition = TransactionTypeDefinition::query()->lockForUpdate()->findOrFail($definition->id);
-            self::assertNotSystem($definition);
+            // A system type takes the organization's own fields (F-07f-2); the rest stays built-in.
+            if ($definition->isSystem() && array_diff(array_keys($data), ['fields']) !== []) {
+                self::assertNotSystem($definition);
+            }
             $before = $this->snapshot($definition);
 
             if (isset($data['code']) && strtoupper($data['code']) !== $definition->code) {
@@ -109,13 +112,13 @@ final class TransactionTypeService
     }
 
     /**
-     * System types (F-07f-1) are read-only until flows for them arrive (F-07f-2): their rules
-     * are the built-in core rules, and they cannot be deleted.
+     * System types (F-07f) keep their name, code, rules and pairing, and are never deleted; the
+     * organization may add fields (update with `fields` only) and a flow around the core action.
      */
     public static function assertNotSystem(TransactionTypeDefinition $definition): void
     {
         if ($definition->isSystem()) {
-            throw ApiException::conflict('SYSTEM_TYPE_READONLY', "Jenis sistem {$definition->name} memakai aturan bawaan aplikasi dan tidak dapat diubah atau dihapus.");
+            throw ApiException::conflict('SYSTEM_TYPE_READONLY', "Jenis sistem {$definition->name} memakai aturan bawaan aplikasi. Yang dapat diubah hanya field tambahan dan alurnya; jenisnya tidak dapat dihapus.");
         }
     }
 

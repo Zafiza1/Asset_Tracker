@@ -43,7 +43,7 @@ class TransactionRunResource extends JsonResource
             'transaction_number' => $this->transaction_number,
             'state' => $this->state,
             'state_label' => TransactionRun::STATE_LABELS[$this->state],
-            'type_definition' => $this->whenLoaded('definition', fn () => ['id' => $this->definition->id, 'code' => $this->definition->code, 'name' => $this->definition->name]),
+            'type_definition' => $this->whenLoaded('definition', fn () => ['id' => $this->definition->id, 'code' => $this->definition->code, 'name' => $this->definition->name, 'system_type' => $this->definition->system_type]),
             'flow_version' => $this->whenLoaded('flowVersion', fn () => $this->flowVersion->version_number),
             'current_step' => $current ? ['id' => $current['id'], 'type' => $current['type'], 'label' => $current['label'] ?? null] : null,
             'assets' => $this->whenLoaded('assets', fn () => $this->assets->map(fn ($a) => ['id' => $a->id, 'name' => $a->name, 'locked' => (bool) $a->pivot->locked])->values()),
@@ -54,6 +54,8 @@ class TransactionRunResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'ended_at' => $this->ended_at?->toIso8601String(),
             'field_values' => $this->when($this->detail, fn () => $this->fieldValues()),
+            // What the built-in form asked, recorded by a system type's core action (F-07f-2).
+            'system_values' => $this->when($this->detail, fn () => (object) ($this->system_values ?? [])),
             'graph' => $this->when($this->detail && $graph !== null, fn () => $graph),
             'steps' => $this->when($this->detail && $this->relationLoaded('steps'), fn () => $this->steps->map(fn (TransactionStep $s) => [
                 'node_id' => $s->node_id, 'type' => $s->node_type, 'label' => $graph ? (FlowGraph::node($graph, $s->node_id)['label'] ?? null) : null,

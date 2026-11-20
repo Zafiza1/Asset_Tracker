@@ -94,6 +94,7 @@ final class FlowGraph
         $nodes = collect($graph['nodes'])->keyBy('id');
         $edges = collect($graph['edges']);
         $label = fn (string $id) => '"'.($nodes[$id]['label'] ?? null ?: $id).'"';
+        $systemType = $typeId !== null ? TransactionTypeDefinition::query()->whereKey($typeId)->value('system_type') : null;
 
         $starts = $nodes->where('type', 'start');
         if ($starts->count() !== 1) {
@@ -128,7 +129,7 @@ final class FlowGraph
             if ($node['type'] !== 'start' && $edges->where('target', $id)->isEmpty()) {
                 $add('UNREACHABLE', "Langkah {$label($id)} tidak terhubung: belum ada garis masuk.", $id);
             }
-            foreach (self::configIssues($node, $fields, $typeId) as $message) {
+            foreach (self::configIssues($node, $fields, $typeId, $systemType) as $message) {
                 $add('CONFIG', "{$label($id)}: {$message}", $id);
             }
         }
@@ -153,7 +154,46 @@ final class FlowGraph
             $add('AUTOMATIC_LOOP', 'Ada perulangan tanpa langkah Isi data atau Persetujuan; transaksi dapat berputar tanpa akhir.');
         }
 
+        if ($systemType !== null) {
+            self::coreIssues($nodes, $edges, $starts->keys()->first(), $label, $add);
+        }
+
         return $issues;
+    }
+
+    /** @param array<string, mixed> $node an action step holding the core action (F-07f-2) */
+    public static function isCore(array $node): bool
+    {
+        return ($node['type'] ?? null) === 'action'
+            && collect($node['config']['actions'] ?? [])->contains(fn ($a) => is_array($a) && ($a['kind'] ?? null) === FlowActions::CORE);
+    }
+
+    /**
+     * A system type's flow (F-07f-2) holds its core action once, and no way to a completed end
+     * passes it by: the built-in transaction is always recorded when the run completes.
+     *
+     * @param  Collection<string, array<string, mixed>>  $nodes
+     * @param  Collection<int, array<string, mixed>>  $edges
+     */
+    private static function coreIssues(Collection $nodes, Collection $edges, ?string $start, \Closure $label, \Closure $add): void
+    {
+        $core = $nodes->filter(fn ($n) => self::isCore($n))->keys();
+        if ($core->count() !== 1) {
+            $add('CORE_COUNT', 'Alur jenis sistem harus memiliki tepat satu langkah Aksi inti.');
+
+            return;
+        }
+        if ($start === null) {
+            return;
+        }
+        $coreId = $core->first();
+        $around = $edges->reject(fn ($e) => $e['source'] === $coreId || $e['target'] === $coreId);
+        foreach (self::reach($start, $around, 'source', 'target') as $id) {
+            $node = $nodes[$id];
+            if ($node['type'] === 'end' && ($node['config']['result'] ?? 'completed') === 'completed') {
+                $add('CORE_BYPASSED', "Transaksi dapat sampai di {$label($id)} tanpa melewati Aksi inti {$label($coreId)}.", $id);
+            }
+        }
     }
 
     /**
@@ -163,7 +203,7 @@ final class FlowGraph
      * @param  Collection<int, TransactionTypeField>  $fields
      * @return list<string>
      */
-    private static function configIssues(array $node, Collection $fields, ?string $typeId): array
+    private static function configIssues(array $node, Collection $fields, ?string $typeId, ?string $systemType = null): array
     {
         $config = $node['config'] ?? [];
         $byKey = $fields->keyBy('key');
@@ -222,6 +262,15 @@ final class FlowGraph
                 }
                 foreach ($actions as $action) {
                     $action = is_array($action) ? $action : [];
+                    if (($action['kind'] ?? null) === FlowActions::CORE) {
+                        if ($systemType === null) {
+                            $issues[] = 'aksi inti hanya ada pada jenis sistem.';
+                        } elseif (count($actions) > 1) {
+                            $issues[] = 'aksi inti berdiri sendiri di langkahnya; pindahkan aksi lain ke langkah Aksi tersendiri.';
+                        }
+
+                        continue;
+                    }
                     $optional = fn (?string $key, string $type) => $key === null || $field($key, $type);
                     $ok = match ($action['kind'] ?? null) {
                         'set_status' => in_array($action['status'] ?? null, self::ACTION_STATUSES, true),
