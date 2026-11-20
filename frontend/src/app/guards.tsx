@@ -1,4 +1,4 @@
-import { AlertTriangle, FileQuestion, Home, LogOut, RotateCw, ShieldAlert, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, FileQuestion, Home, RotateCw, ShieldAlert, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { isRouteErrorResponse, Link, Navigate, Outlet, useLocation, useRouteError } from 'react-router'
 import { Button } from '../components/ui/Button'
@@ -28,26 +28,10 @@ export function RequireAuth() {
   return <Outlet />
 }
 
-/**
- * Every page belongs to an organization. The platform administration was retired, so a session
- * left over from a platform account only gets the way out (the API no longer lets it sign in).
- */
-export function RequireTenantUser({ children }: { children: ReactNode }) {
-  const { profile, logout } = useAuth()
-  if (profile?.user.user_type !== 'tenant') {
-    return (
-      <PageMessage
-        icon={ShieldAlert}
-        title="Akun tidak lagi digunakan"
-        actions={
-          <Button onClick={() => void logout()}>
-            <LogOut className="size-4" aria-hidden /> Keluar
-          </Button>
-        }
-      >
-        <p>Admin Platform sudah tidak tersedia. Keluar, lalu masuk dengan akun organisasi Anda.</p>
-      </PageMessage>
-    )
+export function RequireUserType({ type, children }: { type: 'tenant' | 'platform'; children: ReactNode }) {
+  const { profile } = useAuth()
+  if (profile?.user.user_type !== type) {
+    return <Navigate to={type === 'platform' ? '/' : '/platform/organisasi'} replace />
   }
   return children
 }

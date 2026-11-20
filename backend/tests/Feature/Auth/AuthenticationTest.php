@@ -189,26 +189,4 @@ class AuthenticationTest extends TestCase
         $this->assertContains('platform.organization.manage', $response->json('data.permissions'));
         $this->assertNotContains('asset.view', $response->json('data.permissions'));
     }
-
-    public function test_retired_platform_account_cannot_log_in_on_web_or_mobile(): void
-    {
-        $platform = $this->createPlatformAdmin();
-
-        $this->assertErrorCode(
-            $this->postJson('/api/auth/login', ['email' => $platform->email, 'password' => self::PASSWORD]),
-            403, 'PLATFORM_ACCOUNT_RETIRED',
-        );
-        $this->assertGuest('web');
-        $this->assertErrorCode(
-            $this->postJson('/api/auth/mobile/login', ['email' => $platform->email, 'password' => self::PASSWORD, 'device_name' => 'HP']),
-            403, 'PLATFORM_ACCOUNT_RETIRED',
-        );
-        $this->assertSame(2, AuditLog::query()->where('action', 'auth.login_failed')->where('metadata->reason', 'platform_account_retired')->count());
-
-        // A wrong password still gets the generic answer: the code never confirms the account exists.
-        $this->assertErrorCode(
-            $this->postJson('/api/auth/login', ['email' => $platform->email, 'password' => 'Salah-Sekali-999']),
-            422, 'INVALID_CREDENTIALS',
-        );
-    }
 }

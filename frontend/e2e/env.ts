@@ -24,6 +24,8 @@ export function writeEnv(): void {
     SESSION_DOMAIN: 'null',
     SESSION_SECURE_COOKIE: 'false',
     DEMO_PASSWORD: E2E_PASSWORD,
+    PLATFORM_ADMIN_EMAIL: '',
+    PLATFORM_ADMIN_PASSWORD: '',
     MAIL_MAILER: 'log',
     QUEUE_CONNECTION: 'sync',
   }
