@@ -99,7 +99,7 @@ Lihat APR-0013: D-51..D-56.
 | F-09a | Backend: kolom, validasi, API, filter, audit, Riwayat, `MasterUsage::DEPARTMENT`, test | backend-engineer, qa-engineer | — | done (`AssetCustodianTest`) |
 | F-09b | UI web: formulir, daftar (kolom, filter, *Aset saya*), detail, menu Departemen | frontend-engineer | F-09a, mockup disetujui | done (`custodian.test.tsx`) |
 | F-09c | Scope departemen (§3.3) + tampilkan kembali scope departemen di halaman pengguna | backend-engineer, security-engineer | F-09a | done (`DepartmentScopeTest`); review security di bawah |
-| F-09d | Beranda: "Aset yang saya pegang" dan "Penanggung jawab nonaktif"; mobile menampilkan penanggung jawab | frontend-engineer | F-09b | Beranda done; mobile todo |
+| F-09d | Beranda: "Aset yang saya pegang" dan "Penanggung jawab nonaktif"; mobile menampilkan penanggung jawab | frontend-engineer | F-09b | done (Beranda; mobile: hasil scan menampilkan penanggung jawab, departemen, dan tanda nonaktif, `MobileAccessTest::test_lookup_shows_custodian_and_department`) |
 | F-09e | Excel (impor, edit massal), field Report Designer, widget *Aset per departemen* | backend-engineer, frontend-engineer | F-09a | done |
 
 ## 10. Review security F-09c (2026-11-21)
