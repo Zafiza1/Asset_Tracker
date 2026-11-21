@@ -479,6 +479,11 @@ final class AssetTransactionService
         if (! $definition->isActive()) {
             throw ApiException::unprocessable('TYPE_INACTIVE', "Jenis \"{$definition->name}\" tidak aktif sehingga tidak dapat dipakai mencatat transaksi.");
         }
+        // A copy of a system type (F-08) records only through its flow's core action: recorded at
+        // once it would be information only and skip the core rules.
+        if ($definition->core_type !== null) {
+            throw ApiException::unprocessable('FLOW_REQUIRED', "Jenis \"{$definition->name}\" disalin dari jenis sistem; terbitkan alurnya terlebih dahulu.");
+        }
         if (! $definition->multi_asset && count($data['asset_ids']) > 1) {
             throw ValidationException::withMessages(['asset_ids' => "Jenis \"{$definition->name}\" hanya untuk satu aset per transaksi."]);
         }

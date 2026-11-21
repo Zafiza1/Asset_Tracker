@@ -62,6 +62,15 @@ class TransactionTypeController extends Controller
         return new TransactionTypeResource($definition->load(self::RELATIONS)->loadCount('transactions'));
     }
 
+    /** A new draft organization type copied from this one, flow included (F-08 "Salin jenis"). */
+    public function duplicate(Request $request, TransactionTypeDefinition $transactionType): JsonResponse
+    {
+        $data = $request->validate(array_intersect_key($this->rules(creating: true), array_flip(['code', 'name'])));
+        $copy = $this->types->duplicate($transactionType, $data['code'], $data['name']);
+
+        return (new TransactionTypeResource($copy->load(self::RELATIONS)->loadCount('transactions')))->response()->setStatusCode(201);
+    }
+
     public function destroy(TransactionTypeDefinition $transactionType): Response
     {
         $this->types->delete($transactionType);

@@ -53,7 +53,7 @@ final class FlowActions
         $values = $run->field_values;
 
         return match ($action['kind']) {
-            self::CORE => $this->transactions->applyCoreForRun($run, (string) $run->definition()->value('system_type'),
+            self::CORE => $this->transactions->applyCoreForRun($run, (string) $run->definition()->first(['system_type', 'core_type'])?->coreType(),
                 [...($run->system_values ?? []), 'field_values' => $values]),
             'set_status' => $this->transactions->applyForRun($run, TransactionType::STATUS_CHANGE, ['to_status' => $action['status']]),
             'move_to_field_location' => $this->transactions->applyForRun($run, TransactionType::TRANSFER,

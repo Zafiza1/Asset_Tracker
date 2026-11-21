@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $status
  * @property string|null $created_by
  * @property string|null $system_type one of the built-in types (F-07f); NULL for the organization's own types
+ * @property string|null $core_type the built-in type an organization type copied from a system type records (F-08)
  */
 class TransactionTypeDefinition extends Model
 {
@@ -57,6 +58,15 @@ class TransactionTypeDefinition extends Model
     public function isSystem(): bool
     {
         return $this->system_type !== null;
+    }
+
+    /**
+     * The built-in transaction this type's core action records: its own kind for a system type,
+     * the kind it was copied from for an organization type made from one (F-08); null otherwise.
+     */
+    public function coreType(): ?string
+    {
+        return $this->system_type ?? $this->core_type;
     }
 
     /** The current organization's row of a built-in type (installed for every organization). */

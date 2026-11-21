@@ -2,6 +2,9 @@
 
 namespace App\Domain\AssetTransactions\Services;
 
+use App\Domain\AssetTransactions\Flows\FlowGraph;
+use App\Domain\AssetTransactions\Flows\FlowVersionService;
+use App\Domain\AssetTransactions\Models\TransactionFlowVersion;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\AssetTransactions\Models\TransactionTypeField;
 use App\Domain\AssetTransactions\TransactionType;
@@ -25,7 +28,44 @@ final class TransactionTypeService
     public function __construct(
         private readonly Tenancy $tenancy,
         private readonly AuditLogger $audit,
+        private readonly FlowVersionService $flows,
     ) {}
+
+    /**
+     * A new draft organization type copied from $source (F-08 "Salin jenis", D-40): its fields,
+     * categories, asset rules and flow (the published version, else the draft) become the copy's
+     * own and stay unlinked. A copy of a system type keeps its core action (core_type), so the
+     * core rules still apply; without a flow it starts from Mulai → Aksi inti → Selesai.
+     */
+    public function duplicate(TransactionTypeDefinition $source, string $code, string $name): TransactionTypeDefinition
+    {
+        return DB::transaction(function () use ($source, $code, $name) {
+            $source->loadMissing(['fields', 'categories:id']);
+            $copy = new TransactionTypeDefinition;
+            $copy->fill([
+                'name' => $name, 'description' => $source->description, 'icon' => $source->icon,
+                'multi_asset' => $source->multi_asset, 'locks_assets' => $source->locks_assets,
+            ]);
+            $copy->forceFill([
+                'code' => $this->code($code), 'status' => TransactionTypeDefinition::DRAFT,
+                'core_type' => $source->coreType(), 'created_by' => $this->tenancy->tenant()->userId(),
+            ])->save();
+            $this->syncCategories($copy, $source->categories->pluck('id')->all());
+            $this->syncFields($copy, $source->fields->map(fn (TransactionTypeField $f) => [
+                'key' => $f->key, 'label' => $f->label, 'data_type' => $f->data_type, 'settings' => $f->settings ?? [], 'is_required' => $f->is_required,
+            ])->all());
+
+            $graph = TransactionFlowVersion::query()->whereKey($source->active_flow_version_id)->value('graph')
+                ?? $this->flows->draft($source)?->graph
+                ?? ($source->coreType() !== null ? FlowGraph::coreStarter('Catat '.mb_strtolower($source->name)) : null);
+            if ($graph !== null) {
+                $this->flows->saveDraft($copy, is_string($graph) ? json_decode($graph, true) : $graph, "Disalin dari {$source->name} ({$source->code}).");
+            }
+            $this->audit->record('transaction_type.duplicated', $copy, after: [...$this->snapshot($copy), 'source' => $source->code]);
+
+            return $copy;
+        });
+    }
 
     /** @param array<string, mixed> $data validated (see TransactionTypeController::rules) */
     public function create(array $data): TransactionTypeDefinition

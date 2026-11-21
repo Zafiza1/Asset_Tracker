@@ -79,12 +79,13 @@ final class FlowEngine
         $later = collect($graph['nodes'])->where('type', 'input')->flatMap(fn ($n) => (array) ($n['config']['fields'] ?? []))->unique()->all();
         $required = $definition->fields->filter(fn ($f) => $f->is_required && ! in_array($f->key, $later, true))->pluck('key')->all();
         $values = $this->fieldTypes->values($definition->fields, $data['field_values'] ?? [], $this->today(), $required);
-        // A system type (F-07f-2) keeps the built-in input for its core action.
-        $system = $definition->isSystem()
+        // A system type (F-07f-2), or a copy of one (F-08), keeps the built-in input for its core action.
+        $coreType = $definition->coreType();
+        $system = $coreType !== null
             ? array_filter(array_intersect_key($data, array_flip(AssetTransactionService::SYSTEM_INPUT)), fn ($v) => $v !== null)
             : [];
 
-        $run = DB::transaction(function () use ($definition, $version, $graph, $startNode, $config, $roles, $values, $data, $system) {
+        $run = DB::transaction(function () use ($definition, $version, $graph, $startNode, $config, $roles, $values, $data, $system, $coreType) {
             $assets = $this->scope->apply(Asset::query())->with('category:id,path')->whereKey($data['asset_ids'])->orderBy('id')->lockForUpdate()->get();
             if ($assets->count() !== count($data['asset_ids'])) {
                 throw new ApiException('NOT_FOUND', 'Aset tidak ditemukan.', 404, ['fields' => ['asset_ids' => ['Aset tidak ditemukan.']]]);
@@ -96,9 +97,9 @@ final class FlowEngine
                 AssetTransactionService::assertCategoryAllowed($asset, $definition);
             }
             $closes = AssetTransactionService::assertNotHeldByRun($assets->all(), $definition);
-            if ($definition->isSystem()) {
+            if ($coreType !== null) {
                 // The user may record this built-in type, and its core rules hold now, not only after approval.
-                $this->transactions->assertApplicable($definition->system_type, $assets->all(),
+                $this->transactions->assertApplicable($coreType, $assets->all(),
                     [...$system, 'transaction_date' => $data['transaction_date'] ?? $this->today(), 'notes' => $data['notes'] ?? null]);
             }
 
@@ -448,8 +449,8 @@ final class FlowEngine
         DB::table('transaction_run_assets')->where('run_id', $run->id)->update(['locked' => false]);
         TransactionTask::query()->where('run_id', $run->id)->where('status', TransactionTask::OPEN)->update(['status' => TransactionTask::CANCELLED]);
 
-        // A system type's core action already recorded the built-in transaction under the run's number (F-07f-2).
-        if ($state === TransactionRun::COMPLETED && ! $run->definition()->whereNotNull('system_type')->exists()) {
+        // A core action already recorded the built-in transaction under the run's number (F-07f-2).
+        if ($state === TransactionRun::COMPLETED && $run->definition()->first(['system_type', 'core_type'])?->coreType() === null) {
             foreach ($run->assets()->get() as $asset) {
                 $this->log->record($asset, TransactionType::CUSTOM, [
                     'type_definition_id' => $run->type_definition_id, 'field_values' => $run->field_values, 'run_id' => $run->id,

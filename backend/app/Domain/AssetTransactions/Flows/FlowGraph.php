@@ -94,7 +94,8 @@ final class FlowGraph
         $nodes = collect($graph['nodes'])->keyBy('id');
         $edges = collect($graph['edges']);
         $label = fn (string $id) => '"'.($nodes[$id]['label'] ?? null ?: $id).'"';
-        $systemType = $typeId !== null ? TransactionTypeDefinition::query()->whereKey($typeId)->value('system_type') : null;
+        // A system type, or a copy of one (F-08), is built around its core action.
+        $coreType = $typeId !== null ? TransactionTypeDefinition::query()->whereKey($typeId)->first(['system_type', 'core_type'])?->coreType() : null;
 
         $starts = $nodes->where('type', 'start');
         if ($starts->count() !== 1) {
@@ -129,7 +130,7 @@ final class FlowGraph
             if ($node['type'] !== 'start' && $edges->where('target', $id)->isEmpty()) {
                 $add('UNREACHABLE', "Langkah {$label($id)} tidak terhubung: belum ada garis masuk.", $id);
             }
-            foreach (self::configIssues($node, $fields, $typeId, $systemType) as $message) {
+            foreach (self::configIssues($node, $fields, $typeId, $coreType) as $message) {
                 $add('CONFIG', "{$label($id)}: {$message}", $id);
             }
         }
@@ -154,11 +155,29 @@ final class FlowGraph
             $add('AUTOMATIC_LOOP', 'Ada perulangan tanpa langkah Isi data atau Persetujuan; transaksi dapat berputar tanpa akhir.');
         }
 
-        if ($systemType !== null) {
+        if ($coreType !== null) {
             self::coreIssues($nodes, $edges, $starts->keys()->first(), $label, $add);
         }
 
         return $issues;
+    }
+
+    /**
+     * The first flow of a type built around a core action: Mulai → Aksi inti → Selesai, which
+     * records exactly as without a flow (same shape as the editor's systemStarterGraph).
+     *
+     * @return array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}
+     */
+    public static function coreStarter(string $coreLabel): array
+    {
+        return ['nodes' => [
+            ['id' => 'start', 'type' => 'start', 'label' => 'Mulai', 'position' => ['x' => 0, 'y' => 80], 'config' => []],
+            ['id' => 'inti', 'type' => 'action', 'label' => $coreLabel, 'position' => ['x' => 280, 'y' => 80], 'config' => ['actions' => [['kind' => FlowActions::CORE]]]],
+            ['id' => 'selesai', 'type' => 'end', 'label' => 'Selesai', 'position' => ['x' => 560, 'y' => 80], 'config' => ['result' => 'completed']],
+        ], 'edges' => [
+            ['id' => 'e_start_inti', 'source' => 'start', 'target' => 'inti', 'outcome' => null],
+            ['id' => 'e_inti_selesai', 'source' => 'inti', 'target' => 'selesai', 'outcome' => null],
+        ]];
     }
 
     /** @param array<string, mixed> $node an action step holding the core action (F-07f-2) */
@@ -203,7 +222,7 @@ final class FlowGraph
      * @param  Collection<int, TransactionTypeField>  $fields
      * @return list<string>
      */
-    private static function configIssues(array $node, Collection $fields, ?string $typeId, ?string $systemType = null): array
+    private static function configIssues(array $node, Collection $fields, ?string $typeId, ?string $coreType = null): array
     {
         $config = $node['config'] ?? [];
         $byKey = $fields->keyBy('key');
@@ -263,8 +282,8 @@ final class FlowGraph
                 foreach ($actions as $action) {
                     $action = is_array($action) ? $action : [];
                     if (($action['kind'] ?? null) === FlowActions::CORE) {
-                        if ($systemType === null) {
-                            $issues[] = 'aksi inti hanya ada pada jenis sistem.';
+                        if ($coreType === null) {
+                            $issues[] = 'aksi inti hanya ada pada jenis sistem dan salinannya.';
                         } elseif (count($actions) > 1) {
                             $issues[] = 'aksi inti berdiri sendiri di langkahnya; pindahkan aksi lain ke langkah Aksi tersendiri.';
                         }

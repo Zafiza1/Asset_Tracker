@@ -17,6 +17,8 @@ class TransactionTypeResource extends JsonResource
             'id' => $this->id,
             'code' => $this->code,
             'system_type' => $this->system_type,
+            // An organization type copied from a system type: the built-in transaction its core action records (F-08).
+            'core_type' => $this->core_type,
             'name' => $this->name,
             'description' => $this->description,
             'icon' => $this->icon,

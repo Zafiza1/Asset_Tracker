@@ -291,7 +291,7 @@ Tidak ada perubahan mesin alur, tabel transaksi, atau RLS. Tambahan:
 | F-08-QA | E2E: template *Mutasi antar lokasi* → ubah batas nilai di mode sederhana → jalankan semua skenario → terbitkan → catat transaksi → dokumentasi tampil | qa-engineer | F-08e, F-08f | todo |
 | F-08a2 | *(v0.2)* Mockup Transaction Designer (wizard 6 langkah, tab, Rules bernama, tahapan) dan Transaction Center (desktop + 375px) | ui-ux-designer | revisi v0.2, v0.3 | done (disetujui 2026-11-21, APR-0012); v0.3: contoh lintas departemen, rule penanggung jawab, pilihan data dan penyetuju baru |
 | F-08g | *(v0.2)* `rules` + `graph_source` di versi alur, `RuleCompiler`, validasi rule, perbedaan rule antar versi; test setiap hasil rule dan prioritas | backend-engineer | D-46 | todo |
-| F-08h | *(v0.2)* `core_type` + `duplicate` untuk jenis sistem (sebagian dikerjakan, belum di-commit) | backend-engineer | D-47 | in progress |
+| F-08h | *(v0.2)* `core_type` + `duplicate` untuk jenis sistem | backend-engineer | D-47 | done backend (`TransactionTypeCopyTest`); tombol *Salin* di frontend ikut F-08e |
 | F-08i | *(v0.3)* Subjek departemen/penanggung jawab (F08-48/49) + penyetuju `asset_custodian` dan `target_department_supervisor` dengan fallback (F08-50..52); test akses penyetuju | backend-engineer, security-engineer | D-49, D-57 | todo |
 | F-08k | *(v0.3)* Aksi `set_custodian` + template *Serah terima penanggung jawab* + tombol *Serah terima* di detail aset (F08-53/54) | backend-engineer, frontend-engineer | D-58, F-08c | todo |
 | F-08j | *(v0.2)* Frontend Transaction Center + `GET /transaction-center` + petunjuk field | frontend-engineer, backend-engineer | APR-0012, D-50 | todo |
