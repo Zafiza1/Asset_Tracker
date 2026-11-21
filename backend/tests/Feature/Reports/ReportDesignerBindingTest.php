@@ -159,6 +159,30 @@ class ReportDesignerBindingTest extends TestCase
         $this->assertSame('Gudang 1', $cells['transaction.to_location']);
     }
 
+    public function test_preview_shows_department_and_custodian_on_both_sources(): void
+    {
+        $sari = $this->createTenantUser($this->orgA, [], [], ['name' => 'Sari Dewi']);
+        Asset::query()->whereKey($this->assetA->id)->update(['custodian_user_id' => $sari->id, 'department_id' => $this->mastersA['department']->id]);
+
+        $assets = $this->createTemplate('asset', $this->design([
+            ['id' => 'tb', 'type' => 'table', 'props' => ['columns' => [
+                ['key' => 'asset.department', 'label' => 'Departemen'],
+                ['key' => 'asset.custodian', 'label' => 'Penanggung jawab'],
+            ]]],
+        ]));
+        $row = $this->postJson("/api/report-templates/{$assets}/preview")->assertOk()->json('data.rows.0');
+        $this->assertSame(['Departemen 1', 'Sari Dewi'], [$row['asset.department'], $row['asset.custodian']]);
+
+        $transactions = $this->createTemplate('asset_transaction', $this->design([
+            ['id' => 't1', 'type' => 'table', 'props' => ['columns' => [
+                ['key' => 'transaction.asset_department', 'label' => 'Departemen'],
+                ['key' => 'transaction.asset_custodian', 'label' => 'Penanggung jawab'],
+            ]]],
+        ]));
+        $cells = $this->postJson("/api/report-templates/{$transactions}/preview")->assertOk()->json('data.elements.0.rows.0');
+        $this->assertSame(['Departemen 1', 'Sari Dewi'], [$cells['transaction.asset_department'], $cells['transaction.asset_custodian']]);
+    }
+
     public function test_preview_honours_filters_and_isolated_tenants(): void
     {
         // A second org asset must never leak into ALPHA's preview.

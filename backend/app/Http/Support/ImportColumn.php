@@ -20,6 +20,8 @@ final readonly class ImportColumn
      *                          checked (e.g. an asset's last-changed time, to reject rows edited by someone else)
      * @param  bool  $identifier  visible key of an edit sheet (e.g. a record code): greyed out like a read-only
      *                            column, but read back to find each row's record (see SpreadsheetImport::existing())
+     * @param  bool  $optional  added after files were already in use: a file made with an older template may lack it,
+     *                          and the row then carries no value for it at all (an edit leaves the field as it is)
      */
     public function __construct(
         public string $key,
@@ -34,5 +36,6 @@ final readonly class ImportColumn
         public bool $hidden = false,
         public bool $identifier = false,
         public bool $readBack = false,
+        public bool $optional = false,
     ) {}
 }

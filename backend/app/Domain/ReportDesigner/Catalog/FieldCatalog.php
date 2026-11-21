@@ -43,6 +43,9 @@ final class FieldCatalog
                 'asset.category' => ['Kategori', 'string', 'category.name', 'category', $fallback, 'asset.view'],
                 'asset.category_code' => ['Kode Kategori', 'string', 'category.code', 'category', $fallback, 'asset.view'],
                 'asset.location' => ['Lokasi', 'string', 'location.name', 'location', $fallback, 'asset.view'],
+                // F-09: who answers for the asset.
+                'asset.department' => ['Departemen', 'string', 'department.name', 'department', $fallback, 'asset.view'],
+                'asset.custodian' => ['Penanggung Jawab', 'string', 'custodian_member.user.name', 'custodianMember.user', $fallback, 'asset.view'],
                 'asset.acquisition_date' => ['Tanggal Perolehan', 'date', 'acquisition_date', null, $date + $fallback, 'asset.view'],
                 'asset.acquisition_cost' => ['Nilai Perolehan', 'currency', 'acquisition_cost', null, $money + $fallback, 'asset.view'],
                 'asset.borrower_name' => ['Peminjam', 'string', 'borrower_name', null, $fallback, 'asset.view'],
@@ -70,6 +73,8 @@ final class FieldCatalog
                 'transaction.asset_serial' => ['Nomor Seri Aset', 'string', 'asset.serial_number', 'asset', $fallback, 'transaction.view'],
                 'transaction.asset_category' => ['Kategori Aset', 'string', 'asset.category.name', 'asset.category', $fallback, 'transaction.view'],
                 'transaction.asset_location' => ['Lokasi Aset', 'string', 'asset.location.name', 'asset.location', $fallback, 'transaction.view'],
+                'transaction.asset_department' => ['Departemen Aset', 'string', 'asset.department.name', 'asset.department', $fallback, 'transaction.view'],
+                'transaction.asset_custodian' => ['Penanggung Jawab Aset', 'string', 'asset.custodian_member.user.name', 'asset.custodianMember.user', $fallback, 'transaction.view'],
                 // Outgoing / incoming (F-04). Contact is personal data: its own permission (APR-0006 D-10).
                 'transaction.outgoing_nature' => ['Sifat Keluar', 'string', 'outgoing_nature', null, ['labels' => true, 'fallback' => '-'], 'transaction.view'],
                 'transaction.reason' => ['Alasan Keluar', 'string', 'reason_label', null, $fallback, 'transaction.view'],

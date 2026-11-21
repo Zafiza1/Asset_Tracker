@@ -10,6 +10,7 @@ use App\Domain\Assets\Models\Asset;
 use App\Domain\Assets\Services\AssetService;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\Reports\AssetReport;
@@ -253,12 +254,14 @@ class AssetController extends Controller
                 'location_code' => ['required', 'string'],
                 'status' => ['nullable', Rule::in(AssetStatus::INITIAL)],
                 'condition' => ['nullable', 'string'],
+                ...self::RESPONSIBILITY_RULES,
             ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
 
             $data['category_id'] = SpreadsheetImport::idByCode(TenantAssetCategory::query(), $data['category_code'], 'Kategori');
             $data['location_id'] = SpreadsheetImport::idByCode(Location::query(), $data['location_code'], 'Lokasi');
             $data['attributes'] = $this->importConditionValue($data['category_id'], $data['condition'] ?? null);
-            $this->assets->create(Arr::except($data, ['category_code', 'location_code', 'condition']));
+            $data += $this->importResponsibility($data);
+            $this->assets->create(Arr::except($data, ['category_code', 'location_code', 'condition', 'department_code', 'custodian_email']));
         });
 
         return response()->json(['data' => ['imported' => $imported]]);
@@ -271,8 +274,10 @@ class AssetController extends Controller
             'Lokasi' => SpreadsheetImport::codeList(Location::query()),
             'Status' => array_map(fn ($s) => AssetStatus::LABELS[$s], AssetStatus::INITIAL),
             'Kondisi' => array_column(self::conditionOptions(), 'label'),
+            'Departemen' => SpreadsheetImport::codeList(Department::query()),
         ], [
             'Kategori dan lokasi harus sudah dibuat sebelum mengimpor aset. Nomor aset dibuat otomatis oleh sistem.',
+            'Penanggung jawab diisi dengan email anggota aktif organisasi. Departemen dan penanggung jawab boleh dikosongkan.',
         ]);
     }
 
@@ -303,6 +308,8 @@ class AssetController extends Controller
             'acquisition_date' => $a->acquisition_date,
             'acquisition_cost' => $a->acquisition_cost,
             'description' => $a->description,
+            'department_code' => SpreadsheetImport::codeItem($a->department),
+            'custodian_email' => $a->custodianMember?->user?->email,
             'location' => SpreadsheetImport::codeItem($a->location),
             'status' => AssetStatus::LABELS[$a->status] ?? $a->status,
             'updated_at' => $this->lastChanged($a),
@@ -310,7 +317,9 @@ class AssetController extends Controller
 
         return SpreadsheetImport::editSheet('edit_aset.xlsx', 'Multiple Edit Aset', $this->editColumns(), $rows, [
             'Kategori' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
+            'Departemen' => SpreadsheetImport::codeList(Department::query()),
         ], [
+            'Penanggung jawab diisi dengan email anggota aktif organisasi; kosongkan untuk melepas penanggung jawab.',
             'Lokasi dan status tidak dapat diubah di sini; gunakan transaksi (mutasi, peminjaman, perbaikan). Atribut kategori diubah dari halaman detail aset.',
             'Kolom "Terakhir Diubah" dipakai untuk memeriksa perubahan: jika aset diubah orang lain setelah file ini diunduh, baris aset tersebut ditolak. Unduh ulang file untuk mendapatkan data terbaru.',
         ]);
@@ -328,12 +337,14 @@ class AssetController extends Controller
             $data = Validator::make($row, [
                 ...Arr::only($rules, ['name', 'serial_number', 'acquisition_date', 'acquisition_cost', 'description']),
                 'category_code' => ['required', 'string'],
+                ...self::RESPONSIBILITY_RULES,
             ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
 
             $asset = SpreadsheetImport::existing($this->scope->apply(Asset::query())->whereNull('archived_at'), $row['id'], $seen);
             $changes = SpreadsheetImport::changes($asset, [
                 ...Arr::only($data, ['name', 'serial_number', 'acquisition_date', 'acquisition_cost', 'description']),
                 'category_id' => SpreadsheetImport::idByCode(TenantAssetCategory::query(), $data['category_code'], 'Kategori'),
+                ...$this->importResponsibility($data),
             ]);
             if ($changes === []) {
                 return false;
@@ -357,6 +368,7 @@ class AssetController extends Controller
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
             new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
             new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Kosongkan untuk menghapus.', width: 40),
+            ...self::responsibilityColumns(),
             new ImportColumn('location', 'Lokasi (info)', hint: 'Lokasi saat ini; diubah lewat transaksi mutasi.', width: 30, readOnly: true),
             new ImportColumn('status', 'Status (info)', hint: 'Status saat ini; diubah lewat transaksi.', width: 18, readOnly: true),
             new ImportColumn('updated_at', 'Terakhir Diubah (info)', hint: 'Waktu aset terakhir disimpan. Dipakai untuk memeriksa apakah aset diubah orang lain setelah file diunduh; jangan diubah.', width: 22, readOnly: true, readBack: true),
@@ -387,7 +399,54 @@ class AssetController extends Controller
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Tanggal pembelian/perolehan, format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
             new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
             new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Boleh dikosongkan.', width: 40),
+            ...self::responsibilityColumns(),
         ];
+    }
+
+    /** Spreadsheet validation of the F-09 columns; the references are resolved by importResponsibility(). */
+    private const RESPONSIBILITY_RULES = [
+        'department_code' => ['nullable', 'string'],
+        'custodian_email' => ['nullable', 'email', 'max:255'],
+    ];
+
+    /** @return list<ImportColumn> F-09: department (dropdown) and custodian (member email) */
+    private static function responsibilityColumns(): array
+    {
+        return [
+            // Optional: files downloaded before F-09 lack them and still upload.
+            new ImportColumn('department_code', 'Departemen', hint: 'Pilih departemen dari daftar. Boleh dikosongkan.', list: 'Departemen', width: 30, optional: true),
+            new ImportColumn('custodian_email', 'Penanggung Jawab (email)', hint: 'Email anggota aktif organisasi yang memegang aset. Boleh dikosongkan.', width: 30, optional: true),
+        ];
+    }
+
+    /**
+     * Department and custodian of a spreadsheet row as ids, only for the columns the file has (an
+     * older file without them leaves both as they are). The custodian is found by email among this
+     * organization's members whatever their status: AssetService rejects a newly chosen inactive
+     * member, while an unchanged one who has since left stays.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array{department_id?: string|null, custodian_user_id?: string|null}
+     */
+    private function importResponsibility(array $row): array
+    {
+        $result = [];
+        if (array_key_exists('department_code', $row)) {
+            $result['department_id'] = SpreadsheetImport::idByCode(Department::query(), $row['department_code'], 'Departemen');
+        }
+        if (! array_key_exists('custodian_email', $row)) {
+            return $result;
+        }
+        $email = $row['custodian_email'];
+        $custodian = $email === null ? null : OrganizationMember::query()
+            ->join('users', 'users.id', '=', 'organization_members.user_id')
+            ->whereRaw('lower(users.email) = ?', [mb_strtolower(trim($email))])
+            ->value('organization_members.user_id');
+        if ($email !== null && $custodian === null) {
+            throw ApiException::unprocessable('INVALID_REFERENCE', "Anggota dengan email '{$email}' tidak ditemukan di organisasi ini.");
+        }
+
+        return [...$result, 'custodian_user_id' => $custodian];
     }
 
     /** @return list<array{value: string, label: string}> */

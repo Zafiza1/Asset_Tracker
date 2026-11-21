@@ -134,8 +134,8 @@ class SpreadsheetImportTest extends TestCase
         $this->assertSame(DataValidation::TYPE_DATE, $data->getCell('G500')->getDataValidation()->getType());
 
         $lists = $book->getSheetByName('Daftar Pilihan')->toArray();
-        $this->assertSame(['Kategori', 'Lokasi', 'Status', 'Kondisi'], $lists[0]);
-        $this->assertSame(['CAT1 — Kategori 1', 'LOC1 — Gudang 1', 'Aktif', 'Baru'], $lists[1]);
+        $this->assertSame(['Kategori', 'Lokasi', 'Status', 'Kondisi', 'Departemen'], $lists[0]);
+        $this->assertSame(['CAT1 — Kategori 1', 'LOC1 — Gudang 1', 'Aktif', 'Baru', 'DEP1 — Departemen 1'], $lists[1]);
         $this->assertStringContainsString('Template Import Pendataan Aset', (string) $book->getSheetByName('Petunjuk')->getCell('A1')->getValue());
 
         $this->template('/api/locations/template');

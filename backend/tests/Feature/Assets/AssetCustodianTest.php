@@ -147,6 +147,16 @@ class AssetCustodianTest extends TestCase
         $this->assertSame(['Printer Budi', 'Budi'], [$cards['inactive_custodians']['items'][0]['asset']['name'], $cards['inactive_custodians']['items'][0]['custodian']]);
     }
 
+    public function test_assets_by_department_widget_counts_each_department_and_the_unassigned(): void
+    {
+        $this->register(['department_id' => $this->masters['department']->id]);
+        $this->register(['department_id' => $this->masters['department']->id]);
+        $this->register([]);
+
+        $data = $this->widgetData($this->org, $this->admin, 'assets_by_department');
+        $this->assertSame(['Departemen 1' => 2, 'Tanpa departemen' => 1], array_combine($data['categories'], $data['series'][0]['data']));
+    }
+
     private function deactivateMember(User $user): void
     {
         OrganizationMember::query()->withoutGlobalScopes()->where('organization_id', $this->org->id)->where('user_id', $user->id)

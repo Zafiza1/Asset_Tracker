@@ -100,7 +100,7 @@ Lihat APR-0013: D-51..D-56.
 | F-09b | UI web: formulir, daftar (kolom, filter, *Aset saya*), detail, menu Departemen | frontend-engineer | F-09a, mockup disetujui | done (`custodian.test.tsx`) |
 | F-09c | Scope departemen (§3.3) + tampilkan kembali scope departemen di halaman pengguna | backend-engineer, security-engineer | F-09a | done (`DepartmentScopeTest`); review security di bawah |
 | F-09d | Beranda: "Aset yang saya pegang" dan "Penanggung jawab nonaktif"; mobile menampilkan penanggung jawab | frontend-engineer | F-09b | Beranda done; mobile todo |
-| F-09e | Excel (impor, edit massal), field Report Designer, widget *Aset per departemen* | backend-engineer, frontend-engineer | F-09a | todo |
+| F-09e | Excel (impor, edit massal), field Report Designer, widget *Aset per departemen* | backend-engineer, frontend-engineer | F-09a | done |
 
 ## 10. Review security F-09c (2026-11-21)
 | Titik | Hasil |
@@ -109,4 +109,12 @@ Lihat APR-0013: D-51..D-56.
 | Tulis: tambah, ubah departemen, pindah/kembali/masuk | `AssetScope::allowsAsset` pada hasil akhir; test push-out dan pull-in |
 | Field lokasi di formulir transaksi kustom | pengguna ber-scope departemen boleh memilih lokasi mana pun; aset tetap terjangkau lewat departemennya |
 | Delegasi scope (`DataScopeGuard`) | tidak berubah: departemen hanya bisa diberikan oleh pemilik scope departemen itu atau scope organisasi |
-| Sisa risiko | impor Excel belum punya kolom departemen (F-09e), jadi pengguna yang hanya ber-scope departemen belum bisa impor aset |
+| Impor Excel | kolom *Departemen* (F-09e) dan aturan tulis yang sama lewat `AssetService::create`; pengguna yang hanya ber-scope departemen wajib mengisi departemennya |
+
+## 11. Excel, laporan, widget (F-09e)
+| Bagian | Isi |
+|---|---|
+| Template impor dan Multiple Edit | kolom **Departemen** (dropdown kode) dan **Penanggung Jawab (email)**. Keduanya kolom opsional: file yang diunduh sebelum F-09 tetap bisa diunggah, dan di Multiple Edit nilai yang ada tidak diubah bila kolomnya tidak ada |
+| Email penanggung jawab | dicari di anggota organisasi ini (tanpa membedakan huruf besar/kecil); email asing ditolak per baris; anggota nonaktif hanya ditolak bila baru dipilih |
+| Report Designer | `asset.department`, `asset.custodian`, `transaction.asset_department`, `transaction.asset_custodian` (migrasi `2026_11_21_000100`) |
+| Widget | `assets_by_department` (Aset per Departemen, termasuk "Tanpa departemen"); katalog disinkronkan dengan `DashboardCatalogSeeder` |

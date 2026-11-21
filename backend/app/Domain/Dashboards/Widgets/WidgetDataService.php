@@ -36,6 +36,7 @@ final class WidgetDataService
         'assets_by_condition' => [AssetWidgets::class, 'assetsByCondition'],
         'assets_by_status' => [AssetWidgets::class, 'assetsByStatus'],
         'assets_by_location' => [AssetWidgets::class, 'assetsByLocation'],
+        'assets_by_department' => [AssetWidgets::class, 'assetsByDepartment'],
         'value_by_category' => [AssetWidgets::class, 'valueByCategory'],
         'value_by_location' => [AssetWidgets::class, 'valueByLocation'],
         'asset_age' => [AssetWidgets::class, 'assetAge'],

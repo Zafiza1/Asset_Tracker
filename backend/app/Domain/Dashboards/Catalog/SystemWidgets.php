@@ -197,6 +197,16 @@ final class SystemWidgets
                 'fields' => ['category_ids' => $categories, 'statuses' => $statuses, 'limit' => $limit(8, 20)],
                 'layout' => $half,
             ],
+            // F-09e: grouped by the asset's department.
+            'assets_by_department' => [
+                'name' => 'Aset per Departemen',
+                'description' => 'Jumlah aset pada setiap departemen, termasuk aset tanpa departemen.',
+                'component_type' => 'chart',
+                'data_sources' => ['assets'],
+                'permission' => 'asset.view',
+                'fields' => ['category_ids' => $categories, 'location_ids' => $locations, 'statuses' => $statuses, 'visualization' => $chart('bar'), 'limit' => $limit(8, 20)],
+                'layout' => $half,
+            ],
             'value_by_category' => [
                 'name' => 'Nilai per Kategori',
                 'description' => 'Jumlah harga perolehan per kategori, bukan jumlah unit.',

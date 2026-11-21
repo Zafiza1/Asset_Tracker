@@ -163,6 +163,19 @@ final class AssetWidgets
         return ['items' => $this->byLocation($ctx, $this->limit($ctx, 8))];
     }
 
+    /** F-09e: asset count per department; assets without one form their own bar. */
+    public function assetsByDepartment(WidgetContext $ctx): array
+    {
+        $rows = $ctx->assets()->toBase()
+            ->leftJoin('departments as d', 'd.id', '=', 'assets.department_id')
+            ->groupBy('d.id', 'd.name')
+            ->orderByDesc('count')->orderBy('d.name')
+            ->limit($this->limit($ctx, 8))
+            ->get(['d.id', 'd.name', DB::raw('count(*) AS count')]);
+
+        return $this->chart($ctx, $rows->map(fn ($r) => ['label' => $r->name ?? 'Tanpa departemen', 'value' => (int) $r->count])->all(), 'count');
+    }
+
     /** @return array<string, mixed> */
     public function valueByCategory(WidgetContext $ctx): array
     {

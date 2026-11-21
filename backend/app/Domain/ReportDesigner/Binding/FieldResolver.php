@@ -21,8 +21,8 @@ final class FieldResolver
 {
     /** Eager-loadable relations each row source needs for its catalog bind paths. */
     public const EAGER_LOADS = [
-        'asset' => ['category', 'location'],
-        'asset_transaction' => ['asset.category', 'asset.location', 'fromLocation', 'toLocation', 'creator', 'incomingTransaction', 'outgoingTransaction', 'typeDefinition.fields'],
+        'asset' => ['category', 'location', 'department', 'custodianMember.user'],
+        'asset_transaction' => ['asset.category', 'asset.location', 'asset.department', 'asset.custodianMember.user', 'fromLocation', 'toLocation', 'creator', 'incomingTransaction', 'outgoingTransaction', 'typeDefinition.fields'],
     ];
 
     /**
