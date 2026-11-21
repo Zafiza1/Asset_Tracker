@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\AssetTransactions\Flows\FlowDescriber;
 use App\Domain\AssetTransactions\Flows\FlowEngine;
 use App\Domain\AssetTransactions\Flows\FlowGraph;
 use App\Domain\AssetTransactions\Flows\FlowVersionService;
 use App\Domain\AssetTransactions\Models\TransactionFlowVersion;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
+use App\Domain\Shared\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +23,7 @@ class TransactionFlowController extends Controller
     public function __construct(
         private readonly FlowVersionService $versions,
         private readonly FlowEngine $engine,
+        private readonly FlowDescriber $describer,
     ) {}
 
     public function show(TransactionTypeDefinition $transactionType): JsonResponse
@@ -80,6 +83,30 @@ class TransactionFlowController extends Controller
         return response()->json(['data' => ['path' => $this->engine->simulate(
             ['nodes' => $graph['nodes'] ?? [], 'edges' => $graph['edges'] ?? []], $data['asset_ids'], $data['field_values'] ?? [], $data['decisions'] ?? [],
         )]]);
+    }
+
+    /**
+     * "Cara kerja transaksi ini" (F-08 §3.6, D-41): the flow as sentences, with what changed from
+     * the version before it. Without ?version: the draft being drawn, else the active version;
+     * a type without a flow records at once and is described as such.
+     */
+    public function describe(Request $request, TransactionTypeDefinition $transactionType): JsonResponse
+    {
+        $number = $request->validate(['version' => ['nullable', 'integer', 'min:1']])['version'] ?? null;
+        $versions = TransactionFlowVersion::query()->where('type_definition_id', $transactionType->id);
+        $version = $number !== null
+            ? ((clone $versions)->where('version_number', $number)->first()
+                ?? throw new ApiException('NOT_FOUND', "Versi alur {$number} tidak ditemukan.", 404))
+            : ($this->versions->draft($transactionType)
+                ?? ($transactionType->active_flow_version_id ? (clone $versions)->find($transactionType->active_flow_version_id) : null));
+        $previous = $version === null ? null : (clone $versions)->where('status', TransactionFlowVersion::PUBLISHED)
+            ->where('version_number', '<', $version->version_number)->orderByDesc('version_number')->first();
+
+        return response()->json(['data' => [
+            'version' => $version === null ? null : ['version_number' => $version->version_number, 'status' => $version->status],
+            'previous_version' => $previous?->version_number,
+            ...$this->describer->describe($transactionType, $version?->graph, $previous?->graph),
+        ]]);
     }
 
     /** @return array<string, mixed> */

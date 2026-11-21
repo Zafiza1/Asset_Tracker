@@ -31,6 +31,8 @@ Route::middleware('module:transactions')->group(function () {
     // The flow of a transaction type (F-07b): read by the transaction form, drawn and published
     // by Super Admin and Supervisor (transaction_flow.manage, D-27).
     Route::get('/transaction-types/{transactionType}/flow', [TransactionFlowController::class, 'show'])->middleware('permission:transaction.view');
+    // "Cara kerja" (F-08 §3.6): the flow in sentences, for everyone who may see the type.
+    Route::get('/transaction-types/{transactionType}/flow/describe', [TransactionFlowController::class, 'describe'])->middleware('permission:transaction.view');
     Route::put('/transaction-types/{transactionType}/flow', [TransactionFlowController::class, 'update'])->middleware('permission:transaction_flow.manage');
     Route::post('/transaction-types/{transactionType}/flow/validate', [TransactionFlowController::class, 'validateFlow'])->middleware('permission:transaction_flow.manage');
     Route::post('/transaction-types/{transactionType}/flow/publish', [TransactionFlowController::class, 'publish'])->middleware('permission:transaction_flow.manage');

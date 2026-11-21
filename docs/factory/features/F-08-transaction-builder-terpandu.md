@@ -283,7 +283,7 @@ Tidak ada perubahan mesin alur, tabel transaksi, atau RLS. Tambahan:
 | ID | Task | Agent | Bergantung | Status |
 |---|---|---|---|---|
 | F-08a | Mockup wizard, galeri template, mode sederhana, skenario, dokumentasi (desktop + 375px) | ui-ux-designer | requirement | done (disetujui 2026-11-20) |
-| F-08b | `FlowDescriber` + `GET flow/describe` (kalimat per langkah/syarat, perbedaan versi) + test semua subjek/operator/jenis langkah | backend-engineer | D-41 | todo |
+| F-08b | `FlowDescriber` + `GET flow/describe` (kalimat per langkah/syarat, perbedaan versi) + test semua subjek/operator/jenis langkah | backend-engineer | D-41 | done (`FlowDescriberTest`). `?version=` memilih versi; tanpa itu draft, lalu versi aktif. Ringkasan membedakan persetujuan yang selalu diperlukan dan yang bersyarat. `stepSentence()` siap dipakai halaman transaksi berjalan dan email (F-08f) |
 | F-08c | Katalog template + `from-template` + `duplicate` + `source_template_key`; test setiap template valid dan semua skenarionya sampai Selesai | backend-engineer, database-engineer | F-07f, D-40 | todo |
 | F-08d | `flow/scenarios`: enumerasi jalur (maks. 12), aset contoh untuk prasyarat | backend-engineer, security-engineer | F-07b | todo |
 | F-08e | Frontend wizard + pratinjau formulir/alur + mode sederhana ⇄ lanjutan + pengaturan lanjutan field | frontend-engineer | F-08a disetujui, F-08b, F-08c | todo |
