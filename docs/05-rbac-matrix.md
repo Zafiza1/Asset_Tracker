@@ -68,10 +68,11 @@ Catatan: permission `asset.assign/transfer/status_change/dispose` dan `transacti
 |---|---|---|
 | organization | Semua aset | Semua transaksi |
 | branch X | Aset dengan `branch_id = X` | Transaksi yang punya item aset dalam scope, atau diajukan user sendiri |
-| department X | Aset dengan `department_id = X` | idem |
+| department X | Aset dengan `department_id = X`, di lokasi mana pun (F-09c) | idem |
 | location X | Aset di lokasi X **dan sub-lokasinya** | idem |
 
-- Beberapa entri scope digabung (OR). Tanpa entri scope = tidak melihat aset apa pun (fail-closed).
+- Beberapa entri scope digabung (OR). Tanpa entri scope = tidak melihat aset apa pun (fail-closed). Aset tanpa lokasi **dan** tanpa departemen hanya terlihat oleh scope organisasi.
+- **Aturan tulis (F-09 §3.3):** setelah aset ditambah, diubah, atau dipindah, aset harus tetap berada dalam scope penulisnya (lokasinya dalam scope lokasi, **atau** departemennya dalam scope departemen). Jadi aset tidak bisa "didorong" keluar dari jangkauan sendiri, dan aset departemen lain tidak bisa "ditarik" masuk karena memang tidak terlihat. Pelanggaran: 422 `ASSET_OUT_OF_SCOPE` (pengguna yang punya scope departemen) atau 422 `LOCATION_OUT_OF_SCOPE`.
 - Untuk transaksi pindah (TRANSFER), pemohon harus punya scope atas aset **asal**; approver harus punya scope atas aset (asal **atau** tujuan, ditentukan step workflow — default asal).
 - Approver harus memenuhi tiga syarat: ditunjuk oleh step aktif (role atau user tertentu), punya `transaction.approve`, dan scope mencakup item.
 
@@ -89,7 +90,7 @@ Scope membatasi **data** yang dilihat, sedangkan permission membatasi **tindakan
 | Mengubah, mengarsipkan, atau memulihkan lokasi | Lokasi berada dalam scope aktor | 403 `LOCATION_OUT_OF_SCOPE` |
 | Membuat lokasi / memindah induk | Induk baru berada dalam scope aktor. Lokasi tingkat atas hanya boleh dibuat atau dituju oleh aktor ber-scope organisasi. | 422 `LOCATION_OUT_OF_SCOPE` (`fields.parent_id`) |
 
-Daftar anggota, undangan, lokasi, departemen, dan audit log **tidak** difilter scope. Pembacanya ditentukan permission (`user.view`, `master.tenant.view`, `audit.view`; lihat docs/04). Pengelolaan departemen saat ini hanya memerlukan `master.tenant.*`, karena scope departemen belum memberi akses aset (keputusan terbuka D-1 di `asset-tracker-audit.md`).
+Daftar anggota, undangan, lokasi, departemen, dan audit log **tidak** difilter scope. Pembacanya ditentukan permission (`user.view`, `master.tenant.view`, `audit.view`; lihat docs/04). Pengelolaan departemen hanya memerlukan `master.tenant.*` dan tidak dibatasi scope. Ini tidak membuka eskalasi: mengganti nama departemen tidak memindahkan aset, mengarsipkan departemen yang masih dipakai aset aktif ditolak (`DEPARTMENT_IN_USE`), dan departemen baru berada di luar scope departemen pembuatnya sampai diberikan oleh aktor yang berwenang.
 
 ## 4. Aturan pelindung
 1. Organisasi harus selalu punya ≥ 1 user aktif dengan role terkunci `ADMIN`.

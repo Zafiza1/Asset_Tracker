@@ -247,7 +247,7 @@ final class AssetTransactionService
         if ($to === $asset->location_id) {
             throw $this->fieldError('to_location_id', 'Lokasi tujuan sama dengan lokasi saat ini.');
         }
-        $this->assertTargetLocation($to);
+        $this->assertTargetLocation($to, $asset);
 
         return [['location_id' => $to], ['from_location_id' => $asset->location_id, 'to_location_id' => $to]];
     }
@@ -296,7 +296,7 @@ final class AssetTransactionService
 
         $location = $data['to_location_id'] ?? null;
         if ($location !== null && $location !== $asset->location_id) {
-            $this->assertTargetLocation($location);
+            $this->assertTargetLocation($location, $asset);
             $assetChanges['location_id'] = $location;
             $logChanges += ['from_location_id' => $asset->location_id, 'to_location_id' => $location];
         }
@@ -384,7 +384,7 @@ final class AssetTransactionService
 
         $location = $data['to_location_id'] ?? null;
         if ($location !== null && $location !== $asset->location_id) {
-            $this->assertTargetLocation($location);
+            $this->assertTargetLocation($location, $asset);
             $assetChanges['location_id'] = $location;
             $logChanges += ['from_location_id' => $asset->location_id, 'to_location_id' => $location];
         }
@@ -557,12 +557,13 @@ final class AssetTransactionService
         }
     }
 
-    private function assertTargetLocation(string $id): void
+    /** An active location that keeps the asset within the user's scope (by location or by its department). */
+    private function assertTargetLocation(string $id, Asset $asset): void
     {
         if (! Location::query()->whereKey($id)->where('status', MasterStatus::ACTIVE)->exists()) {
             throw $this->fieldError('to_location_id', 'Lokasi tidak ditemukan atau tidak aktif.');
         }
-        if (! $this->flowAction && ! $this->scope->allowsLocation($id)) {
+        if (! $this->flowAction && ! $this->scope->allowsAsset($id, $asset->department_id)) {
             throw $this->fieldError('to_location_id', 'Lokasi berada di luar cakupan data Anda.');
         }
     }

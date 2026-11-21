@@ -325,11 +325,15 @@ final class TransactionFieldTypes
         return self::$displayMemo[$key] ??= $loader();
     }
 
-    /** An active location the user may record into. */
+    /**
+     * An active location the user may record into. A user with department entries may pick
+     * any location: their department's assets stay within reach wherever they are (F-09 §3.3).
+     */
     private function locationInScope(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail) {
-            $ok = is_string($value) && Location::query()->whereKey($value)->exists() && $this->scope->allowsLocation($value);
+            $ok = is_string($value) && Location::query()->whereKey($value)->exists()
+                && ($this->scope->hasDepartments() || $this->scope->allowsLocation($value));
             if (! $ok) {
                 $fail(':attribute tidak ditemukan atau di luar cakupan data Anda.');
             }

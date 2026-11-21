@@ -29,8 +29,9 @@ export function DepartmentsPage() {
   return (
     <MasterListPage<Department>
       title="Departemen"
-      description="Unit kerja penanggung jawab aset."
+      description="Bagian organisasi pemilik atau pengguna aset, misalnya Keuangan atau IT."
       endpoint="/departments"
+      emptyHint="Tambahkan departemen agar aset bisa dikelompokkan per bagian, misalnya Keuangan atau IT."
       {...useMasterPermissions()}
       columns={[
         code<Department>(),

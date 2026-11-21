@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Boxes, FileSpreadsheet, ImageOff, Plus, Printer, SearchX } from "lucide-react";
+import { Boxes, FileSpreadsheet, ImageOff, Plus, Printer, SearchX, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -17,6 +17,7 @@ import { ColumnToggle } from "../../components/ui/ColumnToggle";
 import { EmptyState, ErrorState, TableSkeleton } from "../../components/ui/Feedback";
 import { ImportModal } from "../../components/ui/ImportModal";
 import { Select } from "../../components/ui/Field";
+import { PillTabs } from "../../components/ui/Tabs";
 import { DataTable, Pagination, type Column, type RowSelection } from "../../components/ui/Table";
 import { api, qs } from "../../lib/api/client";
 import type { Paginated } from "../../lib/api/types";
@@ -33,12 +34,16 @@ import { AssetBarcodeModal } from "./AssetBarcodeModal";
 import { AssetBulkActions } from "./AssetBulkActions";
 import { AssetFormModal } from "./AssetFormModal";
 import { CategoryFilter } from "./CategoryFilter";
+import { CustodianName } from "./CustodianPicker";
 
 const FILTERS = [
   "page",
   "search",
   "category_ids",
   "location_id",
+  "department_id",
+  "custodian_id",
+  "mine",
   "status",
   "archived",
   "missing",
@@ -61,6 +66,7 @@ const MISSING_LABEL: Record<string, string> = {
 const ADVANCED = [
   "category_ids",
   "location_id",
+  "department_id",
   "status",
   "archived",
   "missing",
@@ -125,6 +131,7 @@ const DEFAULT_COLUMNS = [
   "serial_number",
   "category",
   "location",
+  "custodian",
   "status",
   "barcode",
 ];
@@ -183,6 +190,10 @@ export function AssetsPage() {
   const categories = toOptions(categoryRows);
   const locationRows = useOptions("/locations").data;
   const locations = toOptions(locationRows);
+  const departmentRows = useOptions("/departments").data;
+  const departments = toOptions(departmentRows);
+  // "Aset saya" (F-09): the assets the current user answers for.
+  const mine = params.get("mine") === "1";
 
   const query = useQuery({
     queryKey: ["/assets", filters],
@@ -204,7 +215,8 @@ export function AssetsPage() {
     if (!("page" in next)) merged.delete("page");
     setParams(merged);
   };
-  const hasFilters = FILTERS.some((k) => !VIEW_KEYS.has(k) && params.get(k));
+  // The "Aset saya" tab is a view of its own, not a filter to clear.
+  const hasFilters = FILTERS.some((k) => !VIEW_KEYS.has(k) && k !== "mine" && params.get(k));
   const sort = params.get("sort") ?? "";
   const sortOptions = SORT_OPTIONS.includes(sort) ? SORT_OPTIONS : [...SORT_OPTIONS, sort];
 
@@ -266,6 +278,24 @@ export function AssetsPage() {
           },
         ]
       : []),
+    ...(params.get("department_id")
+      ? [
+          {
+            key: "department",
+            label: `Departemen: ${nameOf(departmentRows, params.get("department_id"))}`,
+            clear: () => update({ department_id: "" }),
+          },
+        ]
+      : []),
+    ...(params.get("custodian_id")
+      ? [
+          {
+            key: "custodian",
+            label: `Penanggung jawab: ${query.data?.data.find((a) => a.custodian_user_id === params.get("custodian_id"))?.custodian?.name ?? "terpilih"}`,
+            clear: () => update({ custodian_id: "" }),
+          },
+        ]
+      : []),
     ...(params.get("status")
       ? [
           {
@@ -320,7 +350,7 @@ export function AssetsPage() {
             {/* Long names stop after two lines; the full name is the cell's tooltip. */}
             <span className="line-clamp-2 whitespace-normal break-words">{a.name}</span>
             <span className="block truncate text-xs font-normal text-slate-500 md:hidden">
-              {[a.category?.name, a.location?.name ?? "Tanpa lokasi"].filter(Boolean).join(" · ")}
+              {[a.category?.name, a.location?.name ?? "Tanpa lokasi", a.custodian?.name].filter(Boolean).join(" · ")}
             </span>
           </span>
         </Link>
@@ -359,6 +389,27 @@ export function AssetsPage() {
         a.location?.name ?? (
           <span className="text-slate-400">Tanpa lokasi</span>
         ),
+      hideOnMobile: true,
+    },
+    {
+      key: "custodian",
+      header: "Penanggung jawab",
+      className: "w-48",
+      title: (a) => a.custodian?.name ?? undefined,
+      cell: (a) =>
+        a.custodian ? (
+          <CustodianName custodian={a.custodian} detail={a.department?.name} />
+        ) : (
+          <span className="text-slate-400">—</span>
+        ),
+      hideOnMobile: true,
+    },
+    {
+      key: "department",
+      header: "Departemen",
+      className: "w-40",
+      title: (a) => a.department?.name,
+      cell: (a) => a.department?.name ?? <span className="text-slate-400">—</span>,
       hideOnMobile: true,
     },
     {
@@ -439,6 +490,15 @@ export function AssetsPage() {
       />
       <Card>
         <FilterPanel>
+          <PillTabs
+            label="Tampilan aset"
+            value={mine ? "mine" : ""}
+            onChange={(v) => update({ mine: v === "mine" ? "1" : "" })}
+            tabs={[
+              { value: "", label: "Semua" },
+              { value: "mine", label: "Aset saya" },
+            ]}
+          />
           <SearchForm
             value={search}
             onChange={setSearch}
@@ -492,6 +552,18 @@ export function AssetsPage() {
               ))}
             </Select>
             <Select
+              value={draft.department_id}
+              onChange={(e) => advanced.set({ department_id: e.target.value })}
+              aria-label="Filter departemen"
+            >
+              <option value="">Departemen: semua</option>
+              {departments.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+            <Select
               value={draft.status}
               onChange={(e) => advanced.set({ status: e.target.value })}
               aria-label="Filter status"
@@ -539,6 +611,17 @@ export function AssetsPage() {
           <TableSkeleton columns={6} label="Memuat data aset…" />
         ) : query.isError ? (
           <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+        ) : query.data!.data.length === 0 && mine && !hasFilters ? (
+          <EmptyState
+            icon={UserRound}
+            title="Belum ada aset yang Anda pegang"
+            description="Aset muncul di sini saat Anda dicatat sebagai penanggung jawabnya. Minta admin menunjuk Anda, atau lihat semua aset."
+            action={
+              <Button variant="secondary" onClick={() => update({ mine: "" })}>
+                Lihat semua aset
+              </Button>
+            }
+          />
         ) : query.data!.data.length === 0 ? (
           <EmptyState
             icon={hasFilters ? SearchX : Boxes}

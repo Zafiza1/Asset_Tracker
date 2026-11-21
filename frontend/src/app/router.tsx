@@ -7,7 +7,7 @@ import { LoginPage } from '../features/auth/LoginPage'
 import { RegisterPage } from '../features/auth/RegisterPage'
 import { AssetDetailPage } from '../features/assets/AssetDetailPage'
 import { AssetsPage } from '../features/assets/AssetsPage'
-import { LocationsPage, TenantCategoriesPage } from '../features/master/StructurePages'
+import { DepartmentsPage, LocationsPage, TenantCategoriesPage } from '../features/master/StructurePages'
 import { OrganizationPage } from '../features/organization/OrganizationPage'
 import { CreateOrganizationPage, SelectOrganizationPage } from '../features/organizations/OrganizationPages'
 import { ModulesPage } from '../features/organization/ModulesPage'
@@ -102,6 +102,7 @@ export const router = createBrowserRouter([
                   { path: '/audit', element: tenant('audit.view', <AuditLogPage endpoint="/audit-logs" title="Audit Trail" />) },
                   { path: '/master/kategori', element: tenant('master.tenant.view', <TenantCategoriesPage />) },
                   { path: '/master/lokasi', element: tenant('master.tenant.view', <LocationsPage />) },
+                  { path: '/master/departemen', element: tenant('master.tenant.view', <DepartmentsPage />) },
                   { path: '*', element: <NotFound /> },
                 ],
               },

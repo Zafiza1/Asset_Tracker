@@ -8,6 +8,8 @@ use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\AssetTimeline;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Assets\Services\AssetService;
+use App\Domain\Identity\Models\OrganizationMember;
+use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\Reports\AssetReport;
@@ -19,6 +21,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AssetResource;
 use App\Http\Resources\AssetTransactionResource;
 use App\Http\Resources\CategoryAttributeResource;
+use App\Http\Resources\Ref;
 use App\Http\Support\ImportColumn;
 use App\Http\Support\ListQuery;
 use App\Http\Support\SpreadsheetImport;
@@ -37,7 +40,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /** Asset Management container: list/search, detail, register, edit, deactivate, reactivate. */
 class AssetController extends Controller
 {
-    private const RELATIONS = ['category', 'location'];
+    private const RELATIONS = ['category', 'location', 'department', 'custodianMember.user'];
+
+    /** Most members the custodian picker lists per search. */
+    private const MAX_CUSTODIAN_OPTIONS = 20;
 
     /** Most assets the Multiple Edit dialog can pick; the ids travel in the download URL. */
     private const MAX_EDIT_SELECTION = 100;
@@ -81,6 +87,10 @@ class AssetController extends Controller
             // Acquisition date range (inclusive); assets without a date never match.
             'acquired_from' => ['nullable', 'date_format:Y-m-d'],
             'acquired_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:acquired_from'],
+            // F-09: who answers for the asset; `mine=1` = the current user.
+            'custodian_id' => ['nullable', 'uuid'],
+            'department_id' => ['nullable', 'uuid'],
+            'mine' => ['nullable', 'boolean'],
         ]);
         $categoryIds = array_values(array_filter(explode(',', (string) $request->query('category_ids'))));
         $request->merge(['category_id_list' => $categoryIds])->validate(['category_id_list.*' => ['uuid']]);
@@ -92,6 +102,9 @@ class AssetController extends Controller
             ->when($categoryIds, fn ($q) => $q->whereIn('category_id', $this->subtree(TenantAssetCategory::query(), $categoryIds)))
             ->when($request->query('location_id'), fn ($q, $id) => $q->whereIn('location_id', $this->subtree(Location::query(), [$id])))
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
+            ->when($request->query('custodian_id'), fn ($q, $id) => $q->where('custodian_user_id', $id))
+            ->when($request->query('department_id'), fn ($q, $id) => $q->where('department_id', $id))
+            ->when($request->boolean('mine'), fn ($q) => $q->where('custodian_user_id', $this->tenancy->tenant()->userId()))
             ->when($request->query('acquired_from'), fn ($q, $date) => $q->whereDate('acquisition_date', '>=', $date))
             ->when($request->query('acquired_to'), fn ($q, $date) => $q->whereDate('acquisition_date', '<=', $date))
             ->when($request->query('missing'), fn ($q, $field) => $q->whereRaw('NOT ('.AssetDataQuality::filledCondition($field).')'));
@@ -453,7 +466,42 @@ class AssetController extends Controller
             'description' => [...$optional, 'string', 'max:2000'],
             // Category fields, {key: value}; validated against the category by the service.
             'attributes' => [...$optional, 'array'],
+            // F-09; membership and status are checked by the service.
+            'custodian_user_id' => [...$optional, 'uuid'],
+            'department_id' => [...$optional, 'uuid'],
         ];
+    }
+
+    /**
+     * Active members to pick as custodian (F-09): name or email search, at most
+     * MAX_CUSTODIAN_OPTIONS. Only for users who may set it (asset.create or asset.update).
+     */
+    public function custodianOptions(Request $request): JsonResponse
+    {
+        $tenant = $this->tenancy->tenant();
+        if (! $tenant->can('asset.create') && ! $tenant->can('asset.update')) {
+            throw ApiException::forbidden('FORBIDDEN', 'Anda tidak memiliki izin untuk tindakan ini.');
+        }
+        $search = $request->validate(['search' => ['nullable', 'string', 'max:100']])['search'] ?? null;
+
+        $members = OrganizationMember::query()->where('organization_members.status', User::STATUS_ACTIVE)
+            ->join('users', 'users.id', '=', 'organization_members.user_id')
+            ->where('users.status', User::STATUS_ACTIVE)
+            ->when($search, fn ($q, $term) => $q->where(fn ($w) => $w
+                ->where('users.name', 'ilike', ListQuery::like($term))
+                ->orWhere('users.email', 'ilike', ListQuery::like($term))))
+            ->with('homeDepartment:id,code,name')
+            ->orderBy('users.name')->orderBy('users.id')
+            ->limit(self::MAX_CUSTODIAN_OPTIONS)
+            ->get(['organization_members.*', 'users.name as user_name', 'users.email as user_email']);
+
+        return response()->json(['data' => $members->map(fn (OrganizationMember $m) => [
+            'id' => $m->user_id,
+            'name' => $m->getAttribute('user_name'),
+            'email' => $m->getAttribute('user_email'),
+            'job_title' => $m->job_title,
+            'home_department' => $m->homeDepartment === null ? null : Ref::of($m->homeDepartment),
+        ])->values()]);
     }
 
     /**

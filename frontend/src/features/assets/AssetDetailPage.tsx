@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, FolderTree, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, FolderTree, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRound, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -128,8 +128,25 @@ export function AssetDetailPage() {
 
       {/* The facts people look for first, before reading the full data sheet. */}
       <dl className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Fact icon={CalendarDays} label="Tanggal perolehan">
-          {a.acquisition_date ? formatDate(a.acquisition_date) : '—'}
+        {/* F-09: "who holds it?" is the first question about an asset. */}
+        <Fact icon={UserRound} label="Dipegang oleh">
+          {a.custodian ? (
+            <span className="block">
+              <span className="flex flex-wrap items-center gap-1">
+                {a.custodian.name}
+                {!a.custodian.is_active && <Badge tone="amber">nonaktif</Badge>}
+              </span>
+              {(a.department || !a.custodian.is_active) && (
+                <span className="block text-xs font-normal text-slate-500">{a.custodian.is_active ? a.department?.name : 'Perlu penanggung jawab baru'}</span>
+              )}
+            </span>
+          ) : can('asset.update') && !a.is_archived ? (
+            <button type="button" className="text-left font-semibold text-brand-700 hover:underline" onClick={() => setEditing(true)}>
+              Tunjuk penanggung jawab
+            </button>
+          ) : (
+            <span className="text-slate-400">Belum ada</span>
+          )}
         </Fact>
         <Fact icon={MapPin} label="Lokasi">
           {a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span>}
@@ -203,7 +220,15 @@ export function AssetDetailPage() {
                     </Row>
                   </>
                 ),
-                location_ownership: <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>,
+                location_ownership: (
+                  <>
+                    <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>
+                    <Row label="Penanggung jawab">
+                      {a.custodian ? `${a.custodian.name ?? '—'}${a.custodian.is_active ? '' : ' (nonaktif)'}` : '—'}
+                    </Row>
+                    <Row label="Departemen">{a.department?.name ?? '—'}</Row>
+                  </>
+                ),
                 status_condition: (
                   <>
                     <Row label="Status">

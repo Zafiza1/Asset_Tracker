@@ -9,6 +9,9 @@ use App\Domain\AssetTransactions\Services\AssetTransactionService;
 use App\Domain\AssetTransactions\TransactionLog;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Audit\AuditLogger;
+use App\Domain\Identity\Models\OrganizationMember;
+use App\Domain\Identity\Models\User;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
@@ -29,7 +32,7 @@ use Illuminate\Validation\ValidationException;
 final class AssetService
 {
     private const AUDIT = ['serial_number', 'name', 'category_id', 'location_id', 'status',
-        'acquisition_date', 'acquisition_cost', 'description'];
+        'acquisition_date', 'acquisition_cost', 'description', 'custodian_user_id', 'department_id'];
 
     /** Private disk: asset photos are served only through the (scoped) asset route. */
     public const IMAGE_DISK = 'local';
@@ -50,10 +53,11 @@ final class AssetService
         if ($locationId !== null) {
             $this->assertActive(Location::class, $locationId, 'location_id', 'Lokasi');
         }
-        if (! $this->scope->allowsLocation($locationId)) {
-            throw ApiException::unprocessable('LOCATION_OUT_OF_SCOPE', 'Lokasi berada di luar cakupan data Anda.', ['fields' => ['location_id' => ['Pilih lokasi dalam cakupan data Anda.']]]);
+        if (! $this->scope->allowsAsset($locationId, $data['department_id'] ?? null)) {
+            throw self::outOfScope($this->scope->hasDepartments());
         }
         $this->assertSerialAvailable($data['serial_number'] ?? null);
+        $this->assertResponsibility($data);
         $status = $data['status'] ?? AssetStatus::IN_USE;
         $values = $this->attributes->resolveValues($data['category_id'], [], $data['attributes'] ?? []);
 
@@ -93,6 +97,17 @@ final class AssetService
         }
         if (array_key_exists('serial_number', $data)) {
             $this->assertSerialAvailable($data['serial_number'], $asset->id);
+        }
+        // Only a new choice must be active: an asset keeps a custodian who has since left.
+        $this->assertResponsibility(array_filter(
+            array_intersect_key($data, array_flip(['custodian_user_id', 'department_id'])),
+            fn ($id, $field) => $id !== $asset->getAttribute($field),
+            ARRAY_FILTER_USE_BOTH,
+        ));
+        // F-09 §3.3: a new department must keep the asset within the user's own scope.
+        if (array_key_exists('department_id', $data) && $data['department_id'] !== $asset->department_id
+            && ! $this->scope->allowsAsset($asset->location_id, $data['department_id'])) {
+            throw self::outOfScope(true);
         }
         $changes = array_intersect_key($data, array_flip(Asset::EDITABLE));
         // Values are revalidated when they are sent or when the category (hence the set of fields) changes.
@@ -221,6 +236,41 @@ final class AssetService
         if (! $model::query()->whereKey($id)->where('status', MasterStatus::ACTIVE)->exists()) {
             throw ApiException::unprocessable('INVALID_REFERENCE', "{$label} tidak ditemukan atau tidak aktif.", ['fields' => [$field => ["{$label} tidak ditemukan atau tidak aktif."]]]);
         }
+    }
+
+    /**
+     * A chosen custodian is an active member (with an active account) of this organization and a
+     * chosen department an active department. NULL (cleared) always passes.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function assertResponsibility(array $data): void
+    {
+        if (($data['department_id'] ?? null) !== null) {
+            $this->assertActive(Department::class, $data['department_id'], 'department_id', 'Departemen');
+        }
+        $userId = $data['custodian_user_id'] ?? null;
+        if ($userId === null) {
+            return;
+        }
+        $active = OrganizationMember::query()->where('user_id', $userId)->where('status', User::STATUS_ACTIVE)
+            ->whereHas('user', fn ($q) => $q->where('status', User::STATUS_ACTIVE))->exists();
+        if (! $active) {
+            $message = 'Penanggung jawab harus anggota aktif organisasi ini.';
+            throw ApiException::unprocessable('INVALID_REFERENCE', $message, ['fields' => ['custodian_user_id' => [$message]]]);
+        }
+    }
+
+    /** The asset would end up outside the user's data scope (F-09 §3.3). */
+    private static function outOfScope(bool $byDepartment): ApiException
+    {
+        if ($byDepartment) {
+            $message = 'Departemen atau lokasi aset harus berada dalam cakupan data Anda.';
+
+            return ApiException::unprocessable('ASSET_OUT_OF_SCOPE', $message, ['fields' => ['department_id' => [$message]]]);
+        }
+
+        return ApiException::unprocessable('LOCATION_OUT_OF_SCOPE', 'Lokasi berada di luar cakupan data Anda.', ['fields' => ['location_id' => ['Pilih lokasi dalam cakupan data Anda.']]]);
     }
 
     private function assertSerialAvailable(?string $serial, ?string $exceptId = null): void

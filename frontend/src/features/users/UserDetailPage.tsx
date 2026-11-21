@@ -358,12 +358,11 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
             ))}
           </ul>
         )}
-        <p className="text-xs text-slate-500">Cakupan digabungkan; cakupan lokasi mencakup seluruh sub-lokasinya.</p>
+        <p className="text-xs text-slate-500">Cakupan digabungkan. Cakupan lokasi mencakup seluruh sub-lokasinya; cakupan departemen mencakup aset departemen itu di lokasi mana pun.</p>
         {editable && (
           <div className="flex flex-wrap items-end gap-2">
             <Select value={type} onChange={(e) => (setType(e.target.value as ScopeType), setRefId(''))} className="w-auto" aria-label="Jenis cakupan">
-              {/* Department scopes are hidden for now: assets have no department, so they grant nothing. */}
-              {Object.entries(scopeTypeLabel).filter(([value]) => value !== 'department').map(([value, label]) => (
+              {Object.entries(scopeTypeLabel).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

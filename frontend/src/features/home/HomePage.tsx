@@ -18,7 +18,9 @@ import {
   ListChecks,
   Mail,
   SlidersHorizontal,
+  UserRound,
   Users,
+  UserX,
   type LucideIcon,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -45,6 +47,8 @@ const cardTitle: Record<HomeCardKey, string> = {
   due_soon: 'Jatuh tempo 7 hari',
   date_reminders: 'Pengingat tanggal aset',
   incomplete_assets: 'Data aset belum lengkap',
+  my_assets: 'Aset yang saya pegang',
+  inactive_custodians: 'Penanggung jawab nonaktif',
   license: 'Lisensi & kursi',
   invitations: 'Undangan menunggu',
   users: 'Pengguna & role',
@@ -61,6 +65,8 @@ const cardIcon: Record<HomeCardKey, LucideIcon> = {
   due_soon: Clock,
   date_reminders: CalendarClock,
   incomplete_assets: ClipboardList,
+  my_assets: UserRound,
+  inactive_custodians: UserX,
   license: KeyRound,
   invitations: Mail,
   users: Users,
@@ -393,6 +399,38 @@ function cardContent(card: HomeCard): CardContent {
           </Rows>
         ),
         link: { to: '/aset', label: 'Lihat aset' },
+      }
+    case 'my_assets':
+      return {
+        badge: count(card.count, 'blue'),
+        empty: card.count === 0 ? 'Anda belum tercatat memegang aset.' : undefined,
+        body: (
+          <Rows>
+            {card.items.map((a) => (
+              <Row key={a.id} to={`/aset/${a.id}`}>
+                {a.name}
+              </Row>
+            ))}
+          </Rows>
+        ),
+        link: { to: '/aset?mine=1', label: 'Lihat Aset saya' },
+      }
+    case 'inactive_custodians':
+      return {
+        badge: count(card.count, 'amber'),
+        tone: card.count > 0 ? 'amber' : undefined,
+        empty: card.count === 0 ? 'Semua penanggung jawab aset masih aktif.' : undefined,
+        body: (
+          <Rows>
+            {card.items.map((r) => (
+              <Row key={r.asset.id} to={`/aset/${r.asset.id}`}>
+                {r.asset.name}
+                {r.custodian && <Sub>{r.custodian} sudah nonaktif</Sub>}
+              </Row>
+            ))}
+          </Rows>
+        ),
+        link: { to: '/aset', label: 'Tunjuk penanggung jawab baru' },
       }
     case 'incomplete_assets':
       return {

@@ -5,11 +5,13 @@ export const HOME_CARD_KEYS = [
   'approvals_to_decide',
   'transaction_tasks',
   'my_requests',
+  'my_assets',
   'overdue_outgoing',
   'overdue_loans',
   'due_soon',
   'date_reminders',
   'incomplete_assets',
+  'inactive_custodians',
   'license',
   'invitations',
   'users',
@@ -36,11 +38,13 @@ export interface HomeCardData {
     counts: Record<'pending' | 'approved' | 'rejected' | 'cancelled', number> & Record<string, number>
     items: { id: string; summary: string; status: string; decision_note: string | null; decided_by: string | null; created_at: string | null }[]
   }
+  my_assets: { count: number; items: AssetRef[] }
   overdue_outgoing: { count: number; items: { transaction_number: string; asset: AssetRef; counterparty_name: string | null; due_date: string | null; days_late: number }[] }
   overdue_loans: { count: number; items: { asset: AssetRef; borrower_name: string | null; due_date: string | null; days_late: number }[] }
   due_soon: { days: number; count: number; items: { kind: 'loan' | 'outgoing'; asset: AssetRef; party: string | null; due_date: string | null }[] }
   date_reminders: { days: number; count: number; items: { asset: AssetRef; label: string; due_date: string }[] }
   incomplete_assets: { count: number; counts: { no_serial_number: number; missing_required_attribute: number; no_location: number } }
+  inactive_custodians: { count: number; items: { asset: AssetRef; custodian: string | null }[] }
   license: { active: boolean; expires_at: string | null; days_left: number | null; capacity: number | null; used: number; over_limit: boolean }
   invitations: { pending: number; expired: number }
   users: { days: number; new: number; deactivated: number }

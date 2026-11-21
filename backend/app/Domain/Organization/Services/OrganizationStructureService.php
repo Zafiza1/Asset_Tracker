@@ -45,6 +45,10 @@ final class OrganizationStructureService
 
     public function archiveDepartment(Department $department, ?string $reason): Department
     {
+        if ($this->usage->inUse(MasterUsage::DEPARTMENT, $department->id)) {
+            throw ApiException::conflict('DEPARTMENT_IN_USE', 'Departemen masih dipakai oleh aset aktif. Ganti departemen asetnya terlebih dahulu.');
+        }
+
         return $this->writer->archive($department, 'department.archived', $reason);
     }
 

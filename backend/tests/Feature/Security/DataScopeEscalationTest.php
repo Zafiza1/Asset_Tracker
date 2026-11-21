@@ -189,7 +189,8 @@ class DataScopeEscalationTest extends TestCase
 
     public function test_scope_without_any_location_never_allows_a_location(): void
     {
-        // Department scopes grant no assets; they must not count as "every location" either.
+        // A department scope is not "every location": an asset outside the department is refused
+        // (F-09 §3.3; department assets themselves are covered by DepartmentScopeTest).
         Notification::fake();
         $department = $this->masters['department'];
         $this->customRole('KOORDINATOR', ['user.view', 'user.create', 'role.manage', 'role.view',
@@ -197,7 +198,7 @@ class DataScopeEscalationTest extends TestCase
         $coordinator = $this->createTenantUser($this->org, ['KOORDINATOR'], [['scope_type' => 'department', 'ref_id' => $department->id]]);
         $this->loginAs($coordinator);
 
-        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id, 'location_id' => $this->gedungB->id]), 422, 'LOCATION_OUT_OF_SCOPE');
+        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id, 'location_id' => $this->gedungB->id]), 422, 'ASSET_OUT_OF_SCOPE');
         $this->assertErrorCode($this->postJson('/api/invitations', $this->invitation('calon@alpha.test', $this->scopeAt($this->gedungB))), 403, 'SCOPE_ESCALATION');
         $this->postJson('/api/invitations', $this->invitation('calon@alpha.test', [['scope_type' => 'department', 'ref_id' => $department->id]]))->assertCreated();
         $this->assertFalse(Asset::query()->where('name', 'X')->exists());

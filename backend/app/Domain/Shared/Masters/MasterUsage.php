@@ -13,5 +13,7 @@ interface MasterUsage
 
     public const LOCATION = 'location';
 
+    public const DEPARTMENT = 'department';
+
     public function inUse(string $master, string $id): bool;
 }
