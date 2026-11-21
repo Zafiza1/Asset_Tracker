@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup F-08 v0.3 · Transaction Designer dan Transaction Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  Mockup persetujuan UI (APR-0008, APR-0012) untuk docs/factory/features/F-08-transaction-builder-terpandu.md v0.2 + v0.3 (selaras F-09: departemen dan penanggung jawab).
+  Token dan komponen sama dengan mockup F-08 v0.1 (docs/design/figma-tokens.json, komponen docs/09).
+  Kontrol gelap di atas bukan bagian aplikasi: memilih layar, keadaan, dan lebar.
+-->
+<style>
+:root{
+  --brand-50:#eff6ff;--brand-100:#dbeafe;--brand-600:#2563eb;--brand-700:#1d4ed8;--brand-800:#1e40af;
+  --s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;--s300:#cbd5e1;--s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;--s900:#0f172a;
+  --g50:#f0fdf4;--g600:#16a34a;--g700:#15803d;--a50:#fffbeb;--a600:#d97706;--a800:#92400e;--r50:#fef2f2;--r600:#dc2626;--r700:#b91c1c;
+  --p50:#f5f3ff;--p600:#7c3aed;--p700:#6d28d9;
+  --shadow-card:0 1px 2px #0f172a0a,0 1px 3px #0f172a0f;--shadow-overlay:0 20px 40px -12px #0f172a40;
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 "Source Sans 3",system-ui,sans-serif;color:var(--s700);background:#e9edf2}
+h1,h2,h3{font-family:Lexend,"Source Sans 3",sans-serif;color:var(--s900);margin:0}
+h3{font-size:15px;font-weight:600}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brand-600);outline-offset:2px}
+.muted{color:var(--s500)} .xs{font-size:12px} .mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+svg.i.sm{width:14px;height:14px} svg.i.lg{width:20px;height:20px}
+.hidden{display:none!important}
+
+/* Kontrol mockup */
+.mk{position:sticky;top:0;z-index:50;background:var(--s900);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.mk b{font-family:Lexend;font-weight:500;margin-right:4px}
+.mk .grp{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.mk .grp span{font-size:12px;color:var(--s400);margin-right:4px}
+.mk button{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}
+.mk button[aria-pressed=true]{background:var(--brand-700);border-color:var(--brand-600);color:#fff}
+.note{max-width:1180px;margin:12px auto 0;padding:0 16px;font-size:13px;color:var(--s600)}
+
+/* Bingkai aplikasi */
+.stage{padding:16px;display:flex;justify-content:center}
+.frame{width:100%;max-width:1180px;background:var(--s50);border:1px solid var(--s300);border-radius:12px;overflow:hidden;container-type:inline-size;transition:max-width .2s}
+.frame.narrow{max-width:375px}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:760px}
+.side{background:#fff;border-right:1px solid var(--s200);padding:16px 12px}
+.logo{display:flex;gap:8px;align-items:center;font-family:Lexend;font-weight:600;color:var(--s900);padding:4px 8px 16px}
+.logo i{width:28px;height:28px;border-radius:8px;background:var(--brand-700);display:inline-block}
+.nav a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:var(--s600);text-decoration:none;margin-bottom:2px}
+.nav a.on{background:var(--brand-50);color:var(--brand-700);font-weight:600;box-shadow:inset 3px 0 0 var(--brand-700)}
+.nav .sec{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--s400);padding:12px 10px 4px}
+.nav .cnt{margin-left:auto;background:var(--r600);color:#fff;border-radius:9999px;font-size:11px;padding:0 6px;font-weight:700}
+.main{min-width:0}
+.top{height:56px;background:#fff;border-bottom:1px solid var(--s200);display:flex;align-items:center;gap:12px;padding:0 20px}
+.burger{display:none}
+.avatar{margin-left:auto;width:32px;height:32px;border-radius:50%;background:var(--brand-100);color:var(--brand-700);display:grid;place-items:center;font-weight:600}
+.content{padding:24px}
+
+/* Komponen */
+.ph{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.ph h1{font-size:24px;font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ph p{margin:4px 0 0;color:var(--s500)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;border-radius:8px;border:1px solid transparent;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn.sm{min-height:32px;padding:0 10px;font-size:13px}
+.btn.primary{background:var(--brand-700);color:#fff}
+.btn.secondary{background:#fff;border-color:var(--s300);color:var(--s700)}
+.btn.ghost{background:transparent;color:var(--s600)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.card{background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-card)}
+.card-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--s200)}
+.pad{padding:16px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:9999px;padding:1px 8px 1px 6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge.green{background:var(--g50);color:var(--g700);box-shadow:inset 0 0 0 1px #15803d40}
+.badge.amber{background:var(--a50);color:var(--a800);box-shadow:inset 0 0 0 1px #92400e40}
+.badge.red{background:var(--r50);color:var(--r700);box-shadow:inset 0 0 0 1px #b91c1c40}
+.badge.slate{background:var(--s100);color:var(--s700);box-shadow:inset 0 0 0 1px #33415540}
+.badge.blue{background:var(--brand-50);color:var(--brand-700);box-shadow:inset 0 0 0 1px #1d4ed840}
+.badge.purple{background:var(--p50);color:var(--p700);box-shadow:inset 0 0 0 1px #6d28d940}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{border:1px solid var(--s200);background:#fff;border-radius:9999px;padding:4px 12px;font-size:13px;cursor:pointer;color:var(--s600)}
+.pill[aria-selected=true]{background:var(--brand-50);border-color:var(--brand-600);color:var(--brand-700);font-weight:600}
+.pill .n{margin-left:4px;color:var(--s400);font-weight:500}
+.input,.select{height:40px;border:1px solid var(--s300);border-radius:8px;background:#fff;padding:0 10px;min-width:0;width:100%}
+.input.err,.select.err{border-color:var(--r600);box-shadow:0 0 0 1px var(--r600)}
+textarea.input{height:auto;padding:8px 10px;min-height:64px;resize:vertical}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-weight:600;color:var(--s700);font-size:13px}
+.field .req{color:var(--r600)}
+.field .hint{font-size:12px;color:var(--s500)}
+.field .msg{font-size:12px;color:var(--r700)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.alert{display:flex;gap:10px;border-radius:8px;padding:10px 12px;border:1px solid}
+.alert.red{background:var(--r50);border-color:#fecaca;color:var(--r700)}
+.alert.amber{background:var(--a50);border-color:#fde68a;color:var(--a800)}
+.alert.blue{background:var(--brand-50);border-color:var(--brand-100);color:var(--brand-800)}
+.alert.green{background:var(--g50);border-color:#bbf7d0;color:var(--g700)}
+.alert p{margin:2px 0 0}
+.link{color:var(--brand-700);background:none;border:0;padding:0;cursor:pointer;font-weight:600;font-size:13px}
+.seg{display:inline-flex;border:1px solid var(--s300);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:8px 14px;cursor:pointer;min-height:40px}
+.seg button+button{border-left:1px solid var(--s300)}
+.seg button[aria-pressed=true]{background:var(--brand-50);color:var(--brand-700);font-weight:600}
+.typeic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--brand-50);color:var(--brand-700);flex:none}
+.typeic.slate{background:var(--s100);color:var(--s600)} .typeic.amber{background:var(--a50);color:var(--a800)} .typeic.green{background:var(--g50);color:var(--g700)} .typeic.purple{background:var(--p50);color:var(--p700)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;font-weight:600;color:var(--s600);background:var(--s50);padding:10px 12px;border-bottom:1px solid var(--s200);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--s100);vertical-align:top}
+tr.off td{color:var(--s400)}
+td .badge{white-space:normal;text-align:left;border-radius:8px}
+.rtable td:nth-child(2){width:30%} .rtable td:nth-child(3){width:30%}
+.grip{color:var(--s400);cursor:grab}
+.toggle{width:36px;height:20px;border-radius:9999px;background:var(--s300);position:relative;border:0;cursor:pointer;flex:none}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+.toggle[aria-checked=true]{background:var(--g600)} .toggle[aria-checked=true]::after{left:18px}
+.empty{text-align:center;padding:40px 16px}
+.empty .ic{width:48px;height:48px;border-radius:12px;background:var(--s100);display:grid;place-items:center;margin:0 auto 12px;color:var(--s500)}
+.empty p{margin:4px auto 16px;max-width:380px;color:var(--s500)}
+
+/* Wizard dan tab Designer */
+.wiz{display:flex;gap:4px;list-style:none;margin:0 0 16px;padding:0;overflow-x:auto}
+.wiz li{flex:1;min-width:120px;display:flex;gap:8px;align-items:center;padding:10px 12px;border-radius:8px;background:#fff;border:1px solid var(--s200);font-size:13px;color:var(--s500);cursor:pointer}
+.wiz li i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--s100);display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+.wiz li.done{color:var(--s700)} .wiz li.done i{background:var(--g50);color:var(--g700)}
+.wiz li.now{border-color:var(--brand-600);color:var(--brand-700);font-weight:600;box-shadow:0 0 0 1px var(--brand-600)} .wiz li.now i{background:var(--brand-700);color:#fff}
+.wiz li.warn i{background:var(--a50);color:var(--a800)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--s200);margin-bottom:16px;overflow-x:auto}
+.tab{border:0;background:none;padding:10px 14px;cursor:pointer;color:var(--s600);font-weight:600;border-bottom:2px solid transparent;white-space:nowrap;display:flex;gap:6px;align-items:center}
+.tab[aria-selected=true]{color:var(--brand-700);border-bottom-color:var(--brand-700)}
+.tab .n{background:var(--r50);color:var(--r700);border-radius:9999px;font-size:11px;padding:0 6px}
+.split{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+.preview{position:sticky;top:72px}
+.pv-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--s500);margin-bottom:8px}
+.pv-form{border:1px dashed var(--s300);border-radius:10px;padding:12px;background:var(--s50);display:flex;flex-direction:column;gap:10px}
+.pv-form .fake{height:32px;border:1px solid var(--s200);border-radius:6px;background:#fff}
+.hl{outline:2px solid var(--brand-600);outline-offset:3px;border-radius:6px}
+.wfoot{display:flex;justify-content:space-between;gap:8px;margin-top:16px;flex-wrap:wrap}
+
+/* Galeri */
+.tpls{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tpl{background:#fff;border:1px solid var(--s200);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.tpl header{display:flex;gap:10px}
+.tpl p{margin:2px 0 0;color:var(--s500);font-size:13px}
+.tpl .meta{display:flex;gap:6px;flex-wrap:wrap}
+.tpl footer{display:flex;gap:8px;margin-top:auto}
+.tpl.custom{border-style:dashed;background:var(--s50)}
+.tpl.sel{border-color:var(--brand-600);box-shadow:0 0 0 1px var(--brand-600)}
+
+/* Builder rule (JIKA … MAKA …) */
+.rule{border:1px solid var(--s200);border-radius:12px;background:#fff}
+.rule .kw{font-family:Lexend;font-weight:600;font-size:12px;letter-spacing:.06em;color:var(--brand-700);width:52px;flex:none;padding-top:10px}
+.rule .kw.then{color:var(--p700)}
+.cond{display:grid;grid-template-columns:1.2fr 1fr 1fr 32px;gap:8px;align-items:center}
+.sentence{background:var(--s50);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--s700)}
+.sentence b{color:var(--s900)}
+
+/* Tahapan */
+.stages{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.stages li{display:grid;grid-template-columns:24px 32px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--s100)}
+.sdot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--s100);color:var(--s600)}
+.sdot.fix{background:var(--brand-50);color:var(--brand-700)} .sdot.appr{background:var(--brand-50);color:var(--brand-700)} .sdot.act{background:var(--p50);color:var(--p700)} .sdot.end{background:var(--g50);color:var(--g700)}
+.stepper{display:flex;gap:0;list-style:none;margin:0;padding:0;overflow-x:auto}
+.stepper li{flex:1;min-width:110px;position:relative;padding-top:34px;text-align:center;font-size:12px;color:var(--s500)}
+.stepper li::before{content:"";position:absolute;top:13px;left:0;right:0;height:2px;background:var(--s200)}
+.stepper li:first-child::before{left:50%} .stepper li:last-child::before{right:50%}
+.stepper li span{position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:28px;border-radius:50%;background:#fff;border:2px solid var(--s300);display:grid;place-items:center}
+.stepper li.done span{background:var(--g600);border-color:var(--g600);color:#fff}
+.stepper li.done::before{background:var(--g600)}
+.stepper li.now span{border-color:var(--a600);background:var(--a50);color:var(--a800)}
+.stepper li.now{color:var(--s900);font-weight:600}
+.stepper b{display:block;color:inherit}
+
+/* Transaction Center */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tcard{background:#fff;border:1px solid var(--s200);border-radius:12px;padding:14px;display:flex;gap:12px;cursor:pointer;text-align:left}
+.tcard:hover{border-color:var(--brand-600)}
+.tcard p{margin:2px 0 6px;color:var(--s500);font-size:13px}
+.grp-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--s500);margin:16px 0 8px}
+.task{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--s100)}
+.task:last-child{border-bottom:0}
+.sim{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.res li{display:flex;gap:8px;padding:6px 0}
+.res{list-style:none;margin:0;padding:0}
+.ok{color:var(--g600)} .warn{color:var(--a600)} .bad{color:var(--r600)}
+
+.mob-only{display:none}
+@container (max-width: 640px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .burger{display:grid}
+  .content{padding:16px}
+  .grid2,.split,.sim{grid-template-columns:1fr}
+  .tpls,.cards{grid-template-columns:1fr}
+  .preview{position:static}
+  .desk-only{display:none!important}
+  .mob-only{display:flex}
+  .ph .btn{width:100%}
+  .cond{grid-template-columns:1fr}
+  .hm{display:none}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24"><path d="M7 11V5a2 2 0 0 1 4 0v5M11 10V4a2 2 0 0 1 4 0v6M15 10V6a2 2 0 0 1 4 0v8a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3l-2-4a2 2 0 0 1 3-2l1 2"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><path d="M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-flow" viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M6 9v3a3 3 0 0 0 3 3h6"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></symbol>
+</svg>
+
+<div class="mk" role="toolbar" aria-label="Kontrol mockup">
+  <b>F-08 v0.2</b>
+  <div class="grp"><span>Designer</span>
+    <button data-view="gallery" aria-pressed="true">Galeri</button>
+    <button data-view="w1">1 Informasi</button><button data-view="w2">2 Formulir</button><button data-view="w3">3 Alur</button>
+    <button data-view="w4">4 Persetujuan</button><button data-view="w5">5 Aksi</button><button data-view="w6">6 Tinjau</button>
+    <button data-view="rules">Tab Rules</button>
+  </div>
+  <div class="grp"><span>Center</span>
+    <button data-view="center">Buat transaksi</button><button data-view="cform">Formulir</button><button data-view="tasks">Perlu tindakan</button><button data-view="cdetail">Tahapan</button>
+  </div>
+  <div class="grp"><span>Keadaan</span>
+    <button data-state="normal" aria-pressed="true">Isi</button><button data-state="invalid">Error</button><button data-state="conflict">Konflik rule</button><button data-state="empty">Kosong</button>
+  </div>
+  <div class="grp"><span>Lebar</span><button data-width="wide" aria-pressed="true">Desktop</button><button data-width="narrow">375px</button></div>
+</div>
+<p class="note">Designer (administrator, web ≥ 768px) memakai mesin alur F-07b tanpa perubahan: rule bernama diterjemahkan ke langkah alur saat terbit (D-46). Transaction Center (pengguna) berfungsi penuh di ponsel. Contoh data: organisasi ALPHA, template <b>Peminjaman Aset</b>.</p>
+
+<div class="stage"><div class="frame" id="frame">
+<div class="app">
+  <aside class="side">
+    <div class="logo"><i></i>Asset Tracker</div>
+    <nav class="nav">
+      <a href="#"><svg class="i"><use href="#i-box"/></svg>Aset</a>
+      <a href="#" data-nav="center"><svg class="i"><use href="#i-swap"/></svg>Transaksi<span class="cnt">2</span></a>
+      <div class="sec">Pengaturan</div>
+      <a href="#" data-nav="designer"><svg class="i"><use href="#i-flow"/></svg>Jenis Transaksi</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="top"><button class="btn ghost sm burger" aria-label="Menu"><svg class="i"><use href="#i-menu"/></svg></button><span class="muted xs">ALPHA · Gudang Pusat</span><div class="avatar">SA</div></div>
+    <div class="content">
+
+<!-- ======================= DESIGNER: GALERI ======================= -->
+<section data-screen="gallery">
+  <div class="ph"><div><h1>Buat transaksi baru</h1><p>Pilih jenis transaksi yang paling mirip kebutuhan Anda. Semua isian dapat diubah sebelum diterbitkan.</p></div>
+    <div class="row"><button class="btn secondary">Salin jenis yang ada</button></div></div>
+  <div class="pills" role="tablist" aria-label="Kategori template" style="margin-bottom:12px">
+    <button class="pill" role="tab" aria-selected="true">Semua <span class="n">13</span></button><button class="pill" role="tab">Perpindahan <span class="n">3</span></button><button class="pill" role="tab">Peminjaman <span class="n">2</span></button><button class="pill" role="tab">Perawatan <span class="n">3</span></button><button class="pill" role="tab">Penghapusan <span class="n">1</span></button><button class="pill" role="tab">Jenis sistem <span class="n">7</span></button>
+  </div>
+  <div class="tpls">
+    <article class="tpl"><header><span class="typeic"><svg class="i lg"><use href="#i-swap"/></svg></span><div><h3>Pemindahan Aset</h3><p>Pindahkan aset ke lokasi atau pengguna lain dengan persetujuan.</p></div></header>
+      <div class="meta"><span class="badge slate">4 field</span><span class="badge blue">2 rule</span><span class="badge slate">5 tahapan</span></div>
+      <footer><button class="btn ghost sm">Lihat cara kerja</button><button class="btn secondary sm" data-go="w1">Pakai template</button></footer></article>
+    <article class="tpl sel"><header><span class="typeic green"><svg class="i lg"><use href="#i-hand"/></svg></span><div><h3>Peminjaman Aset</h3><p>Kelola peminjaman dan pengembalian aset ke karyawan.</p></div></header>
+      <div class="meta"><span class="badge slate">3 field</span><span class="badge blue">2 rule</span><span class="badge slate">4 tahapan</span></div>
+      <footer><button class="btn ghost sm">Lihat cara kerja</button><button class="btn primary sm" data-go="w1">Pakai template</button></footer></article>
+    <article class="tpl"><header><span class="typeic amber"><svg class="i lg"><use href="#i-wrench"/></svg></span><div><h3>Perbaikan Aset</h3><p>Catat aset rusak dan kirim ke vendor perbaikan.</p></div></header>
+      <div class="meta"><span class="badge slate">3 field</span><span class="badge blue">1 rule</span><span class="badge slate">4 tahapan</span></div>
+      <footer><button class="btn ghost sm">Lihat cara kerja</button><button class="btn secondary sm" data-go="w1">Pakai template</button></footer></article>
+    <article class="tpl"><header><span class="typeic slate"><svg class="i lg"><use href="#i-shield"/></svg></span><div><h3>Peminjaman <span class="badge slate"><svg class="i sm"><use href="#i-lock"/></svg>Jenis sistem</span></h3><p>Perilaku bawaan aplikasi; aturan inti tetap.</p></div></header>
+      <div class="meta"><span class="badge slate">2 field bawaan</span><span class="badge slate">Langsung tercatat</span></div>
+      <p class="xs muted" style="margin:0">Ubah langsung untuk menambah field atau persetujuan, atau salin sebagai jenis baru. Aksi inti (mis. aset dipinjam tidak dapat dipindah) selalu ikut.</p>
+      <footer><button class="btn ghost sm">Ubah jenis sistem</button><button class="btn secondary sm" data-go="w1">Salin sebagai jenis baru</button></footer></article>
+    <article class="tpl"><header><span class="typeic slate"><svg class="i lg"><use href="#i-trash"/></svg></span><div><h3>Penghapusan Aset</h3><p>Usulan penghapusan dengan dua tingkat persetujuan.</p></div></header>
+      <div class="meta"><span class="badge slate">3 field</span><span class="badge blue">1 rule</span><span class="badge slate">5 tahapan</span></div>
+      <footer><button class="btn ghost sm">Lihat cara kerja</button><button class="btn secondary sm" data-go="w1">Pakai template</button></footer></article>
+    <article class="tpl custom"><header><span class="typeic purple"><svg class="i lg"><use href="#i-plus"/></svg></span><div><h3>Transaksi custom</h3><p>Buat transaksi sesuai proses bisnis Anda. Wizard tetap memandu setiap langkah.</p></div></header>
+      <footer><button class="btn secondary sm" data-go="w1">Mulai dari kosong</button></footer></article>
+  </div>
+</section>
+
+<!-- ======================= DESIGNER: WIZARD ======================= -->
+<div data-screen="w1 w2 w3 w4 w5 w6">
+  <div class="ph"><div><h1>Peminjaman Aset Proyek <span class="badge slate">Draft</span></h1><p>Dari template <b>Peminjaman Aset</b> · tersimpan otomatis sebagai draft 1 menit lalu</p></div>
+    <div class="row desk-only"><button class="btn ghost">Keluar, lanjutkan nanti</button></div></div>
+  <ol class="wiz desk-only" aria-label="Langkah">
+    <li data-go="w1" data-step="w1"><i>1</i>Informasi</li><li data-go="w2" data-step="w2"><i>2</i>Formulir</li><li data-go="w3" data-step="w3"><i>3</i>Alur</li>
+    <li data-go="w4" data-step="w4"><i>4</i>Persetujuan</li><li data-go="w5" data-step="w5"><i>5</i>Aksi</li><li data-go="w6" data-step="w6"><i>6</i>Tinjau</li>
+  </ol>
+  <div class="mob-only alert blue" style="margin-bottom:12px"><svg class="i"><use href="#i-alert"/></svg><div><b>Designer hanya di layar lebar</b><p>Di ponsel Anda dapat melihat <i>Cara kerja</i> jenis ini. Menyusun transaksi dilakukan di web pada layar ≥ 768px.</p></div></div>
+
+  <div class="split desk-only">
+    <div class="stack">
+      <!-- 1 Informasi -->
+      <section class="card" data-screen="w1">
+        <div class="card-h"><h3>Informasi transaksi</h3><span class="xs muted">Langkah 1 dari 6</span></div>
+        <div class="pad stack">
+          <div class="grid2">
+            <div class="field"><label>Nama transaksi <span class="req">*</span></label><input class="input" value="Peminjaman Aset Proyek"></div>
+            <div class="field"><label>Kode / prefix nomor <span class="req">*</span></label><input class="input mono" value="PJP"><span class="hint">Diusulkan dari nama. Nomor transaksi: PJP-2026-000001</span></div>
+          </div>
+          <div class="field"><label>Deskripsi</label><textarea class="input">Peminjaman laptop dan peralatan ke anggota tim proyek, dengan rencana tanggal kembali.</textarea><span class="hint">Tampil di kartu Transaction Center dan di <i>Cara kerja</i>.</span></div>
+          <div class="grid2">
+            <div class="field"><label>Ikon</label><div class="row"><span class="typeic green"><svg class="i"><use href="#i-hand"/></svg></span><span class="typeic"><svg class="i"><use href="#i-swap"/></svg></span><span class="typeic amber"><svg class="i"><use href="#i-wrench"/></svg></span><button class="link">Pilih lainnya</button></div></div>
+            <div class="field"><label>Berlaku untuk kategori aset</label><div class="row"><span class="badge blue">Elektronik</span><span class="badge blue">Peralatan</span><button class="link">Ubah</button></div><span class="hint">Termasuk subkategori. Kosong: semua kategori.</span></div>
+          </div>
+          <div class="field"><label>Jumlah aset per transaksi</label><div class="seg"><button>Satu aset</button><button aria-pressed="true">Banyak aset</button></div></div>
+        </div>
+      </section>
+
+      <!-- 2 Formulir -->
+      <section class="card" data-screen="w2">
+        <div class="card-h"><h3>Formulir transaksi</h3><button class="btn secondary sm"><svg class="i sm"><use href="#i-plus"/></svg>Tambah field</button></div>
+        <table>
+          <thead><tr><th></th><th>Label</th><th>Tipe</th><th>Wajib</th><th class="hm">Petunjuk untuk pengisi</th><th></th></tr></thead>
+          <tbody>
+            <tr><td class="grip"><svg class="i"><use href="#i-lock"/></svg></td><td><b>Aset</b><div class="xs muted">bawaan</div></td><td>Pilih aset</td><td><span class="badge slate">Wajib</span></td><td class="hm xs muted">Pilih satu atau beberapa aset berstatus Aktif.</td><td></td></tr>
+            <tr><td class="grip"><svg class="i"><use href="#i-grip"/></svg></td><td><b>Pemegang</b></td><td>Pengguna</td><td><input type="checkbox" checked aria-label="Wajib"></td><td class="hm"><input class="input" value="Anggota tim yang memakai aset."></td><td><button class="btn ghost sm" aria-label="Hapus"><svg class="i"><use href="#i-x"/></svg></button></td></tr>
+            <tr class="hl-row"><td class="grip"><svg class="i"><use href="#i-grip"/></svg></td><td><b>Rencana kembali</b></td><td>Tanggal</td><td><input type="checkbox" checked aria-label="Wajib"></td><td class="hm"><input class="input" value="Paling lama 30 hari dari hari ini."></td><td><button class="btn ghost sm" aria-label="Hapus"><svg class="i"><use href="#i-x"/></svg></button></td></tr>
+            <tr><td class="grip"><svg class="i"><use href="#i-grip"/></svg></td><td><b>Nama proyek</b></td><td>Teks pendek</td><td><input type="checkbox" aria-label="Wajib"></td><td class="hm"><input class="input" placeholder="Tanpa petunjuk"></td><td><button class="btn ghost sm" aria-label="Hapus"><svg class="i"><use href="#i-x"/></svg></button></td></tr>
+          </tbody>
+        </table>
+        <div class="pad xs muted">Validasi per tipe (panjang teks, rentang tanggal, ukuran lampiran) ada di <button class="link">Pengaturan lanjutan</button> setiap field.</div>
+      </section>
+
+      <!-- 3 Alur / tahapan -->
+      <section class="card" data-screen="w3">
+        <div class="card-h"><h3>Alur transaksi</h3><div class="row"><button class="btn ghost sm"><svg class="i sm"><use href="#i-flow"/></svg>Mode lanjutan (kanvas)</button></div></div>
+        <div class="pad stack">
+          <div class="field"><label>Siapa yang boleh mencatat?</label><div class="row"><span class="badge blue">Semua yang berizin meminjamkan aset</span><button class="link">Batasi ke role tertentu</button></div></div>
+          <div><p class="xs muted" style="margin:0 0 6px">Tahapan yang dilihat pengguna, dari awal sampai akhir. Nama tahapan dapat diubah.</p>
+          <ol class="stages">
+            <li><span></span><span class="sdot fix">1</span><div><b>Diajukan</b><div class="xs muted">Tetap · saat pencatat mengirim formulir</div></div><svg class="i sm muted"><use href="#i-lock"/></svg></li>
+            <li><span class="grip"><svg class="i"><use href="#i-grip"/></svg></span><span class="sdot appr">2</span><div><input class="input" value="Menunggu persetujuan" style="height:32px"><div class="xs muted">Dari langkah 4 · Persetujuan Supervisor lokasi</div></div><button class="link">Atur</button></li>
+            <li><span class="grip"><svg class="i"><use href="#i-grip"/></svg></span><span class="sdot act">3</span><div><input class="input" value="Diserahkan" style="height:32px"><div class="xs muted">Dari langkah 5 · status aset menjadi Dipinjamkan</div></div><button class="link">Atur</button></li>
+            <li><span class="grip"><svg class="i"><use href="#i-grip"/></svg></span><span class="sdot">4</span><div><input class="input" value="Menunggu pengembalian" style="height:32px"><div class="xs muted">Tunggu transaksi <i>Pengembalian</i> untuk setiap aset</div></div><button class="btn ghost sm" aria-label="Hapus tahapan"><svg class="i"><use href="#i-x"/></svg></button></li>
+            <li><span></span><span class="sdot end"><svg class="i sm"><use href="#i-check"/></svg></span><div><b>Selesai</b> · <b>Ditolak</b><div class="xs muted">Tetap · akhir transaksi</div></div><svg class="i sm muted"><use href="#i-lock"/></svg></li>
+          </ol></div>
+          <div class="row"><button class="btn secondary sm"><svg class="i sm"><use href="#i-plus"/></svg>Tambah tahapan isi data</button><span class="xs muted">mis. <i>Serah terima</i>: Supervisor mengisi foto dan No. BAST</span></div>
+        </div>
+      </section>
+
+      <!-- 4 Persetujuan -->
+      <section class="card" data-screen="w4">
+        <div class="card-h"><h3>Persetujuan</h3><span class="xs muted">Langkah 4 dari 6</span></div>
+        <div class="pad stack">
+          <div class="field"><label>Apakah transaksi ini perlu persetujuan?</label><div class="seg"><button>Tidak perlu</button><button aria-pressed="true">Selalu</button><button>Hanya bila ada rule</button></div></div>
+          <div class="grid2">
+            <div class="field"><label>Disetujui oleh</label><select class="select"><option>Supervisor yang membawahi aset (lokasi atau departemennya)</option><option>Role Super Admin</option><option>Penanggung jawab aset</option><option>Supervisor departemen penerima</option></select><span class="hint">Penanggung jawab menyetujui hanya asetnya sendiri. Bila aset belum punya penanggung jawab, tugas jatuh ke Supervisor yang membawahi aset.</span></div>
+            <div class="field"><label>Minimal penyetuju</label><select class="select"><option>1 orang</option><option>2 orang</option></select></div>
+          </div>
+          <h3 style="margin-top:4px">Rule persetujuan</h3>
+          <div class="rule pad stack">
+            <div class="row" style="justify-content:space-between"><div><b>Approval aset bernilai tinggi</b> <span class="badge green">Aktif</span><div class="xs muted">Aset mahal perlu disetujui Super Admin juga.</div></div><span class="xs muted">Prioritas 1</span></div>
+            <div class="row" style="align-items:flex-start;flex-wrap:nowrap"><span class="kw">JIKA</span>
+              <div class="cond" style="flex:1"><select class="select"><option>Nilai perolehan</option><option>Status aset</option><option>Kondisi aset</option><option>Kategori aset</option><option>Lokasi aset</option><option>Departemen aset</option><option>Penanggung jawab aset</option><option>Pencatat adalah penanggung jawab</option><option>Lintas departemen (penerima)</option><option>Role pencatat</option></select><select class="select"><option>lebih dari</option></select><input class="input" value="Rp 10.000.000"><button class="btn ghost sm" aria-label="Hapus syarat"><svg class="i"><use href="#i-x"/></svg></button></div></div>
+            <div class="row" style="align-items:flex-start;flex-wrap:nowrap"><span class="kw then">MAKA</span>
+              <div class="cond" style="flex:1;grid-template-columns:1fr 1fr"><select class="select"><option>Perlu persetujuan</option><option>Tolak transaksi</option><option>Lewati persetujuan</option></select><select class="select"><option>Role Super Admin</option></select></div></div>
+            <p class="sentence" style="margin:0">Bila <b>nilai perolehan lebih dari Rp 10.000.000</b>, transaksi <b>perlu disetujui Super Admin</b> setelah disetujui Supervisor lokasi.</p>
+          </div>
+          <button class="btn secondary sm" style="align-self:flex-start"><svg class="i sm"><use href="#i-plus"/></svg>Tambah rule persetujuan</button>
+        </div>
+      </section>
+
+      <!-- 5 Aksi -->
+      <section class="card" data-screen="w5">
+        <div class="card-h"><h3>Apa yang terjadi pada aset?</h3><span class="xs muted">Langkah 5 dari 6</span></div>
+        <div class="pad stack">
+          <div class="seg"><button>Tidak mengubah aset</button><button aria-pressed="true">Mengubah aset</button></div>
+          <div class="rule pad row" style="justify-content:space-between"><div class="row"><span class="typeic green"><svg class="i"><use href="#i-hand"/></svg></span><div><b>Pinjamkan ke pemegang</b><div class="xs muted">Pemegang dari field <i>Pemegang</i>, tanggal kembali dari <i>Rencana kembali</i> · status aset menjadi Dipinjamkan</div></div></div><span class="badge purple">Tahapan: Diserahkan</span></div>
+          <div class="rule pad row" style="justify-content:space-between"><div class="row"><span class="typeic"><svg class="i"><use href="#i-inbox"/></svg></span><div><b>Kirim email ke pemegang</b><div class="xs muted">"Aset {aset} dipinjamkan kepada Anda sampai {rencana kembali}."</div></div></div><button class="btn ghost sm" aria-label="Hapus aksi"><svg class="i"><use href="#i-x"/></svg></button></div>
+          <div class="row"><button class="btn secondary sm"><svg class="i sm"><use href="#i-plus"/></svg>Tambah aksi</button><span class="xs muted">Hanya aksi yang field-nya ada: <i>Pindah lokasi</i> butuh field Lokasi · <button class="link">Tambah field Lokasi</button></span></div>
+          <div class="alert blue"><svg class="i"><use href="#i-shield"/></svg><div><b>Riwayat aset selalu tercatat</b><p>Setiap perubahan memakai nomor transaksi ini. Aturan inti tetap berlaku: aset yang dipinjam, di luar organisasi, atau nonaktif tidak dapat ditransaksikan sembarangan.</p></div></div>
+        </div>
+      </section>
+
+      <!-- 6 Tinjau -->
+      <section class="stack" data-screen="w6">
+        <div class="alert amber" data-state-show="invalid"><svg class="i"><use href="#i-alert"/></svg><div><b>2 hal perlu dilengkapi sebelum terbit</b><p>Langkah 2: field <i>Rencana kembali</i> wajib tetapi belum diberi batas tanggal. · Langkah 4: rule <i>Approval aset bernilai tinggi</i> memakai role Super Admin yang tidak memiliki anggota aktif.</p></div></div>
+        <div class="card"><div class="card-h"><h3>Ringkasan</h3><span class="badge green" data-state-hide="invalid"><svg class="i sm"><use href="#i-check"/></svg>Siap diterbitkan</span></div>
+          <div class="pad"><table>
+            <tr><td class="muted">Informasi</td><td>Peminjaman Aset Proyek · PJP · Elektronik, Peralatan · banyak aset</td><td><button class="link" data-go="w1">Ubah</button></td></tr>
+            <tr><td class="muted">Formulir</td><td>Aset, Pemegang*, Rencana kembali*, Nama proyek</td><td><button class="link" data-go="w2">Ubah</button></td></tr>
+            <tr><td class="muted">Tahapan</td><td>Diajukan → Menunggu persetujuan → Diserahkan → Menunggu pengembalian → Selesai</td><td><button class="link" data-go="w3">Ubah</button></td></tr>
+            <tr><td class="muted">Persetujuan</td><td>Supervisor lokasi · rule: <i>Approval aset bernilai tinggi</i> (Super Admin bila &gt; Rp 10 jt)</td><td><button class="link" data-go="w4">Ubah</button></td></tr>
+            <tr><td class="muted">Aksi</td><td>Pinjamkan ke pemegang · email ke pemegang</td><td><button class="link" data-go="w5">Ubah</button></td></tr>
+          </table></div></div>
+        <div class="card"><div class="card-h"><h3>Simulasikan transaksi</h3><button class="btn secondary sm"><svg class="i sm"><use href="#i-play"/></svg>Jalankan semua skenario (4)</button></div>
+          <div class="pad sim">
+            <div class="stack">
+              <div class="field"><label>Nilai aset contoh</label><input class="input" value="Rp 15.000.000"></div>
+              <div class="field"><label>Status aset</label><select class="select"><option>Aktif</option></select></div>
+              <div class="field"><label>Keputusan Supervisor</label><div class="seg"><button aria-pressed="true">Disetujui</button><button>Ditolak</button></div></div>
+              <button class="btn primary sm" style="align-self:flex-start"><svg class="i sm"><use href="#i-play"/></svg>Simulasikan</button>
+            </div>
+            <div><p class="pv-h">Hasil simulasi</p><ul class="res">
+              <li><svg class="i ok"><use href="#i-check"/></svg>Formulir valid</li>
+              <li><svg class="i ok"><use href="#i-check"/></svg>Aset dapat dipinjamkan (status Aktif)</li>
+              <li><svg class="i warn"><use href="#i-alert"/></svg>Rule <b>Approval aset bernilai tinggi</b> berlaku: perlu persetujuan Super Admin</li>
+              <li><svg class="i ok"><use href="#i-arrow"/></svg>Tahapan: Diajukan → Menunggu persetujuan (Supervisor, Super Admin) → Diserahkan → Menunggu pengembalian</li>
+              <li><svg class="i ok"><use href="#i-check"/></svg>Aset: Aktif → <b>Dipinjamkan</b>, pemegang Budi</li>
+            </ul></div>
+          </div></div>
+        <div class="card"><div class="card-h"><h3>Cara kerja transaksi ini</h3><span class="xs muted">Dibuat otomatis dari konfigurasi</span></div>
+          <div class="pad"><ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+            <li>Pencatat memilih aset Elektronik atau Peralatan berstatus Aktif, lalu mengisi Pemegang dan Rencana kembali.</li>
+            <li>Supervisor yang cakupannya meliputi lokasi aset menyetujui. Bila nilai perolehan lebih dari Rp 10.000.000, Super Admin juga menyetujui.</li>
+            <li>Setelah disetujui, aset dipinjamkan ke pemegang dan pemegang mendapat email.</li>
+            <li>Transaksi selesai saat setiap aset dicatat <i>Pengembalian</i>.</li>
+          </ol></div></div>
+      </section>
+
+      <div class="wfoot">
+        <button class="btn secondary" data-prev>Kembali</button>
+        <div class="row"><span class="xs muted" data-state-show="invalid" style="color:var(--r700)">Lengkapi 2 isian di atas</span>
+          <button class="btn primary" data-next>Lanjut</button><button class="btn primary hidden" data-publish>Terbitkan v1</button></div>
+      </div>
+    </div>
+
+    <!-- Pratinjau -->
+    <aside class="preview stack">
+      <div class="card pad"><p class="pv-h">Pratinjau formulir</p>
+        <div class="pv-form"><b style="color:var(--s900)">Peminjaman Aset Proyek</b>
+          <div class="xs muted">Perlu persetujuan Supervisor sebelum aset diserahkan.</div>
+          <div><div class="xs"><b>Aset</b> *</div><div class="fake"></div></div>
+          <div><div class="xs"><b>Pemegang</b> *</div><div class="fake"></div><div class="xs muted">Anggota tim yang memakai aset.</div></div>
+          <div class="hl"><div class="xs"><b>Rencana kembali</b> *</div><div class="fake"></div><div class="xs muted">Paling lama 30 hari dari hari ini.</div></div>
+          <div><div class="xs"><b>Nama proyek</b></div><div class="fake"></div></div>
+        </div></div>
+      <div class="card pad"><p class="pv-h">Rule yang berlaku <span class="badge blue">2</span></p>
+        <ul class="res xs">
+          <li><svg class="i sm bad"><use href="#i-x"/></svg><span><b>Larangan meminjam aset rusak</b> · tolak bila kondisi Rusak Berat</span></li>
+          <li><svg class="i sm warn"><use href="#i-shield"/></svg><span><b>Approval aset bernilai tinggi</b> · Super Admin bila &gt; Rp 10 jt</span></li>
+        </ul><button class="link" data-go="rules">Kelola rules</button></div>
+      <div class="card pad"><p class="pv-h">Tahapan</p><p class="xs" style="margin:0">Diajukan → Menunggu persetujuan → Diserahkan → Menunggu pengembalian → Selesai</p></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ======================= DESIGNER: TAB RULES ======================= -->
+<section data-screen="rules">
+  <div class="ph"><div><h1>Peminjaman Aset Proyek <span class="badge green">Terbit v2</span><span class="badge amber">Perubahan belum terbit</span></h1><p>Jenis organisasi · PJP · dipakai 18 transaksi</p></div>
+    <div class="row desk-only"><button class="btn secondary"><svg class="i sm"><use href="#i-play"/></svg>Simulasi</button><button class="btn primary">Terbitkan v3</button></div></div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab"><svg class="i sm"><use href="#i-doc"/></svg>Ringkasan</button><button class="tab" role="tab">Formulir</button><button class="tab" role="tab">Alur</button>
+    <button class="tab" role="tab" aria-selected="true">Rules <span class="n" data-state-show="conflict">1</span></button><button class="tab" role="tab">Aksi</button><button class="tab" role="tab">Simulasi</button>
+  </div>
+  <div class="mob-only alert blue" style="margin-bottom:12px"><svg class="i"><use href="#i-alert"/></svg><div><b>Rules diubah di layar lebar</b><p>Di ponsel, tab <i>Ringkasan</i> menampilkan rule yang berlaku sebagai kalimat (hanya dilihat).</p></div></div>
+  <div class="alert amber" data-state-show="conflict" style="margin-bottom:12px"><svg class="i"><use href="#i-alert"/></svg><div><b>Dua rule bertentangan</b><p><i>Larangan meminjam aset rusak</i> (Tolak) dan <i>Izin darurat lapangan</i> (Lewati persetujuan) memakai syarat yang sama. Rule berprioritas lebih tinggi yang berlaku: <b>Larangan meminjam aset rusak</b>.</p></div></div>
+  <div class="split desk-only">
+    <div class="card">
+      <div class="card-h"><div><h3>Rules transaksi ini</h3><p class="xs muted" style="margin:2px 0 0">Urutan = prioritas. Seret untuk mengubah. Rule nonaktif tidak berlaku.</p></div><button class="btn primary sm"><svg class="i sm"><use href="#i-plus"/></svg>Rule baru</button></div>
+      <div data-state-hide="empty"><table class="rtable">
+        <thead><tr><th></th><th>Nama</th><th class="hm">Kondisi</th><th>Hasil</th><th>Aktif</th></tr></thead>
+        <tbody>
+          <tr><td class="grip"><svg class="i"><use href="#i-grip"/></svg> 1</td><td><b>Larangan meminjam aset rusak</b><div class="xs muted">Aset rusak diperbaiki dulu.</div></td><td class="hm">Kondisi aset adalah Rusak Berat</td><td><span class="badge red">Tolak transaksi</span></td><td><button class="toggle" role="switch" aria-checked="true" aria-label="Aktif"></button></td></tr>
+          <tr><td class="grip"><svg class="i"><use href="#i-grip"/></svg> 2</td><td><b>Approval aset bernilai tinggi</b><div class="xs muted">Aset mahal perlu Super Admin.</div></td><td class="hm">Nilai perolehan lebih dari Rp 10.000.000</td><td><span class="badge blue">Perlu persetujuan Super Admin</span></td><td><button class="toggle" role="switch" aria-checked="true" aria-label="Aktif"></button></td></tr>
+          <tr><td class="grip"><svg class="i"><use href="#i-grip"/></svg> 3</td><td><b>Persetujuan penanggung jawab</b><div class="xs muted">Pemegang aset tahu asetnya dipinjam.</div></td><td class="hm">Aset punya penanggung jawab dan pencatat bukan penanggung jawabnya</td><td><span class="badge blue">Perlu persetujuan Penanggung jawab aset</span></td><td><button class="toggle" role="switch" aria-checked="true" aria-label="Aktif"></button></td></tr>
+          <tr class="off"><td class="grip"><svg class="i"><use href="#i-grip"/></svg> 4</td><td><b>Persetujuan lintas departemen</b><div class="xs muted">Dinonaktifkan sementara.</div></td><td class="hm">Departemen asal Pemegang berbeda dengan departemen aset</td><td><span class="badge slate">Perlu persetujuan Supervisor departemen penerima</span></td><td><button class="toggle" role="switch" aria-checked="false" aria-label="Aktif"></button></td></tr>
+          <tr data-state-show="conflict"><td class="grip"><svg class="i"><use href="#i-grip"/></svg> 5</td><td><b>Izin darurat lapangan</b> <span class="badge amber"><svg class="i sm"><use href="#i-alert"/></svg>Bertentangan</span></td><td class="hm">Kondisi aset adalah Rusak Berat</td><td><span class="badge purple">Lewati persetujuan</span></td><td><button class="toggle" role="switch" aria-checked="true" aria-label="Aktif"></button></td></tr>
+        </tbody>
+      </table></div>
+      <div class="empty" data-state-show="empty"><div class="ic"><svg class="i lg"><use href="#i-shield"/></svg></div><h3>Belum ada rule</h3><p>Transaksi berjalan sesuai alurnya tanpa syarat tambahan. Tambahkan rule seperti "Perlu persetujuan Super Admin bila nilai aset lebih dari Rp 10 juta".</p><button class="btn primary sm"><svg class="i sm"><use href="#i-plus"/></svg>Rule baru</button></div>
+    </div>
+    <aside class="card pad stack">
+      <p class="pv-h" style="margin:0">Ubah rule</p>
+      <div class="field"><label>Nama rule <span class="req">*</span></label><input class="input" value="Approval aset bernilai tinggi"></div>
+      <div class="field"><label>Deskripsi</label><textarea class="input">Aset mahal perlu disetujui Super Admin juga.</textarea></div>
+      <div class="row" style="align-items:flex-start;flex-wrap:nowrap"><span class="kw" style="font-family:Lexend;font-weight:600;font-size:12px;color:var(--brand-700);width:52px;padding-top:10px">JIKA</span>
+        <div class="stack" style="flex:1;gap:6px"><select class="select"><option>Nilai perolehan</option></select><select class="select"><option>lebih dari</option></select><input class="input" value="Rp 10.000.000"><button class="link" style="align-self:flex-start">+ dan / atau syarat lain</button></div></div>
+      <div class="row" style="align-items:flex-start;flex-wrap:nowrap"><span style="font-family:Lexend;font-weight:600;font-size:12px;color:var(--p700);width:52px;padding-top:10px">MAKA</span>
+        <div class="stack" style="flex:1;gap:6px"><select class="select"><option>Perlu persetujuan</option></select><select class="select"><option>Role Super Admin</option></select></div></div>
+      <p class="sentence" style="margin:0">Bila <b>nilai perolehan lebih dari Rp 10.000.000</b>, transaksi <b>perlu disetujui Super Admin</b>.</p>
+      <div class="row" style="justify-content:space-between"><span class="xs muted">Berlaku mulai versi berikutnya yang diterbitkan.</span><button class="btn primary sm">Simpan rule</button></div>
+    </aside>
+  </div>
+</section>
+
+<!-- ======================= TRANSACTION CENTER ======================= -->
+<div data-screen="center tasks">
+  <div class="ph"><div><h1>Transaksi</h1><p>Pilih transaksi yang ingin Anda lakukan. Petunjuk pengisian ada di setiap formulir.</p></div><button class="btn secondary">Riwayat transaksi</button></div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-go="center" data-tab="center">Buat transaksi</button>
+    <button class="tab" role="tab" data-go="tasks" data-tab="tasks">Perlu tindakan saya <span class="n">2</span></button>
+    <button class="tab" role="tab">Transaksi saya</button>
+  </div>
+</div>
+<section data-screen="center">
+  <div class="empty card" data-state-show="empty"><div class="ic"><svg class="i lg"><use href="#i-swap"/></svg></div><h3>Belum ada transaksi yang dapat Anda lakukan</h3><p>Role Anda belum diberi izin mencatat transaksi. Hubungi Supervisor atau Super Admin organisasi Anda.</p></div>
+  <div data-state-hide="empty">
+    <p class="grp-h">Peminjaman</p>
+    <div class="cards">
+      <button class="tcard" data-go="cform"><span class="typeic green"><svg class="i lg"><use href="#i-hand"/></svg></span><span><b>Peminjaman Aset Proyek</b><p>Pinjamkan laptop dan peralatan ke anggota tim proyek.</p><span class="badge blue">Perlu persetujuan Supervisor</span></span></button>
+      <button class="tcard"><span class="typeic slate"><svg class="i lg"><use href="#i-hand"/></svg></span><span><b>Peminjaman</b><p>Pinjamkan aset dengan rencana tanggal kembali.</p><span class="badge slate">Langsung tercatat</span></span></button>
+      <button class="tcard"><span class="typeic slate"><svg class="i lg"><use href="#i-check"/></svg></span><span><b>Pengembalian</b><p>Catat aset pinjaman yang sudah kembali.</p><span class="badge slate">Langsung tercatat</span></span></button>
+    </div>
+    <p class="grp-h">Perpindahan</p>
+    <div class="cards">
+      <button class="tcard"><span class="typeic"><svg class="i lg"><use href="#i-swap"/></svg></span><span><b>Mutasi antar lokasi</b><p>Pindahkan aset ke lokasi lain dengan persetujuan.</p><span class="badge blue">Perlu persetujuan</span></span></button>
+      <button class="tcard"><span class="typeic slate"><svg class="i lg"><use href="#i-swap"/></svg></span><span><b>Pemindahan</b><p>Pindahkan aset dalam organisasi.</p><span class="badge slate">Langsung tercatat</span></span></button>
+    </div>
+    <p class="grp-h">Perawatan</p>
+    <div class="cards">
+      <button class="tcard"><span class="typeic amber"><svg class="i lg"><use href="#i-wrench"/></svg></span><span><b>Perbaikan Aset</b><p>Laporkan aset rusak untuk diperbaiki vendor.</p><span class="badge blue">Perlu persetujuan bila &gt; Rp 5 jt</span></span></button>
+    </div>
+  </div>
+</section>
+
+<section data-screen="tasks" class="card">
+  <div class="task"><span class="typeic"><svg class="i"><use href="#i-shield"/></svg></span><div style="flex:1"><b>Setujui PJP-2026-000019</b> · Peminjaman Aset Proyek<div class="xs muted">Laptop Dell XPS 15 (Rp 15.000.000) · diajukan Rina · 2 jam lalu · <span class="badge amber">Rule: Approval aset bernilai tinggi</span></div></div><button class="btn primary sm" data-go="cdetail">Tinjau</button></div>
+  <div class="task"><span class="typeic purple"><svg class="i"><use href="#i-doc"/></svg></span><div style="flex:1"><b>Isi data serah terima MUT-2026-000044</b> · Mutasi antar lokasi<div class="xs muted">Proyektor Epson · batas besok</div></div><button class="btn secondary sm">Isi data</button></div>
+</section>
+
+<section data-screen="cform">
+  <div class="ph"><div><h1>Peminjaman Aset Proyek</h1><p>Pinjamkan laptop dan peralatan ke anggota tim proyek.</p></div><button class="btn ghost" data-go="center">Batal</button></div>
+  <div class="split">
+    <div class="card pad stack">
+      <div class="field"><label>Aset <span class="req">*</span></label><div class="row"><span class="badge blue">Laptop Dell XPS 15 · Rp 15.000.000</span><button class="link">Tambah aset</button></div><span class="hint">Pilih satu atau beberapa aset berstatus Aktif.</span></div>
+      <div class="field"><label>Pemegang <span class="req">*</span></label><select class="select" data-state-class="invalid:err"><option>Budi Santoso</option></select><span class="hint">Anggota tim yang memakai aset.</span><span class="msg" data-state-show="invalid">Pemegang wajib dipilih.</span></div>
+      <div class="field"><label>Rencana kembali <span class="req">*</span></label><input class="input" type="date" value="2026-12-18"><span class="hint">Paling lama 30 hari dari hari ini.</span></div>
+      <div class="field"><label>Nama proyek</label><input class="input" value="Implementasi ERP Cabang Surabaya"></div>
+      <div class="field"><label>Catatan</label><textarea class="input" placeholder="Opsional"></textarea></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn primary">Ajukan peminjaman</button></div>
+    </div>
+    <aside class="stack">
+      <div class="alert amber"><svg class="i"><use href="#i-shield"/></svg><div><b>Perlu persetujuan Super Admin</b><p>Karena nilai Laptop Dell XPS 15 Rp 15.000.000 (lebih dari Rp 10.000.000). Rule: <i>Approval aset bernilai tinggi</i>.</p></div></div>
+      <div class="card pad"><p class="pv-h">Cara kerja</p><ol class="xs" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+        <li>Supervisor lokasi menyetujui, lalu Super Admin.</li><li>Aset diserahkan ke Budi Santoso dan statusnya menjadi Dipinjamkan.</li><li>Transaksi selesai saat aset dikembalikan.</li></ol></div>
+    </aside>
+  </div>
+</section>
+
+<section data-screen="cdetail">
+  <div class="ph"><div><h1>PJP-2026-000019 <span class="badge amber">Menunggu persetujuan</span></h1><p>Peminjaman Aset Proyek · diajukan Rina Wulandari, 20 Nov 2026 09.12</p></div>
+    <div class="row"><button class="btn secondary">Tolak</button><button class="btn primary">Setujui</button></div></div>
+  <div class="card pad" style="margin-bottom:16px"><ol class="stepper">
+    <li class="done"><span><svg class="i sm"><use href="#i-check"/></svg></span><b>Diajukan</b>Rina · 09.12</li>
+    <li class="done"><span><svg class="i sm"><use href="#i-check"/></svg></span><b>Disetujui Supervisor</b>Andi · 10.40</li>
+    <li class="now"><span>3</span><b>Menunggu Super Admin</b>Anda</li>
+    <li><span>4</span><b>Diserahkan</b></li>
+    <li><span>5</span><b>Menunggu pengembalian</b></li>
+    <li><span><svg class="i sm"><use href="#i-check"/></svg></span><b>Selesai</b></li>
+  </ol></div>
+  <div class="split">
+    <div class="card pad stack">
+      <div class="alert blue"><svg class="i"><use href="#i-shield"/></svg><div><b>Mengapa perlu persetujuan Anda?</b><p>Rule <i>Approval aset bernilai tinggi</i>: nilai perolehan Laptop Dell XPS 15 Rp 15.000.000, lebih dari Rp 10.000.000.</p></div></div>
+      <table><tr><td class="muted">Aset</td><td>Laptop Dell XPS 15 · Gudang Pusat <span class="badge slate"><svg class="i sm"><use href="#i-lock"/></svg>dikunci</span></td></tr>
+        <tr><td class="muted">Pemegang</td><td>Budi Santoso</td></tr><tr><td class="muted">Rencana kembali</td><td>18 Des 2026</td></tr><tr><td class="muted">Nama proyek</td><td>Implementasi ERP Cabang Surabaya</td></tr></table>
+    </div>
+    <div class="card pad"><p class="pv-h">Riwayat</p><ul class="res xs">
+      <li><svg class="i sm ok"><use href="#i-check"/></svg><span><b>Disetujui</b> oleh Andi (Supervisor Gudang Pusat) · 10.40 · "Untuk tim ERP."</span></li>
+      <li><svg class="i sm ok"><use href="#i-check"/></svg><span><b>Diajukan</b> oleh Rina · 09.12</span></li></ul></div>
+  </div>
+</section>
+
+    </div>
+  </div>
+</div>
+</div></div>
+
+<script>
+(function(){
+  var order=['w1','w2','w3','w4','w5','w6'];
+  var view='gallery', state='normal';
+  function has(list,v){return (' '+list+' ').indexOf(' '+v+' ')>=0}
+  function render(){
+    document.querySelectorAll('[data-screen]').forEach(function(el){el.classList.toggle('hidden',!has(el.getAttribute('data-screen'),view))});
+    document.querySelectorAll('[data-state-show]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-state-show')!==state)});
+    document.querySelectorAll('[data-state-hide]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-state-hide')===state)});
+    document.querySelectorAll('[data-state-class]').forEach(function(el){var p=el.getAttribute('data-state-class').split(':');el.classList.toggle(p[1],state===p[0])});
+    var i=order.indexOf(view);
+    document.querySelectorAll('.wiz li').forEach(function(li){var k=order.indexOf(li.getAttribute('data-step'));li.className=k<i?'done':k===i?'now':'';if(state==='invalid'&&(k===1||k===3)&&k!==i)li.className+=' warn'});
+    document.querySelectorAll('[data-prev]').forEach(function(b){b.disabled=i<=0});
+    document.querySelectorAll('[data-next]').forEach(function(b){b.classList.toggle('hidden',i===order.length-1)});
+    document.querySelectorAll('[data-publish]').forEach(function(b){b.classList.toggle('hidden',i!==order.length-1);b.disabled=state==='invalid'});
+    document.querySelectorAll('[data-tab]').forEach(function(t){t.setAttribute('aria-selected',t.getAttribute('data-tab')===view?'true':'false')});
+    var center=['center','tasks','cform','cdetail'].indexOf(view)>=0;
+    document.querySelectorAll('[data-nav]').forEach(function(a){a.classList.toggle('on',a.getAttribute('data-nav')===(center?'center':'designer'))});
+    document.querySelectorAll('.mk [data-view]').forEach(function(b){b.setAttribute('aria-pressed',b.getAttribute('data-view')===view?'true':'false')});
+    document.querySelectorAll('.mk [data-state]').forEach(function(b){b.setAttribute('aria-pressed',b.getAttribute('data-state')===state?'true':'false')});
+  }
+  function go(v){view=v;render();window.scrollTo(0,0)}
+  document.addEventListener('click',function(e){
+    var t=e.target.closest('[data-view],[data-go],[data-state],[data-width],[data-prev],[data-next]');if(!t)return;
+    if(t.hasAttribute('data-view'))go(t.getAttribute('data-view'));
+    else if(t.hasAttribute('data-go')){e.preventDefault();go(t.getAttribute('data-go'))}
+    else if(t.hasAttribute('data-state')){state=t.getAttribute('data-state');render()}
+    else if(t.hasAttribute('data-width')){document.getElementById('frame').classList.toggle('narrow',t.getAttribute('data-width')==='narrow');document.querySelectorAll('[data-width]').forEach(function(b){b.setAttribute('aria-pressed',b===t?'true':'false')})}
+    else if(t.hasAttribute('data-prev')){var i=order.indexOf(view);if(i>0)go(order[i-1])}
+    else if(t.hasAttribute('data-next')){var j=order.indexOf(view);if(j<order.length-1)go(order[j+1])}
+  });
+  document.addEventListener('click',function(e){var s=e.target.closest('.toggle');if(s)s.setAttribute('aria-checked',s.getAttribute('aria-checked')==='true'?'false':'true')});
+  render();
+})();
+</script>
+</body>
+</html>

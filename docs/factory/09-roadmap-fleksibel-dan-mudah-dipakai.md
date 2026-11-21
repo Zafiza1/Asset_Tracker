@@ -30,8 +30,8 @@ Fleksibilitas hidup di lapisan konfigurasi dan muncul ke operator sebagai **form
 ## 2. Urutan Pekerjaan
 | # | Fitur | Isi | Status |
 |---|---|---|---|
-| 1a | **Satu model transaksi** (F-07f, F-08) | Jenis bawaan menjadi jenis sistem, Transaction Center, Designer | F-07f selesai; F-08 v0.3 (selaras F-09) menunggu APR-0012 |
-| 1b | **F-09 Penanggung jawab aset** | orang + departemen, *Aset saya*, scope departemen | F-09a selesai; mockup disetujui; F-09b dan F-09c dikerjakan |
+| 1a | **Satu model transaksi** (F-07f, F-08) | Jenis bawaan menjadi jenis sistem, Transaction Center, Designer | F-07f selesai; F-08 v0.3 disetujui (APR-0012, 2026-11-21), implementasi berikutnya |
+| 1b | **F-09 Penanggung jawab aset** | orang + departemen, *Aset saya*, scope departemen | selesai (F-09a..e, termasuk mobile) |
 | 2 | **F-10 Multi-aset dan Koreksi** | satu transaksi untuk banyak aset (pilih dari daftar/scan beruntun); tombol *Koreksi transaksi ini* | todo, menunggu F-08 |
 | 3 | **F-11 Aksi sesuai status** | panel aksi di detail aset dan hasil scan mobile (bukan hanya baca); aksi nonaktif beserta alasan | todo, menunggu F-08 |
 | 4 | **F-12 Setup awal terpandu** | wizard: profil → lokasi → kategori dari **template industri** (kantor, sekolah, pabrik, klinik) → impor Excel → undang tim; checklist "Langkah awal" di Beranda | todo |
