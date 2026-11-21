@@ -25,7 +25,7 @@ Pemilik produk meminta pondasi yang membuat Asset Tracker **fleksibel dan mudah 
 | D-56 | Menu Master Data → Departemen ditampilkan kembali | Disetujui |
 
 ## Catatan untuk F-08 (APR-0012, masih menunggu)
-D-49 mengusulkan kondisi `target.branch_differs` dan contoh "lintas cabang". Cabang sudah dihapus (migrasi `000600_remove_branches`). Setelah D-51, aset punya departemen, jadi contoh semula "lintas departemen" bisa dipakai lagi (`target.department_differs`). Perlu diselaraskan oleh pemilik APR-0012 sebelum diputuskan.
+D-49 mengusulkan kondisi `target.branch_differs` dan contoh "lintas cabang". Cabang sudah dihapus (migrasi `000600_remove_branches`). Setelah D-51, aset punya departemen, jadi contoh semula "lintas departemen" bisa dipakai lagi (`target.department_differs`). Perlu diselaraskan oleh pemilik APR-0012 sebelum diputuskan. **Ditangani** di F-08 v0.3 (2026-11-21): D-49 direvisi menjadi kondisi departemen/penanggung jawab, ditambah D-57 (penanggung jawab sebagai penyetuju) dan D-58 (serah terima penanggung jawab lewat transaksi).
 
 ## Mockup F-09 (APR-0008), disetujui 2026-11-21
 [F-09-penanggung-jawab-aset.html](../design/mockups/F-09-penanggung-jawab-aset.html): Data Aset (kolom dan filter penanggung jawab/departemen, tab *Aset saya*), formulir aset (bagian *Lokasi & penanggung jawab*, saran departemen dari anggota), detail aset (kartu *Dipegang oleh*, Riwayat), Beranda (kartu *Aset yang saya pegang* dan *Penanggung jawab nonaktif*), Master Data → Departemen. Setiap layar punya keadaan isi, error, kosong, memuat, dan lebar 375px. Keputusan pemilik produk: "a dan b" (setujui mockup, kerjakan F-09b; mulai F-09c). (2026-11-21)
