@@ -128,7 +128,7 @@ class TransactionTemplatesTest extends TestCase
         $costly = $this->asset(15_000_000);
         $run = $this->start($type, $costly, $values())->assertCreated()->json('data');
         $run = $this->complete($run, ['decision' => 'approved'])->json('data');
-        $this->assertSame('setuju_sa', $run['current_step']['id']);
+        $this->assertSame('ra_nilai', $run['current_step']['id'], 'the named rule Approval aset bernilai tinggi adds the step');
         $run = $this->complete($run, ['decision' => 'approved'])->json('data');
         $this->assertSame('terima', $run['current_step']['id']);
         $this->complete($run, ['field_values' => []], $receiver)->assertOk()->assertJsonPath('data.state', 'completed');
@@ -148,6 +148,14 @@ class TransactionTemplatesTest extends TestCase
         $lent = $this->asset(1_000_000);
         $this->postJson('/api/transactions', ['asset_id' => $lent, 'type' => 'loan', 'borrower_name' => 'Budi', 'due_date' => now()->addWeek()->toDateString()])->assertCreated();
         $this->assertErrorCode($this->start($type, $lent, $values()), 422, 'PRECONDITION_FAILED');
+
+        // The template's rule "Larangan memindah aset rusak" refuses an asset in Rusak Berat condition.
+        app(CategoryAttributeService::class)->createDefaultAttributes($this->masters['category']);
+        $this->relaxDefaultCondition();
+        $conditionKey = app(CategoryAttributeService::class)->conditionAttribute($this->masters['category']->id)->key;
+        $broken = $this->asset(1_000_000, [$conditionKey => 'RUSAK_BERAT']);
+        $this->assertErrorCode($response = $this->start($type, $broken, $values()), 422, 'PRECONDITION_FAILED');
+        $this->assertSame('Aset rusak berat diperbaiki atau dihapuskan, bukan dipindah.', $response->json('error.message'));
     }
 
     public function test_kirim_kalibrasi_waits_for_kembali_dari_kalibrasi_which_sets_the_condition(): void
@@ -204,7 +212,7 @@ class TransactionTemplatesTest extends TestCase
         $asset = $this->asset(1_000_000);
         $run = $this->start($type, $asset, $values(6_000_000))->json('data');
         $run = $this->complete($run, ['decision' => 'approved'])->json('data');
-        $this->assertSame('setuju_sa', $run['current_step']['id']);
+        $this->assertSame('ra_biaya', $run['current_step']['id'], 'the named rule Approval biaya perbaikan besar adds the step');
         $this->complete($run, ['decision' => 'approved'])->assertOk()->assertJsonPath('data.state', 'completed');
 
         $run = $this->start($type, $this->asset(1_000_000), $values(6_000_000))->json('data');
@@ -357,10 +365,12 @@ class TransactionTemplatesTest extends TestCase
         return $response;
     }
 
-    private function asset(int $cost): string
+    /** @param array<string, mixed> $attributes */
+    private function asset(int $cost, array $attributes = []): string
     {
         return $this->postJson('/api/assets', [
             'name' => 'Alat '.Str::random(4), 'serial_number' => 'SN-'.Str::uuid(), 'status' => 'available', 'acquisition_cost' => $cost,
+            ...($attributes === [] ? [] : ['attributes' => $attributes]),
             'category_id' => $this->masters['category']->id, 'location_id' => $this->masters['location']->id,
         ])->assertCreated()->json('data.id');
     }

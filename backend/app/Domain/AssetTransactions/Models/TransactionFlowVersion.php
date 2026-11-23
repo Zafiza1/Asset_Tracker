@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $status
  * @property array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>} $graph
  * @property string|null $change_note
+ * @property list<array<string, mixed>> $rules named rules of this version (F-08g, RuleCompiler)
+ * @property string $graph_source 'rules': the graph is compiled from the rules; 'canvas': last changed on the canvas (F08-39)
  */
 class TransactionFlowVersion extends Model
 {
@@ -29,13 +31,20 @@ class TransactionFlowVersion extends Model
 
     public const PUBLISHED = 'published';
 
-    protected $fillable = ['graph', 'change_note'];
+    public const SOURCE_RULES = 'rules';
+
+    public const SOURCE_CANVAS = 'canvas';
+
+    protected $fillable = ['graph', 'change_note', 'rules', 'graph_source'];
+
+    protected $attributes = ['rules' => '[]', 'graph_source' => self::SOURCE_CANVAS];
 
     protected function casts(): array
     {
         return [
             'version_number' => 'integer',
             'published_at' => 'datetime',
+            'rules' => 'array',
         ];
     }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Domain\AssetTransactions\Flows\FlowDescriber;
+use App\Domain\AssetTransactions\Flows\RuleCompiler;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\AssetTransactions\Models\TransactionTypeField;
 use App\Domain\AssetTransactions\Services\TransactionTypeService;
@@ -121,7 +122,8 @@ class TransactionTypeController extends Controller
      */
     private function templateCard(string $key, array $template, FlowDescriber $describer): array
     {
-        $graph = TransactionTemplates::resolveRoles($template['graph']);
+        $rules = TransactionTemplates::resolveRuleRoles($template['rules']);
+        $graph = RuleCompiler::compile(TransactionTemplates::resolveRoles($template['graph']), $rules);
         $preview = new TransactionTypeDefinition;
         $preview->forceFill([
             'name' => $template['name'], 'description' => $template['purpose'], 'multi_asset' => $template['multi_asset'],
@@ -144,7 +146,8 @@ class TransactionTypeController extends Controller
                 'data_type_label' => TransactionFieldTypes::TYPES[$f['data_type']], 'is_required' => $f['is_required'],
             ], $template['fields']),
             'graph' => $graph,
-            'documentation' => $describer->describe($preview, $graph),
+            'rules' => $rules,
+            'documentation' => $describer->describe($preview, $graph, null, $rules),
         ];
     }
 

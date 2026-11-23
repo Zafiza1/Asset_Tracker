@@ -6,6 +6,7 @@ use App\Domain\AssetTransactions\Flows\FlowDescriber;
 use App\Domain\AssetTransactions\Flows\FlowEngine;
 use App\Domain\AssetTransactions\Flows\FlowGraph;
 use App\Domain\AssetTransactions\Flows\FlowVersionService;
+use App\Domain\AssetTransactions\Flows\RuleCompiler;
 use App\Domain\AssetTransactions\Models\TransactionFlowVersion;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\Shared\Exceptions\ApiException;
@@ -35,7 +36,7 @@ class TransactionFlowController extends Controller
 
         return response()->json(['data' => [
             'active' => $active ? $this->version($active) : null,
-            'draft' => $draft ? [...$this->version($draft), 'issues' => FlowGraph::issues($draft->graph, $transactionType->fields()->get(), $transactionType->id)] : null,
+            'draft' => $draft ? [...$this->version($draft), 'issues' => FlowVersionService::issues($draft, $transactionType)] : null,
             'versions' => $all->map(fn (TransactionFlowVersion $v) => [
                 'version_number' => $v->version_number, 'status' => $v->status, 'change_note' => $v->change_note,
                 'published_at' => $v->published_at?->toIso8601String(), 'published_by' => $v->publisher?->name,
@@ -43,19 +44,34 @@ class TransactionFlowController extends Controller
         ]]);
     }
 
+    /**
+     * Saves the draft. With `rules` (the Designer, F-08g) the graph is the user's own flow and the
+     * rules are compiled into it; without, the graph is kept as drawn on the canvas (F08-39).
+     */
     public function update(Request $request, TransactionTypeDefinition $transactionType): JsonResponse
     {
-        $data = $request->validate([...FlowGraph::rules(), 'change_note' => ['nullable', 'string', 'max:500']]);
-        $draft = $this->versions->saveDraft($transactionType, $data['graph'], $data['change_note'] ?? null);
+        $data = $request->validate([...FlowGraph::rules(), ...RuleCompiler::requestRules(), 'change_note' => ['nullable', 'string', 'max:500']]);
+        $draft = $this->versions->saveDraft($transactionType, $data['graph'], $data['change_note'] ?? null, $request->has('rules') ? ($data['rules'] ?? []) : null);
 
-        return response()->json(['data' => [...$this->version($draft), 'issues' => FlowGraph::issues($draft->graph, $transactionType->fields()->get(), $transactionType->id)]]);
+        return response()->json(['data' => [...$this->version($draft), 'issues' => FlowVersionService::issues($draft, $transactionType)]]);
     }
 
     /** Checks a diagram (the one sent, or the saved draft) without saving it. */
     public function validateFlow(Request $request, TransactionTypeDefinition $transactionType): JsonResponse
     {
-        $graph = $request->has('graph') ? $request->validate(FlowGraph::rules())['graph'] : ($this->versions->draft($transactionType)?->graph ?? ['nodes' => [], 'edges' => []]);
-        $issues = FlowGraph::issues(['nodes' => $graph['nodes'] ?? [], 'edges' => $graph['edges'] ?? []], $transactionType->fields()->get(), $transactionType->id);
+        if (! $request->has('graph')) {
+            $draft = $this->versions->draft($transactionType);
+            $issues = $draft === null ? FlowGraph::issues(['nodes' => [], 'edges' => []], $transactionType->fields()->get(), $transactionType->id)
+                : FlowVersionService::issues($draft, $transactionType);
+
+            return response()->json(['data' => ['valid' => $issues === [], 'issues' => $issues]]);
+        }
+        $data = $request->validate([...FlowGraph::rules(), ...RuleCompiler::requestRules()]);
+        $graph = ['nodes' => $data['graph']['nodes'] ?? [], 'edges' => $data['graph']['edges'] ?? []];
+        $fields = $transactionType->fields()->get();
+        $issues = isset($data['rules'])
+            ? [...RuleCompiler::issues($data['rules'], $graph, $fields), ...FlowGraph::issues(RuleCompiler::compile($graph, $data['rules']), $fields, $transactionType->id)]
+            : FlowGraph::issues($graph, $fields, $transactionType->id);
 
         return response()->json(['data' => ['valid' => $issues === [], 'issues' => $issues]]);
     }
@@ -69,13 +85,17 @@ class TransactionFlowController extends Controller
     public function simulate(Request $request, TransactionTypeDefinition $transactionType): JsonResponse
     {
         $data = $request->validate([
-            ...($request->has('graph') ? FlowGraph::rules() : []),
+            ...($request->has('graph') ? [...FlowGraph::rules(), ...RuleCompiler::requestRules()] : []),
             'asset_ids' => ['present', 'array', 'max:50'],
             'asset_ids.*' => ['uuid'],
             'field_values' => ['nullable', 'array'],
             'decisions' => ['nullable', 'array'],
             'decisions.*' => ['in:approved,rejected'],
         ]);
+        // A graph sent with rules is the Designer's flow: tried with the rules compiled into it (F08-36).
+        if (isset($data['graph'], $data['rules'])) {
+            $data['graph'] = RuleCompiler::compile(['nodes' => $data['graph']['nodes'] ?? [], 'edges' => $data['graph']['edges'] ?? []], $data['rules']);
+        }
         $graph = $data['graph'] ?? $this->versions->draft($transactionType)?->graph
             ?? ($transactionType->active_flow_version_id ? TransactionFlowVersion::query()->find($transactionType->active_flow_version_id)?->graph : null)
             ?? ['nodes' => [], 'edges' => []];
@@ -105,7 +125,7 @@ class TransactionFlowController extends Controller
         return response()->json(['data' => [
             'version' => $version === null ? null : ['version_number' => $version->version_number, 'status' => $version->status],
             'previous_version' => $previous?->version_number,
-            ...$this->describer->describe($transactionType, $version?->graph, $previous?->graph),
+            ...$this->describer->describe($transactionType, $version?->graph, $previous?->graph, $version?->rules ?? [], $previous?->rules),
         ]]);
     }
 
@@ -117,6 +137,10 @@ class TransactionFlowController extends Controller
             'version_number' => $version->version_number,
             'status' => $version->status,
             'graph' => $version->graph,
+            // F-08g: the named rules, whether the graph is compiled from them, and the flow without the compiled steps (what the Designer edits).
+            'rules' => $version->rules,
+            'graph_source' => $version->graph_source,
+            'base_graph' => RuleCompiler::strip($version->graph),
             'change_note' => $version->change_note,
             'published_at' => $version->published_at?->toIso8601String(),
             'updated_at' => $version->updated_at?->toIso8601String(),

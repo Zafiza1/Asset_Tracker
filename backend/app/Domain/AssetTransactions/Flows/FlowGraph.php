@@ -237,6 +237,14 @@ final class FlowGraph
                     }
                 }
                 $issues = [...$issues, ...self::ruleIssues($config['preconditions']['rules'] ?? [], $byKey)];
+                // Refusals compiled from named rules (F-08g): each with conditions and a message for the recorder.
+                foreach ((array) ($config['rejections'] ?? []) as $rejection) {
+                    $rejection = is_array($rejection) ? $rejection : [];
+                    if (($rejection['rules'] ?? []) === [] || trim((string) ($rejection['message'] ?? '')) === '') {
+                        $issues[] = 'penolakan memerlukan syarat dan pesan.';
+                    }
+                    $issues = [...$issues, ...self::ruleIssues((array) ($rejection['rules'] ?? []), $byKey)];
+                }
                 break;
             case 'input':
                 $assignee = $config['assignee'] ?? ['type' => 'starter'];
@@ -374,6 +382,18 @@ final class FlowGraph
         }
 
         return ["pilih {$who}."];
+    }
+
+    /**
+     * Unknown subjects or operators in a list of conditions (also used for named rules, F-08g).
+     *
+     * @param  list<mixed>  $rules
+     * @param  Collection<int, TransactionTypeField>  $fields
+     * @return list<string>
+     */
+    public static function conditionIssues(array $rules, Collection $fields): array
+    {
+        return self::ruleIssues($rules, $fields->keyBy('key'));
     }
 
     /**

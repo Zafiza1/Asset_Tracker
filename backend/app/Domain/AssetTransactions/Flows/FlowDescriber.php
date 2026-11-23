@@ -45,9 +45,11 @@ final class FlowDescriber
      *
      * @param  array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}|null  $graph  null: the type records at once
      * @param  array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}|null  $previous
+     * @param  list<array<string, mixed>>  $rules  the version's named rules (F-08g)
+     * @param  list<array<string, mixed>>|null  $previousRules  the previous version's, to name what changed
      * @return array<string, mixed>
      */
-    public function describe(TransactionTypeDefinition $type, ?array $graph, ?array $previous = null): array
+    public function describe(TransactionTypeDefinition $type, ?array $graph, ?array $previous = null, array $rules = [], ?array $previousRules = null): array
     {
         $this->use($type);
         $steps = $graph === null ? [] : $this->steps($graph);
@@ -73,7 +75,7 @@ final class FlowDescriber
             'purpose' => $type->description,
             'records_at_once' => $graph === null,
             'who_records' => $this->whoRecords($start['config'] ?? []),
-            'preconditions' => $start === null ? null : $this->preconditions($start['config'] ?? []),
+            'preconditions' => $start === null ? null : ($this->join([$this->preconditions($start['config'] ?? []), ...$this->rejections($start['config'] ?? [])]) ?: null),
             'form' => $this->fields->values()->map(fn (TransactionTypeField $f) => [
                 'key' => $f->key, 'label' => $f->label, 'type' => TransactionFieldTypes::TYPES[$f->data_type] ?? $f->data_type,
                 'required' => (bool) $f->is_required, 'help' => $f->settings['help'] ?? null,
@@ -83,8 +85,106 @@ final class FlowDescriber
             'effects' => $effects,
             'people' => $people,
             'summary' => $this->summary($graph, $nodes, $effects),
-            'changes' => $previous === null || $graph === null ? [] : $this->changes($previous, $graph),
+            'rules' => $this->rules($rules, $graph),
+            'changes' => $previous === null || $graph === null ? [] : [
+                ...$this->changes(RuleCompiler::strip($previous), RuleCompiler::strip($graph)),
+                ...$this->ruleChanges($previousRules ?? [], $rules, $graph),
+            ],
         ];
+    }
+
+    /**
+     * The named rules as a list for the Rules tab (F08-35): the sentence of each, and why an
+     * active rule does not apply (overruled, F08-38).
+     *
+     * @param  list<array<string, mixed>>  $rules
+     * @param  array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}|null  $graph
+     * @return list<array<string, mixed>>
+     */
+    private function rules(array $rules, ?array $graph): array
+    {
+        $overruled = RuleCompiler::overruled($rules);
+        $names = collect($rules)->pluck('name', 'id');
+
+        return array_map(fn (array $rule) => [
+            'id' => $rule['id'],
+            'name' => $rule['name'],
+            'description' => $rule['description'] ?? null,
+            'priority' => (int) $rule['priority'],
+            'active' => (bool) $rule['active'],
+            'kind' => $rule['outcome']['kind'],
+            'sentence' => $this->ruleSentence($rule, $graph),
+            'applies' => (bool) $rule['active'] && ! isset($overruled[$rule['id']]),
+            'note' => isset($overruled[$rule['id']])
+                ? 'Bertentangan dengan rule "'.$names[$overruled[$rule['id']]].'" yang prioritasnya lebih tinggi; rule ini tidak berlaku.'
+                : (! $rule['active'] ? 'Nonaktif; rule ini tidak berlaku.' : null),
+        ], RuleCompiler::ordered($rules));
+    }
+
+    /**
+     * "Bila nilai perolehan lebih dari Rp 10.000.000, perlu disetujui pemegang role Super Admin."
+     *
+     * @param  array<string, mixed>  $rule
+     * @param  array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}|null  $graph
+     */
+    private function ruleSentence(array $rule, ?array $graph): string
+    {
+        $conditions = array_values(array_filter((array) ($rule['conditions'] ?? []), 'is_array'));
+        $when = $conditions === [] ? 'Selalu' : 'Bila '.$this->rulesPhrase($conditions, $rule['match'] ?? 'all', $rule['assets'] ?? 'any').',';
+        $outcome = $rule['outcome'] ?? [];
+        $step = $graph === null ? null : collect($graph['nodes'])->firstWhere('id', $outcome['step'] ?? null);
+
+        return $when.' '.match ($outcome['kind'] ?? null) {
+            'reject' => 'transaksi tidak dapat dicatat. Pesan: "'.trim((string) ($outcome['message'] ?? '')).'"',
+            'approval' => $this->lcfirst($this->approverPhrase($outcome, false)).'.',
+            'skip_approval' => 'langkah "'.($step === null ? ($outcome['step'] ?? '?').'" '.self::MISSING : $this->label($step).'"').' dilewati.',
+            default => 'hasil tidak dikenal.',
+        };
+    }
+
+    /**
+     * What changed in the named rules (F08-37): added, removed, switched on or off, changed.
+     *
+     * @param  list<array<string, mixed>>  $old
+     * @param  list<array<string, mixed>>  $new
+     * @param  array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}  $graph
+     * @return list<string>
+     */
+    private function ruleChanges(array $old, array $new, array $graph): array
+    {
+        $old = collect($old)->keyBy('id');
+        $new = collect($new)->keyBy('id');
+        $changes = [];
+        foreach ($new as $id => $rule) {
+            $name = '"'.$rule['name'].'"';
+            $before = $old[$id] ?? null;
+            if ($before === null) {
+                $changes[] = "Rule {$name} ditambahkan".($rule['active'] ? '' : ' (nonaktif)').': '.$this->ruleSentence($rule, $graph);
+
+                continue;
+            }
+            if ($before['name'] !== $rule['name']) {
+                $changes[] = 'Rule "'.$before['name'].'" diganti nama menjadi '.$name.'.';
+            }
+            if ($before['active'] !== $rule['active']) {
+                $changes[] = "Rule {$name} ".($rule['active'] ? 'diaktifkan.' : 'dinonaktifkan.');
+            }
+            $sentence = $this->ruleSentence($rule, $graph);
+            $was = $this->ruleSentence($before, $graph);
+            if ($sentence !== $was) {
+                $changes[] = "Rule {$name} diubah: {$sentence} (sebelumnya: {$was})";
+            }
+            if ((int) $before['priority'] !== (int) $rule['priority']) {
+                $changes[] = "Prioritas rule {$name} diubah dari {$before['priority']} menjadi {$rule['priority']}.";
+            }
+        }
+        foreach ($old as $id => $rule) {
+            if (! isset($new[$id])) {
+                $changes[] = 'Rule "'.$rule['name'].'" dihapus.';
+            }
+        }
+
+        return $changes;
     }
 
     /**
@@ -199,7 +299,7 @@ final class FlowDescriber
             && $numbers[$target] === $numbers[$node['id']] + 1 && ($nodes[$target]['type'] ?? null) !== 'end';
 
         return match ($node['type']) {
-            'start' => $this->join([$this->whoRecords($config), $this->preconditions($config)]),
+            'start' => $this->join([$this->whoRecords($config), $this->preconditions($config), ...$this->rejections($config)]),
             'input' => $this->inputSentence($config),
             'approval' => $this->join([
                 $this->approverPhrase($config, false).'.',
@@ -257,6 +357,19 @@ final class FlowDescriber
 
         return $this->assigneePhrase($config['assignee'] ?? ['type' => 'starter']).' mengisi '.($fields === [] ? 'data' : $this->list($fields, 'dan'))
             .(is_int($days) ? " dalam {$days} hari" : '').'.';
+    }
+
+    /**
+     * Refusals compiled from named rules (F-08g), each read as a ban with its message (F08-11).
+     *
+     * @param  array<string, mixed>  $config  of the start step
+     * @return list<string>
+     */
+    private function rejections(array $config): array
+    {
+        return array_values(array_map(fn (array $r) => 'Transaksi tidak dapat dicatat bila '
+            .$this->rulesPhrase((array) ($r['rules'] ?? []), $r['match'] ?? 'all', $r['assets'] ?? 'any')
+            .'. Pesan: "'.trim((string) ($r['message'] ?? '')).'"', array_filter((array) ($config['rejections'] ?? []), 'is_array')));
     }
 
     /** @param array<string, mixed> $config of a wait step */
@@ -609,7 +722,7 @@ final class FlowDescriber
     /** Lower-cases the first letter unless the phrase starts with a name (two capitals, e.g. "Supervisor ..." stays). */
     private function lcfirst(string $s): string
     {
-        foreach (['Pencatat', 'Pemegang', 'Pengguna', 'Status', 'Aset', 'Kondisi', 'Peminjaman', 'Email', 'Transaksi', 'Penyetuju'] as $word) {
+        foreach (['Pencatat', 'Pemegang', 'Pengguna', 'Status', 'Aset', 'Kondisi', 'Peminjaman', 'Email', 'Transaksi', 'Penyetuju', 'Perlu'] as $word) {
             if (str_starts_with($s, $word.' ') || $s === $word) {
                 return mb_strtolower(mb_substr($s, 0, 1)).mb_substr($s, 1);
             }

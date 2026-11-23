@@ -17,6 +17,7 @@ use App\Domain\Audit\AuditLogger;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use LogicException;
@@ -106,6 +107,9 @@ final class FlowEngine
             $pre = $config['preconditions'] ?? [];
             if (! FlowConditions::passes($pre['rules'] ?? [], $pre['match'] ?? 'all', $pre['assets'] ?? 'all', $assets, $values, $roles)) {
                 throw ApiException::unprocessable('PRECONDITION_FAILED', $config['message'] ?? "Syarat untuk memulai transaksi {$definition->name} belum terpenuhi.");
+            }
+            if (($rejection = self::rejection($config, $assets, $values, $roles)) !== null) {
+                throw ApiException::unprocessable('PRECONDITION_FAILED', $rejection['message'], ['rule_id' => $rejection['rule_id'] ?? null]);
             }
 
             $run = new TransactionRun;
@@ -291,13 +295,16 @@ final class FlowEngine
         $node = collect($graph['nodes'])->firstWhere('type', 'start');
         for ($i = 0; $node !== null && $i < self::MAX_AUTOMATIC_STEPS; $i++) {
             $config = $node['config'] ?? [];
+            $refused = null;
             $outcome = match ($node['type']) {
-                'start' => FlowConditions::passes($config['preconditions']['rules'] ?? [], $config['preconditions']['match'] ?? 'all', $config['preconditions']['assets'] ?? 'all', $assets, $values, $roles) ? null : 'blocked',
+                'start' => FlowConditions::passes($config['preconditions']['rules'] ?? [], $config['preconditions']['match'] ?? 'all', $config['preconditions']['assets'] ?? 'all', $assets, $values, $roles)
+                    && ($refused = self::rejection($config, $assets, $values, $roles)) === null ? null : 'blocked',
                 'condition' => FlowConditions::passes($config['rules'] ?? [], $config['match'] ?? 'all', $config['assets'] ?? 'any', $assets, $values, $roles) ? 'yes' : 'no',
                 'approval' => ($decisions[$node['id']] ?? 'approved') === 'rejected' ? 'rejected' : 'approved',
                 default => null,
             };
-            $path[] = ['node_id' => $node['id'], 'type' => $node['type'], 'label' => $node['label'] ?? null, 'outcome' => $outcome];
+            $path[] = ['node_id' => $node['id'], 'type' => $node['type'], 'label' => $node['label'] ?? null, 'outcome' => $outcome,
+                ...($outcome === 'blocked' ? ['message' => $refused['message'] ?? $config['message'] ?? null, 'rule_id' => $refused['rule_id'] ?? null] : [])];
             if ($node['type'] === 'end' || $outcome === 'blocked') {
                 break;
             }
@@ -306,6 +313,28 @@ final class FlowEngine
         }
 
         return $path;
+    }
+
+    /**
+     * The first rejection of the start step (a named rule "Tolak transaksi", F-08g) whose
+     * conditions hold for these assets and values, if any.
+     *
+     * @param  array<string, mixed>  $config  of the start step
+     * @param  Collection<int, Asset>  $assets
+     * @param  array<string, mixed>  $values
+     * @param  list<string>  $roles
+     * @return array<string, mixed>|null
+     */
+    private static function rejection(array $config, Collection $assets, array $values, array $roles): ?array
+    {
+        foreach ((array) ($config['rejections'] ?? []) as $rejection) {
+            if (is_array($rejection) && ($rejection['rules'] ?? []) !== []
+                && FlowConditions::passes((array) $rejection['rules'], $rejection['match'] ?? 'all', $rejection['assets'] ?? 'any', $assets, $values, $roles)) {
+                return $rejection;
+            }
+        }
+
+        return null;
     }
 
     /** @param list<string> $runIds */

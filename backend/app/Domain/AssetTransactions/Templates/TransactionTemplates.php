@@ -37,7 +37,7 @@ final class TransactionTemplates
     /**
      * @return array<string, array{name: string, category: string, purpose: string, code: string, icon: string,
      *     multi_asset: bool, locks_assets: bool, core_type: string|null, pair: string|null, closes: string|null,
-     *     fields: list<array<string, mixed>>, graph: array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}}>
+     *     fields: list<array<string, mixed>>, graph: array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}, rules: list<array<string, mixed>>}>
      */
     public static function all(): array
     {
@@ -60,10 +60,6 @@ final class TransactionTemplates
                         ['subject' => 'asset.status', 'op' => 'not_in', 'value' => [AssetStatus::ON_LOAN, AssetStatus::OFF_SITE]],
                     ]], 'message' => 'Aset yang sedang dipinjamkan atau berada di luar organisasi tidak dapat dimutasi.']),
                     self::node('setuju_spv', 'approval', 'Persetujuan Supervisor lokasi', ['approver' => ['type' => 'location_supervisor'], 'min_approvals' => 1]),
-                    self::node('cek_nilai', 'condition', 'Nilai aset tinggi?', ['match' => 'all', 'assets' => 'any', 'rules' => [
-                        ['subject' => 'asset.acquisition_cost', 'op' => 'gt', 'value' => 10000000],
-                    ]]),
-                    self::node('setuju_sa', 'approval', 'Persetujuan Super Admin', ['approver' => self::role(RoleTemplates::SUPER_ADMIN), 'min_approvals' => 1]),
                     self::node('terima', 'input', 'Dalam pengiriman', ['assignee' => ['type' => 'field', 'field' => 'penerima'], 'fields' => ['no_bast', 'foto']]),
                     self::node('pindah', 'action', 'Diterima', ['actions' => [
                         ['kind' => 'move_to_field_location', 'field' => 'lokasi_tujuan'],
@@ -72,11 +68,15 @@ final class TransactionTemplates
                     self::node('selesai', 'end', 'Selesai', ['result' => 'completed']),
                     self::node('ditolak', 'end', 'Ditolak', ['result' => 'rejected']),
                 ], [
-                    ['start', 'setuju_spv'], ['setuju_spv', 'cek_nilai', 'approved'], ['setuju_spv', 'ditolak', 'rejected'],
-                    ['cek_nilai', 'setuju_sa', 'yes'], ['cek_nilai', 'terima', 'no'],
-                    ['setuju_sa', 'terima', 'approved'], ['setuju_sa', 'ditolak', 'rejected'],
+                    ['start', 'setuju_spv'], ['setuju_spv', 'terima', 'approved'], ['setuju_spv', 'ditolak', 'rejected'],
                     ['terima', 'pindah'], ['pindah', 'selesai'],
                 ]),
+                'rules' => [
+                    self::rule('rusak', 'Larangan memindah aset rusak', 1, [['subject' => 'asset.condition', 'op' => 'eq', 'value' => 'RUSAK_BERAT']],
+                        ['kind' => 'reject', 'message' => 'Aset rusak berat diperbaiki atau dihapuskan, bukan dipindah.']),
+                    self::rule('nilai', 'Approval aset bernilai tinggi', 2, [['subject' => 'asset.acquisition_cost', 'op' => 'gt', 'value' => 10000000]],
+                        ['kind' => 'approval', 'approver' => self::role(RoleTemplates::SUPER_ADMIN), 'min_approvals' => 1]),
+                ],
             ],
             'kirim_kalibrasi' => [
                 'name' => 'Kirim kalibrasi',
@@ -100,6 +100,7 @@ final class TransactionTemplates
                     ['start', 'setuju'], ['setuju', 'kirim', 'approved'], ['setuju', 'ditolak', 'rejected'],
                     ['kirim', 'tunggu'], ['tunggu', 'selesai'],
                 ]),
+                'rules' => [],
             ],
             'kembali_kalibrasi' => [
                 'name' => 'Kembali dari kalibrasi',
@@ -129,6 +130,7 @@ final class TransactionTemplates
                     ['start', 'kondisi'], ['kondisi', 'cek_hasil'],
                     ['cek_hasil', 'aktif', 'yes'], ['cek_hasil', 'selesai', 'no'], ['aktif', 'selesai'],
                 ]),
+                'rules' => [],
             ],
             'perbaikan_vendor' => [
                 'name' => 'Perbaikan ke vendor',
@@ -144,19 +146,16 @@ final class TransactionTemplates
                 'graph' => self::graph([
                     self::node('start', 'start', 'Diajukan'),
                     self::node('setuju_spv', 'approval', 'Persetujuan Supervisor lokasi', ['approver' => ['type' => 'location_supervisor'], 'min_approvals' => 1]),
-                    self::node('cek_biaya', 'condition', 'Biaya besar?', ['match' => 'all', 'assets' => 'any', 'rules' => [
-                        ['subject' => 'field.estimasi_biaya', 'op' => 'gt', 'value' => 5000000],
-                    ]]),
-                    self::node('setuju_sa', 'approval', 'Persetujuan Super Admin', ['approver' => self::role(RoleTemplates::SUPER_ADMIN), 'min_approvals' => 1]),
                     self::node('perbaiki', 'action', 'Dalam perbaikan', ['actions' => [['kind' => 'set_status', 'status' => AssetStatus::UNDER_MAINTENANCE]]]),
                     self::node('selesai', 'end', 'Selesai', ['result' => 'completed']),
                     self::node('ditolak', 'end', 'Ditolak', ['result' => 'rejected']),
                 ], [
-                    ['start', 'setuju_spv'], ['setuju_spv', 'cek_biaya', 'approved'], ['setuju_spv', 'ditolak', 'rejected'],
-                    ['cek_biaya', 'setuju_sa', 'yes'], ['cek_biaya', 'perbaiki', 'no'],
-                    ['setuju_sa', 'perbaiki', 'approved'], ['setuju_sa', 'ditolak', 'rejected'],
-                    ['perbaiki', 'selesai'],
+                    ['start', 'setuju_spv'], ['setuju_spv', 'perbaiki', 'approved'], ['setuju_spv', 'ditolak', 'rejected'], ['perbaiki', 'selesai'],
                 ]),
+                'rules' => [
+                    self::rule('biaya', 'Approval biaya perbaikan besar', 1, [['subject' => 'field.estimasi_biaya', 'op' => 'gt', 'value' => 5000000]],
+                        ['kind' => 'approval', 'approver' => self::role(RoleTemplates::SUPER_ADMIN), 'min_approvals' => 1]),
+                ],
             ],
             'peminjaman_karyawan' => [
                 'name' => 'Peminjaman ke karyawan',
@@ -183,6 +182,7 @@ final class TransactionTemplates
                 ], [
                     ['start', 'pinjam'], ['pinjam', 'kabari'], ['kabari', 'selesai'],
                 ]),
+                'rules' => [],
             ],
             // Disposal keeps its own rules (FlowGraph::ACTION_STATUSES has no Dihapuskan): the type
             // records a permanent Keluar as its core action, after two approvals.
@@ -207,6 +207,7 @@ final class TransactionTemplates
                     ['start', 'setuju_spv'], ['setuju_spv', 'setuju_sa', 'approved'], ['setuju_spv', 'ditolak', 'rejected'],
                     ['setuju_sa', 'inti', 'approved'], ['setuju_sa', 'ditolak', 'rejected'], ['inti', 'selesai'],
                 ]),
+                'rules' => [],
             ],
         ];
     }
@@ -247,6 +248,39 @@ final class TransactionTemplates
         }, $graph['nodes']);
 
         return $graph;
+    }
+
+    /**
+     * The template's named rules (F-08g) with their approver roles resolved like resolveRoles().
+     *
+     * @param  list<array<string, mixed>>  $rules
+     * @return list<array<string, mixed>>
+     */
+    public static function resolveRuleRoles(array $rules): array
+    {
+        if ($rules === []) {
+            return [];
+        }
+        $graph = self::resolveRoles(['nodes' => array_map(fn (array $r) => ['id' => $r['id'], 'config' => ['approver' => $r['outcome']['approver'] ?? []]], $rules), 'edges' => []]);
+
+        return array_map(function (array $rule, array $node) {
+            if (isset($rule['outcome']['approver'])) {
+                $rule['outcome']['approver'] = $node['config']['approver'];
+            }
+
+            return $rule;
+        }, $rules, $graph['nodes']);
+    }
+
+    /**
+     * @param  list<array{subject: string, op: string, value?: mixed}>  $conditions
+     * @param  array<string, mixed>  $outcome
+     * @return array<string, mixed>
+     */
+    private static function rule(string $id, string $name, int $priority, array $conditions, array $outcome): array
+    {
+        return ['id' => $id, 'name' => $name, 'description' => null, 'priority' => $priority, 'active' => true,
+            'match' => 'all', 'assets' => 'any', 'conditions' => $conditions, 'outcome' => $outcome];
     }
 
     /** @return array{type: string, template: string} */

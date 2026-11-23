@@ -56,11 +56,12 @@ final class TransactionTypeService
                 'key' => $f->key, 'label' => $f->label, 'data_type' => $f->data_type, 'settings' => $f->settings ?? [], 'is_required' => $f->is_required,
             ])->all());
 
-            $graph = TransactionFlowVersion::query()->whereKey($source->active_flow_version_id)->value('graph')
-                ?? $this->flows->draft($source)?->graph
-                ?? ($source->coreType() !== null ? FlowGraph::coreStarter('Catat '.mb_strtolower($source->name)) : null);
+            $version = TransactionFlowVersion::query()->whereKey($source->active_flow_version_id)->first() ?? $this->flows->draft($source);
+            $graph = $version?->graph ?? ($source->coreType() !== null ? FlowGraph::coreStarter('Catat '.mb_strtolower($source->name)) : null);
             if ($graph !== null) {
-                $this->flows->saveDraft($copy, is_string($graph) ? json_decode($graph, true) : $graph, "Disalin dari {$source->name} ({$source->code}).");
+                // A rules flow stays one, its named rules copied with it (F-08g).
+                $rules = $version?->graph_source === TransactionFlowVersion::SOURCE_RULES ? $version->rules : null;
+                $this->flows->saveDraft($copy, $graph, "Disalin dari {$source->name} ({$source->code}).", $rules);
             }
             $this->audit->record('transaction_type.duplicated', $copy, after: [...$this->snapshot($copy), 'source' => $source->code]);
 
@@ -113,7 +114,8 @@ final class TransactionTypeService
             'core_type' => $template['core_type'], 'source_template_key' => $key, 'created_by' => $this->tenancy->tenant()->userId(),
         ])->save();
         $this->syncFields($definition, $template['fields']);
-        $this->flows->saveDraft($definition, TransactionTemplates::resolveRoles($template['graph']), "Dibuat dari template {$template['name']}.");
+        $this->flows->saveDraft($definition, TransactionTemplates::resolveRoles($template['graph']), "Dibuat dari template {$template['name']}.",
+            TransactionTemplates::resolveRuleRoles($template['rules']));
         $this->audit->record('transaction_type.created_from_template', $definition, after: [...$this->snapshot($definition), 'template' => $key]);
 
         return $definition;
