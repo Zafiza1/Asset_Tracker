@@ -242,7 +242,7 @@ class TransactionTemplatesTest extends TestCase
         $this->assertSame(['on_loan', $holder->name, $due], [$data['status'], $data['borrower_name'], substr((string) $data['loan_due_date'], 0, 10)]);
         Notification::assertSentTo($holder, TransactionFlowNotification::class, fn ($n) => $n->transactionNumber === $run['transaction_number']);
 
-        // Only an Aktif or Tidak Aktif asset may be lent.
+        // Only an Aktif or Tersedia asset may be lent.
         $this->assertErrorCode($this->start($type, $asset, ['pemegang' => $holder->id, 'rencana_kembali' => $due]), 422, 'PRECONDITION_FAILED');
     }
 

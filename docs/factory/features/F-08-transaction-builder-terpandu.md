@@ -101,7 +101,7 @@ Tata bahasa kalimat (semua subjek dan operator `FlowGraph::SUBJECTS` / `OPERATOR
 
 | Subjek | Contoh kalimat |
 |---|---|
-| `asset.status` | Status aset **adalah / bukan / salah satu dari** Aktif, Tidak Aktif |
+| `asset.status` | Status aset **adalah / bukan / salah satu dari** Aktif, Tersedia |
 | `asset.condition` | Kondisi aset adalah Rusak Berat |
 | `asset.category` | Kategori aset termasuk Kendaraan |
 | `asset.location` | Lokasi aset berada di Gudang Pusat |
@@ -214,7 +214,7 @@ Tempat pengguna yang mencatat menjalankan transaksi; tidak menampilkan cara tran
 | Kirim kalibrasi | Aset ke vendor kalibrasi, menunggu kembali | Vendor, No. PO, Rencana kembali, Sertifikat | Persetujuan Supervisor → status Dalam Perbaikan → Tunggu *Kembali dari kalibrasi* |
 | Kembali dari kalibrasi | Pasangan *Kirim kalibrasi* (Berpasangan) | Tanggal kembali, Sertifikat (lampiran, wajib), Hasil | Isi data → status Aktif / Rusak sesuai Hasil |
 | Perbaikan ke vendor | Aset rusak diperbaiki pihak luar | Vendor, Keluhan, Estimasi biaya | Persetujuan Supervisor (+ Super Admin bila estimasi > Rp 5 jt) → status Dalam Perbaikan |
-| Peminjaman ke karyawan *(v0.3: dulu "Serah terima ke karyawan")* | Aset dipinjamkan sementara ke pengguna (D-53) | Pemegang (pengguna), Rencana kembali, Foto | Prasyarat: status Aktif/Tidak Aktif → Pinjamkan ke pemegang → Email ke pemegang |
+| Peminjaman ke karyawan *(v0.3: dulu "Serah terima ke karyawan")* | Aset dipinjamkan sementara ke pengguna (D-53) | Pemegang (pengguna), Rencana kembali, Foto | Prasyarat: status Aktif/Tersedia → Pinjamkan ke pemegang → Email ke pemegang |
 | Serah terima penanggung jawab *(v0.3)* | Penanggung jawab tetap berganti, mis. karyawan pindah tugas | Penanggung jawab baru (pengguna), Alasan, Berita acara (lampiran) | Persetujuan Penanggung jawab lama (F08-50/51) → rule *Persetujuan lintas departemen* → Isi data penerima (konfirmasi) → Ganti penanggung jawab (+ departemen) → Email ke keduanya |
 | Penghapusan aset | Usulan penghapusan dengan dua persetujuan | Alasan (pilihan), Nilai jual, Berita acara | Persetujuan Supervisor → Persetujuan Super Admin → status Dihapuskan |
 | *Tujuh jenis sistem* (F-07f) | Pemindahan, Perubahan status, Peminjaman, Pengembalian, Keluar, Masuk, Aktivitas lain | sesuai jenis | Alur bawaan setara perilaku sekarang; disalin sebagai jenis organisasi yang dapat ditambah field/persetujuan |

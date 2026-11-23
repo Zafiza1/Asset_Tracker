@@ -427,7 +427,7 @@ function IncomingFields({
   return (
     <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
       <FormAlert formError={formError} errors={errors} />
-      <Field label="Kondisi saat kembali" required hint="Baik → Tidak Aktif. Perlu perbaikan → Dalam Perbaikan." error={errors.to_status}>
+      <Field label="Kondisi saat kembali" required hint="Baik → Tersedia. Perlu perbaikan → Dalam Perbaikan." error={errors.to_status}>
         <Chips
           value={[form.to_status]}
           options={[
@@ -484,12 +484,12 @@ function Confirm({
           ...(outgoing.outgoing_nature === 'temporary' ? ([['Rencana kembali', formatDate(outgoing.due_date)]] as [string, string][]) : []),
         ]
       : [
-          ['Kondisi', incoming.to_status === 'available' ? 'Baik · Tidak Aktif' : 'Perlu perbaikan · Dalam Perbaikan'],
+          ['Kondisi', incoming.to_status === 'available' ? 'Baik · Tersedia' : 'Perlu perbaikan · Dalam Perbaikan'],
           ['Lokasi', incoming.to_location_id ? 'Lokasi dipilih' : 'Lokasi asal'],
         ]
   const effect =
     type === 'incoming'
-      ? `Status ${items.length > 1 ? 'aset-aset ini' : 'aset ini'} menjadi ${incoming.to_status === 'available' ? 'Tidak Aktif' : 'Dalam Perbaikan'}.`
+      ? `Status ${items.length > 1 ? 'aset-aset ini' : 'aset ini'} menjadi ${incoming.to_status === 'available' ? 'Tersedia' : 'Dalam Perbaikan'}.`
       : outgoing.outgoing_nature === 'permanent'
         ? `Status ${items.length > 1 ? 'aset-aset ini' : 'aset ini'} menjadi Dihapuskan.`
         : `Status ${items.length > 1 ? 'aset-aset ini' : 'aset ini'} menjadi Di Luar Organisasi.`

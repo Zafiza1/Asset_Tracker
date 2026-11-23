@@ -37,7 +37,7 @@ Aset baru yang masuk dari luar (pembelian, hibah diterima) **tetap** lewat *Pena
 | Nomor dokumen | tidak | surat jalan / BAST / faktur |
 | Keterangan | tidak | — |
 
-Syarat: aset aktif (tidak dinonaktifkan), dalam scope pengguna, dan berstatus **Aktif** atau **Tidak Aktif**. Aset yang Dipinjamkan, Dalam Perbaikan, Hilang, Dihapuskan, atau sudah di luar organisasi ditolak.
+Syarat: aset aktif (tidak dinonaktifkan), dalam scope pengguna, dan berstatus **Aktif** atau **Tersedia**. Aset yang Dipinjamkan, Dalam Perbaikan, Hilang, Dihapuskan, atau sudah di luar organisasi ditolak.
 
 Efek:
 - **Sementara** → status baru **Di Luar Organisasi** ⚑ (status baru, lihat D-7); lokasi tetap tercatat sebagai lokasi asal.
@@ -48,7 +48,7 @@ Efek:
 |---|---|---|
 | Aset | ya | hanya aset berstatus **Di Luar Organisasi** |
 | Tanggal masuk | ya | tidak boleh sebelum tanggal keluar |
-| Kondisi saat kembali | ya | status hasil: **Tidak Aktif** (default) atau **Dalam Perbaikan** |
+| Kondisi saat kembali | ya | status hasil: **Tersedia** (default) atau **Dalam Perbaikan** |
 | Lokasi masuk | tidak | default lokasi asal; boleh lokasi lain dalam scope |
 | Diterima dari | tidak | default pihak luar pada transaksi keluar |
 | Nomor dokumen, keterangan | tidak | — |

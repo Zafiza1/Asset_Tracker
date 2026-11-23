@@ -26,6 +26,7 @@ use App\Http\Resources\Ref;
 use App\Http\Support\ImportColumn;
 use App\Http\Support\ListQuery;
 use App\Http\Support\SpreadsheetImport;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -92,6 +93,8 @@ class AssetController extends Controller
             'custodian_id' => ['nullable', 'uuid'],
             'department_id' => ['nullable', 'uuid'],
             'mine' => ['nullable', 'boolean'],
+            // Loans past their planned return date (Beranda "Peminjaman lewat batas").
+            'overdue' => ['nullable', 'boolean'],
         ]);
         $categoryIds = array_values(array_filter(explode(',', (string) $request->query('category_ids'))));
         $request->merge(['category_id_list' => $categoryIds])->validate(['category_id_list.*' => ['uuid']]);
@@ -106,6 +109,8 @@ class AssetController extends Controller
             ->when($request->query('custodian_id'), fn ($q, $id) => $q->where('custodian_user_id', $id))
             ->when($request->query('department_id'), fn ($q, $id) => $q->where('department_id', $id))
             ->when($request->boolean('mine'), fn ($q) => $q->where('custodian_user_id', $this->tenancy->tenant()->userId()))
+            ->when($request->boolean('overdue'), fn ($q) => $q->where('status', AssetStatus::ON_LOAN)
+                ->whereDate('loan_due_date', '<', CarbonImmutable::now($this->tenancy->tenant()->organization->timezone ?: 'UTC')->toDateString()))
             ->when($request->query('acquired_from'), fn ($q, $date) => $q->whereDate('acquisition_date', '>=', $date))
             ->when($request->query('acquired_to'), fn ($q, $date) => $q->whereDate('acquisition_date', '<=', $date))
             ->when($request->query('missing'), fn ($q, $field) => $q->whereRaw('NOT ('.AssetDataQuality::filledCondition($field).')'));
@@ -486,7 +491,8 @@ class AssetController extends Controller
             return null;
         }
         $key = str_replace(' ', '_', strtolower($value));
-        $byLabel = array_search(strtolower($value), array_map('strtolower', AssetStatus::LABELS), true);
+        $byLabel = array_search(strtolower($value), array_map('strtolower', AssetStatus::LABELS), true)
+            ?: (AssetStatus::FORMER_LABELS[strtolower(trim($value))] ?? false);
 
         return in_array($key, AssetStatus::ALL, true) ? $key : ($byLabel ?: $value);
     }

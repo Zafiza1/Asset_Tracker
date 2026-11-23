@@ -173,7 +173,7 @@ final class TransactionTemplates
                 'graph' => self::graph([
                     self::node('start', 'start', 'Diajukan', ['preconditions' => ['match' => 'all', 'assets' => 'all', 'rules' => [
                         ['subject' => 'asset.status', 'op' => 'in', 'value' => [AssetStatus::IN_USE, AssetStatus::AVAILABLE]],
-                    ]], 'message' => 'Hanya aset berstatus Aktif atau Tidak Aktif yang dapat dipinjamkan.']),
+                    ]], 'message' => 'Hanya aset berstatus Aktif atau Tersedia yang dapat dipinjamkan.']),
                     self::node('pinjam', 'action', 'Dipinjamkan', ['actions' => [
                         ['kind' => 'loan_to_field_user', 'user_field' => 'pemegang', 'due_field' => 'rencana_kembali'],
                     ]]),

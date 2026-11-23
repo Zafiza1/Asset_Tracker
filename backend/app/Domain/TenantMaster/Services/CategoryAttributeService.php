@@ -67,10 +67,10 @@ final class CategoryAttributeService
             // No "Barcode" here: the modules an asset uses are picked in Menu Modul per category (category_modules).
             ['label' => 'Catatan', 'data_type' => AttributeType::TEXT, 'is_required' => false],
         ],
-        // No "Location" here: assets already have the built-in location (Lokasi) field.
+        // No "Location" or "Penanggung Jawab" here: assets already have the built-in Lokasi and
+        // Penanggung jawab (F-09) fields; the former text field was retired on 2026-11-23.
         'location_ownership' => [
             ['label' => 'Pemilik', 'data_type' => AttributeType::STRING, 'is_required' => false],
-            ['label' => 'Penanggung Jawab', 'data_type' => AttributeType::STRING, 'is_required' => false],
         ],
         'status_condition' => [
             ['label' => self::CONDITION_LABEL, 'data_type' => AttributeType::ENUM, 'is_required' => true, 'options' => [

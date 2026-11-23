@@ -43,7 +43,7 @@ export function rejectReason(asset: Pick<Asset, 'status' | 'is_archived'>, type:
   if (asset.is_archived) return 'Aset nonaktif'
   if (type === 'outgoing') {
     if (asset.status === 'off_site') return 'Sudah di luar organisasi'
-    if (!OUTGOING_STATUSES.includes(asset.status)) return 'Hanya aset Aktif atau Tidak Aktif yang dapat dikeluarkan'
+    if (!OUTGOING_STATUSES.includes(asset.status)) return 'Hanya aset Aktif atau Tersedia yang dapat dikeluarkan'
     return null
   }
   return asset.status === 'off_site' ? null : 'Tidak sedang di luar organisasi'

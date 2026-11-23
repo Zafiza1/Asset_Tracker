@@ -47,6 +47,7 @@ const FILTERS = [
   "status",
   "archived",
   "missing",
+  "overdue",
   "acquired_from",
   "acquired_to",
   "sort",
@@ -70,6 +71,7 @@ const ADVANCED = [
   "status",
   "archived",
   "missing",
+  "overdue",
   "acquired_from",
   "acquired_to",
 ] as const;
@@ -302,6 +304,15 @@ export function AssetsPage() {
             key: "status",
             label: `Status: ${assetStatusLabel[params.get("status") as AssetStatus] ?? params.get("status")}`,
             clear: () => update({ status: "" }),
+          },
+        ]
+      : []),
+    ...(params.get("overdue") === "1"
+      ? [
+          {
+            key: "overdue",
+            label: "Pinjaman lewat batas",
+            clear: () => update({ overdue: "" }),
           },
         ]
       : []),

@@ -96,7 +96,7 @@ class FlowDescriberTest extends TestCase
         $location = $this->masters['location'];
         $category = $this->masters['category']->name;
         $phrases = $this->phrases([
-            [['subject' => 'asset.status', 'op' => 'in', 'value' => ['available', 'under_maintenance']], 'status aset salah satu dari Tidak Aktif atau Dalam Perbaikan'],
+            [['subject' => 'asset.status', 'op' => 'in', 'value' => ['available', 'under_maintenance']], 'status aset salah satu dari Tersedia atau Dalam Perbaikan'],
             [['subject' => 'asset.status', 'op' => 'not_in', 'value' => ['on_loan', 'lost']], 'status aset bukan Dipinjamkan maupun Hilang'],
             [['subject' => 'asset.condition', 'op' => 'eq', 'value' => 'RUSAK_BERAT'], 'kondisi aset adalah Rusak Berat'],
             [['subject' => 'asset.category', 'op' => 'neq', 'value' => $this->masters['category']->id], "kategori aset tidak termasuk {$category}"],

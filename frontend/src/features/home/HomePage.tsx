@@ -365,7 +365,7 @@ function cardContent(card: HomeCard): CardContent {
             ))}
           </Rows>
         ),
-        link: { to: '/aset?status=on_loan', label: 'Lihat aset dipinjam' },
+        link: { to: '/aset?overdue=1', label: 'Lihat semua yang lewat batas' },
       }
     case 'due_soon':
       return {

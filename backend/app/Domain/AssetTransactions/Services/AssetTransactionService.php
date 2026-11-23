@@ -274,7 +274,7 @@ final class AssetTransactionService
     private function loan(Asset $asset, array $data): array
     {
         if (! in_array($asset->status, [AssetStatus::AVAILABLE, AssetStatus::IN_USE], true)) {
-            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Aktif atau Tidak Aktif yang dapat dipinjamkan (status saat ini: '.AssetStatus::LABELS[$asset->status].').');
+            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Aktif atau Tersedia yang dapat dipinjamkan (status saat ini: '.AssetStatus::LABELS[$asset->status].').');
         }
         $borrower = trim((string) ($data['borrower_name'] ?? ''));
         if ($borrower === '') {
@@ -314,7 +314,7 @@ final class AssetTransactionService
     private function outgoing(Asset $asset, array $data): array
     {
         if (! in_array($asset->status, [AssetStatus::AVAILABLE, AssetStatus::IN_USE], true)) {
-            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Aktif atau Tidak Aktif yang dapat dikeluarkan (status saat ini: '.AssetStatus::LABELS[$asset->status].').');
+            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Aktif atau Tersedia yang dapat dikeluarkan (status saat ini: '.AssetStatus::LABELS[$asset->status].').');
         }
         $nature = $data['outgoing_nature'] ?? null;
         if (! in_array($nature, OutgoingReason::NATURES, true)) {
@@ -375,7 +375,7 @@ final class AssetTransactionService
         }
         $status = $data['to_status'] ?? AssetStatus::AVAILABLE;
         if (! in_array($status, self::INCOMING_STATUSES, true)) {
-            throw $this->fieldError('to_status', 'Status saat kembali hanya Tidak Aktif atau Dalam Perbaikan.');
+            throw $this->fieldError('to_status', 'Status saat kembali hanya Tersedia atau Dalam Perbaikan.');
         }
 
         $assetChanges = ['status' => $status];

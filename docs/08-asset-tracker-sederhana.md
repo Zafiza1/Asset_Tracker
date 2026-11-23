@@ -67,18 +67,18 @@ Pemeriksaan konsistensi memutar ulang transaksi (urut `seq`) dan membandingkan h
 
 ## 4. Aturan bisnis
 
-**Status aset** (kode tetap): Aktif (`in_use`), Tidak Aktif (`available`), Dalam Perbaikan, Dipinjamkan, Di Luar Organisasi (`off_site`, sejak 2026-11-17), Hilang, Dihapuskan. *Nonaktif* terpisah dari status.
+**Status aset** (kode tetap): Aktif (`in_use`), Tersedia (`available`; label "Tidak Aktif" 2026-11-05 s.d. 2026-11-23, diganti karena terbaca sama dengan aksi *Nonaktifkan*; impor masih menerima label lama), Dalam Perbaikan, Dipinjamkan, Di Luar Organisasi (`off_site`, sejak 2026-11-17), Hilang, Dihapuskan. *Nonaktif* terpisah dari status.
 
 | Transaksi | Permission tambahan | Syarat | Efek |
 |---|---|---|---|
-| Penambahan aset | `asset.create` | otomatis saat aset dibuat | status awal Aktif/Tidak Aktif/Dalam Perbaikan |
+| Penambahan aset | `asset.create` | otomatis saat aset dibuat | status awal Aktif/Tersedia/Dalam Perbaikan |
 | Pemindahan lokasi | `asset.transfer` | bukan Dipinjamkan/Di Luar Organisasi/Hilang/Dihapuskan; lokasi aktif & dalam scope; beda dari lokasi saat ini | ubah lokasi |
 | Perubahan status | `asset.status_change` (+ `asset.dispose` untuk Dihapuskan) | bukan Dipinjamkan/Di Luar Organisasi; status baru wajib dan berbeda dari saat ini | ubah status |
-| Peminjaman | `asset.assign` | status Aktif/Tidak Aktif; nama peminjam wajib | status Dipinjamkan + peminjam + rencana kembali |
-| Pengembalian | `asset.assign` | status Dipinjamkan | status Tidak Aktif; opsional lokasi baru |
-| Transaksi keluar (sementara) | `asset.outgoing` | status Aktif/Tidak Aktif; pihak luar, alasan, rencana tanggal kembali wajib | status Di Luar Organisasi |
-| Transaksi keluar (permanen) | `asset.outgoing` + `asset.dispose` | status Aktif/Tidak Aktif; pihak luar dan alasan wajib | status Dihapuskan |
-| Transaksi masuk | `asset.incoming` | status Di Luar Organisasi; tanggal tidak sebelum tanggal keluar | status Tidak Aktif atau Dalam Perbaikan; opsional lokasi baru; ditautkan ke transaksi keluarnya |
+| Peminjaman | `asset.assign` | status Aktif/Tersedia; nama peminjam wajib | status Dipinjamkan + peminjam + rencana kembali |
+| Pengembalian | `asset.assign` | status Dipinjamkan | status Tersedia; opsional lokasi baru |
+| Transaksi keluar (sementara) | `asset.outgoing` | status Aktif/Tersedia; pihak luar, alasan, rencana tanggal kembali wajib | status Di Luar Organisasi |
+| Transaksi keluar (permanen) | `asset.outgoing` + `asset.dispose` | status Aktif/Tersedia; pihak luar dan alasan wajib | status Dihapuskan |
+| Transaksi masuk | `asset.incoming` | status Di Luar Organisasi; tanggal tidak sebelum tanggal keluar | status Tersedia atau Dalam Perbaikan; opsional lokasi baru; ditautkan ke transaksi keluarnya |
 | Aktivitas lain | — | keterangan wajib | tidak mengubah aset |
 | Penonaktifan / pengaktifan kembali | `asset.archive` / `asset.restore` | aset dipinjam atau di luar organisasi tidak bisa dinonaktifkan | otomatis tercatat |
 

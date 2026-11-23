@@ -66,7 +66,7 @@ export interface CustodianOption {
 
 export const assetStatusLabel: Record<AssetStatus, string> = {
   in_use: 'Aktif',
-  available: 'Tidak Aktif',
+  available: 'Tersedia',
   under_maintenance: 'Dalam Perbaikan',
   on_loan: 'Dipinjamkan',
   off_site: 'Di Luar Organisasi',

@@ -65,7 +65,7 @@ describe('Beranda', () => {
     expect(screen.getByRole('link', { name: /Laptop Dell/ })).toHaveAttribute('href', '/aset/a7')
     expect(screen.getByText('dipinjam Budi')).toBeInTheDocument()
     expect(screen.getByText('6 hari')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Lihat aset dipinjam/ })).toHaveAttribute('href', '/aset?status=on_loan')
+    expect(screen.getByRole('link', { name: /Lihat semua yang lewat batas/ })).toHaveAttribute('href', '/aset?overdue=1')
   })
 
   it('shows the cards the server sent, with a calm message when nothing waits', async () => {

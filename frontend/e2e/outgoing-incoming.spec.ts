@@ -62,7 +62,7 @@ test('keluar sementara → masuk → laporan transaksi keluar', async ({ page })
   await expect(back.getByLabel('Jenis transaksi')).toHaveValue('incoming')
   await back.getByRole('button', { name: /Catat masuk/ }).click()
   await expect(page.getByText('Transaksi dicatat')).toBeVisible()
-  await expect(page.getByText('Tidak Aktif').first()).toBeVisible()
+  await expect(page.getByText('Tersedia').first()).toBeVisible()
 
   // 4. Nothing is outside any more.
   await page.goto('/transaksi/riwayat?not_returned=1')

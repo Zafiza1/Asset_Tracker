@@ -103,9 +103,12 @@ class HomeCardsTest extends TestCase
         $this->assertSame(3, $card['count']);
         $this->assertSame(['Laptop', 'Proyektor', 'Kamera'], array_column(array_column($card['items'], 'asset'), 'name'));   // most overdue first
         $this->assertSame(['Budi', 6], [$card['items'][0]['borrower_name'], $card['items'][0]['days_late']]);
+        // "Lihat semua yang lewat batas": the asset list with overdue=1 has the same loans, not the one on time.
+        $this->assertEqualsCanonicalizing(['Laptop', 'Kamera', 'Proyektor'], array_column($this->getJson('/api/assets?overdue=1')->assertOk()->json('data'), 'name'));
 
         $this->actingAs($this->member(['transaction.view', 'asset.view'], location: $this->masters['location']->id), 'web');
         $this->assertSame(['Laptop', 'Kamera'], array_column(array_column($this->card('overdue_loans')['items'], 'asset'), 'name'));
+        $this->assertEqualsCanonicalizing(['Laptop', 'Kamera'], array_column($this->getJson('/api/assets?overdue=1')->assertOk()->json('data'), 'name'));
     }
 
     public function test_date_reminders_and_incomplete_assets(): void
