@@ -42,6 +42,9 @@ final class TransactionFieldTypes
 
     public const MAX_OPTIONS = 50;
 
+    /** Longest hint of a field (petunjuk pengisian, F-08j). */
+    public const MAX_HELP = 200;
+
     private const TEXT_MAX = ['text' => 255, 'textarea' => 2000];
 
     public function __construct(
@@ -66,7 +69,9 @@ final class TransactionFieldTypes
             'fields.*.label' => ['required', 'string', 'max:100'],
             'fields.*.data_type' => ['required', Rule::in($types)],
             'fields.*.is_required' => ['sometimes', 'boolean'],
-            'fields.*.settings' => ['sometimes', 'array:max_length,min,max,decimals,options,not_before_today,not_after_today,default,accept,max_mb'],
+            'fields.*.settings' => ['sometimes', 'array:max_length,min,max,decimals,options,not_before_today,not_after_today,default,accept,max_mb,help'],
+            // A hint for whoever fills the field in (F-08 §5 "Petunjuk field"), shown as text.
+            'fields.*.settings.help' => ['sometimes', 'nullable', 'string', 'max:'.self::MAX_HELP],
             'fields.*.settings.accept' => ['sometimes', 'array'],
             'fields.*.settings.accept.*' => ['string', 'distinct', Rule::in(array_keys(TransactionAttachments::KINDS))],
             'fields.*.settings.max_mb' => ['sometimes', 'integer', 'min:1', 'max:100'],
@@ -95,7 +100,18 @@ final class TransactionFieldTypes
     {
         $settings = $field['settings'] ?? [];
         $fail = fn (string $key, string $message) => throw ValidationException::withMessages(["fields.{$index}.settings.{$key}" => $message]);
+        $help = trim((string) ($settings['help'] ?? ''));
 
+        return [...self::typeSettings($field, $settings, $fail), ...($help === '' ? [] : ['help' => mb_substr($help, 0, self::MAX_HELP)])];
+    }
+
+    /**
+     * @param  array<string, mixed>  $field
+     * @param  array<string, mixed>  $settings
+     * @return array<string, mixed>
+     */
+    private static function typeSettings(array $field, array $settings, Closure $fail): array
+    {
         return match ($field['data_type']) {
             'text', 'textarea' => (function () use ($settings, $field, $fail) {
                 $limit = self::TEXT_MAX[$field['data_type']];

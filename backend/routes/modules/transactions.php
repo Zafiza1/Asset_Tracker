@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Tenant\AssetTransactionController;
 use App\Http\Controllers\Tenant\TransactionAttachmentController;
+use App\Http\Controllers\Tenant\TransactionCenterController;
 use App\Http\Controllers\Tenant\TransactionFlowController;
 use App\Http\Controllers\Tenant\TransactionOptionsController;
 use App\Http\Controllers\Tenant\TransactionRunController;
@@ -17,6 +18,9 @@ Route::middleware('module:transactions')->group(function () {
     Route::get('/transactions/counts', [AssetTransactionController::class, 'counts'])->middleware('permission:transaction.view');
     Route::post('/transactions', [AssetTransactionController::class, 'store'])->middleware('permission:transaction.create');
     Route::get('/transactions/{assetTransaction}', [AssetTransactionController::class, 'show'])->middleware('permission:transaction.view');
+
+    // Transaction Center (F-08j, D-50): what the user may record now, and their tasks.
+    Route::get('/transaction-center', [TransactionCenterController::class, 'index'])->middleware('permission:transaction.view');
 
     // The organization's own transaction types and their fields (F-07): read by the transaction
     // form, changed only by Super Admin and Supervisor (transaction_type.manage, D-27).

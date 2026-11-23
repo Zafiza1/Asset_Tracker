@@ -382,7 +382,7 @@ function cardContent(card: HomeCard): CardContent {
             ))}
           </Rows>
         ),
-        link: { to: '/transaksi', label: 'Lihat transaksi' },
+        link: { to: '/transaksi/riwayat', label: 'Lihat transaksi' },
       }
     case 'date_reminders':
       return {

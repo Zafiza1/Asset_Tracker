@@ -59,6 +59,12 @@ final class AssetTransactionService
         TransactionType::INCOMING => 'asset.incoming',
     ];
 
+    /** The permission recording this built-in transaction needs (none for a note). */
+    public static function permissionFor(string $type): ?string
+    {
+        return self::PERMISSIONS[$type] ?? null;
+    }
+
     /** What the built-in form asks besides assets, date and notes; a system type's run keeps it (F-07f-2). */
     public const SYSTEM_INPUT = ['to_location_id', 'to_status', 'borrower_name', 'due_date', 'outgoing_nature', 'reason_code',
         'counterparty_name', 'counterparty_org', 'counterparty_contact', 'document_number'];

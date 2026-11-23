@@ -38,7 +38,7 @@ export const tenantNavigation: NavSection[] = [
     title: 'Manajemen Aset',
     items: [
       { to: '/aset', label: 'Data Aset', icon: Boxes, permission: 'asset.view' },
-      { to: '/transaksi', label: 'Transaksi Aset', icon: ArrowLeftRight, permission: 'transaction.view' },
+      { to: '/transaksi', label: 'Transaksi', icon: ArrowLeftRight, permission: 'transaction.view' },
       { to: '/transaksi/berjalan', label: 'Transaksi Berjalan', icon: ListChecks, permission: 'transaction.view', taskBadge: true },
       // Approval requests on one page: approvers (Super Admin, Supervisor) decide them under
       // "Persetujuan"; everyone else follows whether their own submissions were approved under "Pengajuan Saya".
@@ -98,7 +98,11 @@ export const breadcrumbLabels: Record<string, string> = {
   baru: 'Baru',
   'ubah-password': 'Ubah Password',
   aset: 'Data Aset',
-  transaksi: 'Transaksi Aset',
+  transaksi: 'Transaksi',
+  riwayat: 'Riwayat',
+  kosong: 'Kosong',
+  rules: 'Rules',
+  'cara-kerja': 'Cara kerja',
   jenis: 'Jenis Transaksi',
   alur: 'Alur',
   berjalan: 'Transaksi Berjalan',

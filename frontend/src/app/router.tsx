@@ -17,6 +17,7 @@ import { ReportDesignerPage } from '../features/reportDesigner/ReportDesignerPag
 import { ReportTemplateDetailPage } from '../features/reportDesigner/ReportTemplateDetailPage'
 import { ReportTemplatesPage } from '../features/reportDesigner/ReportTemplatesPage'
 import { RoleFormPage } from '../features/roles/RoleFormPage'
+import { TransactionCenterPage } from '../features/transactions/TransactionCenterPage'
 import { TransactionsPage } from '../features/transactions/TransactionsPage'
 import { FlowEditorPage } from '../features/transactionTypes/FlowEditorPage'
 import { TransactionRunPage } from '../features/transactionTypes/TransactionRunPage'
@@ -74,7 +75,9 @@ export const router = createBrowserRouter([
                   { path: '/dashboard-aset', element: tenant('dashboard.view', <AssetBoardPage />) },
                   { path: '/aset', element: tenant('asset.view', <AssetsPage />) },
                   { path: '/aset/:id', element: tenant('asset.view', <AssetDetailPage />) },
-                  { path: '/transaksi', element: tenant('transaction.view', <TransactionsPage />) },
+                  // D-50: the Transaksi menu is the Transaction Center; the full history is Riwayat.
+                  { path: '/transaksi', element: tenant('transaction.view', <TransactionCenterPage />) },
+                  { path: '/transaksi/riwayat', element: tenant('transaction.view', <TransactionsPage />) },
                   // Organization transaction types, flows and running transactions (F-07).
                   { path: '/transaksi/jenis', element: tenant('transaction.view', <TransactionTypesPage />) },
                   // F-08 "Jenis baru": template first (F08-01); an empty form is one of the choices.

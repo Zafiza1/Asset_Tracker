@@ -100,7 +100,7 @@ export function TransactionRunsPage() {
         ) : query.isError ? (
           <ErrorState error={query.error} onRetry={() => query.refetch()} />
         ) : rows.length === 0 ? (
-          <EmptyState icon={Workflow} title={EMPTY[tab]} description="Transaksi beralur dimulai dari menu Transaksi Aset dengan memilih jenis organisasi yang memiliki alur terbit." />
+          <EmptyState icon={Workflow} title={EMPTY[tab]} description="Transaksi beralur dimulai dari menu Transaksi dengan memilih jenis organisasi yang memiliki alur terbit." />
         ) : (
           <>
             <DataTable columns={columns} rows={rows} onRowClick={(r) => navigate(`/transaksi/berjalan/${r.id}`)} rowHref={(r) => `/transaksi/berjalan/${r.id}`} />

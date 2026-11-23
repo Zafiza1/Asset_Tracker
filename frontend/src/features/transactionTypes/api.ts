@@ -46,6 +46,8 @@ export interface FieldSettings {
   default?: boolean
   accept?: AttachmentKind[]
   max_mb?: number
+  /** A hint for whoever fills the field in (F-08j), at most 200 characters. */
+  help?: string
 }
 
 export interface TypeField {
@@ -424,6 +426,32 @@ export const flowApi = {
   simulate: (typeId: string, body: { graph?: FlowGraph; asset_ids: string[]; field_values?: Record<string, unknown>; decisions?: Record<string, string> }) =>
     api.post<{ data: { path: PathStep[] } }>(`/transaction-types/${typeId}/flow/simulate`, body),
   options: () => api.get<{ data: FlowOptions }>('/transaction-flow-options'),
+}
+
+// ---- Transaction Center (F-08j) ----
+
+export type CenterGroup = 'perpindahan' | 'peminjaman' | 'perawatan' | 'penghapusan' | 'lainnya'
+
+/** A transaction the user may record now, with its way of working in short (F08-40/41). */
+export interface CenterCard {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  icon: string | null
+  system_type: string | null
+  core_type: string | null
+  multi_asset: boolean
+  field_count: number
+  categories: { id: string; name: string }[]
+  group: CenterGroup
+  flow_version: number | null
+  needs_approval: boolean
+  summary: string
+}
+
+export const centerApi = {
+  get: () => api.get<{ data: CenterCard[]; meta: { groups: Record<CenterGroup, string>; tasks: number; running: number } }>('/transaction-center'),
 }
 
 export const runsApi = {

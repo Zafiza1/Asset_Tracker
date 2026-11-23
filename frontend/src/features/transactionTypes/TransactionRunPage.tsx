@@ -96,6 +96,11 @@ export function TransactionRunPage() {
             Langkah ini dikerjakan oleh {task.assignee_name ?? 'penanggung jawabnya'}
             {task.kind === 'approval' && task.required_approvals > 1 ? ` (${task.approvals} dari ${task.required_approvals} persetujuan)` : ''}
             {task.due_date ? `, batas ${formatDate(task.due_date)}` : ''}.
+            {(task.reasons ?? []).map((reason) => (
+              <span key={reason} className="mt-1 block">
+                {reason}
+              </span>
+            ))}
           </Alert>
         </div>
       )}

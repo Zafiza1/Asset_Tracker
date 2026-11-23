@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, FolderTree, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRound, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, FolderTree, Handshake, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRound, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -20,6 +20,7 @@ import { attributeRowsBySection, SECTION_LABELS } from '../master/categoryAttrib
 import { allowedTypes, daysLate, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
 import { LocationChange, StatusChange } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
+import { typesApi } from '../transactionTypes/api'
 import { assetStatusLabel, formatMoney, type Asset } from './api'
 import { AssetStatusBadge } from './AssetStatusBadge'
 import { AssetBarcodeModal } from './AssetBarcodeModal'
@@ -32,6 +33,10 @@ export function AssetDetailPage() {
   const { can } = useAuth()
   const [editing, setEditing] = useState(false)
   const [recording, setRecording] = useState<ManualTransactionType | 'any' | null>(null)
+  // "Serah terima" (F08-54): one way for a lasting handover, the type made from that template.
+  const [handingOver, setHandingOver] = useState<string | null>(null)
+  const activeTypes = useQuery({ queryKey: ['/transaction-types', 'active'], queryFn: () => typesApi.list({ status: 'active' }), staleTime: 30_000, enabled: can('transaction.create') })
+  const handover = (activeTypes.data?.data ?? []).find((t) => t.source_template_key === 'serah_terima_penanggung_jawab')
   const [archiving, setArchiving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
@@ -99,6 +104,11 @@ export function AssetDetailPage() {
             {canRecord && types.includes('return') && can('asset.assign') && (
               <Button variant="secondary" onClick={() => setRecording('return')}>
                 <Undo2 className="size-4" aria-hidden /> Catat pengembalian
+              </Button>
+            )}
+            {canRecord && handover && (
+              <Button variant="secondary" onClick={() => setHandingOver(handover.id)}>
+                <Handshake className="size-4" aria-hidden /> Serah terima
               </Button>
             )}
             {canRecord && (
@@ -311,12 +321,13 @@ export function AssetDetailPage() {
       {editing && <AssetFormModal asset={a} onClose={() => setEditing(false)} />}
       {printing && <AssetBarcodeModal asset={a} onClose={() => setPrinting(false)} />}
       {recording && <TransactionFormModal asset={a} initialType={recording === 'any' ? undefined : recording} onClose={() => setRecording(null)} />}
+      {handingOver && <TransactionFormModal asset={a} initialCustomTypeId={handingOver} onClose={() => setHandingOver(null)} />}
       {archiving && <ArchiveModal asset={a} onClose={() => setArchiving(false)} />}
     </>
   )
 }
 
-// The asset's own history: the Transaksi Aset table without the asset column.
+// The asset's own history: the Riwayat Transaksi table without the asset column.
 const historyColumns: Column<TransactionWithState>[] = [
   // Number, date and recorder share one cell so the before → after columns get the room.
   {

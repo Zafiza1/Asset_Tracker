@@ -368,6 +368,12 @@ export function TransactionTypeFormPage() {
 
 /** Only the settings the field type uses. */
 function cleanSettings(f: DraftField): FieldSettings {
+  // The hint (F-08j) goes with every field type.
+  const help = f.settings.help?.trim()
+  return { ...typeSettings(f), ...(help ? { help } : {}) }
+}
+
+function typeSettings(f: DraftField): FieldSettings {
   const s = f.settings
   const num = (v: unknown) => (v === '' || v === undefined || v === null || Number.isNaN(Number(v)) ? undefined : Number(v))
   switch (f.data_type) {
@@ -424,6 +430,11 @@ function FieldRow({ field: f, index, count, editable, errors, onChange, onMove, 
             </Select>
           )}
         </Field>
+        <div className="sm:col-span-3">
+          <Field label="Petunjuk untuk pengisi" error={err('settings.help')} hint="Tampil di bawah isian formulir, mis. Anggota tim yang memakai aset.">
+            {(p) => <Input {...p} value={s.help ?? ''} maxLength={200} onChange={(e) => setS({ help: e.target.value })} />}
+          </Field>
+        </div>
         <div className="flex items-center gap-1 sm:pt-7">
           <label className="mr-2 inline-flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" className="size-4 rounded border-slate-300 accent-brand-700" checked={f.is_required} onChange={(e) => onChange({ is_required: e.target.checked })} />

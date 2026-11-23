@@ -152,7 +152,7 @@ export function TransactionsPage() {
   return (
     <>
       <PageHeader
-        title="Transaksi Aset"
+        title="Riwayat Transaksi"
         description="Riwayat perpindahan, peminjaman, aset keluar dan masuk organisasi, serta perubahan status aset."
         actions={
           can('transaction.create') && (

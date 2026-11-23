@@ -397,7 +397,7 @@ function Step7() {
       { when: 'Transaksi tersimpan', n: 8 },
     ]}>
       <NumberedList items={[
-        <>Buka <MenuLink to="/transaksi" permission="transaction.view">Transaksi Aset</MenuLink>, lalu klik <Label>Catat transaksi</Label>. Untuk satu aset, Anda juga dapat memulai dari halaman detail asetnya.</>,
+        <>Buka <MenuLink to="/transaksi" permission="transaction.view">Transaksi</MenuLink>, lalu pilih transaksinya di <Label>Buat transaksi</Label> (atau klik <Label>Catat transaksi</Label>). Untuk satu aset, Anda juga dapat memulai dari halaman detail asetnya. Riwayat lengkap ada di <Label>Riwayat transaksi</Label>.</>,
         'Pilih jenis transaksi, lalu isi data yang diminta.',
         'Isi tanggal transaksi. Tanggal boleh mundur, tetapi tidak boleh di masa depan.',
         'Centang aset yang terlibat. Satu transaksi dapat mencakup banyak aset.',

@@ -28,8 +28,8 @@ async function xsrf(page: Page): Promise<Record<string, string>> {
 test('keluar sementara → masuk → laporan transaksi keluar', async ({ page }) => {
   await login(page)
 
-  // 1. Outgoing, temporary, from the Transactions page.
-  await page.goto('/transaksi')
+  // 1. Outgoing, temporary, from the transaction history (Riwayat, D-50).
+  await page.goto('/transaksi/riwayat')
   await page.getByRole('button', { name: 'Catat transaksi' }).first().click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Jenis transaksi').selectOption('outgoing')

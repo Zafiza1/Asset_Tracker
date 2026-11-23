@@ -38,6 +38,8 @@ interface Props {
   /** Pre-selected asset (from the asset detail page); otherwise the user picks one or more. */
   asset?: Asset
   initialType?: ManualTransactionType
+  /** An organization type chosen beforehand (Transaction Center, "Serah terima" on the asset, F-08j). */
+  initialCustomTypeId?: string
   onClose: () => void
 }
 
@@ -45,7 +47,7 @@ interface Props {
  * Record one manual transaction: choose the type first, fill in what it needs, then pick the
  * assets it covers. Every picked asset gets its own history row under one transaction number.
  */
-export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }: Props) {
+export function TransactionFormModal({ asset: fixedAsset, initialType, initialCustomTypeId, onClose }: Props) {
   const { can } = useAuth()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
@@ -59,7 +61,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   const [filters, setFilters] = useState({ location_id: '', status: initialType === 'incoming' ? 'off_site' : '', category_ids: '' })
   const [visibleColumns, setVisibleColumns] = useState(DEFAULT_COLUMNS)
   // The organization's own types (F-07): their fields shape the form; a published flow takes over after saving.
-  const [customId, setCustomId] = useState('')
+  const [customId, setCustomId] = useState(initialCustomTypeId ?? '')
   const [customValues, setCustomValues] = useState<FieldValues>({})
   const activeTypes = useQuery({ queryKey: ['/transaction-types', 'active'], queryFn: () => typesApi.list({ status: 'active' }), staleTime: 30_000 })
   const customType = (activeTypes.data?.data ?? []).find((t) => t.id === customId)
