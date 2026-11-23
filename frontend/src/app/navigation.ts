@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, Home, KeyRound, LayoutDashboard, ListChecks, MapPin, Network, QrCode, Users, Workflow, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, Home, KeyRound, LayoutDashboard, MapPin, Network, QrCode, Users, Workflow, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -38,8 +38,8 @@ export const tenantNavigation: NavSection[] = [
     title: 'Manajemen Aset',
     items: [
       { to: '/aset', label: 'Data Aset', icon: Boxes, permission: 'asset.view' },
-      { to: '/transaksi', label: 'Transaksi', icon: ArrowLeftRight, permission: 'transaction.view' },
-      { to: '/transaksi/berjalan', label: 'Transaksi Berjalan', icon: ListChecks, permission: 'transaction.view', taskBadge: true },
+      // The Transaction Center, with the number of steps waiting for the user (D-50).
+      { to: '/transaksi', label: 'Transaksi', icon: ArrowLeftRight, permission: 'transaction.view', taskBadge: true },
       // Approval requests on one page: approvers (Super Admin, Supervisor) decide them under
       // "Persetujuan"; everyone else follows whether their own submissions were approved under "Pengajuan Saya".
       { to: '/notifikasi', label: 'Persetujuan', icon: Bell, permission: 'approval.manage', approvalBadge: true },

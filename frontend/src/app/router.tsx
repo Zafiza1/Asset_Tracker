@@ -21,7 +21,6 @@ import { TransactionCenterPage } from '../features/transactions/TransactionCente
 import { TransactionsPage } from '../features/transactions/TransactionsPage'
 import { FlowEditorPage } from '../features/transactionTypes/FlowEditorPage'
 import { TransactionRunPage } from '../features/transactionTypes/TransactionRunPage'
-import { TransactionRunsPage } from '../features/transactionTypes/TransactionRunsPage'
 import { TransactionHowItWorksPage } from '../features/transactionTypes/TransactionHowItWorksPage'
 import { TransactionRulesPage } from '../features/transactionTypes/TransactionRulesPage'
 import { TransactionTypeFormPage } from '../features/transactionTypes/TransactionTypeFormPage'
@@ -88,7 +87,8 @@ export const router = createBrowserRouter([
                   { path: '/transaksi/jenis/:id/rules', element: tenant('transaction.view', <TransactionRulesPage />) },
                   { path: '/transaksi/jenis/:id/panduan', element: tenant('transaction.view', <TransactionWizardPage />) },
                   { path: '/transaksi/jenis/:id/cara-kerja', element: tenant('transaction.view', <TransactionHowItWorksPage />) },
-                  { path: '/transaksi/berjalan', element: tenant('transaction.view', <TransactionRunsPage />) },
+                  // The former list of running transactions is part of the Transaction Center now; the detail stays (emails link to it).
+                  { path: '/transaksi/berjalan', element: <Navigate to="/transaksi?tab=tugas" replace /> },
                   { path: '/transaksi/berjalan/:id', element: tenant('transaction.view', <TransactionRunPage />) },
                   { path: '/notifikasi', element: tenant(null, <NotificationsPage />) },
                   { path: '/panduan', element: tenant(null, <GuidePage />) },

@@ -12,18 +12,19 @@ import { centerApi, runsApi, runStateTone, type CenterCard, type CenterGroup, ty
 import type { ManualTransactionType } from './api'
 import { TransactionFormModal } from './TransactionFormModal'
 
-type Tab = 'buat' | 'tugas' | 'saya'
+type Tab = 'buat' | 'tugas' | 'saya' | 'berjalan'
 const GROUP_ORDER: CenterGroup[] = ['perpindahan', 'peminjaman', 'perawatan', 'penghapusan', 'lainnya']
 
 /**
  * Transaction Center (F-08 §3.9, D-50): where people record transactions. "Buat transaksi" shows
  * the transactions the user may record now, grouped, each with its way of working in short;
  * "Perlu tindakan saya" the steps waiting for them; "Transaksi saya" what they started, at its
- * current stage. The full history stays under Riwayat. Works on a phone (F08-44).
+ * current stage; "Semua berjalan" every running transaction in the user's data scope (it replaces
+ * the former "Transaksi Berjalan" menu). The full history stays under Riwayat. Works on a phone (F08-44).
  */
 export function TransactionCenterPage() {
   const [params, setParams] = useSearchParams()
-  const tab = (['buat', 'tugas', 'saya'].includes(params.get('tab') ?? '') ? params.get('tab') : 'buat') as Tab
+  const tab = (['buat', 'tugas', 'saya', 'berjalan'].includes(params.get('tab') ?? '') ? params.get('tab') : 'buat') as Tab
   const [recording, setRecording] = useState<CenterCard | 'any' | null>(null)
   const center = useQuery({ queryKey: ['/transaction-center'], queryFn: () => centerApi.get() })
   const meta = center.data?.meta
@@ -57,6 +58,7 @@ export function TransactionCenterPage() {
             { value: 'buat', label: 'Buat transaksi' },
             { value: 'tugas', label: 'Perlu tindakan saya', count: meta?.tasks, attention: (meta?.tasks ?? 0) > 0 },
             { value: 'saya', label: 'Transaksi saya', count: meta?.running },
+            { value: 'berjalan', label: 'Semua berjalan' },
           ]}
         />
       </div>
@@ -118,6 +120,13 @@ export function TransactionCenterPage() {
           params={{ assigned_to_me: '1', state: 'running' }}
           empty="Tidak ada langkah yang menunggu Anda."
           line={(r) => `${r.open_task?.kind === 'approval' ? 'Setujui' : 'Isi data'}: ${r.current_step?.label ?? ''}${r.open_task?.due_date ? ` · batas ${formatDate(r.open_task.due_date)}` : ''}`}
+        />
+      )}
+      {tab === 'berjalan' && (
+        <RunList
+          params={{ state: 'running' }}
+          empty="Tidak ada transaksi beralur yang sedang berjalan dalam cakupan data Anda."
+          line={(r) => `Tahapan sekarang: ${r.current_step?.label ?? '-'}${r.open_task?.assignee_name ? ` · menunggu ${r.open_task.assignee_name}` : ''}`}
         />
       )}
       {tab === 'saya' && <RunList params={{ mine: '1' }} empty="Anda belum memulai transaksi yang berjalan dengan alur." line={(r) => (r.state === 'running' ? `Tahapan sekarang: ${r.current_step?.label ?? '-'}` : r.state_label)} />}

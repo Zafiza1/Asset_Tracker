@@ -75,7 +75,7 @@ describe('Beranda', () => {
     expect(screen.getByText('Tidak ada langkah yang menunggu Anda.')).toBeInTheDocument()
     expect(screen.getByText(/Lokasi tujuan salah/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Proyektor Epson/ })).toHaveAttribute('href', '/aset/a1')
-    expect(screen.getByRole('link', { name: /Lihat aset belum kembali/ })).toHaveAttribute('href', '/transaksi?not_returned=1')
+    expect(screen.getByRole('link', { name: /Lihat aset belum kembali/ })).toHaveAttribute('href', '/transaksi/riwayat?not_returned=1')
   })
 
   it('follows the saved order and leaves hidden cards out', async () => {

@@ -79,6 +79,15 @@ describe('Transaction Center', () => {
     expect(fetchMock.mock.calls.some(([u]) => String(u).includes('assigned_to_me=1'))).toBe(true)
   })
 
+  it('shows every running transaction in view (the former "Transaksi Berjalan" menu)', async () => {
+    const fetchMock = setup([card('t-mut', 'Mutasi antar lokasi')], '/transaksi?tab=berjalan')
+    expect(await screen.findByText('MUT-2026-000044')).toBeInTheDocument()
+    expect(screen.getByText('Tahapan sekarang: Persetujuan Supervisor lokasi')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Semua berjalan' })).toHaveAttribute('aria-selected', 'true')
+    const runs = fetchMock.mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith('/api/transaction-runs'))
+    expect(runs.some((u) => u.includes('state=running') && !u.includes('assigned_to_me') && !u.includes('mine'))).toBe(true)
+  })
+
   it('tells a user without rights to record why there is nothing', async () => {
     setup([])
     expect(await screen.findByText('Belum ada transaksi yang dapat Anda lakukan')).toBeInTheDocument()

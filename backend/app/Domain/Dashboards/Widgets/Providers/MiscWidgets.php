@@ -60,7 +60,7 @@ final class MiscWidgets
         $items = [
             ['key' => 'assets', 'label' => 'Daftar Aset', 'target' => '/aset', 'permission' => 'asset.view'],
             ['key' => 'transactions', 'label' => 'Transaksi', 'target' => '/transaksi', 'permission' => 'transaction.view'],
-            ['key' => 'runs', 'label' => 'Transaksi Berjalan', 'target' => '/transaksi/berjalan', 'permission' => 'transaction.view'],
+            ['key' => 'runs', 'label' => 'Perlu tindakan saya', 'target' => '/transaksi?tab=tugas', 'permission' => 'transaction.view'],
             ['key' => 'reports', 'label' => 'Laporan', 'target' => '/laporan/template', 'permission' => 'report.view'],
         ];
         $templateId = $ctx->config('report_template_id');

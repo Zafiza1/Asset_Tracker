@@ -301,7 +301,7 @@ function cardContent(card: HomeCard): CardContent {
             ))}
           </Rows>
         ),
-        link: { to: '/transaksi/berjalan', label: 'Lihat semua tugas' },
+        link: { to: '/transaksi?tab=tugas', label: 'Lihat semua tugas' },
       }
     case 'my_requests': {
       const total = Object.values(card.counts).reduce((a, b) => a + b, 0)
@@ -348,7 +348,7 @@ function cardContent(card: HomeCard): CardContent {
             ))}
           </Rows>
         ),
-        link: { to: '/transaksi?not_returned=1', label: 'Lihat aset belum kembali' },
+        link: { to: '/transaksi/riwayat?not_returned=1', label: 'Lihat aset belum kembali' },
       }
     case 'overdue_loans':
       return {
