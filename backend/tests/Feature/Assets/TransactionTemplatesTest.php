@@ -74,6 +74,11 @@ class TransactionTemplatesTest extends TestCase
                 $response->assertJsonPath('meta.pair', null);
             }
             foreach ($ids as $id) {
+                // The Designer saves it back as it got it: the flow without rule steps and the rules.
+                $draft = $this->getJson("/api/transaction-types/{$id}/flow")->assertOk()->json('data.draft');
+                $saved = $this->putJson("/api/transaction-types/{$id}/flow", ['graph' => $draft['base_graph'], 'rules' => $draft['rules']])->assertOk()->json('data');
+                // Same flow and rules (jsonb keeps no key order, hence assertEquals).
+                $this->assertEquals([$draft['graph'], $draft['rules']], [$saved['graph'], $saved['rules']]);
                 $this->postJson("/api/transaction-types/{$id}/flow/validate")->assertOk()->assertJsonPath('data.issues', []);
                 $this->postJson("/api/transaction-types/{$id}/flow/publish")->assertOk()->assertJsonPath('data.status', 'published');
                 $made++;

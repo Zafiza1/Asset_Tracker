@@ -65,7 +65,7 @@ test('keluar sementara → masuk → laporan transaksi keluar', async ({ page })
   await expect(page.getByText('Tidak Aktif').first()).toBeVisible()
 
   // 4. Nothing is outside any more.
-  await page.goto('/transaksi?not_returned=1')
+  await page.goto('/transaksi/riwayat?not_returned=1')
   await expect(page.getByText('Tidak ada aset yang belum kembali')).toBeVisible()
 
   // 5. The outgoing report sample shows the transaction as returned (API: no sample picker in the UI yet).

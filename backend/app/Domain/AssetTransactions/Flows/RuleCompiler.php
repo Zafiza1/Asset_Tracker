@@ -54,7 +54,7 @@ final class RuleCompiler
             "{$prefix}.*.outcome" => ['required', 'array:kind,message,approver,min_approvals,step'],
             "{$prefix}.*.outcome.kind" => ['required', Rule::in(self::KINDS)],
             "{$prefix}.*.outcome.message" => ['nullable', 'string', 'max:'.FlowActions::MAX_MESSAGE],
-            "{$prefix}.*.outcome.approver" => ['sometimes', 'array:type,id'],
+            "{$prefix}.*.outcome.approver" => ['sometimes', 'array:type,id,field'],
             "{$prefix}.*.outcome.min_approvals" => ['sometimes', 'integer'],
             "{$prefix}.*.outcome.step" => ['sometimes', 'string', 'max:40'],
         ];
