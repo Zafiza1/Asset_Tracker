@@ -21,7 +21,9 @@ import { TransactionsPage } from '../features/transactions/TransactionsPage'
 import { FlowEditorPage } from '../features/transactionTypes/FlowEditorPage'
 import { TransactionRunPage } from '../features/transactionTypes/TransactionRunPage'
 import { TransactionRunsPage } from '../features/transactionTypes/TransactionRunsPage'
+import { TransactionRulesPage } from '../features/transactionTypes/TransactionRulesPage'
 import { TransactionTypeFormPage } from '../features/transactionTypes/TransactionTypeFormPage'
+import { TransactionTypeStartPage } from '../features/transactionTypes/TransactionTypeStartPage'
 import { TransactionTypesPage } from '../features/transactionTypes/TransactionTypesPage'
 import { NotificationsPage } from '../features/approvals/NotificationsPage'
 import { AssetBoardPage } from '../features/assetBoard/AssetBoardPage'
@@ -73,9 +75,12 @@ export const router = createBrowserRouter([
                   { path: '/transaksi', element: tenant('transaction.view', <TransactionsPage />) },
                   // Organization transaction types, flows and running transactions (F-07).
                   { path: '/transaksi/jenis', element: tenant('transaction.view', <TransactionTypesPage />) },
-                  { path: '/transaksi/jenis/baru', element: tenant('transaction_type.manage', <TransactionTypeFormPage />) },
+                  // F-08 "Jenis baru": template first (F08-01); an empty form is one of the choices.
+                  { path: '/transaksi/jenis/baru', element: tenant('transaction_type.manage', <TransactionTypeStartPage />) },
+                  { path: '/transaksi/jenis/baru/kosong', element: tenant('transaction_type.manage', <TransactionTypeFormPage />) },
                   { path: '/transaksi/jenis/:id', element: tenant('transaction.view', <TransactionTypeFormPage />) },
                   { path: '/transaksi/jenis/:id/alur', element: tenant('transaction.view', <FlowEditorPage />) },
+                  { path: '/transaksi/jenis/:id/rules', element: tenant('transaction.view', <TransactionRulesPage />) },
                   { path: '/transaksi/berjalan', element: tenant('transaction.view', <TransactionRunsPage />) },
                   { path: '/transaksi/berjalan/:id', element: tenant('transaction.view', <TransactionRunPage />) },
                   { path: '/notifikasi', element: tenant(null, <NotificationsPage />) },

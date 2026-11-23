@@ -69,6 +69,10 @@ export interface TransactionTypeDefinition {
    * `include_system=1`, read-only, and recorded through the Transaksi menu as before.
    */
   system_type?: string | null
+  /** A copy of a system type keeps its core action (F-08h): the built-in transaction it records. */
+  core_type?: string | null
+  /** The ready-made template the type was made from (F-08c); the type does not follow it. */
+  source_template_key?: string | null
   name: string
   description: string | null
   icon: string | null
@@ -121,14 +125,15 @@ export interface Rule {
 }
 
 export interface Who {
-  type: 'starter' | 'role' | 'user' | 'field' | 'location_supervisor'
+  /** F-08i: asset_custodian and target_department_supervisor approve; asset_custodian also receives emails (F-08k). */
+  type: 'starter' | 'role' | 'user' | 'field' | 'location_supervisor' | 'asset_custodian' | 'target_department_supervisor'
   id?: string
   field?: string
 }
 
 export interface FlowAction {
   /** 'core': a system type's core action (F-07f-2), exactly once in its flow and never offered to add. */
-  kind: 'set_status' | 'move_to_field_location' | 'set_condition' | 'loan_to_field_user' | 'return' | 'notify' | 'core'
+  kind: 'set_status' | 'move_to_field_location' | 'set_condition' | 'loan_to_field_user' | 'return' | 'notify' | 'set_custodian' | 'core'
   status?: string
   field?: string
   value?: string
@@ -137,6 +142,8 @@ export interface FlowAction {
   location_field?: string
   to?: Who
   message?: string
+  /** set_custodian: the asset also takes the new custodian's home department. */
+  set_department?: boolean
 }
 
 export interface NodeConfig {
@@ -184,6 +191,97 @@ export interface FlowIssue {
   code: string
   message: string
   node_id: string | null
+  /** A problem of a named rule (F-08g). */
+  rule_id?: string
+}
+
+// ---- Named rules (F-08g) ----
+
+export type RuleOutcomeKind = 'reject' | 'approval' | 'skip_approval'
+export const ruleOutcomeLabel: Record<RuleOutcomeKind, string> = { reject: 'Tolak transaksi', approval: 'Perlu persetujuan', skip_approval: 'Lewati persetujuan' }
+
+export interface NamedRule {
+  id: string
+  name: string
+  description: string | null
+  /** 1 applies first. */
+  priority: number
+  active: boolean
+  match: 'all' | 'any'
+  assets: 'any' | 'all' | 'total'
+  conditions: Rule[]
+  outcome: { kind: RuleOutcomeKind; message?: string | null; approver?: Who; min_approvals?: number; step?: string }
+}
+
+/** A rule as the documentation tells it (FlowDescriber): its sentence and whether it applies. */
+export interface DescribedRule {
+  id: string
+  name: string
+  description: string | null
+  priority: number
+  active: boolean
+  kind: RuleOutcomeKind
+  sentence: string
+  applies: boolean
+  note: string | null
+}
+
+/** "Cara kerja transaksi ini" (F08-23), from GET flow/describe or a template card. */
+export interface FlowDocumentation {
+  title: string
+  purpose: string | null
+  records_at_once: boolean
+  who_records: string
+  preconditions: string | null
+  form: { key: string; label: string; type: string; required: boolean; help: string | null; asked_in: string | null }[]
+  steps: { number: number; id: string; type: NodeType; label: string; sentence: string }[]
+  effects: string[]
+  people: string[]
+  summary: string
+  rules: DescribedRule[]
+  changes: string[]
+  version?: { version_number: number; status: 'draft' | 'published' } | null
+  previous_version?: number | null
+}
+
+// ---- Templates (F-08c) ----
+
+export type TemplateCategory = 'perpindahan' | 'peminjaman' | 'perawatan' | 'penghapusan'
+
+export interface TemplateCard {
+  key: string
+  name: string
+  category: TemplateCategory
+  purpose: string
+  code: string
+  icon: string
+  core_type: string | null
+  field_count: number
+  approval_count: number
+  fields: { key: string; label: string; data_type: FieldType; data_type_label: string; is_required: boolean }[]
+  graph: FlowGraph
+  rules: NamedRule[]
+  documentation: FlowDocumentation
+}
+
+export interface Template extends TemplateCard {
+  /** Made together with this template, closing it ("Berpasangan"), e.g. Kembali dari kalibrasi. */
+  pair: TemplateCard | null
+}
+
+// ---- Scenarios (F-08d) ----
+
+export interface Scenario {
+  id: string
+  kind: 'path' | 'blocked'
+  name: string
+  steps: { node_id: string; label: string; type: NodeType; outcome: string | null }[]
+  end: { node_id: string; label: string; result: 'completed' | 'rejected' | 'cancelled' } | null
+  message: string | null
+  rule_id: string | null
+  inputs: { asset_ids: string[]; field_values: Record<string, unknown>; decisions: Record<string, string> }
+  status: 'ready' | 'no_sample' | 'problem'
+  note: string | null
 }
 
 export interface FlowVersion {
@@ -191,6 +289,10 @@ export interface FlowVersion {
   version_number: number
   status: 'draft' | 'published'
   graph: FlowGraph
+  /** F-08g: the named rules, whether the graph is compiled from them, and the flow without the compiled steps. */
+  rules?: NamedRule[]
+  graph_source?: 'rules' | 'canvas'
+  base_graph?: FlowGraph
   change_note: string | null
   published_at: string | null
   updated_at: string | null
@@ -218,6 +320,9 @@ export interface PathStep {
   type: NodeType
   label: string | null
   outcome: string | null
+  /** A refused start: the message the recorder sees, and the rule that refused (F-08g). */
+  message?: string | null
+  rule_id?: string | null
 }
 
 // ---- Runs ----
@@ -245,9 +350,11 @@ export interface OpenTask {
   id: string
   node_id: string
   kind: 'input' | 'approval'
-  assignee_type: 'user' | 'role' | 'location_supervisor'
+  assignee_type: 'user' | 'role' | 'location_supervisor' | 'asset_custodian' | 'department_supervisor'
   assignee_id: string | null
   assignee_name: string | null
+  /** Why the task went to another approver than the flow named (F08-51/52). */
+  reasons?: string[]
   due_date: string | null
   required_approvals: number
   approvals: number
@@ -284,6 +391,12 @@ export const typesApi = {
   create: (input: TypeInput) => api.post<{ data: TransactionTypeDefinition }>('/transaction-types', input),
   update: (id: string, input: TypeInput) => api.put<{ data: TransactionTypeDefinition }>(`/transaction-types/${id}`, input),
   remove: (id: string) => api.delete<void>(`/transaction-types/${id}`),
+  /** "Salin jenis" (F-08h): a draft copy, fields and flow included; a system type's copy keeps its core action. */
+  duplicate: (id: string, input: { code: string; name: string }) => api.post<{ data: TransactionTypeDefinition }>(`/transaction-types/${id}/duplicate`, input),
+  templates: () => api.get<{ data: Template[]; meta: { categories: Record<TemplateCategory, string> } }>('/transaction-type-templates'),
+  /** Draft types from a template (F-08c); `meta.pair` is the closing type made with it. */
+  fromTemplate: (input: { template: string; code?: string; name?: string; pair?: { code?: string; name?: string } }) =>
+    api.post<{ data: TransactionTypeDefinition; meta: { pair: TransactionTypeDefinition | null } }>('/transaction-types/from-template', input),
   members: (search: string, ids: string[] = []) =>
     api.get<{ data: { id: string; name: string }[] }>(`/transaction-members${qs({ search, ids: ids.join(',') })}`),
   upload: (typeId: string, fieldKey: string, file: File) => {
@@ -298,6 +411,13 @@ export const flowApi = {
   get: (typeId: string) => api.get<{ data: FlowState }>(`/transaction-types/${typeId}/flow`),
   save: (typeId: string, graph: FlowGraph, change_note?: string) =>
     api.put<{ data: FlowVersion }>(`/transaction-types/${typeId}/flow`, { graph, change_note: change_note || null }),
+  /** The Designer's save (F-08g): the flow without rule steps plus the rules, compiled by the server. */
+  saveRules: (typeId: string, baseGraph: FlowGraph, rules: NamedRule[], change_note?: string) =>
+    api.put<{ data: FlowVersion }>(`/transaction-types/${typeId}/flow`, { graph: baseGraph, rules, change_note: change_note || null }),
+  describe: (typeId: string, version?: number) =>
+    api.get<{ data: FlowDocumentation }>(`/transaction-types/${typeId}/flow/describe${qs({ version: version ? String(version) : undefined })}`),
+  scenarios: (typeId: string, body: { graph?: FlowGraph; rules?: NamedRule[] } = {}) =>
+    api.post<{ data: Scenario[]; meta: { total: number; truncated: boolean; limit: number } }>(`/transaction-types/${typeId}/flow/scenarios`, body),
   validate: (typeId: string, graph?: FlowGraph) =>
     api.post<{ data: { valid: boolean; issues: FlowIssue[] } }>(`/transaction-types/${typeId}/flow/validate`, graph ? { graph } : {}),
   publish: (typeId: string) => api.post<{ data: FlowVersion }>(`/transaction-types/${typeId}/flow/publish`),

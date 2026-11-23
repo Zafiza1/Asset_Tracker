@@ -45,6 +45,7 @@ const ACTION_TEXT: Record<FlowAction['kind'], string> = {
   loan_to_field_user: 'pinjamkan',
   return: 'kembalikan',
   notify: 'notifikasi',
+  set_custodian: 'ganti penanggung jawab',
   core: 'aturan inti',
 }
 

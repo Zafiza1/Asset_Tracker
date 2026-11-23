@@ -29,6 +29,7 @@ import {
   type TransactionTypeDefinition,
   type TypeStatus,
 } from './api'
+import { DesignerNav } from './DesignerNav'
 
 interface DraftField {
   /** Local row id; existing fields keep their key, which cannot change. */
@@ -198,6 +199,7 @@ export function TransactionTypeFormPage() {
           </>
         }
       />
+      {!isNew && id && <DesignerNav typeId={id} />}
 
       {system ? (
         <div className="mb-4">
