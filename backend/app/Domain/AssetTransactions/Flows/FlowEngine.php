@@ -304,7 +304,23 @@ final class FlowEngine
     public function simulate(array $graph, array $assetIds, array $values, array $decisions): array
     {
         $assets = $this->scope->apply(Asset::query())->with('category:id,path')->whereKey($assetIds)->get();
-        $roles = $this->userRoles($this->userId());
+
+        return $this->simulateWith($graph, $assets, $values, $decisions, $this->userRoles($this->userId()));
+    }
+
+    /**
+     * simulate() with the assets already loaded (in the user's scope, with category), so the
+     * scenario search (FlowScenarios, F-08d) can try many without loading them again.
+     *
+     * @param  array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}  $graph
+     * @param  Collection<int, Asset>  $assets
+     * @param  array<string, mixed>  $values
+     * @param  array<string, string>  $decisions
+     * @param  list<string>  $roles  the current user's role ids
+     * @return list<array<string, mixed>>
+     */
+    public function simulateWith(array $graph, Collection $assets, array $values, array $decisions, array $roles): array
+    {
         $path = [];
         $node = collect($graph['nodes'])->firstWhere('type', 'start');
         for ($i = 0; $node !== null && $i < self::MAX_AUTOMATIC_STEPS; $i++) {

@@ -40,6 +40,8 @@ Route::middleware('module:transactions')->group(function () {
     Route::post('/transaction-types/{transactionType}/flow/validate', [TransactionFlowController::class, 'validateFlow'])->middleware('permission:transaction_flow.manage');
     Route::post('/transaction-types/{transactionType}/flow/publish', [TransactionFlowController::class, 'publish'])->middleware('permission:transaction_flow.manage');
     Route::post('/transaction-types/{transactionType}/flow/simulate', [TransactionFlowController::class, 'simulate'])->middleware('permission:transaction_flow.manage');
+    // Scenarios of every path for "Jalankan semua skenario" (F-08d): a dry run, nothing saved; at most 12 per request.
+    Route::post('/transaction-types/{transactionType}/flow/scenarios', [TransactionFlowController::class, 'scenarios'])->middleware(['permission:transaction_flow.manage', 'throttle:30,1']);
 
     // Transactions going through a flow (F-07b). Who may work a step is checked by the engine:
     // the task's assignee, the run's creator, or transaction.reverse for cancelling.

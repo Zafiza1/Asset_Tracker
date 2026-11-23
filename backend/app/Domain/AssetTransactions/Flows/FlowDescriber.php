@@ -203,6 +203,31 @@ final class FlowDescriber
     }
 
     /**
+     * One branch taken, as part of a scenario name (F08-18): "nilai perolehan lebih dari
+     * Rp 10.000.000", "disetujui pemegang role Super Admin", "ditolak Supervisor yang membawahi aset".
+     *
+     * @param  array<string, mixed>  $node  a condition or approval step
+     */
+    public function branch(TransactionTypeDefinition $type, array $node, string $outcome): string
+    {
+        $this->use($type);
+        $config = $node['config'] ?? [];
+        if ($node['type'] === 'approval') {
+            return ($outcome === 'rejected' ? 'ditolak ' : 'disetujui ').$this->lcfirst($this->approverPhrase($config, true));
+        }
+        $rules = array_values(array_filter((array) ($config['rules'] ?? []), 'is_array'));
+        $assets = $config['assets'] ?? 'any';
+        if ($outcome === 'yes') {
+            return $this->rulesPhrase($rules, $config['match'] ?? 'all', $assets);
+        }
+        if (count($rules) === 1 && ($negated = $this->negate($rules[0])) !== null) {
+            return $this->rulePhrase($negated, ['all' => 'any', 'any' => 'all'][$assets] ?? $assets);
+        }
+
+        return 'tidak: '.$this->rulesPhrase($rules, $config['match'] ?? 'all', $assets);
+    }
+
+    /**
      * One condition rule as a phrase, e.g. "nilai perolehan lebih dari Rp 10.000.000" (F08-10).
      *
      * @param  array<string, mixed>  $rule

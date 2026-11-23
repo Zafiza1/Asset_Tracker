@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Domain\AssetTransactions\Flows\FlowDescriber;
 use App\Domain\AssetTransactions\Flows\FlowEngine;
 use App\Domain\AssetTransactions\Flows\FlowGraph;
+use App\Domain\AssetTransactions\Flows\FlowScenarios;
 use App\Domain\AssetTransactions\Flows\FlowVersionService;
 use App\Domain\AssetTransactions\Flows\RuleCompiler;
 use App\Domain\AssetTransactions\Models\TransactionFlowVersion;
@@ -103,6 +104,29 @@ class TransactionFlowController extends Controller
         return response()->json(['data' => ['path' => $this->engine->simulate(
             ['nodes' => $graph['nodes'] ?? [], 'edges' => $graph['edges'] ?? []], $data['asset_ids'], $data['field_values'] ?? [], $data['decisions'] ?? [],
         )]]);
+    }
+
+    /**
+     * Test scenarios of the flow (F-08 §3.5, F-08d): one per path and per way the start refuses,
+     * at most 12, each with inputs for `simulate` and a sample asset from the tester's scope.
+     * The graph sent (with rules: compiled first), else the draft, else the active version.
+     */
+    public function scenarios(Request $request, TransactionTypeDefinition $transactionType, FlowScenarios $scenarios): JsonResponse
+    {
+        $data = $request->validate($request->has('graph') ? [...FlowGraph::rules(), ...RuleCompiler::requestRules()] : []);
+        if (isset($data['graph'])) {
+            $graph = ['nodes' => $data['graph']['nodes'] ?? [], 'edges' => $data['graph']['edges'] ?? []];
+            $graph = isset($data['rules']) ? RuleCompiler::compile($graph, $data['rules']) : $graph;
+        } else {
+            $graph = $this->versions->draft($transactionType)?->graph
+                ?? ($transactionType->active_flow_version_id ? TransactionFlowVersion::query()->find($transactionType->active_flow_version_id)?->graph : null)
+                ?? ['nodes' => [], 'edges' => []];
+        }
+        $built = $scenarios->build($transactionType, $graph);
+
+        return response()->json(['data' => $built['scenarios'], 'meta' => [
+            'total' => $built['total'], 'truncated' => $built['truncated'], 'limit' => FlowScenarios::MAX_SCENARIOS,
+        ]]);
     }
 
     /**
