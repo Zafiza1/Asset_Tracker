@@ -2,13 +2,15 @@ import clsx from 'clsx'
 import { NavLink } from 'react-router'
 
 /**
- * Tabs of a transaction type in the Transaction Designer (F08-07a): the form, the flow (canvas,
- * the advanced mode) and the named rules. Ringkasan, Aksi and Simulasi follow with F-08e-2/F-08f.
+ * Tabs of a transaction type in the Transaction Designer (F08-07a): the guided wizard (simple
+ * mode), the form, the flow on the canvas (advanced mode) and the named rules. Simulasi follows
+ * with F-08f.
  */
 export function DesignerNav({ typeId, ruleCount }: { typeId: string; ruleCount?: number }) {
   const tabs = [
+    { to: `/transaksi/jenis/${typeId}/panduan`, label: 'Panduan', end: true },
     { to: `/transaksi/jenis/${typeId}`, label: 'Formulir', end: true },
-    { to: `/transaksi/jenis/${typeId}/alur`, label: 'Alur', end: true },
+    { to: `/transaksi/jenis/${typeId}/alur`, label: 'Alur (lanjutan)', end: true },
     { to: `/transaksi/jenis/${typeId}/rules`, label: 'Rules', end: true, count: ruleCount },
   ]
   return (

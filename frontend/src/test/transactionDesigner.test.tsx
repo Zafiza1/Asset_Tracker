@@ -88,6 +88,7 @@ function setup(respond: (url: string, init?: RequestInit) => unknown, path: stri
           <Routes>
             <Route path={route} element={ui} />
             <Route path="/transaksi/jenis/:id" element={<p>Halaman jenis</p>} />
+            <Route path="/transaksi/jenis/:id/panduan" element={<p>Halaman jenis</p>} />
           </Routes>
         </MemoryRouter>
       </AuthContext.Provider>

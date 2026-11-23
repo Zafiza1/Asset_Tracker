@@ -142,13 +142,13 @@ export function TransactionTypeStartPage() {
         footer={<Button variant="secondary" onClick={() => setReading(null)}>Tutup</Button>}>
         {reading && <FlowDocumentationView doc={reading.documentation} />}
       </Modal>
-      {using && <UseTemplateDialog template={using} onClose={() => setUsing(null)} onMade={(id) => navigate(`/transaksi/jenis/${id}`)} />}
+      {using && <UseTemplateDialog template={using} onClose={() => setUsing(null)} onMade={(id) => navigate(`/transaksi/jenis/${id}/panduan`)} />}
       {copying && (
         <CopyDialog
           source={copying === 'pick' ? null : copying}
           types={(types.data?.data ?? []).filter((t) => !t.system_type)}
           onClose={() => setCopying(null)}
-          onMade={(id) => navigate(`/transaksi/jenis/${id}`)}
+          onMade={(id) => navigate(`/transaksi/jenis/${id}/panduan`)}
         />
       )}
     </>
