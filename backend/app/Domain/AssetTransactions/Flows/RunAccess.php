@@ -20,6 +20,12 @@ use Illuminate\Support\Facades\DB;
  * location_supervisor approval, to every member who may approve (Super Admin or Supervisor)
  * and whose data scope covers all of the run's assets. A user who already approved a task that
  * needs several approvers is no longer asked.
+ *
+ * F-08i: an asset_custodian approval belongs to the custodians listed on the task (members who
+ * need no approval role, D-57, and see the run only while it is open for them), and, while the
+ * Supervisor's part is still open, to those who may approve the assets without a custodian. A
+ * department_supervisor approval belongs to Super Admins and Supervisors whose data scope is the
+ * organization or includes that department.
  */
 final class RunAccess
 {
@@ -42,15 +48,22 @@ final class RunAccess
         $userId = $this->userId();
         $roles = $this->userRoles($userId);
         $mayApprove = $this->mayApprove($roles);
+        $scope = $this->tenancy->tenant()->scope();
+        $coversAssets = fn ($q) => $q->whereNotExists(fn ($e) => $e->from('transaction_run_assets as ra')->whereColumn('ra.run_id', 'transaction_tasks.run_id')
+            ->whereNotIn('ra.asset_id', $this->scope->apply(Asset::query())->select('id')));
 
         return TransactionTask::query()->where('transaction_tasks.status', TransactionTask::OPEN)
             ->whereRaw('NOT (transaction_tasks.approved_by @> ?::jsonb)', [json_encode([$userId])])
             ->where(fn ($w) => $w
                 ->where(fn ($u) => $u->where('assignee_type', 'user')->where('assignee_id', $userId))
                 ->orWhere(fn ($r) => $r->where('assignee_type', 'role')->whereIn('assignee_id', $roles))
-                ->when($mayApprove, fn ($q) => $q->orWhere(fn ($l) => $l->where('assignee_type', 'location_supervisor')
-                    ->whereNotExists(fn ($e) => $e->from('transaction_run_assets as ra')->whereColumn('ra.run_id', 'transaction_tasks.run_id')
-                        ->whereNotIn('ra.asset_id', $this->scope->apply(Asset::query())->select('id'))))));
+                ->when($mayApprove, fn ($q) => $q->orWhere(fn ($l) => $coversAssets($l->where('assignee_type', 'location_supervisor'))))
+                ->orWhere(fn ($c) => $c->where('assignee_type', 'asset_custodian')->where(fn ($who) => $who
+                    ->whereRaw("transaction_tasks.details->'custodians' @> ?::jsonb", [json_encode([$userId])])
+                    ->when($mayApprove, fn ($q) => $q->orWhere(fn ($f) => $coversAssets($f->whereRaw("(transaction_tasks.details->>'fallback')::boolean IS TRUE")
+                        ->whereRaw("transaction_tasks.details->>'fallback_by' IS NULL"))))))
+                ->when($mayApprove, fn ($q) => $q->orWhere(fn ($d) => $d->where('assignee_type', 'department_supervisor')
+                    ->when(! $scope->organizationWide, fn ($w) => $w->whereIn('assignee_id', $scope->departmentIds === [] ? [null] : $scope->departmentIds)))));
     }
 
     public function isAssignee(TransactionTask $task): bool

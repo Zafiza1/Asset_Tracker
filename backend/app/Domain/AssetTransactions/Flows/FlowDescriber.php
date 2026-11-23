@@ -5,10 +5,12 @@ namespace App\Domain\AssetTransactions\Flows;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\AssetTransactions\Models\TransactionTypeField;
+use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Identity\Models\User;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Services\CategoryAttributeService;
@@ -426,6 +428,8 @@ final class FlowDescriber
             'role' => ($min > 1 ? "{$min} pemegang" : 'Pemegang').' role '.$this->name('role', $approver['id'] ?? null),
             'user' => $this->name('user', $approver['id'] ?? null),
             'location_supervisor' => ($min > 1 ? "{$min} " : '').'Supervisor yang membawahi aset',
+            'asset_custodian' => 'Penanggung jawab setiap aset (bila belum ada atau tidak aktif: Supervisor yang membawahi aset; pencatat yang menjadi penanggung jawab dianggap menyetujui)',
+            'target_department_supervisor' => 'Supervisor departemen asal '.$this->fieldLabel((string) ($approver['field'] ?? '')).' (bila tidak ada: Super Admin)',
             default => 'Penyetuju '.self::MISSING,
         };
 
@@ -458,6 +462,25 @@ final class FlowDescriber
         $op = (string) ($rule['op'] ?? '');
         $values = array_map(fn ($v) => $this->valueLabel($subject, $v), array_values(is_array($rule['value'] ?? null) ? $rule['value'] : [$rule['value'] ?? null]));
 
+        $many = $this->type->multi_asset;
+        $ofAsset = $many ? ($assets === 'all' ? ' setiap aset' : ' salah satu aset') : ' aset';
+        if ($subject === 'asset.custodian') {
+            return ($op === 'empty' ? 'belum ada penanggung jawab' : 'ada penanggung jawab').$ofAsset;
+        }
+        if ($subject === 'starter.is_custodian') {
+            $is = ($rule['value'] ?? true) === true;
+
+            return 'pencatat '.(($op === 'eq') === $is ? 'adalah' : 'bukan').' penanggung jawab'.$ofAsset;
+        }
+        if ($subject === 'target.department_differs') {
+            return 'departemen asal '.$this->fieldLabel((string) ($rule['value'] ?? '')).' '.($op === 'eq' ? 'berbeda dengan' : 'sama dengan').' departemen'.$ofAsset;
+        }
+        if ($subject === 'core.outgoing_nature') {
+            return 'sifat transaksi keluar '.match ($op) {
+                'neq' => 'bukan '.$values[0], 'not_in' => 'bukan '.$this->list($values, 'maupun'), 'in' => 'salah satu dari '.$this->list($values, 'atau'), default => 'adalah '.$values[0],
+            };
+        }
+
         if ($subject === 'starter.role') {
             return match ($op) {
                 'empty' => 'pencatat tidak memiliki role',
@@ -467,13 +490,12 @@ final class FlowDescriber
             };
         }
 
-        $many = $this->type->multi_asset;
         $name = match (true) {
             $subject === 'asset.acquisition_cost' => ! $many ? 'nilai perolehan' : match ($assets) {
                 'total' => 'total nilai perolehan', 'all' => 'nilai perolehan setiap aset', default => 'nilai perolehan salah satu aset',
             },
             str_starts_with($subject, 'asset.') => [
-                'asset.status' => 'status', 'asset.condition' => 'kondisi', 'asset.category' => 'kategori', 'asset.location' => 'lokasi',
+                'asset.status' => 'status', 'asset.condition' => 'kondisi', 'asset.category' => 'kategori', 'asset.location' => 'lokasi', 'asset.department' => 'departemen',
             ][$subject] ?? $subject,
             str_starts_with($subject, 'field.') => $this->fieldLabel(substr($subject, 6)),
             default => $subject,
@@ -526,6 +548,8 @@ final class FlowDescriber
             $subject === 'asset.condition' => $this->conditionLabel((string) $value),
             $subject === 'asset.category' => $this->name('category', $value),
             $subject === 'asset.location' => $this->name('location', $value),
+            $subject === 'asset.department' => $this->name('department', $value),
+            $subject === 'core.outgoing_nature' => OutgoingReason::NATURE_LABELS[(string) $value] ?? self::MISSING,
             $subject === 'asset.acquisition_cost' => is_numeric($value) ? 'Rp '.number_format((float) $value, 0, ',', '.') : (string) $value,
             $subject === 'starter.role' => $this->name('role', $value),
             str_starts_with($subject, 'field.') => $this->fieldValue(substr($subject, 6), $value),
@@ -571,6 +595,7 @@ final class FlowDescriber
                 'user' => User::query()->whereKey($id)->value('name'),
                 'location' => Location::query()->whereKey($id)->value('name'),
                 'category' => TenantAssetCategory::query()->whereKey($id)->value('name'),
+                'department' => Department::query()->whereKey($id)->value('name'),
             } ?? self::MISSING;
         }
 

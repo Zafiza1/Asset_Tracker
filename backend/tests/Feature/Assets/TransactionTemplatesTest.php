@@ -246,6 +246,11 @@ class TransactionTemplatesTest extends TestCase
         $supervisor = $this->createTenantUser($this->org, ['SUPERVISOR']);
         $core = ['outgoing_nature' => 'permanent', 'reason_code' => 'sold', 'counterparty_name' => 'PT Pembeli'];
 
+        // The rule "Penghapusan selalu permanen" refuses a temporary Keluar.
+        $temporary = ['outgoing_nature' => 'temporary', 'reason_code' => 'external_repair', 'counterparty_name' => 'Bengkel', 'due_date' => now()->addWeek()->toDateString()];
+        $this->assertErrorCode($response = $this->start($type, $this->asset(1_000_000), [], $temporary), 422, 'PRECONDITION_FAILED');
+        $this->assertStringContainsString('bersifat permanen', $response->json('error.message'));
+
         $asset = $this->asset(1_000_000);
         $run = $this->start($type, $asset, ['nilai_jual' => 500_000], $core)->assertCreated()->json('data');
         $this->assertSame('setuju_spv', $run['current_step']['id']);

@@ -14,6 +14,10 @@ use App\Domain\AssetTransactions\TransactionLog;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Domain\Audit\AuditLogger;
+use App\Domain\Authorization\Models\Role;
+use App\Domain\Authorization\RoleTemplates;
+use App\Domain\Identity\Models\User;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Carbon\CarbonImmutable;
@@ -105,10 +109,10 @@ final class FlowEngine
             }
 
             $pre = $config['preconditions'] ?? [];
-            if (! FlowConditions::passes($pre['rules'] ?? [], $pre['match'] ?? 'all', $pre['assets'] ?? 'all', $assets, $values, $roles)) {
+            if (! FlowConditions::passes($pre['rules'] ?? [], $pre['match'] ?? 'all', $pre['assets'] ?? 'all', $assets, $values, $roles, $this->userId(), $system)) {
                 throw ApiException::unprocessable('PRECONDITION_FAILED', $config['message'] ?? "Syarat untuk memulai transaksi {$definition->name} belum terpenuhi.");
             }
-            if (($rejection = self::rejection($config, $assets, $values, $roles)) !== null) {
+            if (($rejection = self::rejection($config, $assets, $values, $roles, $this->userId(), $system)) !== null) {
                 throw ApiException::unprocessable('PRECONDITION_FAILED', $rejection['message'], ['rule_id' => $rejection['rule_id'] ?? null]);
             }
 
@@ -186,8 +190,18 @@ final class FlowEngine
                 }
                 $outcome = $decision;
                 $approvals = $decision === 'approved' ? [...$task->approved_by, $userId] : $task->approved_by;
-                $details = ['approvals' => count($approvals), 'required' => $task->required_approvals];
-                if ($decision === 'approved' && count($approvals) < $task->required_approvals) {
+                $details = ['approvals' => count($approvals), 'required' => $task->required_approvals, ...array_intersect_key($task->details, ['reasons' => true])];
+                $pending = count($approvals) < $task->required_approvals;
+                if ($task->assignee_type === 'asset_custodian') {
+                    // Every custodian approves for their own assets; a Supervisor once for the assets without one (F08-50/51).
+                    $taskDetails = $task->details;
+                    if (! in_array($userId, $taskDetails['custodians'] ?? [], true)) {
+                        $taskDetails['fallback_by'] = $userId;
+                    }
+                    $task->details = $taskDetails;
+                    $pending = array_diff($taskDetails['custodians'] ?? [], $approvals) !== [] || (($taskDetails['fallback'] ?? false) && ! isset($taskDetails['fallback_by']));
+                }
+                if ($decision === 'approved' && $pending) {
                     // Not enough approvers yet: the step stays, the next approver is asked.
                     $task->forceFill(['approved_by' => $approvals])->save();
                     $this->step($run, $node, 'approved', $userId, $note, $details);
@@ -297,9 +311,9 @@ final class FlowEngine
             $config = $node['config'] ?? [];
             $refused = null;
             $outcome = match ($node['type']) {
-                'start' => FlowConditions::passes($config['preconditions']['rules'] ?? [], $config['preconditions']['match'] ?? 'all', $config['preconditions']['assets'] ?? 'all', $assets, $values, $roles)
-                    && ($refused = self::rejection($config, $assets, $values, $roles)) === null ? null : 'blocked',
-                'condition' => FlowConditions::passes($config['rules'] ?? [], $config['match'] ?? 'all', $config['assets'] ?? 'any', $assets, $values, $roles) ? 'yes' : 'no',
+                'start' => FlowConditions::passes($config['preconditions']['rules'] ?? [], $config['preconditions']['match'] ?? 'all', $config['preconditions']['assets'] ?? 'all', $assets, $values, $roles, $this->userId())
+                    && ($refused = self::rejection($config, $assets, $values, $roles, $this->userId())) === null ? null : 'blocked',
+                'condition' => FlowConditions::passes($config['rules'] ?? [], $config['match'] ?? 'all', $config['assets'] ?? 'any', $assets, $values, $roles, $this->userId()) ? 'yes' : 'no',
                 'approval' => ($decisions[$node['id']] ?? 'approved') === 'rejected' ? 'rejected' : 'approved',
                 default => null,
             };
@@ -323,13 +337,14 @@ final class FlowEngine
      * @param  Collection<int, Asset>  $assets
      * @param  array<string, mixed>  $values
      * @param  list<string>  $roles
+     * @param  array<string, mixed>  $core
      * @return array<string, mixed>|null
      */
-    private static function rejection(array $config, Collection $assets, array $values, array $roles): ?array
+    private static function rejection(array $config, Collection $assets, array $values, array $roles, ?string $starterId = null, array $core = []): ?array
     {
         foreach ((array) ($config['rejections'] ?? []) as $rejection) {
             if (is_array($rejection) && ($rejection['rules'] ?? []) !== []
-                && FlowConditions::passes((array) $rejection['rules'], $rejection['match'] ?? 'all', $rejection['assets'] ?? 'any', $assets, $values, $roles)) {
+                && FlowConditions::passes((array) $rejection['rules'], $rejection['match'] ?? 'all', $rejection['assets'] ?? 'any', $assets, $values, $roles, $starterId, $core)) {
                 return $rejection;
             }
         }
@@ -364,13 +379,17 @@ final class FlowEngine
             switch ($node['type']) {
                 case 'input':
                 case 'approval':
-                    $this->openTask($run, $node);
+                    // An approval nobody else has to give (the recorder is the only custodian) passes at once.
+                    if (! $this->openTask($run, $node)) {
+                        $this->moveTo($run, FlowGraph::next($graph, $node['id'], $node['type'] === 'approval' ? 'approved' : null));
+                        break;
+                    }
 
                     return;
                 case 'condition':
                     $assets = $run->assets()->with('category:id,path')->get();
                     $yes = FlowConditions::passes($config['rules'] ?? [], $config['match'] ?? 'all', $config['assets'] ?? 'any',
-                        $assets, $run->field_values, $this->userRoles($run->created_by));
+                        $assets, $run->field_values, $this->userRoles($run->created_by), $run->created_by, $run->system_values ?? []);
                     $this->step($run, $node, $yes ? 'yes' : 'no');
                     $this->moveTo($run, FlowGraph::next($graph, $node['id'], $yes ? 'yes' : 'no'));
                     break;
@@ -444,31 +463,126 @@ final class FlowEngine
     }
 
     /** @param array<string, mixed> $node */
-    private function openTask(TransactionRun $run, array $node): void
+    /**
+     * Opens the task of a step done by people; false when no task is needed (a custodian approval
+     * whose only custodian is the recorder, F08-51), the approval then counting as given.
+     *
+     * @param  array<string, mixed>  $node
+     */
+    private function openTask(TransactionRun $run, array $node): bool
     {
         $open = TransactionTask::query()->where('run_id', $run->id)->where('node_id', $node['id'])->where('status', TransactionTask::OPEN)->exists();
         if ($open) {
-            return;
+            return true;
         }
         $config = $node['config'] ?? [];
         $approval = $node['type'] === 'approval';
         $who = $approval ? ($config['approver'] ?? []) : ($config['assignee'] ?? ['type' => 'starter']);
+        $required = $approval ? max(1, min(FlowGraph::MAX_APPROVALS, (int) ($config['min_approvals'] ?? 1))) : 1;
+        $details = [];
         [$type, $id] = match ($who['type'] ?? 'starter') {
             'role' => ['role', $who['id']],
             'user' => ['user', $who['id']],
             'location_supervisor' => ['location_supervisor', null],
+            'asset_custodian' => ['asset_custodian', null],
+            'target_department_supervisor' => ['department_supervisor', null],
             'field' => ['user', is_string($run->field_values[$who['field'] ?? ''] ?? null) ? $run->field_values[$who['field']] : $run->created_by],
             default => ['user', $run->created_by],
         };
+        if ($type === 'asset_custodian') {
+            $details = $this->custodians($run);
+            if ($details['auto_approved']) {
+                $this->step($run, $node, 'approved', $run->created_by, 'Disetujui otomatis: pencatat adalah penanggung jawab.', ['auto' => true]);
+            }
+            if ($details['custodians'] === [] && ! $details['fallback']) {
+                return false;
+            }
+            $required = max(1, min(FlowGraph::MAX_APPROVALS, count($details['custodians']) + ($details['fallback'] ? 1 : 0)));
+        }
+        if ($type === 'department_supervisor') {
+            [$type, $id, $details] = $this->departmentSupervisor($run, (string) ($who['field'] ?? ''));
+            $required = 1;
+        }
         $days = $config['due_days'] ?? null;
 
         $task = new TransactionTask;
         $task->forceFill([
             'run_id' => $run->id, 'node_id' => $node['id'], 'kind' => $node['type'],
             'assignee_type' => $type, 'assignee_id' => $id, 'status' => TransactionTask::OPEN,
-            'required_approvals' => $approval ? max(1, min(FlowGraph::MAX_APPROVALS, (int) ($config['min_approvals'] ?? 1))) : 1,
+            'required_approvals' => $required,
             'due_date' => is_int($days) ? CarbonImmutable::parse($this->today())->addDays($days)->toDateString() : null,
+            // The column holds a JSON object; an empty one is its default.
+            ...($details === [] ? [] : ['details' => $details]),
         ])->save();
+
+        return true;
+    }
+
+    /**
+     * Who approves as custodian (F08-50/51): each active custodian of the run's assets once; the
+     * Supervisor over the assets for assets without one or with an inactive one; the recorder's own
+     * assets count as approved.
+     *
+     * @return array{custodians: list<string>, fallback: bool, auto_approved: bool, reasons: list<string>}
+     */
+    private function custodians(TransactionRun $run): array
+    {
+        $assets = $run->assets()->get(['assets.id', 'assets.name', 'assets.custodian_user_id']);
+        $active = DB::table('organization_members')->whereIn('user_id', $assets->pluck('custodian_user_id')->filter()->unique()->values())
+            ->where('status', User::STATUS_ACTIVE)->pluck('user_id')->all();
+        $custodians = [];
+        $reasons = [];
+        $auto = false;
+        foreach ($assets as $asset) {
+            $custodian = $asset->custodian_user_id;
+            if ($custodian === null) {
+                $reasons[] = "Aset {$asset->name} belum punya penanggung jawab; persetujuan oleh Supervisor yang membawahi aset.";
+            } elseif (! in_array($custodian, $active, true)) {
+                $reasons[] = "Penanggung jawab aset {$asset->name} tidak aktif; persetujuan oleh Supervisor yang membawahi aset.";
+            } elseif ($custodian === $run->created_by) {
+                $auto = true;
+            } else {
+                $custodians[] = $custodian;
+            }
+        }
+
+        return ['custodians' => array_values(array_unique($custodians)), 'fallback' => $reasons !== [], 'auto_approved' => $auto, 'reasons' => $reasons];
+    }
+
+    /**
+     * The approvers of the receiving department (F08-52): Super Admins and Supervisors whose scope
+     * covers the home department of the member in $field. Without that department, or with no such
+     * approver besides the recorder, the role Super Admin approves; the reason is kept.
+     *
+     * @return array{0: string, 1: string, 2: array<string, mixed>}
+     */
+    private function departmentSupervisor(TransactionRun $run, string $field): array
+    {
+        $member = is_string($run->field_values[$field] ?? null) ? $run->field_values[$field] : null;
+        $department = $member === null ? null : DB::table('organization_members')->where('user_id', $member)->value('home_department_id');
+        $fallback = function (string $reason): array {
+            $superAdmin = Role::query()->where('template_code', RoleTemplates::SUPER_ADMIN)->orderBy('created_at')->value('id')
+                ?? throw new LogicException('Organization without a Super Admin role.');
+
+            return ['role', $superAdmin, ['reasons' => [$reason]]];
+        };
+        if ($department === null) {
+            return $fallback('Penerima belum punya departemen asal; persetujuan oleh Super Admin.');
+        }
+        $approvers = DB::table('user_roles as ur')->join('roles as r', 'r.id', '=', 'ur.role_id')
+            ->join('organization_members as m', fn ($j) => $j->on('m.user_id', '=', 'ur.user_id')->where('m.status', User::STATUS_ACTIVE))
+            ->whereIn('r.template_code', [RoleTemplates::SUPERVISOR, RoleTemplates::SUPER_ADMIN])
+            ->where('ur.user_id', '!=', $run->created_by)
+            ->whereExists(fn ($q) => $q->from('user_data_scopes as s')->whereColumn('s.user_id', 'ur.user_id')
+                ->where(fn ($w) => $w->where('s.scope_type', 'organization')->orWhere(fn ($d) => $d->where('s.scope_type', 'department')->where('s.department_id', $department))))
+            ->exists();
+        if (! $approvers) {
+            $name = Department::query()->whereKey($department)->value('name') ?? 'penerima';
+
+            return $fallback("Tidak ada Supervisor yang cakupannya meliputi departemen {$name}; persetujuan oleh Super Admin.");
+        }
+
+        return ['department_supervisor', $department, []];
     }
 
     /** End the run: release the assets, close open tasks, record the completed transaction per asset. */

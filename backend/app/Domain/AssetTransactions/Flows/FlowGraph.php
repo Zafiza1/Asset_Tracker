@@ -37,7 +37,23 @@ final class FlowGraph
     public const OPERATORS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'empty', 'not_empty'];
 
     /** Fixed subjects; field.<key> subjects name a field of the type. */
-    public const SUBJECTS = ['asset.status', 'asset.condition', 'asset.category', 'asset.location', 'asset.acquisition_cost', 'starter.role'];
+    public const SUBJECTS = ['asset.status', 'asset.condition', 'asset.category', 'asset.location', 'asset.acquisition_cost', 'starter.role',
+        // F-08i (D-49): the asset's department and custodian, whether the recorder is the custodian,
+        // and whether a member in a user field (value = its key) comes from another department.
+        'asset.department', 'asset.custodian', 'starter.is_custodian', 'target.department_differs',
+        // The sifat of a core Keluar (types built on the outgoing core action), e.g. Penghapusan aset.
+        'core.outgoing_nature'];
+
+    /** Operators each of these subjects takes; the others take any of OPERATORS. */
+    private const SUBJECT_OPERATORS = [
+        'asset.custodian' => ['empty', 'not_empty'],
+        'starter.is_custodian' => ['eq', 'neq'],
+        'target.department_differs' => ['eq', 'neq'],
+        'core.outgoing_nature' => ['eq', 'neq', 'in', 'not_in'],
+    ];
+
+    /** Approvers that are not a fixed person or role (F-08i): resolved per transaction when the task is made. */
+    public const CONTEXT_APPROVERS = ['location_supervisor', 'asset_custodian', 'target_department_supervisor'];
 
     /** Statuses a flow action may set (disposal keeps its own permission and transaction). */
     public const ACTION_STATUSES = [AssetStatus::AVAILABLE, AssetStatus::IN_USE, AssetStatus::UNDER_MAINTENANCE, AssetStatus::LOST];
@@ -270,6 +286,8 @@ final class FlowGraph
                     $issues[] = 'jumlah minimal penyetuju 1 sampai '.self::MAX_APPROVALS.'.';
                 } elseif ($min > 1 && ($approver['type'] ?? null) === 'user') {
                     $issues[] = 'penyetuju satu pengguna hanya dapat memberi satu persetujuan; pilih role atau atasan lokasi.';
+                } elseif ($min > 1 && in_array($approver['type'] ?? null, ['asset_custodian', 'target_department_supervisor'], true)) {
+                    $issues[] = 'penyetuju ini memberi satu persetujuan (penanggung jawab: satu per orang); jumlah minimal harus 1.';
                 }
                 break;
             case 'condition':
@@ -371,8 +389,11 @@ final class FlowGraph
 
             return $approval && ! $approver ? ['penyetuju harus memegang role Super Admin atau Supervisor.'] : [];
         }
-        if ($approval && $type === 'location_supervisor') {
+        if ($approval && in_array($type, ['location_supervisor', 'asset_custodian'], true)) {
             return [];
+        }
+        if ($approval && $type === 'target_department_supervisor') {
+            return $field($assignee['field'] ?? null, 'user') ? [] : ['pilih field pengguna penerima untuk Supervisor departemen penerima.'];
         }
         if (! $approval && $type === 'starter') {
             return [];
@@ -408,8 +429,13 @@ final class FlowGraph
             $subject = is_array($rule) ? ($rule['subject'] ?? null) : null;
             $known = in_array($subject, self::SUBJECTS, true)
                 || (is_string($subject) && str_starts_with($subject, 'field.') && isset($byKey[substr($subject, 6)]));
-            if (! $known || ! in_array($rule['op'] ?? null, self::OPERATORS, true)) {
+            $ops = self::SUBJECT_OPERATORS[$subject] ?? self::OPERATORS;
+            if (! $known || ! in_array($rule['op'] ?? null, $ops, true)) {
                 $issues[] = 'syarat memakai data atau operator yang tidak dikenal.';
+            } elseif ($subject === 'target.department_differs' && ($byKey[$rule['value'] ?? '']->data_type ?? null) !== 'user') {
+                $issues[] = 'pilih field pengguna penerima untuk syarat lintas departemen.';
+            } elseif ($subject === 'starter.is_custodian' && ! is_bool($rule['value'] ?? null)) {
+                $issues[] = 'syarat penanggung jawab memerlukan nilai ya atau tidak.';
             }
         }
 

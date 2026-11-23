@@ -13,6 +13,7 @@ use App\Domain\AssetTransactions\Services\TransactionAttachments;
 use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Identity\Models\User;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Http\Request;
@@ -73,6 +74,8 @@ class TransactionRunResource extends JsonResource
                     'assignee_name' => $this->assigneeName($task),
                     'due_date' => $task->due_date?->toDateString(),
                     'required_approvals' => $task->required_approvals, 'approvals' => count($task->approved_by),
+                    // Why the task went to another approver than the flow named (F08-51/52).
+                    'reasons' => $task->details['reasons'] ?? [],
                     // Whether the signed-in user may work this step now (the server checks again).
                     'can_act' => app(RunAccess::class)->isAssignee($task),
                 ] : null;
@@ -86,6 +89,8 @@ class TransactionRunResource extends JsonResource
             'user' => User::query()->whereKey($task->assignee_id)->value('name'),
             'role' => Role::query()->whereKey($task->assignee_id)->value('name'),
             'location_supervisor' => 'Atasan lokasi aset',
+            'asset_custodian' => 'Penanggung jawab aset',
+            'department_supervisor' => 'Supervisor departemen '.(Department::query()->whereKey($task->assignee_id)->value('name') ?? 'penerima'),
             default => null,
         };
     }

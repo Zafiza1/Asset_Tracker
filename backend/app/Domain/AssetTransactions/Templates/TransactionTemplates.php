@@ -4,6 +4,7 @@ namespace App\Domain\AssetTransactions\Templates;
 
 use App\Domain\Assets\AssetStatus;
 use App\Domain\AssetTransactions\Flows\FlowActions;
+use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\RoleTemplates;
@@ -185,7 +186,7 @@ final class TransactionTemplates
                 'rules' => [],
             ],
             // Disposal keeps its own rules (FlowGraph::ACTION_STATUSES has no Dihapuskan): the type
-            // records a permanent Keluar as its core action, after two approvals.
+            // records a permanent Keluar as its core action, after two approvals; a rule refuses Sementara.
             'penghapusan_aset' => [
                 'name' => 'Penghapusan aset',
                 'category' => 'penghapusan',
@@ -207,7 +208,10 @@ final class TransactionTemplates
                     ['start', 'setuju_spv'], ['setuju_spv', 'setuju_sa', 'approved'], ['setuju_spv', 'ditolak', 'rejected'],
                     ['setuju_sa', 'inti', 'approved'], ['setuju_sa', 'ditolak', 'rejected'], ['inti', 'selesai'],
                 ]),
-                'rules' => [],
+                'rules' => [
+                    self::rule('permanen', 'Penghapusan selalu permanen', 1, [['subject' => 'core.outgoing_nature', 'op' => 'eq', 'value' => OutgoingReason::TEMPORARY]],
+                        ['kind' => 'reject', 'message' => 'Penghapusan aset bersifat permanen. Untuk aset yang akan kembali, pakai transaksi Keluar sementara.']),
+                ],
             ],
         ];
     }
