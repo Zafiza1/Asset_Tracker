@@ -33,6 +33,8 @@ import {
 import { DesignerNav } from './DesignerNav'
 import { FlowDocumentationView } from './FlowDocumentationView'
 import { ActionsEditor, FieldSelect, WhoPicker } from './FlowInputs'
+import { ScenarioPanel } from './ScenarioPanel'
+import { scenariosPassed, type ScenarioResult } from './scenarioLogic'
 import { changesAsset, emptySimpleFlow, fromGraph, MAX_SIMPLE_APPROVALS, newStep, stages, toGraph, type SimpleFlow } from './simpleFlow'
 
 const STEPS = ['Informasi', 'Formulir', 'Alur', 'Persetujuan', 'Aksi', 'Tinjau'] as const
@@ -83,6 +85,19 @@ function Wizard({ type, state }: { type: TransactionTypeDefinition; state: FlowS
   const fields = type.fields ?? []
   const options = useQuery({ queryKey: ['/transaction-flow-options'], queryFn: () => flowApi.options(), enabled: canManage })
   const doc = useQuery({ queryKey: ['/transaction-types', id, 'flow', 'describe'], queryFn: () => flowApi.describe(id), enabled: step === 5 || !flow })
+  // A draft exists once the server has one, or after a step saved it here.
+  const [savedDraft, setSavedDraft] = useState(!!state.draft)
+  const [results, setResults] = useState<Record<string, ScenarioResult>>({})
+  const [note, setNote] = useState<string | null>(null)
+  // The flow the scenario results belong to: a result of another flow must be run again (F08-21).
+  const flowKey = JSON.stringify([flow ? toGraph(flow) : (version?.graph ?? null), rules])
+  const scenarios = useQuery({
+    queryKey: ['/transaction-types', id, 'flow', 'scenarios', flowKey],
+    queryFn: () => flowApi.scenarios(id),
+    enabled: canManage && step === 5 && !dirty && savedDraft,
+  })
+  const suggestion = doc.data?.data.changes.length ? doc.data.data.changes.join('\n') : state.active ? '' : 'Versi pertama.'
+  const changeNote = note ?? suggestion
 
   const change = (next: SimpleFlow) => (setFlow(next), setDirty(true))
   const saveInfo = useMutation({
@@ -94,12 +109,18 @@ function Wizard({ type, state }: { type: TransactionTypeDefinition; state: FlowS
     onSuccess: (r) => {
       setIssues(r.data.issues ?? [])
       setDirty(false)
+      setSavedDraft(true)
       queryClient.invalidateQueries({ queryKey: ['/transaction-types', id, 'flow', 'describe'] })
     },
   })
   const publish = useMutation({
     mutationFn: async () => {
-      if (dirty && flow) await saveFlow.mutateAsync()
+      // The change note (F08-25) is kept with the draft that is published.
+      const changeNoteText = changeNote.trim() || undefined
+      if (flow) await flowApi.saveRules(id, toGraph(flow), rules, changeNoteText)
+      else if (version && version.status === 'draft') {
+        await (version.graph_source === 'rules' ? flowApi.saveRules(id, version.base_graph ?? version.graph, rules, changeNoteText) : flowApi.save(id, version.graph, changeNoteText))
+      }
       const published = await flowApi.publish(id)
       if (type.status === 'draft') await typesApi.update(id, { status: 'active' })
       return published
@@ -126,6 +147,17 @@ function Wizard({ type, state }: { type: TransactionTypeDefinition; state: FlowS
     }
   }
   const busy = saveInfo.isPending || saveFlow.isPending
+  // F08-09: nothing to fix, and every scenario that can run has run on this flow and passed.
+  const problems = (scenarios.data?.data ?? []).filter((x) => x.status === 'problem').length
+  const passed = scenariosPassed(scenarios.data?.data, results, flowKey)
+  const readyToPublish = savedDraft && issues.length === 0 && problems === 0 && passed
+  const blocker = !savedDraft
+    ? 'Belum ada perubahan untuk diterbitkan.'
+    : issues.length > 0
+      ? `Lengkapi ${issues.length} isian di atas.`
+      : problems > 0
+        ? 'Ada jalur yang berhenti sebelum Selesai.'
+        : 'Jalankan semua skenario terlebih dahulu.'
 
   return (
     <>
@@ -178,7 +210,23 @@ function Wizard({ type, state }: { type: TransactionTypeDefinition; state: FlowS
           {step === 2 && flow && <FlowStep flow={flow} fields={fields} options={options.data?.data} editable={canManage} onChange={change} typeId={id} />}
           {step === 3 && flow && <ApprovalStep flow={flow} fields={fields} options={options.data?.data} editable={canManage} onChange={change} rules={rules} typeId={id} />}
           {step === 4 && flow && <ActionStep flow={flow} fields={fields} options={options.data?.data} editable={canManage} onChange={change} />}
-          {step === 5 && <ReviewStep issues={issues} flow={flow} doc={doc.data?.data} loading={doc.isPending} />}
+          {step === 5 && (
+            <ReviewStep issues={issues} flow={flow} doc={doc.data?.data} loading={doc.isPending}>
+              {canManage && (
+                <>
+                  <section className="space-y-2">
+                    <h3 className="text-sm font-semibold text-slate-800">Simulasikan transaksi</h3>
+                    <ScenarioPanel typeId={id} flowKey={flowKey} query={scenarios} results={results} onResults={setResults} enabled={savedDraft && !dirty} />
+                  </section>
+                  {savedDraft && (
+                    <Field label="Catatan perubahan" hint="Diisi otomatis dari perbedaan dengan versi sebelumnya; boleh diubah.">
+                      {(p) => <Textarea {...p} rows={4} maxLength={500} value={changeNote} onChange={(e) => setNote(e.target.value)} />}
+                    </Field>
+                  )}
+                </>
+              )}
+            </ReviewStep>
+          )}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
           <Button variant="secondary" disabled={step === 0 || busy} onClick={() => go(step - 1)}>
@@ -192,10 +240,13 @@ function Wizard({ type, state }: { type: TransactionTypeDefinition; state: FlowS
             </Button>
           ) : (
             canManage && (
-              <Button loading={publish.isPending} onClick={() => publish.mutate()}>
+              <span className="flex flex-wrap items-center justify-end gap-2">
+                {!readyToPublish && <span className="text-sm text-slate-600">{blocker}</span>}
+              <Button loading={publish.isPending} disabled={!readyToPublish} onClick={() => publish.mutate()}>
                 <Rocket className="size-4" aria-hidden />
                 Terbitkan v{(state.draft?.version_number ?? (state.active ? state.active.version_number + 1 : 1))}
               </Button>
+              </span>
             )
           )}
         </div>
@@ -547,11 +598,11 @@ function ActionStep({ flow, fields, options, editable, onChange }: StepProps) {
   )
 }
 
-/** Step 6: what still needs doing (F08-08) and "Cara kerja" (F08-24); scenarios come with F-08f. */
-function ReviewStep({ issues, flow, doc, loading }: { issues: FlowIssue[]; flow: SimpleFlow | null; doc?: FlowDocumentation; loading: boolean }) {
+/** Step 6: what still needs doing (F08-08), the scenarios and change note (children), and "Cara kerja" with the changes (F08-24/25). */
+function ReviewStep({ issues, flow, doc, loading, children }: { issues: FlowIssue[]; flow: SimpleFlow | null; doc?: FlowDocumentation; loading: boolean; children?: React.ReactNode }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <div className="space-y-3">
+      <div className="space-y-4">
         {issues.length === 0 ? (
           <Alert tone="success" title="Siap diterbitkan">
             Alur tidak memiliki masalah. Transaksi baru akan mengikuti versi yang diterbitkan; transaksi berjalan tetap memakai versinya.
@@ -577,6 +628,7 @@ function ReviewStep({ issues, flow, doc, loading }: { issues: FlowIssue[]; flow:
             Kembali ke langkahnya untuk melengkapi, atau perbaiki di mode lanjutan.
           </p>
         )}
+        {children}
       </div>
       <div className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Cara kerja transaksi ini</p>

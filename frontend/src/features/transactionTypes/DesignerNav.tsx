@@ -3,8 +3,8 @@ import { NavLink } from 'react-router'
 
 /**
  * Tabs of a transaction type in the Transaction Designer (F08-07a): the guided wizard (simple
- * mode), the form, the flow on the canvas (advanced mode) and the named rules. Simulasi follows
- * with F-08f.
+ * mode), the form, the flow on the canvas (advanced mode), the named rules and "Cara kerja"; the
+ * scenarios run in the wizard's Tinjau step (F-08f).
  */
 export function DesignerNav({ typeId, ruleCount }: { typeId: string; ruleCount?: number }) {
   const tabs = [
@@ -12,6 +12,7 @@ export function DesignerNav({ typeId, ruleCount }: { typeId: string; ruleCount?:
     { to: `/transaksi/jenis/${typeId}`, label: 'Formulir', end: true },
     { to: `/transaksi/jenis/${typeId}/alur`, label: 'Alur (lanjutan)', end: true },
     { to: `/transaksi/jenis/${typeId}/rules`, label: 'Rules', end: true, count: ruleCount },
+    { to: `/transaksi/jenis/${typeId}/cara-kerja`, label: 'Cara kerja', end: true },
   ]
   return (
     <nav aria-label="Bagian jenis transaksi" className="mb-4 flex gap-1 overflow-x-auto border-b border-slate-200">

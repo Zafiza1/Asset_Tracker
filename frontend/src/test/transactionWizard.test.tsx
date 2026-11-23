@@ -91,7 +91,11 @@ function setup(graph: FlowGraph) {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET'
     let data: unknown = []
-    if (url.includes('/flow/describe')) data = { title: 'Mutasi', purpose: null, records_at_once: false, who_records: 'Semua.', preconditions: null, form: [], steps: [], effects: [], people: [], summary: 'Perlu disetujui Supervisor.', rules: [], changes: [] }
+    if (url.includes('/flow/scenarios')) {
+      return new Response(JSON.stringify({ data: [scenario], meta: { total: 1, truncated: false, limit: 12 } }), { status: 200 })
+    }
+    if (url.includes('/flow/simulate')) data = { path: scenario.steps.map((x) => ({ node_id: x.node_id, type: x.type, label: x.label, outcome: x.outcome })) }
+    else if (url.includes('/flow/describe')) data = { title: 'Mutasi', purpose: null, records_at_once: false, who_records: 'Semua.', preconditions: null, form: [], steps: [], effects: [], people: [], summary: 'Perlu disetujui Supervisor.', rules: [], changes: [] }
     else if (url.includes('/flow/publish')) data = { id: 'v1', version_number: 1, status: 'published', graph }
     else if (url.includes('/flow') && method === 'PUT') data = { id: 'v1', version_number: 1, status: 'draft', graph, rules, graph_source: 'rules', base_graph: graph, issues: [] }
     else if (url.includes('/flow')) data = { active: null, draft: { id: 'v1', version_number: 1, status: 'draft', graph, rules, graph_source: 'rules', base_graph: graph, change_note: null, published_at: null, updated_at: null, issues: [] }, versions: [] }
@@ -120,6 +124,17 @@ function setup(graph: FlowGraph) {
 
 const next = () => fireEvent.click(screen.getByRole('button', { name: /Lanjut/ }))
 
+const scenario = {
+  id: 's1', kind: 'path' as const, name: 'Disetujui Supervisor yang membawahi aset → Selesai',
+  steps: [
+    { node_id: 'start', label: 'Diajukan', type: 'start' as const, outcome: null },
+    { node_id: 'setuju_spv', label: 'Persetujuan Supervisor lokasi', type: 'approval' as const, outcome: 'approved' },
+    { node_id: 'selesai', label: 'Selesai', type: 'end' as const, outcome: null },
+  ],
+  end: { node_id: 'selesai', label: 'Selesai', result: 'completed' as const }, message: null, rule_id: null,
+  inputs: { asset_ids: ['a1'], field_values: {}, decisions: { setuju_spv: 'approved' } }, status: 'ready' as const, note: null,
+}
+
 describe('designer wizard', () => {
   it('saves each step: the type, then the flow with its rules, and publishes', async () => {
     const { sent } = setup(mutasi)
@@ -145,14 +160,41 @@ describe('designer wizard', () => {
     expect(flow.rules).toEqual(rules)
     expect(flow.graph.nodes.filter((x: FlowNode) => x.type === 'approval').map((x: FlowNode) => x.id)).toEqual(['setuju_spv', 'setuju'])
 
-    // Aksi, then Tinjau with "Cara kerja"; publishing also activates the draft type.
+    // Aksi, then Tinjau with "Cara kerja"; publishing waits for the scenarios (F08-09).
     expect(await screen.findByText('Transaksi ini mengubah aset.')).toBeInTheDocument()
     next()
     expect(await screen.findByText('Perlu disetujui Supervisor.')).toBeInTheDocument()
+    expect(await screen.findByText(scenario.name)).toBeInTheDocument()
+    expect(screen.getByText('Belum dijalankan')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Terbitkan v1/ })).toBeDisabled()
+    expect(screen.getByText('Jalankan semua skenario terlebih dahulu.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Jalankan semua skenario \(1\)/ }))
+    expect(await screen.findByText('Lulus')).toBeInTheDocument()
+    expect(sent('POST', '/flow/simulate')[0]).toMatchObject({ asset_ids: ['a1'], decisions: { setuju_spv: 'approved' } })
+
+    // The change note is suggested (a first version) and goes with the published draft.
+    expect(screen.getByLabelText(/Catatan perubahan/)).toHaveValue('Versi pertama.')
+    fireEvent.change(screen.getByLabelText(/Catatan perubahan/), { target: { value: 'Dua tingkat persetujuan.' } })
     fireEvent.click(screen.getByRole('button', { name: /Terbitkan v1/ }))
     expect(await screen.findByText('Halaman jenis')).toBeInTheDocument()
+    expect(sent('PUT', '/flow').at(-1)).toMatchObject({ change_note: 'Dua tingkat persetujuan.', rules })
     expect(sent('POST', '/flow/publish')).toHaveLength(1)
     expect(sent('PUT', '/transaction-types/t1').some((b) => b.status === 'active')).toBe(true)
+  })
+
+  it('asks to run a scenario again after the flow changed', async () => {
+    setup(mutasi)
+    await screen.findByDisplayValue('Mutasi antar lokasi')
+    fireEvent.click(screen.getByRole('button', { name: /Tinjau/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Jalankan semua skenario/ }))
+    expect(await screen.findByText('Lulus')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Persetujuan/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Tidak perlu' }))
+    fireEvent.click(screen.getByRole('button', { name: /Tinjau/ }))
+    expect(await screen.findByText('Perlu dijalankan ulang')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Terbitkan v1/ })).toBeDisabled()
   })
 
   it('shows why a flow is advanced and leaves it unchanged', async () => {

@@ -21,6 +21,7 @@ import { TransactionsPage } from '../features/transactions/TransactionsPage'
 import { FlowEditorPage } from '../features/transactionTypes/FlowEditorPage'
 import { TransactionRunPage } from '../features/transactionTypes/TransactionRunPage'
 import { TransactionRunsPage } from '../features/transactionTypes/TransactionRunsPage'
+import { TransactionHowItWorksPage } from '../features/transactionTypes/TransactionHowItWorksPage'
 import { TransactionRulesPage } from '../features/transactionTypes/TransactionRulesPage'
 import { TransactionTypeFormPage } from '../features/transactionTypes/TransactionTypeFormPage'
 import { TransactionTypeStartPage } from '../features/transactionTypes/TransactionTypeStartPage'
@@ -83,6 +84,7 @@ export const router = createBrowserRouter([
                   { path: '/transaksi/jenis/:id/alur', element: tenant('transaction.view', <FlowEditorPage />) },
                   { path: '/transaksi/jenis/:id/rules', element: tenant('transaction.view', <TransactionRulesPage />) },
                   { path: '/transaksi/jenis/:id/panduan', element: tenant('transaction.view', <TransactionWizardPage />) },
+                  { path: '/transaksi/jenis/:id/cara-kerja', element: tenant('transaction.view', <TransactionHowItWorksPage />) },
                   { path: '/transaksi/berjalan', element: tenant('transaction.view', <TransactionRunsPage />) },
                   { path: '/transaksi/berjalan/:id', element: tenant('transaction.view', <TransactionRunPage />) },
                   { path: '/notifikasi', element: tenant(null, <NotificationsPage />) },

@@ -69,6 +69,14 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   const definition = customType ?? systemType
   const flow = useQuery({ queryKey: ['/transaction-types', definition?.id, 'flow'], queryFn: () => flowApi.get(definition!.id), enabled: !!definition })
   const activeGraph = flow.data?.data.active?.graph
+  const activeNumber = flow.data?.data.active?.version_number
+  // "Cara kerja" in short (F08-24): what happens after sending, for the published version.
+  const howItWorks = useQuery({
+    queryKey: ['/transaction-types', definition?.id, 'flow', 'describe', activeNumber],
+    queryFn: () => flowApi.describe(definition!.id, activeNumber),
+    enabled: !!definition && !!activeNumber,
+    staleTime: 60_000,
+  })
   const later = laterFields(activeGraph)
   const startFields = (definition?.fields ?? []).filter((f) => !later.has(f.key))
   const chosen = type !== '' || !!customType
@@ -287,6 +295,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
             )}
             {activeGraph ? (
               <Alert tone="info" title="Setelah disimpan">
+                {howItWorks.data?.data.summary ? `${howItWorks.data.data.summary} ` : ''}
                 Transaksi berjalan mengikuti alur {customType.name} (v{flow.data?.data.active?.version_number}).
                 {customType.locks_assets ? ' Aset dikunci sampai transaksi selesai, ditolak, atau dibatalkan.' : ''}
               </Alert>
