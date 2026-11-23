@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, RotateCcw, Settings2, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, Plus, RotateCcw, Settings2, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { ModuleBoundary } from '../../app/ModuleBoundary'
@@ -10,6 +10,8 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Alert, ErrorState, Skeleton } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
 import { IconButton } from '../../components/ui/IconButton'
+import { DragHandle, DragPreview, SortableGrid } from '../../components/ui/SortableGrid'
+import { useSortableItem } from '../../components/ui/useSortableItem'
 import { PillTabs } from '../../components/ui/Tabs'
 import { toast } from '../../components/ui/toast'
 import { ApiError } from '../../lib/api/client'
@@ -134,16 +136,7 @@ export function AssetBoardPage() {
     },
   })
 
-  const move = (id: string, step: -1 | 1) =>
-    setDraft((d) => {
-      if (!d) return d
-      const next = [...d.order]
-      const from = next.indexOf(id)
-      const to = from + step
-      if (to < 0 || to >= next.length) return d
-      ;[next[from], next[to]] = [next[to], next[from]]
-      return { ...d, order: next }
-    })
+  const reorder = (ids: string[]) => setDraft((d) => d && { ...d, order: ids })
 
   const description = !dashboard
     ? undefined
@@ -194,7 +187,7 @@ export function AssetBoardPage() {
 
       {editing && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-50 px-4 py-3 text-sm text-brand-900 ring-1 ring-brand-100">
-          <span>Ubah urutan dengan tombol panah, pilih lebar, atau sembunyikan widget. {dashboard?.dashboard_type === 'asset_board' ? 'Perubahan hanya untuk Anda.' : 'Perubahan berlaku untuk semua yang membuka dashboard kategori ini.'}</span>
+          <span>Seret widget ke posisi yang Anda inginkan, pilih lebar, atau sembunyikan widget. {dashboard?.dashboard_type === 'asset_board' ? 'Perubahan hanya untuk Anda.' : 'Perubahan berlaku untuk semua yang membuka dashboard kategori ini.'}</span>
           <span className="flex flex-wrap gap-2">
             <Button variant="ghost" size="sm" onClick={() => setResetting(true)} disabled={saveLayout.isPending}>
               <RotateCcw className="size-4" aria-hidden /> Kembalikan ke template
@@ -227,8 +220,14 @@ export function AssetBoardPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-6 xl:grid-cols-12">
-          {shown.map((w, i) => (
+        <SortableGrid
+          ids={shown.map((w) => w.id)}
+          onReorder={reorder}
+          nameOf={(id) => shown.find((w) => w.id === id)?.title ?? 'Widget'}
+          overlay={(id) => <DragPreview title={shown.find((w) => w.id === id)?.title ?? 'Widget'} />}
+          className="grid grid-cols-1 gap-4 md:grid-cols-6 xl:grid-cols-12"
+        >
+          {shown.map((w) => (
             <WidgetCard
               key={w.id}
               dashboardId={dashboard!.id}
@@ -239,10 +238,6 @@ export function AssetBoardPage() {
                 editing
                   ? {
                       visible: visibleOf(w),
-                      first: i === 0,
-                      last: i === shown.length - 1,
-                      onUp: () => move(w.id, -1),
-                      onDown: () => move(w.id, 1),
                       onWidth: (width) => setDraft((d) => d && { ...d, width: { ...d.width, [w.id]: width } }),
                       onToggle: () => setDraft((d) => d && { ...d, visible: { ...d.visible, [w.id]: !visibleOf(w) } }),
                       onSettings: () => setSettingsFor(w),
@@ -261,7 +256,7 @@ export function AssetBoardPage() {
               <Plus className="size-4" aria-hidden /> Tambah widget
             </button>
           )}
-        </div>
+        </SortableGrid>
       )}
 
       {dashboard && canEdit && (
@@ -303,10 +298,6 @@ export function AssetBoardPage() {
 
 interface EditControls {
   visible: boolean
-  first: boolean
-  last: boolean
-  onUp: () => void
-  onDown: () => void
   onWidth: (w: Width) => void
   onToggle: () => void
   onSettings: () => void
@@ -322,11 +313,26 @@ function WidgetCard({ dashboardId, widget, entry, width, edit }: { dashboardId: 
     retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
   })
   const height = heightOf(widget, entry?.default_layout)
+  const { setNodeRef, ...sortable } = useSortableItem(widget.id, !!edit)
 
   return (
-    <section aria-label={widget.title} className={clsx('flex flex-col rounded-xl bg-white shadow-card ring-1 ring-slate-200/80', SPAN[width], MIN_HEIGHT[height], edit && !edit.visible && 'opacity-50')}>
+    <section
+      ref={setNodeRef}
+      {...sortable.itemProps}
+      aria-label={widget.title}
+      className={clsx(
+        'flex flex-col rounded-xl bg-white shadow-card ring-1 ring-slate-200/80',
+        SPAN[width],
+        MIN_HEIGHT[height],
+        edit && 'cursor-grab select-none',
+        edit && !edit.visible && 'opacity-50',
+        // The spot the widget will drop into while its floating copy is dragged.
+        sortable.dragging && 'opacity-40 ring-2 ring-dashed ring-brand-300',
+      )}
+    >
       <header className="flex items-start justify-between gap-2 px-4 pb-1 pt-3.5">
-        <h2 className="min-w-0 text-[0.9375rem] font-semibold leading-snug text-slate-900">{widget.title}</h2>
+        {sortable.handle && <DragHandle name={widget.title} handle={sortable.handle} />}
+        <h2 className={clsx('mr-auto min-w-0 text-[0.9375rem] font-semibold leading-snug text-slate-900', edit && 'pt-1.5')}>{widget.title}</h2>
         {edit && (
           <span className="flex shrink-0 items-center gap-0.5">
             <IconButton label={`Pengaturan ${widget.title}`} onClick={edit.onSettings}>
@@ -363,12 +369,6 @@ function WidgetCard({ dashboardId, widget, entry, width, edit }: { dashboardId: 
             ))}
           </Select>
           <span className="flex items-center gap-0.5">
-            <IconButton label={`Naikkan ${widget.title}`} onClick={edit.onUp} disabled={edit.first}>
-              <ArrowUp className="size-4" aria-hidden />
-            </IconButton>
-            <IconButton label={`Turunkan ${widget.title}`} onClick={edit.onDown} disabled={edit.last}>
-              <ArrowDown className="size-4" aria-hidden />
-            </IconButton>
             <IconButton label={`${edit.visible ? 'Sembunyikan' : 'Tampilkan'} ${widget.title}`} onClick={edit.onToggle}>
               {edit.visible ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
             </IconButton>

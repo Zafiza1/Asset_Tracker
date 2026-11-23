@@ -6,8 +6,12 @@ import { ago, arrangeCards, type HomeCard, type HomeCardsResponse } from '../fea
 import { HomePage } from '../features/home/HomePage'
 import type { Profile } from '../lib/api/types'
 import { AuthContext, type AuthState } from '../lib/auth/context'
+import { moveWithKeyboard, stackSections } from './sortableHelpers'
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
 const cards: HomeCard[] = [
   {
@@ -87,7 +91,9 @@ describe('Beranda', () => {
   it('lets the member reorder, hide and save their cards', async () => {
     const fetchMock = setup()
     fireEvent.click(await screen.findByRole('button', { name: /Atur kartu/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Naikkan Pengajuan saya' }))
+    stackSections()
+    // Dragged one place up (with the keyboard, as jsdom has no pointer layout).
+    await moveWithKeyboard('Pengajuan saya', 'ArrowUp')
     fireEvent.click(screen.getByRole('button', { name: 'Sembunyikan Menunggu keputusan saya' }))
     const hiddenCard = screen.getByRole('region', { name: 'Menunggu keputusan saya' })
     expect(within(hiddenCard).getByText('Disembunyikan')).toBeInTheDocument()

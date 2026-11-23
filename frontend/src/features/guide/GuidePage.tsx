@@ -471,7 +471,7 @@ function Step8() {
     ]}>
       <div className="grid gap-3 md:grid-cols-3">
         <PathCard title={<MenuLink to="/" permission="report.view">Dashboard</MenuLink>}>
-          <p>Ringkasan jumlah, nilai, status, dan lokasi aset. Gunakan <Label>Atur tata letak</Label> untuk menyusun analisis yang ingin ditampilkan. Isi widget menyesuaikan lebarnya: makin lebar, makin lengkap analisisnya.</p>
+          <p>Ringkasan jumlah, nilai, status, dan lokasi aset. Gunakan <Label>Atur tata letak</Label> untuk menyusun analisis yang ingin ditampilkan: seret widget ke posisi yang diinginkan. Kartu Beranda disusun dengan cara yang sama lewat <Label>Atur kartu</Label>. Isi widget menyesuaikan lebarnya: makin lebar, makin lengkap analisisnya.</p>
         </PathCard>
         <PathCard title={<MenuLink to="/laporan/template" permission="report.view">Template Laporan</MenuLink>}>
           <p>Susun sendiri format laporan dan data yang ingin dilaporkan: seret elemen ke kertas, pilih field, lalu <Label>Terbitkan</Label>. Template yang sudah terbit dapat dijalankan dan diunduh sebagai PDF atau Excel.</p>

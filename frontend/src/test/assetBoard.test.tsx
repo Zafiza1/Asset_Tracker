@@ -7,8 +7,12 @@ import { AssetBoardPage } from '../features/assetBoard/AssetBoardPage'
 import { WidgetBody } from '../features/assetBoard/WidgetBody'
 import type { Profile } from '../lib/api/types'
 import { AuthContext, type AuthState } from '../lib/auth/context'
+import { moveWithKeyboard, stackSections } from './sortableHelpers'
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
 const widget = (id: string, key: string, title: string, sort: number, extra: Partial<DashboardWidget> = {}): DashboardWidget => ({
   id,
@@ -120,7 +124,9 @@ describe('Dashboard Aset', () => {
   it('saves a new order and width from "Atur tata letak"', async () => {
     const fetchMock = setup()
     fireEvent.click(await screen.findByRole('button', { name: 'Atur tata letak' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Turunkan Total Aset' }))
+    stackSections()
+    // Dragged one place down (with the keyboard, as jsdom has no pointer layout).
+    await moveWithKeyboard('Total Aset', 'ArrowDown')
     fireEvent.change(screen.getByRole('combobox', { name: 'Lebar Aset terbaru' }), { target: { value: '6' } })
     fireEvent.click(screen.getByRole('button', { name: 'Simpan tata letak' }))
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Simpan tata letak' })).not.toBeInTheDocument())

@@ -2,8 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import {
   AlertTriangle,
-  ArrowDown,
-  ArrowUp,
   Bell,
   CalendarClock,
   CalendarX,
@@ -30,7 +28,8 @@ import type { BadgeTone } from '../../components/ui/badgeTones'
 import { Button } from '../../components/ui/Button'
 import { PageHeader } from '../../components/ui/Card'
 import { ErrorState, Skeleton } from '../../components/ui/Feedback'
-import { IconButton } from '../../components/ui/IconButton'
+import { DragHandle, DragPreview, SortableGrid } from '../../components/ui/SortableGrid'
+import { useSortableItem } from '../../components/ui/useSortableItem'
 import { toast } from '../../components/ui/toast'
 import { downloadFile } from '../../lib/api/client'
 import { useAuth } from '../../lib/auth/context'
@@ -99,14 +98,7 @@ export function HomePage() {
   const cards = arrangeCards(query.data?.data ?? [], preferences.order)
   const shown = arranging ? cards : cards.filter((c) => !preferences.hidden.includes(c.key))
 
-  const move = (key: HomeCardKey, step: -1 | 1) => {
-    const keys = cards.map((c) => c.key)
-    const from = keys.indexOf(key)
-    const to = from + step
-    if (to < 0 || to >= keys.length) return
-    ;[keys[from], keys[to]] = [keys[to], keys[from]]
-    setDraft({ ...preferences, order: keys })
-  }
+  const reorder = (keys: string[]) => setDraft({ ...preferences, order: keys as HomeCardKey[] })
   const toggle = (key: HomeCardKey) =>
     setDraft({ ...preferences, hidden: preferences.hidden.includes(key) ? preferences.hidden.filter((k) => k !== key) : [...preferences.hidden, key] })
 
@@ -131,7 +123,7 @@ export function HomePage() {
 
       {arranging && (
         <p className="mb-4 rounded-lg bg-brand-50 px-4 py-2.5 text-sm text-brand-800 ring-1 ring-brand-100">
-          Ubah urutan dengan tombol panah dan sembunyikan kartu yang tidak Anda perlukan. Susunan ini hanya berlaku untuk Anda.
+          Seret kartu ke posisi yang Anda inginkan dan sembunyikan kartu yang tidak Anda perlukan. Susunan ini hanya berlaku untuk Anda.
         </p>
       )}
 
@@ -144,26 +136,21 @@ export function HomePage() {
           {cards.length === 0 ? 'Belum ada kartu untuk akun Anda.' : 'Semua kartu Anda sembunyikan. Pilih Atur kartu (di layar lebar) untuk menampilkannya lagi.'}
         </p>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {shown.map((card, index) => (
+        <SortableGrid
+          ids={shown.map((c) => c.key)}
+          onReorder={reorder}
+          nameOf={(key) => cardTitle[key as HomeCardKey]}
+          overlay={(key) => <DragPreview title={cardTitle[key as HomeCardKey]} />}
+          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
+          {shown.map((card) => (
             <HomeCardView
               key={card.key}
               card={card}
-              arrange={
-                arranging
-                  ? {
-                      hidden: preferences.hidden.includes(card.key),
-                      first: index === 0,
-                      last: index === shown.length - 1,
-                      onUp: () => move(card.key, -1),
-                      onDown: () => move(card.key, 1),
-                      onToggle: () => toggle(card.key),
-                    }
-                  : undefined
-              }
+              arrange={arranging ? { hidden: preferences.hidden.includes(card.key), onToggle: () => toggle(card.key) } : undefined}
             />
           ))}
-        </div>
+        </SortableGrid>
       )}
     </>
   )
@@ -197,10 +184,6 @@ function ArrangeActions({ draft, onCancel, onReset, onSaved }: { draft: HomePref
 
 interface ArrangeControls {
   hidden: boolean
-  first: boolean
-  last: boolean
-  onUp: () => void
-  onDown: () => void
   onToggle: () => void
 }
 
@@ -209,14 +192,25 @@ function HomeCardView({ card, arrange }: { card: HomeCard; arrange?: ArrangeCont
   const Icon = cardIcon[card.key]
   const title = cardTitle[card.key]
   const accent = content.tone === 'red' ? 'border-l-red-500' : content.tone === 'amber' ? 'border-l-amber-500' : 'border-l-transparent'
+  const { setNodeRef, ...sortable } = useSortableItem(card.key, !!arrange)
 
   return (
     <section
+      ref={setNodeRef}
+      {...sortable.itemProps}
       aria-label={title}
-      className={clsx('flex flex-col rounded-xl border-l-4 bg-white shadow-card ring-1 ring-slate-200/80', accent, arrange?.hidden && 'opacity-50')}
+      className={clsx(
+        'flex flex-col rounded-xl border-l-4 bg-white shadow-card ring-1 ring-slate-200/80',
+        accent,
+        arrange && 'cursor-grab select-none',
+        arrange?.hidden && 'opacity-50',
+        // The spot the card will drop into while its floating copy is dragged.
+        sortable.dragging && 'opacity-40 ring-2 ring-dashed ring-brand-300',
+      )}
     >
       <header className="flex items-center justify-between gap-2 px-4 pb-2 pt-3.5">
-        <h2 className="flex min-w-0 items-start gap-2 text-[0.9375rem] font-semibold leading-snug text-slate-900">
+        {sortable.handle && <DragHandle name={title} handle={sortable.handle} />}
+        <h2 className="mr-auto flex min-w-0 items-start gap-2 text-[0.9375rem] font-semibold leading-snug text-slate-900">
           <Icon className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden />
           <span className="min-w-0">{title}</span>
         </h2>
@@ -227,12 +221,6 @@ function HomeCardView({ card, arrange }: { card: HomeCard; arrange?: ArrangeCont
         <footer className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
           <span className="text-xs text-slate-500">{arrange.hidden ? 'Disembunyikan' : 'Ditampilkan'}</span>
           <span className="flex items-center gap-1">
-            <IconButton label={`Naikkan ${title}`} onClick={arrange.onUp} disabled={arrange.first}>
-              <ArrowUp className="size-4" aria-hidden />
-            </IconButton>
-            <IconButton label={`Turunkan ${title}`} onClick={arrange.onDown} disabled={arrange.last}>
-              <ArrowDown className="size-4" aria-hidden />
-            </IconButton>
             <Button variant="ghost" size="sm" onClick={arrange.onToggle} aria-label={`${arrange.hidden ? 'Tampilkan' : 'Sembunyikan'} ${title}`}>
               {arrange.hidden ? <Eye className="size-4" aria-hidden /> : <EyeOff className="size-4" aria-hidden />}
               {arrange.hidden ? 'Tampilkan' : 'Sembunyikan'}
