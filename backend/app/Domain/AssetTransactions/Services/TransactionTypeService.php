@@ -7,6 +7,7 @@ use App\Domain\AssetTransactions\Flows\FlowVersionService;
 use App\Domain\AssetTransactions\Models\TransactionFlowVersion;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\AssetTransactions\Models\TransactionTypeField;
+use App\Domain\AssetTransactions\Templates\TransactionTemplates;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Domain\Audit\AuditLogger;
@@ -65,6 +66,57 @@ final class TransactionTypeService
 
             return $copy;
         });
+    }
+
+    /**
+     * New draft organization types from a ready-made template (F-08c, D-40): the template's fields
+     * and flow become the type's own (draft flow, roles resolved for this organization), with
+     * source_template_key as the only trace of the template. A template with a pair also makes
+     * its closing type, which closes the first ("Berpasangan"). Code and name default to the
+     * template's.
+     *
+     * @return array{0: TransactionTypeDefinition, 1: TransactionTypeDefinition|null} the type and its closing pair
+     */
+    public function fromTemplate(string $key, ?string $code = null, ?string $name = null, ?string $pairCode = null, ?string $pairName = null): array
+    {
+        $template = TransactionTemplates::find($key);
+        if ($template === null) {
+            throw ValidationException::withMessages(['template' => 'Template tidak ditemukan.']);
+        }
+        if ($template['closes'] !== null) {
+            $with = TransactionTemplates::find($template['closes'])['name'];
+            throw ValidationException::withMessages(['template' => "Template ini dibuat bersama template {$with}. Pakai template {$with}."]);
+        }
+
+        return DB::transaction(function () use ($key, $template, $code, $name, $pairCode, $pairName) {
+            $type = $this->makeFromTemplate($key, $template, $code ?? $template['code'], $name ?? $template['name'], null, 'code');
+            $pair = null;
+            if ($template['pair'] !== null) {
+                $pairTemplate = TransactionTemplates::find($template['pair']);
+                $pair = $this->makeFromTemplate($template['pair'], $pairTemplate, $pairCode ?? $pairTemplate['code'], $pairName ?? $pairTemplate['name'], $type->id, 'pair.code');
+            }
+
+            return [$type, $pair];
+        });
+    }
+
+    /** @param array<string, mixed> $template one of TransactionTemplates::all() */
+    private function makeFromTemplate(string $key, array $template, string $code, string $name, ?string $closesTypeId, string $codeAttribute): TransactionTypeDefinition
+    {
+        $definition = new TransactionTypeDefinition;
+        $definition->fill([
+            'name' => $name, 'description' => $template['purpose'], 'icon' => $template['icon'],
+            'multi_asset' => $template['multi_asset'], 'locks_assets' => $template['locks_assets'], 'closes_type_id' => $closesTypeId,
+        ]);
+        $definition->forceFill([
+            'code' => $this->code($code, null, $codeAttribute), 'status' => TransactionTypeDefinition::DRAFT,
+            'core_type' => $template['core_type'], 'source_template_key' => $key, 'created_by' => $this->tenancy->tenant()->userId(),
+        ])->save();
+        $this->syncFields($definition, $template['fields']);
+        $this->flows->saveDraft($definition, TransactionTemplates::resolveRoles($template['graph']), "Dibuat dari template {$template['name']}.");
+        $this->audit->record('transaction_type.created_from_template', $definition, after: [...$this->snapshot($definition), 'template' => $key]);
+
+        return $definition;
     }
 
     /** @param array<string, mixed> $data validated (see TransactionTypeController::rules) */
@@ -163,16 +215,16 @@ final class TransactionTypeService
     }
 
     /** Upper-case, not a system prefix, not used by another type of the organization. */
-    private function code(string $code, ?string $ignoreId = null): string
+    private function code(string $code, ?string $ignoreId = null, string $attribute = 'code'): string
     {
         $code = strtoupper($code);
         if (in_array($code, TransactionType::PREFIXES, true)) {
-            throw ValidationException::withMessages(['code' => "Kode {$code} dipakai jenis sistem. Pilih kode lain."]);
+            throw ValidationException::withMessages([$attribute => "Kode {$code} dipakai jenis sistem. Pilih kode lain."]);
         }
         $taken = TransactionTypeDefinition::query()->where('code', $code)
             ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))->exists();
         if ($taken) {
-            throw ValidationException::withMessages(['code' => "Kode {$code} sudah dipakai jenis lain."]);
+            throw ValidationException::withMessages([$attribute => "Kode {$code} sudah dipakai jenis lain."]);
         }
 
         return $code;

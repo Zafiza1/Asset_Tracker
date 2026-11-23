@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\AssetTransactions\Flows\FlowDescriber;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
+use App\Domain\AssetTransactions\Models\TransactionTypeField;
 use App\Domain\AssetTransactions\Services\TransactionTypeService;
+use App\Domain\AssetTransactions\Templates\TransactionTemplates;
 use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TransactionTypeResource;
@@ -69,6 +72,80 @@ class TransactionTypeController extends Controller
         $copy = $this->types->duplicate($transactionType, $data['code'], $data['name']);
 
         return (new TransactionTypeResource($copy->load(self::RELATIONS)->loadCount('transactions')))->response()->setStatusCode(201);
+    }
+
+    /**
+     * The ready-made templates (F-08c, F08-02): per card the purpose, the number of fields and of
+     * approval steps, and "Lihat cara kerja" (the FlowDescriber documentation) without making anything.
+     */
+    public function templates(FlowDescriber $describer): JsonResponse
+    {
+        $data = [];
+        foreach (TransactionTemplates::all() as $key => $template) {
+            if ($template['closes'] !== null) {
+                continue;
+            }
+            $pair = $template['pair'] !== null ? TransactionTemplates::find($template['pair']) : null;
+            $data[] = [
+                ...$this->templateCard($key, $template, $describer),
+                'pair' => $pair === null ? null : $this->templateCard($template['pair'], $pair, $describer),
+            ];
+        }
+
+        return response()->json(['data' => $data, 'meta' => ['categories' => TransactionTemplates::CATEGORIES]]);
+    }
+
+    /** New draft types from a template (F08-03): the type, and its closing pair when the template has one. */
+    public function fromTemplate(Request $request): JsonResponse
+    {
+        $code = ['nullable', 'string', 'regex:/^[A-Za-z]{2,6}$/'];
+        $data = $request->validate([
+            'template' => ['required', 'string', 'max:40'],
+            'code' => $code,
+            'name' => ['nullable', 'string', 'max:100'],
+            'pair' => ['sometimes', 'array:code,name'],
+            'pair.code' => $code,
+            'pair.name' => ['nullable', 'string', 'max:100'],
+        ]);
+        [$type, $pair] = $this->types->fromTemplate($data['template'], $data['code'] ?? null, $data['name'] ?? null,
+            $data['pair']['code'] ?? null, $data['pair']['name'] ?? null);
+
+        return (new TransactionTypeResource($type->load(self::RELATIONS)->loadCount('transactions')))
+            ->additional(['meta' => ['pair' => $pair === null ? null : new TransactionTypeResource($pair->load(self::RELATIONS)->loadCount('transactions'))]])
+            ->response()->setStatusCode(201);
+    }
+
+    /**
+     * @param  array<string, mixed>  $template
+     * @return array<string, mixed>
+     */
+    private function templateCard(string $key, array $template, FlowDescriber $describer): array
+    {
+        $graph = TransactionTemplates::resolveRoles($template['graph']);
+        $preview = new TransactionTypeDefinition;
+        $preview->forceFill([
+            'name' => $template['name'], 'description' => $template['purpose'], 'multi_asset' => $template['multi_asset'],
+            'locks_assets' => $template['locks_assets'], 'core_type' => $template['core_type'],
+        ]);
+        $preview->setRelation('fields', collect($template['fields'])->map(fn (array $f) => new TransactionTypeField($f)));
+
+        return [
+            'key' => $key,
+            'name' => $template['name'],
+            'category' => $template['category'],
+            'purpose' => $template['purpose'],
+            'code' => $template['code'],
+            'icon' => $template['icon'],
+            'core_type' => $template['core_type'],
+            'field_count' => count($template['fields']),
+            'approval_count' => collect($graph['nodes'])->where('type', 'approval')->count(),
+            'fields' => array_map(fn (array $f) => [
+                'key' => $f['key'], 'label' => $f['label'], 'data_type' => $f['data_type'],
+                'data_type_label' => TransactionFieldTypes::TYPES[$f['data_type']], 'is_required' => $f['is_required'],
+            ], $template['fields']),
+            'graph' => $graph,
+            'documentation' => $describer->describe($preview, $graph),
+        ];
     }
 
     public function destroy(TransactionTypeDefinition $transactionType): Response

@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $created_by
  * @property string|null $system_type one of the built-in types (F-07f); NULL for the organization's own types
  * @property string|null $core_type the built-in type an organization type copied from a system type records (F-08)
+ * @property string|null $source_template_key the TransactionTemplates key the type was made from (F-08c); origin only
  */
 class TransactionTypeDefinition extends Model
 {

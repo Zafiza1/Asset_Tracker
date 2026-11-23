@@ -26,6 +26,9 @@ Route::middleware('module:transactions')->group(function () {
     Route::put('/transaction-types/{transactionType}', [TransactionTypeController::class, 'update'])->middleware('permission:transaction_type.manage');
     Route::delete('/transaction-types/{transactionType}', [TransactionTypeController::class, 'destroy'])->middleware('permission:transaction_type.manage');
     // A copy (F-08 "Salin jenis"); a system type's copy keeps its core action. The copy's flow draft needs both roles' rights (D-27).
+    // Ready-made templates (F-08c, D-40): the gallery for everyone who may see types; making a draft from one needs both rights, like a copy.
+    Route::get('/transaction-type-templates', [TransactionTypeController::class, 'templates'])->middleware('permission:transaction.view');
+    Route::post('/transaction-types/from-template', [TransactionTypeController::class, 'fromTemplate'])->middleware(['permission:transaction_type.manage', 'permission:transaction_flow.manage']);
     Route::post('/transaction-types/{transactionType}/duplicate', [TransactionTypeController::class, 'duplicate'])->middleware(['permission:transaction_type.manage', 'permission:transaction_flow.manage']);
 
     // The flow of a transaction type (F-07b): read by the transaction form, drawn and published

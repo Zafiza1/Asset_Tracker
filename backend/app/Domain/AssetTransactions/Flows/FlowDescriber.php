@@ -112,10 +112,11 @@ final class FlowDescriber
         return $this->rulePhrase($rule, $assets);
     }
 
+    /** A type not saved yet (a template preview, F-08c) brings its fields as the loaded relation. */
     private function use(TransactionTypeDefinition $type): void
     {
         $this->type = $type;
-        $this->fields = $type->fields()->get()->keyBy('key');
+        $this->fields = ($type->exists ? $type->fields()->get() : $type->fields)->keyBy('key');
     }
 
     /**
@@ -262,7 +263,7 @@ final class FlowDescriber
     private function waitSentence(array $config): string
     {
         if (($config['until'] ?? null) === 'paired') {
-            $closing = TransactionTypeDefinition::query()->where('closes_type_id', $this->type->id)->orderBy('name')->pluck('name')->all();
+            $closing = $this->type->exists ? TransactionTypeDefinition::query()->where('closes_type_id', $this->type->id)->orderBy('name')->pluck('name')->all() : [];
 
             return 'Menunggu transaksi '.($closing === [] ? 'pasangannya' : $this->list(array_map(fn ($n) => "\"{$n}\"", $closing), 'atau')).' untuk setiap aset.';
         }
