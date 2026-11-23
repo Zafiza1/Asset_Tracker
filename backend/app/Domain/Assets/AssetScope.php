@@ -52,15 +52,26 @@ final class AssetScope
      */
     public function allowsAsset(?string $locationId, ?string $departmentId): bool
     {
-        $scope = $this->scope();
+        return $this->allowsAssetIn($this->scope(), $locationId, $departmentId);
+    }
+
+    /**
+     * allowsAsset() for a given scope, e.g. the recorder's when a flow action runs while another
+     * member completes the step (F-08k: a new department may not push the asset out of their reach).
+     */
+    public function allowsAssetIn(DataScope $scope, ?string $locationId, ?string $departmentId): bool
+    {
         if ($scope->organizationWide) {
             return true;
         }
         if ($departmentId !== null && in_array($departmentId, $scope->departmentIds, true)) {
             return true;
         }
+        if ($locationId === null || $scope->locationIds === []) {
+            return false;
+        }
 
-        return $this->allowsLocation($locationId);
+        return $this->locationsInScope($scope)->whereKey($locationId)->exists();
     }
 
     /** Has the user department entries (they may then place their department's assets anywhere)? */

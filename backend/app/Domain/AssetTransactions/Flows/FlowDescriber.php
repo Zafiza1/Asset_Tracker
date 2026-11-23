@@ -413,6 +413,8 @@ final class FlowDescriber
             'loan_to_field_user' => 'Aset dipinjamkan ke pengguna pada field '.$field($action['user_field'] ?? null)
                 .(isset($action['due_field']) ? ', rencana kembali dari field '.$field($action['due_field']) : ''),
             'return' => 'Peminjaman aset diakhiri'.(isset($action['location_field']) ? ' dan aset kembali ke lokasi pada field '.$field($action['location_field']) : ''),
+            'set_custodian' => 'Penanggung jawab aset diganti menjadi pengguna pada field '.$field((string) ($action['user_field'] ?? ''))
+                .(($action['set_department'] ?? false) ? ', dan departemen aset menjadi departemen asal orang itu' : ''),
             'notify' => 'Email dikirim ke '.$this->lcfirst($this->assigneePhrase(is_array($action['to'] ?? null) ? $action['to'] : ['type' => 'starter']))
                 .(trim((string) ($action['message'] ?? '')) !== '' ? ': "'.trim((string) $action['message']).'"' : ''),
             default => 'Aksi tidak dikenal',
@@ -443,6 +445,7 @@ final class FlowDescriber
             'role' => 'Pemegang role '.$this->name('role', $assignee['id'] ?? null),
             'user' => $this->name('user', $assignee['id'] ?? null),
             'field' => 'Pengguna pada field '.$this->fieldLabel((string) ($assignee['field'] ?? '')),
+            'asset_custodian' => 'Penanggung jawab aset saat itu',
             default => 'Pencatat',
         };
     }

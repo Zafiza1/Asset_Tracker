@@ -23,8 +23,7 @@ use App\Domain\Authorization\RoleTemplates;
  * Kirim kalibrasi waits for Kembali dari kalibrasi. The closing template is not offered alone.
  *
  * The seven system types (F-07f) are the gallery's "Jenis sistem" group; they are copied with
- * POST /transaction-types/{id}/duplicate, not listed here. Serah terima penanggung jawab and the
- * cross-department templates come with F-08i/F-08k, together with the steps they need.
+ * POST /transaction-types/{id}/duplicate, not listed here.
  */
 final class TransactionTemplates
 {
@@ -77,6 +76,8 @@ final class TransactionTemplates
                         ['kind' => 'reject', 'message' => 'Aset rusak berat diperbaiki atau dihapuskan, bukan dipindah.']),
                     self::rule('nilai', 'Approval aset bernilai tinggi', 2, [['subject' => 'asset.acquisition_cost', 'op' => 'gt', 'value' => 10000000]],
                         ['kind' => 'approval', 'approver' => self::role(RoleTemplates::SUPER_ADMIN), 'min_approvals' => 1]),
+                    self::rule('lintas', 'Persetujuan lintas departemen', 3, [['subject' => 'target.department_differs', 'op' => 'eq', 'value' => 'penerima']],
+                        ['kind' => 'approval', 'approver' => ['type' => 'target_department_supervisor', 'field' => 'penerima'], 'min_approvals' => 1]),
                 ],
             ],
             'kirim_kalibrasi' => [
@@ -184,6 +185,42 @@ final class TransactionTemplates
                     ['start', 'pinjam'], ['pinjam', 'kabari'], ['kabari', 'selesai'],
                 ]),
                 'rules' => [],
+            ],
+            // v0.3 (D-52, D-53, D-58): the lasting custodian changes hands; lending stays Peminjaman ke karyawan.
+            'serah_terima_penanggung_jawab' => [
+                'name' => 'Serah terima penanggung jawab',
+                'category' => 'perpindahan',
+                'purpose' => 'Penanggung jawab tetap aset berganti, misalnya karena karyawan pindah tugas; penerima mengonfirmasi serah terimanya.',
+                'code' => 'STJ', 'icon' => 'handshake', 'multi_asset' => true, 'locks_assets' => true,
+                'core_type' => null, 'pair' => null, 'closes' => null,
+                'fields' => [
+                    self::field('penanggung_jawab_baru', 'Penanggung jawab baru', 'user', true),
+                    self::field('alasan', 'Alasan', 'textarea', true, ['max_length' => 1000]),
+                    self::field('berita_acara', 'Berita acara', 'attachment', false, ['accept' => ['pdf', 'image']]),
+                ],
+                'graph' => self::graph([
+                    self::node('start', 'start', 'Diajukan'),
+                    self::node('setuju_lama', 'approval', 'Persetujuan penanggung jawab lama', ['approver' => ['type' => 'asset_custodian'], 'min_approvals' => 1]),
+                    self::node('konfirmasi', 'input', 'Konfirmasi penerima', ['assignee' => ['type' => 'field', 'field' => 'penanggung_jawab_baru'], 'fields' => ['berita_acara']]),
+                    self::node('kabari_lama', 'action', 'Email ke penanggung jawab lama', ['actions' => [
+                        ['kind' => 'notify', 'to' => ['type' => 'asset_custodian'], 'message' => 'Aset yang Anda pegang telah diserahterimakan kepada penanggung jawab baru.'],
+                    ]]),
+                    self::node('ganti', 'action', 'Penanggung jawab diganti', ['actions' => [
+                        ['kind' => 'set_custodian', 'user_field' => 'penanggung_jawab_baru', 'set_department' => true],
+                    ]]),
+                    self::node('kabari_baru', 'action', 'Email ke penanggung jawab baru', ['actions' => [
+                        ['kind' => 'notify', 'to' => ['type' => 'field', 'field' => 'penanggung_jawab_baru'], 'message' => 'Anda kini penanggung jawab aset dalam transaksi ini.'],
+                    ]]),
+                    self::node('selesai', 'end', 'Selesai', ['result' => 'completed']),
+                    self::node('ditolak', 'end', 'Ditolak', ['result' => 'rejected']),
+                ], [
+                    ['start', 'setuju_lama'], ['setuju_lama', 'konfirmasi', 'approved'], ['setuju_lama', 'ditolak', 'rejected'],
+                    ['konfirmasi', 'kabari_lama'], ['kabari_lama', 'ganti'], ['ganti', 'kabari_baru'], ['kabari_baru', 'selesai'],
+                ]),
+                'rules' => [
+                    self::rule('lintas', 'Persetujuan lintas departemen', 1, [['subject' => 'target.department_differs', 'op' => 'eq', 'value' => 'penanggung_jawab_baru']],
+                        ['kind' => 'approval', 'approver' => ['type' => 'target_department_supervisor', 'field' => 'penanggung_jawab_baru'], 'min_approvals' => 1]),
+                ],
             ],
             // Disposal keeps its own rules (FlowGraph::ACTION_STATUSES has no Dihapuskan): the type
             // records a permanent Keluar as its core action, after two approvals; a rule refuses Sementara.

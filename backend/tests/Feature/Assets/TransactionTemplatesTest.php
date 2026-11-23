@@ -9,6 +9,7 @@ use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\RoleTemplates;
 use App\Domain\Identity\Models\User;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\TenantContext;
@@ -96,7 +97,7 @@ class TransactionTemplatesTest extends TestCase
         $this->assertSame('kembali_kalibrasi', $cards['kirim_kalibrasi']['pair']['key']);
 
         $mutasi = $cards['mutasi_lokasi'];
-        $this->assertSame([5, 2, 'perpindahan'], [$mutasi['field_count'], $mutasi['approval_count'], $mutasi['category']]);
+        $this->assertSame([5, 3, 'perpindahan'], [$mutasi['field_count'], $mutasi['approval_count'], $mutasi['category']]);
         $this->assertSame('Mutasi antar lokasi', $mutasi['documentation']['title']);
         $sentences = implode(' ', array_column($mutasi['documentation']['steps'], 'sentence'));
         $this->assertStringContainsString('Rp 10.000.000', $sentences);
@@ -238,6 +239,58 @@ class TransactionTemplatesTest extends TestCase
 
         // Only an Aktif or Tidak Aktif asset may be lent.
         $this->assertErrorCode($this->start($type, $asset, ['pemegang' => $holder->id, 'rencana_kembali' => $due]), 422, 'PRECONDITION_FAILED');
+    }
+
+    public function test_serah_terima_penanggung_jawab_hands_the_asset_over_with_a_cross_department_approval(): void
+    {
+        Notification::fake();
+        $type = $this->activeType('serah_terima_penanggung_jawab');
+        $finance = (new Department)->forceFill(['organization_id' => $this->org->id, 'code' => 'DEPB', 'name' => 'Keuangan']);
+        $finance->save();
+        $role = $this->createRole($this->org, 'KARYAWAN', ['transaction.view'])->code;
+        $member = function (?string $home) use ($role): User {
+            $user = $this->createTenantUser($this->org, [$role]);
+            $this->tenancy()->runAsTenant(new TenantContext($this->org, $this->admin),
+                fn () => DB::table('organization_members')->where('user_id', $user->id)->update(['home_department_id' => $home]));
+
+            return $user;
+        };
+        $sari = $member($this->masters['department']->id);
+        $budi = $member($finance->id);
+        $values = fn (User $to) => ['penanggung_jawab_baru' => $to->id, 'alasan' => 'Pindah tugas'];
+        $asset = fn () => $this->postJson('/api/assets', [
+            'name' => 'Laptop '.Str::random(4), 'serial_number' => 'SN-'.Str::uuid(), 'status' => 'in_use',
+            'category_id' => $this->masters['category']->id, 'location_id' => $this->masters['location']->id,
+            'custodian_user_id' => $sari->id, 'department_id' => $this->masters['department']->id,
+        ])->assertCreated()->json('data.id');
+
+        // To another department: the former custodian, then the receiving department's Supervisor, then the receiver.
+        $laptop = $asset();
+        $run = $this->start($type, $laptop, $values($budi))->assertCreated()->json('data');
+        $this->assertSame(['setuju_lama', 'asset_custodian'], [$run['current_step']['id'], $run['open_task']['assignee_type']]);
+        $run = $this->complete($run, ['decision' => 'approved'], $sari)->assertOk()->json('data');
+        $this->assertSame(['ra_lintas', 'department_supervisor'], [$run['current_step']['id'], $run['open_task']['assignee_type']]);
+        $run = $this->complete($run, ['decision' => 'approved'])->assertOk()->json('data');
+        $this->assertSame('konfirmasi', $run['current_step']['id']);
+        $this->complete($run, ['field_values' => []], $budi)->assertOk()->assertJsonPath('data.state', 'completed');
+
+        $this->getJson("/api/assets/{$laptop}")->assertJsonPath('data.custodian_user_id', $budi->id)->assertJsonPath('data.department_id', $finance->id);
+        $note = $this->getJson("/api/transactions?asset_id={$laptop}&type=note")->assertOk()->json('data.0');
+        $this->assertSame($run['transaction_number'], $note['transaction_number']);
+        $this->assertSame("Penanggung jawab: {$sari->name} → {$budi->name}; Departemen: {$this->masters['department']->name} → Keuangan", $note['notes']);
+        Notification::assertSentTo($sari, TransactionFlowNotification::class);
+        Notification::assertSentTo($budi, TransactionFlowNotification::class);
+
+        // Within the same department: no cross-department approval.
+        $colleague = $member($this->masters['department']->id);
+        $run = $this->complete($this->start($type, $asset(), $values($colleague))->json('data'), ['decision' => 'approved'], $sari)->json('data');
+        $this->assertSame('konfirmasi', $run['current_step']['id']);
+
+        // Refused by the former custodian: nothing changes.
+        $kept = $asset();
+        $run = $this->start($type, $kept, $values($budi))->json('data');
+        $this->complete($run, ['decision' => 'rejected', 'note' => 'Masih dipakai.'], $sari)->assertOk()->assertJsonPath('data.state', 'rejected');
+        $this->getJson("/api/assets/{$kept}")->assertJsonPath('data.custodian_user_id', $sari->id);
     }
 
     public function test_penghapusan_aset_disposes_after_the_supervisor_and_the_super_admin(): void

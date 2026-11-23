@@ -327,7 +327,9 @@ final class FlowGraph
                         'return' => $optional($action['location_field'] ?? null, 'location'),
                         'notify' => is_string($action['message'] ?? null) && trim($action['message']) !== ''
                             && mb_strlen($action['message']) <= FlowActions::MAX_MESSAGE
-                            && self::assigneeIssues(is_array($action['to'] ?? null) ? $action['to'] : [], $field, false) === [],
+                            && ((($action['to']['type'] ?? null) === 'asset_custodian')
+                                || self::assigneeIssues(is_array($action['to'] ?? null) ? $action['to'] : [], $field, false) === []),
+                        'set_custodian' => $field($action['user_field'] ?? null, 'user') && is_bool($action['set_department'] ?? false),
                         default => false,
                     };
                     if (! $ok) {
