@@ -107,6 +107,49 @@ class TransactionFlowController extends Controller
     }
 
     /**
+     * What the recorder will meet (F08-42), before sending: the named rules of the published
+     * version that apply to these assets and values, and the refusal at the start if any. The
+     * dry run of the active version with every approval given, in the recorder's own scope;
+     * nothing is saved, and no flow details beyond the rules' names and sentences are shown.
+     */
+    public function preview(Request $request, TransactionTypeDefinition $transactionType): JsonResponse
+    {
+        $data = $request->validate([
+            'asset_ids' => ['present', 'array', 'max:50'],
+            'asset_ids.*' => ['uuid'],
+            'field_values' => ['nullable', 'array'],
+        ]);
+        $version = $transactionType->active_flow_version_id ? TransactionFlowVersion::query()->find($transactionType->active_flow_version_id) : null;
+        if ($version === null || $version->rules === []) {
+            return response()->json(['data' => ['rules' => [], 'blocked' => null]]);
+        }
+        $path = $this->engine->simulate($version->graph, $data['asset_ids'], $data['field_values'] ?? [], []);
+        $told = collect($this->describer->describe($transactionType, $version->graph, null, $version->rules)['rules'])->keyBy('id');
+        $applies = [];
+        foreach ($path as $step) {
+            $node = collect($version->graph['nodes'])->firstWhere('id', $step['node_id']);
+            $ruleId = $node['config']['rule_id'] ?? null;
+            if ($ruleId === null || $ruleId === '*' || isset($applies[$ruleId])) {
+                continue;
+            }
+            // A rule's Kondisi held, or its approval is on the way (a rule that always applies).
+            if (($node['type'] === 'condition' && $step['outcome'] === 'yes') || ($node['type'] === 'approval' && ! isset($applies[$ruleId]))) {
+                $rule = $told[$ruleId] ?? null;
+                if ($rule !== null) {
+                    $applies[$ruleId] = ['rule_id' => $ruleId, 'name' => $rule['name'], 'kind' => $rule['kind'], 'sentence' => $rule['sentence']];
+                }
+            }
+        }
+        $blocked = collect($path)->firstWhere('outcome', 'blocked');
+        $refusedBy = $blocked['rule_id'] ?? null;
+
+        return response()->json(['data' => [
+            'rules' => array_values($applies),
+            'blocked' => $blocked === null ? null : ['message' => $blocked['message'] ?? null, 'rule_id' => $refusedBy, 'name' => $refusedBy ? ($told[$refusedBy]['name'] ?? null) : null],
+        ]]);
+    }
+
+    /**
      * Test scenarios of the flow (F-08 §3.5, F-08d): one per path and per way the start refuses,
      * at most 12, each with inputs for `simulate` and a sample asset from the tester's scope.
      * The graph sent (with rules: compiled first), else the draft, else the active version.

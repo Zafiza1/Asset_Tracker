@@ -214,6 +214,38 @@ class TransactionRulesTest extends TestCase
         $this->getJson("/api/transaction-types/{$copy}/flow")->assertOk()->assertJsonPath('data.draft.graph_source', 'rules')->assertJsonPath('data.draft.rules', []);
     }
 
+    public function test_the_recorder_sees_which_rules_will_apply_before_sending(): void
+    {
+        $this->save([
+            $this->rule('mahal', 'Larangan biaya berlebihan', 1, [['subject' => 'field.estimasi', 'op' => 'gt', 'value' => 100_000_000]], ['kind' => 'reject', 'message' => 'Ajukan penghapusan.']),
+            $this->rule('nilai', 'Approval aset bernilai tinggi', 2, [['subject' => 'asset.acquisition_cost', 'op' => 'gt', 'value' => 10_000_000]],
+                ['kind' => 'approval', 'approver' => ['type' => 'role', 'id' => $this->roleId($this->org, RoleTemplates::SUPER_ADMIN)]]),
+            $this->rule('selalu', 'Persetujuan gudang', 3, [], ['kind' => 'approval', 'approver' => ['type' => 'location_supervisor']]),
+        ]);
+        $costly = $this->asset(15_000_000);
+        $cheap = $this->asset(1_000_000);
+        $preview = fn (string $asset, int $estimate = 0) => $this->postJson("/api/transaction-types/{$this->type}/flow/preview", ['asset_ids' => [$asset], 'field_values' => ['estimasi' => $estimate]]);
+
+        // Nothing published yet: no rules apply.
+        $this->actingAs($this->recorder, 'web');
+        $preview($costly)->assertOk()->assertJsonPath('data.rules', [])->assertJsonPath('data.blocked', null);
+        $this->actingAs($this->admin, 'web');
+        $this->publish();
+
+        $this->actingAs($this->recorder, 'web');
+        $rules = $preview($costly)->assertOk()->json('data.rules');
+        $this->assertSame(['nilai', 'selalu'], array_column($rules, 'rule_id'));
+        $this->assertStringContainsString('Rp 10.000.000', $rules[0]['sentence']);
+        $this->assertSame(['selalu'], array_column($preview($cheap)->json('data.rules'), 'rule_id'));
+        $preview($cheap, 200_000_000)->assertOk()
+            ->assertJsonPath('data.blocked', ['message' => 'Ajukan penghapusan.', 'rule_id' => 'mahal', 'name' => 'Larangan biaya berlebihan']);
+
+        // It is for recorders: without transaction.create there is no preview.
+        $this->createRole($this->org, 'LIHAT', ['asset.view', 'transaction.view']);
+        $this->actingAs($this->createTenantUser($this->org, ['LIHAT']), 'web');
+        $this->assertErrorCode($preview($cheap), 403, 'FORBIDDEN');
+    }
+
     /** Mulai → Persetujuan Supervisor lokasi → Dalam perbaikan → Selesai (Ditolak on refusal). */
     private function base(): array
     {

@@ -426,6 +426,12 @@ export const flowApi = {
   simulate: (typeId: string, body: { graph?: FlowGraph; asset_ids: string[]; field_values?: Record<string, unknown>; decisions?: Record<string, string> }) =>
     api.post<{ data: { path: PathStep[] } }>(`/transaction-types/${typeId}/flow/simulate`, body),
   options: () => api.get<{ data: FlowOptions }>('/transaction-flow-options'),
+  /** The rules of the published version that apply to these assets and values (F08-42), for the recorder. */
+  preview: (typeId: string, body: { asset_ids: string[]; field_values?: Record<string, unknown> }) =>
+    api.post<{ data: { rules: { rule_id: string; name: string; kind: RuleOutcomeKind; sentence: string }[]; blocked: { message: string | null; rule_id: string | null; name: string | null } | null } }>(
+      `/transaction-types/${typeId}/flow/preview`,
+      body,
+    ),
 }
 
 // ---- Transaction Center (F-08j) ----

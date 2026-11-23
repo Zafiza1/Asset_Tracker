@@ -12,6 +12,7 @@ import { ColumnToggle } from '../../components/ui/ColumnToggle'
 import { ApiError, api, qs } from '../../lib/api/client'
 import type { Paginated } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
+import { useDebounced } from '../../lib/useDebounced'
 import { errorMessage } from '../../lib/forms'
 import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, type Asset, type AssetStatus } from '../assets/api'
@@ -72,6 +73,18 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, initialCu
   const flow = useQuery({ queryKey: ['/transaction-types', definition?.id, 'flow'], queryFn: () => flowApi.get(definition!.id), enabled: !!definition })
   const activeGraph = flow.data?.data.active?.graph
   const activeNumber = flow.data?.data.active?.version_number
+  // F08-42: the rules that will apply to the chosen assets, asked once the input settles.
+  const previewInput = useDebounced(JSON.stringify([assets.map((a) => a.id).sort(), toPayload(definition?.fields ?? [], customValues)]))
+  const rulesPreview = useQuery({
+    queryKey: ['/transaction-types', definition?.id, 'flow', 'preview', previewInput],
+    queryFn: () => {
+      const [asset_ids, field_values] = JSON.parse(previewInput) as [string[], Record<string, unknown>]
+      return flowApi.preview(definition!.id, { asset_ids, field_values })
+    },
+    enabled: !!definition && !!activeNumber && assets.length > 0 && can('transaction.create'),
+    staleTime: 30_000,
+  })
+  const applying = rulesPreview.data?.data
   // "Cara kerja" in short (F08-24): what happens after sending, for the published version.
   const howItWorks = useQuery({
     queryKey: ['/transaction-types', definition?.id, 'flow', 'describe', activeNumber],
@@ -302,6 +315,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, initialCu
                 {customType.locks_assets ? ' Aset dikunci sampai transaksi selesai, ditolak, atau dibatalkan.' : ''}
               </Alert>
             ) : null}
+            <RulesThatApply preview={applying} />
             {tooMany && <Alert tone="error">Jenis {customType.name} hanya untuk satu aset per transaksi.</Alert>}
           </>
         )}
@@ -585,5 +599,30 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, initialCu
         )}
       </form>
     </Modal>
+  )
+}
+
+/** "Rule yang berlaku" (F08-42): a refusal before sending, or the rules that add steps. */
+function RulesThatApply({ preview }: { preview?: { rules: { rule_id: string; name: string; kind: string; sentence: string }[]; blocked: { message: string | null; name: string | null } | null } }) {
+  if (!preview) return null
+  if (preview.blocked) {
+    return (
+      <Alert tone="error" title="Transaksi ini akan ditolak">
+        {preview.blocked.message}
+        {preview.blocked.name ? ` Rule: ${preview.blocked.name}.` : ''}
+      </Alert>
+    )
+  }
+  if (preview.rules.length === 0) return null
+  return (
+    <Alert tone="warning" title={preview.rules.length === 1 ? 'Rule yang berlaku' : `${preview.rules.length} rule berlaku`}>
+      <ul className="list-disc pl-5">
+        {preview.rules.map((r) => (
+          <li key={r.rule_id}>
+            <span className="font-semibold">{r.name}:</span> {r.sentence}
+          </li>
+        ))}
+      </ul>
+    </Alert>
   )
 }

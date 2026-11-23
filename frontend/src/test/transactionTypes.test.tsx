@@ -183,6 +183,7 @@ describe('system type flows', () => {
     }
     const run = { id: 'r9', transaction_number: 'PJM-2026-000003', state: 'running' } as TransactionRun
     const { fetchMock, wrap } = setup(['transaction.view', 'transaction.create', 'asset.assign'], (url, init) => {
+      if (url.includes('/flow/preview')) return { data: { rules: [], blocked: null } }
       if (init?.method === 'POST') return { data: run }
       if (url.includes('/transaction-types/t-pjm/flow')) return { data: { active: { id: 'v1', version_number: 1, status: 'published', graph: systemStarterGraph('Peminjaman') }, draft: null, versions: [] } }
       if (url.startsWith('/api/transaction-types')) return { data: url.includes('include_system=1') ? [loan] : [] }
@@ -195,8 +196,9 @@ describe('system type flows', () => {
     expect(await screen.findByText(/mengikuti alur Peminjaman \(v1\)/)).toBeInTheDocument()
 
     fireEvent.click((await screen.findByText(/Mulai transaksi/)).closest('button')!)
-    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(true))
-    const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')!
+    // The recording itself, not the rule preview of the form (F08-42).
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => init?.method === 'POST' && url === '/api/transactions')).toBe(true))
+    const post = fetchMock.mock.calls.find(([url, init]) => init?.method === 'POST' && url === '/api/transactions')!
     expect(JSON.parse(post[1]!.body as string)).toMatchObject({ type: 'loan', borrower_name: 'Budi', field_values: { no_bast: 'BAST-7' } })
   })
 })
@@ -205,6 +207,7 @@ describe('transaction form with an organization type', () => {
   it('asks only the start fields and starts a run', async () => {
     const run = { id: 'r1', transaction_number: 'MUT-2026-000012', state: 'running' } as TransactionRun
     const { fetchMock, wrap } = setup(['transaction.view', 'transaction.create'], (url, init) => {
+      if (url.includes('/flow/preview')) return { data: { rules: [], blocked: null } }
       if (init?.method === 'POST') return { data: run }
       if (url.includes('/flow')) return { data: { active: { id: 'v3', version_number: 3, status: 'published', graph }, draft: null, versions: [] } }
       if (url.startsWith('/api/transaction-types')) return { data: [mutasi] }
@@ -223,8 +226,9 @@ describe('transaction form with an organization type', () => {
     fireEvent.change(reason, { target: { value: 'PROYEK' } })
 
     fireEvent.click((await screen.findByText(/Mulai transaksi/)).closest('button')!)
-    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(true))
-    const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')!
+    // The recording itself, not the rule preview of the form (F08-42).
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => init?.method === 'POST' && url === '/api/transactions')).toBe(true))
+    const post = fetchMock.mock.calls.find(([url, init]) => init?.method === 'POST' && url === '/api/transactions')!
     expect(JSON.parse(post[1]!.body as string)).toMatchObject({ type: 'custom', type_definition_id: 't-mut', asset_ids: ['a1'], field_values: { alasan: 'PROYEK' } })
   })
 })
