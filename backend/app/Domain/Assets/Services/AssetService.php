@@ -22,7 +22,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
 
 /**
  * Asset Management: register, edit descriptive data, deactivate (archive) and reactivate.
