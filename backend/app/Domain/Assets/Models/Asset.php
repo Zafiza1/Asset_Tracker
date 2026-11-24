@@ -63,6 +63,10 @@ class Asset extends Model
             'loan_due_date' => 'date',
             'lock_version' => 'integer',
             'archived_at' => 'datetime',
+            // Keys of optional category fields that do not apply to this asset.
+            'hidden_attributes' => 'array',
+            // Fields only this asset has: [{label, data_type, value}].
+            'extra_attributes' => 'array',
         ];
     }
 

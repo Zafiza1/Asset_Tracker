@@ -359,7 +359,7 @@ final class CategoryAttributeService
      *
      * @throws ValidationException
      */
-    public function resolveValues(string $categoryId, array $current, ?array $submitted): array
+    public function resolveValues(string $categoryId, array $current, ?array $submitted, array $hidden = []): array
     {
         // Nothing submitted (only the category changed): current values are still checked against
         // the new category's fields, so values of fields that no longer apply are dropped.
@@ -368,6 +368,10 @@ final class CategoryAttributeService
         $out = [];
         $errors = [];
         foreach ($this->effective($categoryId) as $attribute) {
+            // A field the asset does not use (resolveHidden) keeps no value.
+            if (in_array($attribute->key, $hidden, true)) {
+                continue;
+            }
             // Use submitted value if explicitly sent, otherwise keep current value
             $value = array_key_exists($attribute->key, $submitted) ? $submitted[$attribute->key] : ($current[$attribute->key] ?? null);
 
@@ -382,6 +386,77 @@ final class CategoryAttributeService
             if ($value !== null && $value !== '') {
                 $out[$attribute->key] = $value;
             }
+        }
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $out;
+    }
+
+    /** Data types of a field only one asset has (extra_attributes): no option lists. */
+    public const EXTRA_TYPES = [AttributeType::STRING, AttributeType::INTEGER, AttributeType::DECIMAL, AttributeType::DATE, AttributeType::BOOLEAN];
+
+    /**
+     * The category fields one asset does not use (a keyboard has no RAM): keys of optional fields of
+     * the category; fields of another category (after a category change) are dropped. A required
+     * field applies to every asset of the category, so it cannot be left out.
+     *
+     * @param  list<string>  $keys
+     * @return list<string>
+     */
+    public function resolveHidden(string $categoryId, array $keys): array
+    {
+        $fields = $this->effective($categoryId)->keyBy('key');
+        $hidden = [];
+        foreach (array_unique($keys) as $key) {
+            $field = $fields[$key] ?? null;
+            if ($field === null) {
+                continue;
+            }
+            if ($field->is_required) {
+                throw ValidationException::withMessages(['hidden_attributes' => ["{$field->label} wajib diisi untuk setiap aset kategori ini dan tidak dapat dihapus."]]);
+            }
+            $hidden[] = $key;
+        }
+
+        return $hidden;
+    }
+
+    /**
+     * Fields only this asset has, each {label, data_type, value}: a name not used by another of its
+     * fields (category fields it does not hide included), one of EXTRA_TYPES, and a value of that
+     * type (empty allowed).
+     *
+     * @param  list<string>  $hidden
+     * @param  list<array<string, mixed>>  $extras
+     * @return list<array{label: string, data_type: string, value: mixed}>
+     */
+    public function resolveExtras(string $categoryId, array $hidden, array $extras): array
+    {
+        $taken = $this->effective($categoryId)->reject(fn (TenantCategoryAttribute $a) => in_array($a->key, $hidden, true))
+            ->map(fn (TenantCategoryAttribute $a) => mb_strtolower($a->label))->all();
+        $out = [];
+        $errors = [];
+        foreach (array_values($extras) as $i => $extra) {
+            $label = trim((string) ($extra['label'] ?? ''));
+            $type = $extra['data_type'] ?? null;
+            $value = $extra['value'] ?? null;
+            if (is_string($value)) {
+                $value = trim($value);
+            }
+            if ($label === '') {
+                $errors["extra_attributes.{$i}.label"] = ['Nama atribut wajib diisi.'];
+            } elseif (in_array(mb_strtolower($label), $taken, true)) {
+                $errors["extra_attributes.{$i}.label"] = ["Atribut \"{$label}\" sudah ada pada aset ini."];
+            }
+            if (! in_array($type, self::EXTRA_TYPES, true)) {
+                $errors["extra_attributes.{$i}.data_type"] = ['Tipe atribut tidak dikenal.'];
+            } elseif ($message = $this->values->validate(['data_type' => $type, 'required' => false, 'validation' => [], 'options' => null], $value)) {
+                $errors["extra_attributes.{$i}.value"] = [$message];
+            }
+            $taken[] = mb_strtolower($label);
+            $out[] = ['label' => $label, 'data_type' => (string) $type, 'value' => $value === '' ? null : $value];
         }
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);

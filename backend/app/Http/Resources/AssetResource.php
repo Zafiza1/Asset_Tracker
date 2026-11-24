@@ -42,6 +42,9 @@ class AssetResource extends JsonResource
             'description' => $this->description,
             // Category field values keyed by attribute key; always a JSON object.
             'attributes' => (object) $this->attribute_values,
+            // Optional category fields this asset does not use, and fields only it has.
+            'hidden_attributes' => $this->hidden_attributes ?? [],
+            'extra_attributes' => $this->extra_attributes ?? [],
             // The file name is random per upload, so it doubles as a cache buster.
             'image_url' => $this->image_path === null ? null
                 : '/api/assets/'.$this->id.'/image?v='.pathinfo($this->image_path, PATHINFO_FILENAME),

@@ -13,11 +13,12 @@ import { applyApiErrors, errorMessage } from '../../lib/forms'
 import { AttributeFields } from '../master/CategoryAttributes'
 import { useCategoryAttributes } from '../master/categoryAttributeData'
 import { toOptions, useOptions } from '../master/options'
-import { assetStatusLabel, initialStatuses, type Asset, type AssetCustodian, type CustodianOption, type Ref } from './api'
+import { assetStatusLabel, initialStatuses, type Asset, type AssetCustodian, type CustodianOption, type ExtraAttribute, type Ref } from './api'
 import { AssetCategoryPicker } from './AssetCategoryPicker'
 import { AssetDocumentPicker, type DocumentChange } from './AssetDocumentPicker'
 import { AssetImagePicker, type ImageChange } from './AssetImagePicker'
 import { CustodianPicker } from './CustodianPicker'
+import { ExtraAttributeFields } from './ExtraAttributeFields'
 
 /**
  * The value as the form shows it. A stored choice that is no longer one of the field's options
@@ -72,6 +73,11 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
 
   const [attributes, setAttributes] = useState<Record<string, AttributeValue>>(asset?.attributes ?? {})
   const [attributeErrors, setAttributeErrors] = useState<Record<string, string>>({})
+  // Optional category fields this asset does not use, and fields only it has.
+  const [hidden, setHidden] = useState<string[]>(asset?.hidden_attributes ?? [])
+  const [extras, setExtras] = useState<ExtraAttribute[]>(asset?.extra_attributes ?? [])
+  const [extraErrors, setExtraErrors] = useState<Record<string, string>>({})
+  const [hiddenError, setHiddenError] = useState<string | null>(null)
 
   // A new asset starts by choosing its category in a step of its own, so entered data is never
   // laid out for the wrong category. Going back to change it keeps everything already filled in.
@@ -141,7 +147,9 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
     mutationFn: async (values: Values): Promise<Asset | null> => {
       const keys = saved ? EDITABLE : (Object.keys(values) as (keyof Values)[])
       const payload: Record<string, unknown> = Object.fromEntries(keys.map((k) => [k, values[k].trim() === '' ? null : values[k].trim()]))
-      payload.attributes = Object.fromEntries(fields.map((f) => [f.key, shownValue(f, attributes[f.key])]))
+      payload.attributes = Object.fromEntries(fields.filter((f) => !hidden.includes(f.key)).map((f) => [f.key, shownValue(f, attributes[f.key])]))
+      payload.hidden_attributes = hidden.filter((k) => fields.some((f) => f.key === k))
+      payload.extra_attributes = extras.map((e) => ({ ...e, label: e.label.trim() }))
       const response = saved
         ? await api.patch<Resource<Asset>>(`/assets/${saved.id}`, { ...payload, lock_version: saved.lock_version })
         : await api.post<Resource<Asset>>('/assets', payload)
@@ -198,6 +206,8 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
       const prefix = 'attributes.'
       if (e instanceof ApiError) {
         setAttributeErrors(Object.fromEntries(Object.entries(e.fields).filter(([k]) => k.startsWith(prefix)).map(([k, m]) => [k.slice(prefix.length), m[0]])))
+        setExtraErrors(Object.fromEntries(Object.entries(e.fields).filter(([k]) => k.startsWith('extra_attributes.')).map(([k, m]) => [k.slice('extra_attributes.'.length), m[0]])))
+        setHiddenError(e.fields.hidden_attributes?.[0] ?? null)
       }
       setFormError(applyApiErrors(e, setError))
     },
@@ -345,7 +355,11 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
           values={attributes}
           errors={attributeErrors}
           onChange={(key, value) => setAttributes((current) => ({ ...current, [key]: value }))}
+          hidden={hidden}
+          onHiddenChange={(next) => (setHiddenError(null), setHidden(next))}
         />
+        {hiddenError && <Alert tone="error">{hiddenError}</Alert>}
+        <ExtraAttributeFields values={extras} errors={extraErrors} onChange={(next) => (setExtraErrors({}), setExtras(next))} />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Tanggal perolehan" error={err('acquisition_date')}>

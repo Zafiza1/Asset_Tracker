@@ -14,7 +14,7 @@ import { SegmentedControl } from '../../components/ui/Tabs'
 import { api, qs } from '../../lib/api/client'
 import { MODULE_NAMES, type CategoryAttribute, type Paginated, type Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
-import { formatDate, formatDateTime } from '../../lib/format'
+import { formatAttributeValue, formatDate, formatDateTime } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
 import { attributeRowsBySection, SECTION_LABELS } from '../master/categoryAttributeData'
 import { allowedTypes, daysLate, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
@@ -198,7 +198,14 @@ export function AssetDetailPage() {
           <dl className="divide-y divide-slate-100 text-sm">
             {/* Built-in fields lead their section; the category's attributes follow. */}
             {(() => {
-              const groupedAttrs = attributeRowsBySection(attributeFields, a.attributes ?? {})
+              // Fields the asset does not use are left out; its own fields join the category-specific ones.
+              const groupedAttrs = attributeRowsBySection(attributeFields.filter((f) => !(a.hidden_attributes ?? []).includes(f.key)), a.attributes ?? {})
+              if ((a.extra_attributes ?? []).length > 0) {
+                groupedAttrs.specific_attributes = [
+                  ...(groupedAttrs.specific_attributes ?? []),
+                  ...a.extra_attributes.map((e, i) => ({ key: `extra-${i}`, label: e.label, value: e.data_type === 'date' && typeof e.value === 'string' ? formatDate(e.value) : formatAttributeValue(e.value) })),
+                ]
+              }
               const builtIn: Record<string, ReactNode> = {
                 basic_information: (
                   <>

@@ -34,6 +34,10 @@ export interface Asset {
   description: string | null
   /** Category field values keyed by attribute key. */
   attributes: Record<string, AttributeValue>
+  /** Keys of optional category fields this asset does not use (RAM on a keyboard). */
+  hidden_attributes: string[]
+  /** Fields only this asset has. */
+  extra_attributes: ExtraAttribute[]
   /** Same-origin URL of the photo (with a cache-busting version), or null when there is none. */
   image_url: string | null
   /** Same-origin URL to download the document, or null when there is none. */
@@ -95,4 +99,21 @@ const money = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR
 export function formatMoney(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === '') return '—'
   return money.format(Number(value))
+}
+
+/** Types of a field only one asset has (CategoryAttributeService::EXTRA_TYPES). */
+export type ExtraAttributeType = 'string' | 'integer' | 'decimal' | 'date' | 'boolean'
+
+export const EXTRA_TYPE_LABEL: Record<ExtraAttributeType, string> = {
+  string: 'Teks',
+  integer: 'Angka bulat',
+  decimal: 'Angka desimal',
+  date: 'Tanggal',
+  boolean: 'Ya/Tidak',
+}
+
+export interface ExtraAttribute {
+  label: string
+  data_type: ExtraAttributeType
+  value: AttributeValue
 }

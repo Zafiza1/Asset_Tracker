@@ -58,9 +58,11 @@ final class AssetService
         $this->assertSerialAvailable($data['serial_number'] ?? null);
         $this->assertResponsibility($data);
         $status = $data['status'] ?? AssetStatus::IN_USE;
-        $values = $this->attributes->resolveValues($data['category_id'], [], $data['attributes'] ?? []);
+        $hidden = $this->attributes->resolveHidden($data['category_id'], $data['hidden_attributes'] ?? []);
+        $values = $this->attributes->resolveValues($data['category_id'], [], $data['attributes'] ?? [], $hidden);
+        $extras = $this->attributes->resolveExtras($data['category_id'], $hidden, $data['extra_attributes'] ?? []);
 
-        return DB::transaction(function () use ($data, $locationId, $status, $values) {
+        return DB::transaction(function () use ($data, $locationId, $status, $values, $hidden, $extras) {
             $userId = $this->tenancy->tenant()->userId();
 
             $asset = new Asset;
@@ -69,6 +71,8 @@ final class AssetService
                 'location_id' => $locationId,
                 'status' => $status,
                 'attribute_values' => $values,
+                'hidden_attributes' => $hidden,
+                'extra_attributes' => $extras,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ])->save();
@@ -111,12 +115,23 @@ final class AssetService
         $changes = array_intersect_key($data, array_flip(Asset::EDITABLE));
         // Values are revalidated when they are sent or when the category (hence the set of fields) changes.
         $categoryId = $changes['category_id'] ?? $asset->category_id;
-        if (array_key_exists('attributes', $data) || $categoryId !== $asset->category_id) {
+        $fieldsChange = array_key_exists('attributes', $data) || array_key_exists('hidden_attributes', $data) || array_key_exists('extra_attributes', $data);
+        if ($fieldsChange || $categoryId !== $asset->category_id) {
+            $hidden = $this->attributes->resolveHidden($categoryId, $data['hidden_attributes'] ?? $asset->hidden_attributes ?? []);
             $current = $categoryId === $asset->category_id ? $asset->attribute_values
                 : $this->attributes->carryOver($asset->category_id, $categoryId, $asset->attribute_values);
-            $values = $this->attributes->resolveValues($categoryId, $current, $data['attributes'] ?? null);
+            $values = $this->attributes->resolveValues($categoryId, $current, $data['attributes'] ?? null, $hidden);
             if (! self::sameValues($values, $asset->attribute_values)) {
                 $changes['attribute_values'] = $values;
+            }
+            if ($hidden !== ($asset->hidden_attributes ?? [])) {
+                $changes['hidden_attributes'] = $hidden;
+            }
+            $extras = $this->attributes->resolveExtras($categoryId, $hidden, $data['extra_attributes'] ?? $asset->extra_attributes ?? []);
+            // jsonb keeps no key order, so the fields are compared by their parts.
+            $parts = fn (array $list) => array_map(fn (array $e) => [$e['label'] ?? null, $e['data_type'] ?? null, $e['value'] ?? null], $list);
+            if ($parts($extras) !== $parts($asset->extra_attributes ?? [])) {
+                $changes['extra_attributes'] = $extras;
             }
         }
 
@@ -290,6 +305,8 @@ final class AssetService
         $values = $asset->only(self::AUDIT);
         $values['acquisition_date'] = $asset->acquisition_date?->toDateString();
         $values['attributes'] = $asset->attribute_values;
+        $values['hidden_attributes'] = $asset->hidden_attributes ?? [];
+        $values['extra_attributes'] = $asset->extra_attributes ?? [];
 
         return $values;
     }

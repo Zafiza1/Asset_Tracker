@@ -531,6 +531,13 @@ class AssetController extends Controller
             'description' => [...$optional, 'string', 'max:2000'],
             // Category fields, {key: value}; validated against the category by the service.
             'attributes' => [...$optional, 'array'],
+            // Optional category fields this asset does not use, and fields only it has; checked by the service.
+            'hidden_attributes' => [...$optional, 'array', 'max:100'],
+            'hidden_attributes.*' => ['string', 'max:60'],
+            'extra_attributes' => [...$optional, 'array', 'max:20'],
+            'extra_attributes.*' => ['array:label,data_type,value'],
+            'extra_attributes.*.label' => ['nullable', 'string', 'max:100'],
+            'extra_attributes.*.data_type' => ['nullable', 'string', 'max:16'],
             // F-09; membership and status are checked by the service.
             'custodian_user_id' => [...$optional, 'uuid'],
             'department_id' => [...$optional, 'uuid'],
