@@ -66,6 +66,12 @@ final class HomeCards
         'recent_activity' => 'audit.view',
     ];
 
+    /**
+     * Card key => permission that makes it pointless: changes by an approver apply directly, so they
+     * have no requests of their own (as the menu "Pengajuan Saya").
+     */
+    public const HIDDEN_WITH = ['my_requests' => 'approval.manage'];
+
     /** Cards that replaced others: former key => current key, for arrangements saved before. */
     public const REPLACED = [
         'approvals_to_decide' => 'decisions',
@@ -88,6 +94,9 @@ final class HomeCards
             $today = CarbonImmutable::now($tenant->organization->timezone ?: 'UTC')->startOfDay();
             $cards = [];
             foreach (self::CARDS as $key => $permission) {
+                if (isset(self::HIDDEN_WITH[$key]) && $tenant->can(self::HIDDEN_WITH[$key])) {
+                    continue;
+                }
                 if ($permission === null || array_filter((array) $permission, fn (string $p) => $tenant->can($p)) !== []) {
                     $cards[] = ['key' => $key, ...$this->card($key, $today)];
                 }

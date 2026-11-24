@@ -38,7 +38,8 @@ class HomeCardsTest extends TestCase
     public function test_cards_follow_the_permissions_of_the_user(): void
     {
         $keys = array_column($this->cards(), 'key');
-        $this->assertSame(array_keys(HomeCards::CARDS), $keys);   // Super Admin: everything, in order
+        // Super Admin: everything, in order, except the own requests (an approver's changes apply directly).
+        $this->assertSame(array_values(array_diff(array_keys(HomeCards::CARDS), ['my_requests'])), $keys);
 
         $this->actingAs($this->member(['transaction.view', 'asset.view']), 'web');
         $this->assertSame(['decisions', 'my_requests', 'my_assets', 'overdue_outgoing', 'overdue_loans', 'due_soon', 'date_reminders'], array_column($this->cards(), 'key'));

@@ -38,7 +38,7 @@ export const tenantNavigation: NavSection[] = [
       { to: '/aset', label: 'Data Aset', icon: Boxes, permission: 'asset.view' },
       // The Transaction Center (D-50): recording, and every running transaction.
       { to: '/transaksi', label: 'Transaksi', icon: ArrowLeftRight, permission: 'transaction.view' },
-      // One approval list: approvers (Super Admin, Admin, Supervisor) decide data change requests and
+      // One approval list: approvers (Super Admin, Supervisor) decide data change requests and
       // the steps of transactions under "Persetujuan"; their own changes need no approval. Everyone
       // else follows the outcome of their submissions under "Pengajuan Saya".
       { to: '/notifikasi', label: 'Persetujuan', icon: Bell, permission: 'approval.manage', inboxBadge: true },

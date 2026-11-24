@@ -52,7 +52,7 @@ interface InboxRow {
 }
 
 /**
- * Persetujuan: one approval list. Super Admin, Admin and Supervisor (approval.manage) decide the
+ * Persetujuan: one approval list. Super Admin and Supervisor (approval.manage) decide the
  * data change requests of others; under "Menunggu" the steps of transactions waiting for them
  * are in the same list (kind "Transaksi"), and open on the transaction. Everyone else sees it as
  * "Pengajuan Saya": the outcome of their own submissions, plus any transaction step a flow gave
