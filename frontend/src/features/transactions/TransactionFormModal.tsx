@@ -500,104 +500,105 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, initialCu
             </p>
           </div>
         )}
+      </form>
 
-        {chosen && !fixedAsset && (
-          <div className="space-y-2">
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-              Aset <span className="text-red-600">*</span>
-              <span className="ml-2 font-normal text-slate-500">{picked.length} dipilih</span>
-            </label>
-            {err('asset_ids') && <p className="mt-1.5 text-sm text-red-700">{err('asset_ids')}</p>}
+      {/* Outside the form: searching and filtering for assets are forms of their own, and forms cannot nest. */}
+      {chosen && !fixedAsset && (
+        <div className="space-y-2">
+          <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+            Aset <span className="text-red-600">*</span>
+            <span className="ml-2 font-normal text-slate-500">{picked.length} dipilih</span>
+          </label>
+          {err('asset_ids') && <p className="mt-1.5 text-sm text-red-700">{err('asset_ids')}</p>}
 
-            {picked.length > 0 && (
-              <ul className="flex flex-wrap gap-2" aria-label="Aset dipilih">
-                {picked.map((a) => (
-                  <li key={a.id} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ring-1 ${reason(a) ? 'bg-red-50 text-red-800 ring-red-200' : 'bg-brand-50 text-brand-800 ring-brand-200'}`}>
-                    <span>{a.name}</span>
-                    {reason(a) && <span>· {reason(a)}</span>}
-                    <button type="button" className="rounded-full p-0.5 hover:bg-black/10" onClick={() => toggle(a)} aria-label={`Hapus ${a.name}`}>
-                      <X className="size-3" aria-hidden />
-                    </button>
-                  </li>
-                ))}
-                <li>
-                  <button type="button" className="px-1 py-1 text-xs font-medium text-brand-700 hover:underline" onClick={() => setPicked([])}>
-                    Hapus semua
+          {picked.length > 0 && (
+            <ul className="flex flex-wrap gap-2" aria-label="Aset dipilih">
+              {picked.map((a) => (
+                <li key={a.id} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ring-1 ${reason(a) ? 'bg-red-50 text-red-800 ring-red-200' : 'bg-brand-50 text-brand-800 ring-brand-200'}`}>
+                  <span>{a.name}</span>
+                  {reason(a) && <span>· {reason(a)}</span>}
+                  <button type="button" className="rounded-full p-0.5 hover:bg-black/10" onClick={() => toggle(a)} aria-label={`Hapus ${a.name}`}>
+                    <X className="size-3" aria-hidden />
                   </button>
                 </li>
-              </ul>
-            )}
-            {blocked.length > 0 && <Alert tone="error">Hapus aset yang ditandai merah, aset tersebut tidak dapat ikut transaksi ini.</Alert>}
+              ))}
+              <li>
+                <button type="button" className="px-1 py-1 text-xs font-medium text-brand-700 hover:underline" onClick={() => setPicked([])}>
+                  Hapus semua
+                </button>
+              </li>
+            </ul>
+          )}
+          {blocked.length > 0 && <Alert tone="error">Hapus aset yang ditandai merah, aset tersebut tidak dapat ikut transaksi ini.</Alert>}
 
-            <p className="mt-1.5 text-xs text-slate-500">Cari berdasarkan nama atau nomor seri. Centang semua aset yang ikut dalam transaksi ini.</p>
-            <FilterPanel>
-              <SearchForm
-                value={search}
-                onChange={handleSearchChange}
-                onSubmit={() => setCurrentPage(1)}
-                placeholder="Ketik untuk mencari aset"
-                label="Cari aset"
-                aside={
-                  <ColumnToggle
-                    columns={columns.filter((c) => c.key !== 'pick')}
-                    visibleColumns={visibleColumns}
-                    onToggle={toggleColumn}
-                    onReset={resetColumns}
-                  />
-                }
-              />
-              <AdvancedFilters
-                activeCount={Object.values(filters).filter(Boolean).length}
-                dirty={false}
-                onApply={() => setCurrentPage(1)}
-                onClear={resetFilters}
-              >
-                <CategoryFilter
-                  options={categories}
-                  selected={filters.category_ids.split(',').filter(Boolean)}
-                  onChange={(ids) => handleFilterChange({ category_ids: ids.join(',') })}
-                />
-                <Select value={filters.location_id} onChange={(e) => handleFilterChange({ location_id: e.target.value })} aria-label="Filter lokasi">
-                  <option value="">Lokasi: semua</option>
-                  {locations.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-                <Select value={filters.status} onChange={(e) => handleFilterChange({ status: e.target.value })} aria-label="Filter status">
-                  <option value="">Status: semua</option>
-                  {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
-                    <option key={s} value={s}>
-                      {assetStatusLabel[s]}
-                    </option>
-                  ))}
-                </Select>
-              </AdvancedFilters>
-            </FilterPanel>
-            {candidates.data?.data.length === 0 ? (
-              <p className="text-sm text-slate-500">Aset tidak ditemukan.</p>
-            ) : (
-              <>
-                {pickable.length > 0 && (
-                  <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setPicked((prev) => [...prev, ...pickable])}>
-                    Pilih semua yang bisa dipilih di halaman ini ({pickable.length})
-                  </button>
-                )}
-                <DataTable
-                  columns={columns}
-                  rows={candidates.data?.data ?? []}
+          <p className="mt-1.5 text-xs text-slate-500">Cari berdasarkan nama atau nomor seri. Centang semua aset yang ikut dalam transaksi ini.</p>
+          <FilterPanel>
+            <SearchForm
+              value={search}
+              onChange={handleSearchChange}
+              onSubmit={() => setCurrentPage(1)}
+              placeholder="Ketik untuk mencari aset"
+              label="Cari aset"
+              aside={
+                <ColumnToggle
+                  columns={columns.filter((c) => c.key !== 'pick')}
                   visibleColumns={visibleColumns}
-                  onRowClick={toggle}
-                  sort={sort}
-                  onSort={(next) => (setSort(next), setCurrentPage(1))}
+                  onToggle={toggleColumn}
+                  onReset={resetColumns}
                 />
-                {candidates.data?.meta && <Pagination meta={candidates.data.meta} onPage={setCurrentPage} />}
-              </>
-            )}
-          </div>
-        )}
-      </form>
+              }
+            />
+            <AdvancedFilters
+              activeCount={Object.values(filters).filter(Boolean).length}
+              dirty={false}
+              onApply={() => setCurrentPage(1)}
+              onClear={resetFilters}
+            >
+              <CategoryFilter
+                options={categories}
+                selected={filters.category_ids.split(',').filter(Boolean)}
+                onChange={(ids) => handleFilterChange({ category_ids: ids.join(',') })}
+              />
+              <Select value={filters.location_id} onChange={(e) => handleFilterChange({ location_id: e.target.value })} aria-label="Filter lokasi">
+                <option value="">Lokasi: semua</option>
+                {locations.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+              <Select value={filters.status} onChange={(e) => handleFilterChange({ status: e.target.value })} aria-label="Filter status">
+                <option value="">Status: semua</option>
+                {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
+                  <option key={s} value={s}>
+                    {assetStatusLabel[s]}
+                  </option>
+                ))}
+              </Select>
+            </AdvancedFilters>
+          </FilterPanel>
+          {candidates.data?.data.length === 0 ? (
+            <p className="text-sm text-slate-500">Aset tidak ditemukan.</p>
+          ) : (
+            <>
+              {pickable.length > 0 && (
+                <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setPicked((prev) => [...prev, ...pickable])}>
+                  Pilih semua yang bisa dipilih di halaman ini ({pickable.length})
+                </button>
+              )}
+              <DataTable
+                columns={columns}
+                rows={candidates.data?.data ?? []}
+                visibleColumns={visibleColumns}
+                onRowClick={toggle}
+                sort={sort}
+                onSort={(next) => (setSort(next), setCurrentPage(1))}
+              />
+              {candidates.data?.meta && <Pagination meta={candidates.data.meta} onPage={setCurrentPage} />}
+            </>
+          )}
+        </div>
+      )}
     </Modal>
   )
 }

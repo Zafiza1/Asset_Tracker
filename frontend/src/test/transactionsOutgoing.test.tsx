@@ -139,7 +139,7 @@ describe('TransactionFormModal outgoing', () => {
     expect(within(screen.getByLabelText(/Alasan/)).getByText('Dihibahkan')).toBeInTheDocument()
   })
 
-  it('does not record the transaction when the asset search is submitted with Enter', async () => {
+  it('does not record the transaction when the asset search or its filters are submitted', async () => {
     const { fetchMock, wrap } = setup(['transaction.create', 'asset.view', 'asset.outgoing'], (url, init) => {
       if (init?.method === 'POST') return { data: outgoing() }
       return /^\/api\/assets(\?|$)/.test(url) ? { data: [laptop], meta: { current_page: 1, last_page: 1, per_page: 25, total: 1, from: 1, to: 1 } } : { data: [] }
@@ -153,13 +153,16 @@ describe('TransactionFormModal outgoing', () => {
     fireEvent.change(screen.getByLabelText(/Rencana tanggal kembali/), { target: { value: '2099-01-10' } })
     fireEvent.click(await screen.findByLabelText('Pilih Laptop'))
 
-    // The search form sits inside the transaction form: its submit must stay with the search.
+    // Searching and filtering for assets are forms of their own, never part of the transaction form.
     const search = screen.getByLabelText('Cari aset')
     fireEvent.change(search, { target: { value: 'proyektor' } })
     fireEvent.submit(search.closest('form')!)
+    fireEvent.click(screen.getByText('Filter lanjutan').closest('button')!)
+    fireEvent.submit(screen.getByText('Terapkan filter').closest('form')!)
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(posts()).toHaveLength(0)
     expect(onClose).not.toHaveBeenCalled()
+    expect(document.querySelector('form form')).toBeNull()
 
     // The save button still records it, once.
     fireEvent.click(screen.getByText(/^Catat keluar/).closest('button')!)
