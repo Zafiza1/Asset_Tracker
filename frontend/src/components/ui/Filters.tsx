@@ -26,6 +26,8 @@ export function SearchForm({ value, onChange, onSubmit, onClear, placeholder, la
         className="flex flex-1 gap-2"
         onSubmit={(e) => {
           e.preventDefault()
+          // A search inside another form (picking assets for a transaction) must not submit that form too.
+          e.stopPropagation()
           onSubmit()
         }}
       >
