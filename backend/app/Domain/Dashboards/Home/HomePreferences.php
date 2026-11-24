@@ -52,15 +52,27 @@ final class HomePreferences
     }
 
     /**
-     * Drops keys that are no longer cards (a card removed in a later release).
+     * Drops keys that are no longer cards (a card removed in a later release). A card that replaced
+     * others (HomeCards::REPLACED) takes the place of the first of them, and stays hidden only when
+     * every one of them that was saved was hidden.
      *
      * @param  array<string, mixed>  $value
      * @return array{order: list<string>, hidden: list<string>}
      */
     private function normalize(array $value): array
     {
+        $order = (array) ($value['order'] ?? []);
+        $hidden = (array) ($value['hidden'] ?? []);
+        foreach (array_unique(HomeCards::REPLACED) as $current) {
+            $former = array_keys(HomeCards::REPLACED, $current, true);
+            $saved = array_intersect($former, [...$order, ...$hidden]);
+            if ($saved !== [] && array_diff($saved, $hidden) === [] && ! in_array($current, $hidden, true)) {
+                $hidden[] = $current;
+            }
+            $order = array_map(fn ($key) => in_array($key, $former, true) ? $current : $key, $order);
+        }
         $known = fn ($list) => array_values(array_intersect(array_unique((array) $list), array_keys(HomeCards::CARDS)));
 
-        return ['order' => $known($value['order'] ?? []), 'hidden' => $known($value['hidden'] ?? [])];
+        return ['order' => $known($order), 'hidden' => $known($hidden)];
     }
 }

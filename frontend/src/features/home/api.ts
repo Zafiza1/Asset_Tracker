@@ -2,8 +2,7 @@ import { api } from '../../lib/api/client'
 
 /** Card keys in the server's default order (HomeCards::CARDS). */
 export const HOME_CARD_KEYS = [
-  'approvals_to_decide',
-  'transaction_tasks',
+  'decisions',
   'my_requests',
   'my_assets',
   'overdue_outgoing',
@@ -27,11 +26,16 @@ interface AssetRef {
 }
 
 export interface HomeCardData {
-  approvals_to_decide: { count: number; items: { id: string; summary: string; action: string; requested_by: string | null; created_at: string | null }[] }
-  transaction_tasks: {
+  /** Steps of transactions and data change requests waiting for the user; a part they may not see is null. */
+  decisions: {
     count: number
     overdue: number
-    items: { run_id: string; transaction_number: string | null; type: string | null; kind: string; step: string | null; started_by: string | null; due_date: string | null; overdue: boolean }[]
+    tasks: {
+      count: number
+      overdue: number
+      items: { run_id: string; transaction_number: string | null; type: string | null; kind: string; step: string | null; started_by: string | null; due_date: string | null; overdue: boolean }[]
+    } | null
+    approvals: { count: number; items: { id: string; summary: string; action: string; requested_by: string | null; created_at: string | null }[] } | null
   }
   my_requests: {
     days: number

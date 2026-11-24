@@ -47,9 +47,9 @@ async function runScenariosAndPublish(page: Page) {
   await expect(page.getByText(/Alur v1 diterbitkan/)).toBeVisible()
 }
 
-/** Opens the first run waiting for the user, under "Perlu tindakan saya". */
+/** Opens the first run waiting for the user, in Persetujuan ("Perlu keputusan saya"). */
 async function openMyTask(page: Page, prefix: string) {
-  await page.goto('/transaksi?tab=tugas')
+  await page.goto('/notifikasi')
   await page.getByRole('link', { name: new RegExp(`${prefix}-\\d{4}-`) }).first().click()
   await expect(page).toHaveURL(/\/transaksi\/berjalan\//)
 }
@@ -133,7 +133,7 @@ test('F-08-QA2: Peminjaman dengan rule Approval aset bernilai tinggi, dicatat di
   await form.getByRole('button', { name: /Mulai transaksi/ }).click()
   await expect(form).toBeHidden()
 
-  await page.getByRole('tab', { name: /Transaksi saya/ }).click()
+  await page.goto('/transaksi/riwayat?proses=1')
   await expect(page.getByText('Tahapan sekarang: Approval aset bernilai tinggi')).toBeVisible()
 
   // The Super Admin approves; the asset is lent and the run is Selesai.

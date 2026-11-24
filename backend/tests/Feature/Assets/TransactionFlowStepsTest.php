@@ -47,7 +47,7 @@ class TransactionFlowStepsTest extends TestCase
 
         // Both supervisors see the step on their home page.
         $this->actingAs($first, 'web');
-        $card = collect($this->getJson('/api/home/cards')->assertOk()->json('data'))->firstWhere('key', 'transaction_tasks');
+        $card = collect($this->getJson('/api/home/cards')->assertOk()->json('data'))->firstWhere('key', 'decisions')['tasks'];
         $this->assertSame(1, $card['count']);
         $this->assertSame([$run['transaction_number'], 'approval', 'Persetujuan'], [$card['items'][0]['transaction_number'], $card['items'][0]['kind'], $card['items'][0]['step']]);
 

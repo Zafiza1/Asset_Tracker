@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import {
   AlertTriangle,
-  Bell,
   CalendarClock,
   CalendarX,
   CheckCircle2,
@@ -38,8 +37,7 @@ import { useCanUseEditor } from '../../lib/useMediaQuery'
 import { ago, arrangeCards, HOME_CARDS_QUERY_KEY, homeApi, type HomeCard, type HomeCardKey, type HomeCardsResponse, type HomePreferences } from './api'
 
 const cardTitle: Record<HomeCardKey, string> = {
-  approvals_to_decide: 'Menunggu keputusan saya',
-  transaction_tasks: 'Langkah transaksi menunggu saya',
+  decisions: 'Perlu keputusan saya',
   my_requests: 'Pengajuan saya',
   overdue_outgoing: 'Keluar sementara lewat batas',
   overdue_loans: 'Peminjaman lewat batas',
@@ -56,8 +54,7 @@ const cardTitle: Record<HomeCardKey, string> = {
 }
 
 const cardIcon: Record<HomeCardKey, LucideIcon> = {
-  approvals_to_decide: Bell,
-  transaction_tasks: ListChecks,
+  decisions: ListChecks,
   my_requests: ClipboardList,
   overdue_outgoing: AlertTriangle,
   overdue_loans: CalendarX,
@@ -252,31 +249,17 @@ interface CardContent {
 
 function cardContent(card: HomeCard): CardContent {
   switch (card.key) {
-    case 'approvals_to_decide':
-      return {
-        badge: count(card.count, 'red'),
-        tone: card.count > 0 ? 'red' : undefined,
-        empty: card.count === 0 ? 'Tidak ada yang menunggu keputusan Anda.' : undefined,
-        body: (
-          <Rows>
-            {card.items.map((a) => (
-              <Row key={a.id} end={<Muted>{ago(a.created_at)}</Muted>}>
-                {a.summary}
-                {a.requested_by && <Sub>oleh {a.requested_by}</Sub>}
-              </Row>
-            ))}
-          </Rows>
-        ),
-        link: { to: '/notifikasi?status=pending', label: 'Buka Persetujuan' },
-      }
-    case 'transaction_tasks':
+    case 'decisions': {
+      // Steps of transactions first (they may have a deadline), then data change requests.
+      const tasks = card.tasks?.items ?? []
+      const approvals = (card.approvals?.items ?? []).slice(0, Math.max(0, 5 - tasks.length))
       return {
         badge: count(card.count, card.overdue > 0 ? 'red' : 'amber'),
         tone: card.overdue > 0 ? 'red' : card.count > 0 ? 'amber' : undefined,
-        empty: card.count === 0 ? 'Tidak ada langkah yang menunggu Anda.' : undefined,
+        empty: card.count === 0 ? 'Tidak ada yang menunggu keputusan Anda.' : undefined,
         body: (
           <Rows>
-            {card.items.map((t, i) => (
+            {tasks.map((t, i) => (
               <Row
                 key={`${t.run_id}-${i}`}
                 to={`/transaksi/berjalan/${t.run_id}`}
@@ -287,10 +270,17 @@ function cardContent(card: HomeCard): CardContent {
                 <Sub>{[t.type, t.started_by && `dimulai ${t.started_by}`].filter(Boolean).join(' · ')}</Sub>
               </Row>
             ))}
+            {approvals.map((a) => (
+              <Row key={a.id} to="/notifikasi?status=pending" end={<Muted>{ago(a.created_at)}</Muted>}>
+                {a.summary}
+                <Sub>Perubahan data{a.requested_by ? ` · oleh ${a.requested_by}` : ''}</Sub>
+              </Row>
+            ))}
           </Rows>
         ),
-        link: { to: '/transaksi?tab=tugas', label: 'Lihat semua tugas' },
+        link: { to: '/notifikasi?status=pending', label: 'Buka Persetujuan' },
       }
+    }
     case 'my_requests': {
       const total = Object.values(card.counts).reduce((a, b) => a + b, 0)
       return {

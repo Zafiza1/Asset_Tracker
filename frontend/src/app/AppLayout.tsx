@@ -2,16 +2,16 @@ import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { Bell, Boxes, ChevronDown, ChevronRight, KeyRound, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { APPROVALS_KEY, useApprovalSummary } from '../features/approvals/api'
-import { useTaskCount } from '../features/transactionTypes/hooks'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router'
+import { APPROVALS_KEY } from '../features/approvals/api'
 import { toast } from '../components/ui/toast'
 import { onApprovalPending } from '../lib/api/client'
 import { OrganizationSwitcher } from '../features/organizations/OrganizationSwitcher'
 import { useAuth } from '../lib/auth/context'
 import { GlobalSearch } from './GlobalSearch'
+import { useInboxCount } from './useInboxCount'
 import { ModuleBoundary } from './ModuleBoundary'
-import { breadcrumbLabels, breadcrumbTextOnly, tenantNavigation, type NavSection } from './navigation'
+import { breadcrumbLabels, breadcrumbTextOnly, currentNavTarget, tenantNavigation, type NavSection } from './navigation'
 
 export function AppLayout() {
   const { profile, can, logout } = useAuth()
@@ -127,17 +127,17 @@ export function AppLayout() {
 }
 
 /**
- * Header shortcut to the approval page: "Persetujuan" with the number of pending requests for
- * approvers, "Pengajuan Saya" (the outcome of one's own submissions) for everyone else.
+ * Header shortcut to the approval page, with the number of decisions waiting for the member:
+ * "Persetujuan" for approvers, "Pengajuan Saya" for everyone else.
  */
 function NotificationBell({ approver }: { approver: boolean }) {
-  const pending = useApprovalSummary(approver).data?.data.pending ?? 0
+  const pending = useInboxCount()
   const label = approver ? 'Persetujuan' : 'Pengajuan Saya'
   return (
     <Link
       to="/notifikasi"
       className="relative grid size-10 shrink-0 place-items-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-      aria-label={pending > 0 ? `${label}, ${pending} pengajuan menunggu` : label}
+      aria-label={pending > 0 ? `${label}, ${pending} menunggu keputusan Anda` : label}
       title={label}
     >
       <Bell className="size-5" aria-hidden />
@@ -187,21 +187,17 @@ function readOpenSections(): Record<string, boolean> {
   }
 }
 
-function isItemActive(to: string, pathname: string) {
-  return to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(to + '/')
-}
-
 function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate: () => void }) {
   const { pathname } = useLocation()
-  const pendingApprovals = useApprovalSummary(sections.some((s) => s.items.some((i) => i.approvalBadge))).data?.data.pending ?? 0
-  const waitingTasks = useTaskCount(sections.some((s) => s.items.some((i) => i.taskBadge))).data ?? 0
+  const current = currentNavTarget(sections, pathname)
+  const waiting = useInboxCount()
   // Explicit open/closed choices per section title; a section without one is open only while it holds the current page.
   const [open, setOpen] = useState<Record<string, boolean>>(readOpenSections)
 
   // Navigating into a collapsed section (link, breadcrumb, redirect) opens it so the current page stays visible.
   useEffect(() => {
-    const current = sections.find((s) => s.title && s.items.some((i) => isItemActive(i.to, pathname)))
-    if (current?.title && open[current.title] === false) setOpen((o) => ({ ...o, [current.title!]: true }))
+    const section = sections.find((s) => s.title && s.items.some((i) => i.to === current))
+    if (section?.title && open[section.title] === false) setOpen((o) => ({ ...o, [section.title!]: true }))
   }, [pathname]) // only on navigation, not when the user collapses the current section
 
   useEffect(() => {
@@ -215,7 +211,7 @@ function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate:
   return (
     <nav className="flex-1 space-y-1 scrollbar-sidebar overflow-y-auto overscroll-contain px-3 pb-6 pt-2">
       {sections.map((section, i) => {
-        const hasActive = section.items.some((item) => isItemActive(item.to, pathname))
+        const hasActive = section.items.some((item) => item.to === current)
         const expanded = !section.title || (open[section.title] ?? hasActive)
         const listId = `sidenav-${i}`
         return (
@@ -243,40 +239,33 @@ function SideNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate:
             )}
             <div className={clsx('grid transition-[grid-template-rows] duration-200 ease-out', expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')} inert={!expanded}>
               <ul id={listId} className={clsx('space-y-0.5 overflow-hidden', section.title && expanded && 'pb-2')}>
-            {section.items.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  end={item.to === '/'}
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    clsx(
-                      'group relative flex min-h-10 items-center gap-3 rounded-lg px-2.5 py-2 text-[0.9375rem] transition-colors duration-150',
-                      isActive ? 'bg-white/12 font-semibold text-white' : 'text-brand-100/90 hover:bg-white/8 hover:text-white',
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      {/* Active marker: shape as well as color, so the current page is not shown by color alone. */}
-                      <span className={clsx('absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-300 transition-opacity', isActive ? 'opacity-100' : 'opacity-0')} aria-hidden />
-                      <item.icon className={clsx('size-[1.125rem] shrink-0', isActive ? 'text-white' : 'text-brand-300 group-hover:text-white')} aria-hidden />
-                      <span className="flex-1">{item.label}</span>
-                      {item.approvalBadge && pendingApprovals > 0 && (
-                        <span className="rounded-full bg-red-500 px-1.5 text-xs font-semibold leading-5 text-white" aria-label={`${pendingApprovals} menunggu`}>
-                          {pendingApprovals > 99 ? '99+' : pendingApprovals}
-                        </span>
-                      )}
-                      {item.taskBadge && waitingTasks > 0 && (
-                        <span className="rounded-full bg-amber-500 px-1.5 text-xs font-semibold leading-5 text-white" aria-label={`${waitingTasks} langkah menunggu Anda`}>
-                          {waitingTasks > 99 ? '99+' : waitingTasks}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </NavLink>
-              </li>
-            ))}
+                {section.items.map((item) => {
+                  // Only the closest entry is current (a plain Link: NavLink would also mark /transaksi on /transaksi/jenis).
+                  const isActive = item.to === current
+                  return (
+                    <li key={item.to}>
+                      <Link
+                        to={item.to}
+                        onClick={onNavigate}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={clsx(
+                          'group relative flex min-h-10 items-center gap-3 rounded-lg px-2.5 py-2 text-[0.9375rem] transition-colors duration-150',
+                          isActive ? 'bg-white/12 font-semibold text-white' : 'text-brand-100/90 hover:bg-white/8 hover:text-white',
+                        )}
+                      >
+                        {/* Active marker: shape as well as color, so the current page is not shown by color alone. */}
+                        <span className={clsx('absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-300 transition-opacity', isActive ? 'opacity-100' : 'opacity-0')} aria-hidden />
+                        <item.icon className={clsx('size-[1.125rem] shrink-0', isActive ? 'text-white' : 'text-brand-300 group-hover:text-white')} aria-hidden />
+                        <span className="flex-1">{item.label}</span>
+                        {item.inboxBadge && waiting > 0 && (
+                          <span className="rounded-full bg-red-500 px-1.5 text-xs font-semibold leading-5 text-white" aria-label={`${waiting} menunggu keputusan Anda`}>
+                            {waiting > 99 ? '99+' : waiting}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           </div>

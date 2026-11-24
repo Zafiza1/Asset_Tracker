@@ -8,10 +8,8 @@ export interface NavItem {
   permission?: string
   /** Hidden when the user has this permission (a lighter entry that a fuller one replaces). */
   hiddenWithPermission?: string
-  /** Shows the number of pending approval requests next to the label. */
-  approvalBadge?: boolean
-  /** Shows the number of transaction steps waiting for the user (F-07). */
-  taskBadge?: boolean
+  /** Shows the number of decisions waiting in Persetujuan (transaction steps and data change requests). */
+  inboxBadge?: boolean
 }
 
 export interface NavSection {
@@ -38,12 +36,13 @@ export const tenantNavigation: NavSection[] = [
     title: 'Manajemen Aset',
     items: [
       { to: '/aset', label: 'Data Aset', icon: Boxes, permission: 'asset.view' },
-      // The Transaction Center, with the number of steps waiting for the user (D-50).
-      { to: '/transaksi', label: 'Transaksi', icon: ArrowLeftRight, permission: 'transaction.view', taskBadge: true },
-      // Approval requests on one page: approvers (Super Admin, Supervisor) decide them under
-      // "Persetujuan"; everyone else follows whether their own submissions were approved under "Pengajuan Saya".
-      { to: '/notifikasi', label: 'Persetujuan', icon: Bell, permission: 'approval.manage', approvalBadge: true },
-      { to: '/notifikasi', label: 'Pengajuan Saya', icon: ClipboardList, hiddenWithPermission: 'approval.manage' },
+      // The Transaction Center (D-50): recording, and every running transaction.
+      { to: '/transaksi', label: 'Transaksi', icon: ArrowLeftRight, permission: 'transaction.view' },
+      // One approval list: approvers (Super Admin, Admin, Supervisor) decide data change requests and
+      // the steps of transactions under "Persetujuan"; their own changes need no approval. Everyone
+      // else follows the outcome of their submissions under "Pengajuan Saya".
+      { to: '/notifikasi', label: 'Persetujuan', icon: Bell, permission: 'approval.manage', inboxBadge: true },
+      { to: '/notifikasi', label: 'Pengajuan Saya', icon: ClipboardList, hiddenWithPermission: 'approval.manage', inboxBadge: true },
     ],
   },
   {
@@ -81,6 +80,20 @@ export const tenantNavigation: NavSection[] = [
   },
   { items: [{ to: '/panduan', label: 'Panduan', icon: BookOpen }] },
 ]
+
+/**
+ * The menu entry of the current page: the one whose address matches the most of the path, so
+ * on /transaksi/jenis only "Jenis Transaksi" is current, not also "Transaksi" (/transaksi).
+ * Pages without an entry of their own fall under the closest one (/transaksi/riwayat → Transaksi).
+ */
+export function currentNavTarget(sections: NavSection[], pathname: string): string | null {
+  let best: string | null = null
+  for (const { to } of sections.flatMap((s) => s.items)) {
+    const matches = to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(to + '/')
+    if (matches && (best === null || to.length > best.length)) best = to
+  }
+  return best
+}
 
 /** Breadcrumb labels per first path segment. */
 export const breadcrumbLabels: Record<string, string> = {

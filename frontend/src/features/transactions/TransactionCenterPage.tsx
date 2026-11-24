@@ -1,33 +1,33 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, History, Inbox, Plus, ShieldCheck, Zap } from 'lucide-react'
+import { History, Inbox, Plus, ShieldCheck, Zap } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Navigate, useSearchParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
 import { Button, ButtonLink } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
-import { PillTabs } from '../../components/ui/Tabs'
-import { formatDate, formatDateTime } from '../../lib/format'
-import { centerApi, runsApi, runStateTone, type CenterCard, type CenterGroup, type TransactionRun } from '../transactionTypes/api'
+import { centerApi, type CenterCard, type CenterGroup } from '../transactionTypes/api'
 import type { ManualTransactionType } from './api'
 import { TransactionFormModal } from './TransactionFormModal'
 
-type Tab = 'buat' | 'tugas' | 'saya' | 'berjalan'
 const GROUP_ORDER: CenterGroup[] = ['perpindahan', 'peminjaman', 'perawatan', 'penghapusan', 'lainnya']
 
 /**
- * Transaction Center (F-08 §3.9, D-50): where people record transactions. "Buat transaksi" shows
- * the transactions the user may record now, grouped, each with its way of working in short;
- * "Perlu tindakan saya" the steps waiting for them; "Transaksi saya" what they started, at its
- * current stage; "Semua berjalan" every running transaction in the user's data scope (it replaces
- * the former "Transaksi Berjalan" menu). The full history stays under Riwayat. Works on a phone (F08-44).
+ * Transaction Center (F-08 §3.9, D-50): where people record transactions: the transactions the
+ * user may record now, grouped, each with its way of working in short. The steps waiting for the
+ * user are in Persetujuan (one list with the data change requests); the transactions still on
+ * their way and everything recorded are under Riwayat ("Sedang diproses"). Works on a phone (F08-44).
  */
 export function TransactionCenterPage() {
-  const [params, setParams] = useSearchParams()
-  const tab = (['buat', 'tugas', 'saya', 'berjalan'].includes(params.get('tab') ?? '') ? params.get('tab') : 'buat') as Tab
+  const [params] = useSearchParams()
   const [recording, setRecording] = useState<CenterCard | 'any' | null>(null)
   const center = useQuery({ queryKey: ['/transaction-center'], queryFn: () => centerApi.get() })
   const meta = center.data?.meta
+
+  // Former tabs; links saved before (emails, bookmarks) still arrive: the steps waiting are in
+  // Persetujuan, the transactions on their way under Riwayat.
+  if (params.get('tab') === 'tugas') return <Navigate to="/notifikasi?status=pending" replace />
+  if (params.get('tab') === 'saya' || params.get('tab') === 'berjalan') return <Navigate to="/transaksi/riwayat?proses=1" replace />
 
   return (
     <>
@@ -49,87 +49,56 @@ export function TransactionCenterPage() {
           </>
         }
       />
-      <div className="mb-4">
-        <PillTabs
-          label="Transaction Center"
-          value={tab}
-          onChange={(t) => setParams(t === 'buat' ? {} : { tab: t }, { replace: true })}
-          tabs={[
-            { value: 'buat', label: 'Buat transaksi' },
-            { value: 'tugas', label: 'Perlu tindakan saya', count: meta?.tasks, attention: (meta?.tasks ?? 0) > 0 },
-            { value: 'saya', label: 'Transaksi saya', count: meta?.running },
-            { value: 'berjalan', label: 'Semua berjalan' },
-          ]}
-        />
-      </div>
-
-      {tab === 'buat' &&
-        (center.isPending ? (
-          <TableSkeleton rows={4} columns={3} label="Memuat transaksi…" />
-        ) : center.isError ? (
-          <ErrorState error={center.error} onRetry={() => center.refetch()} />
-        ) : center.data.data.length === 0 ? (
-          <Card>
-            <EmptyState icon={Inbox} title="Belum ada transaksi yang dapat Anda lakukan" description="Role Anda belum diberi izin mencatat transaksi. Hubungi Supervisor atau Super Admin organisasi Anda." />
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {GROUP_ORDER.map((group) => {
-              const cards = center.data.data.filter((c) => c.group === group)
-              if (cards.length === 0) return null
-              return (
-                <section key={group}>
-                  <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{meta?.groups[group] ?? group}</h2>
-                  <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {cards.map((c) => (
-                      <li key={c.id}>
-                        <button
-                          type="button"
-                          onClick={() => setRecording(c)}
-                          className="flex h-full w-full flex-col rounded-xl bg-white p-4 text-left shadow-card ring-1 ring-slate-200 transition hover:ring-brand-300 focus-visible:outline-2 focus-visible:outline-brand-600"
-                        >
-                          <span className="flex w-full items-start justify-between gap-2">
-                            <span className="font-semibold text-slate-900">{c.name}</span>
-                            {c.needs_approval ? (
-                              <Badge tone="amber">
-                                <ShieldCheck className="size-3" aria-hidden />
-                                Perlu persetujuan
-                              </Badge>
-                            ) : (
-                              <Badge tone="green">
-                                <Zap className="size-3" aria-hidden />
-                                Langsung tercatat
-                              </Badge>
-                            )}
-                          </span>
-                          {c.description && <span className="mt-1 text-sm text-slate-600">{c.description}</span>}
-                          {c.needs_approval && <span className="mt-2 text-xs text-slate-500">{c.summary}</span>}
-                          {c.categories.length > 0 && <span className="mt-2 text-xs text-slate-500">Untuk aset {c.categories.map((x) => x.name).join(', ')}</span>}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )
-            })}
-          </div>
-        ))}
-
-      {tab === 'tugas' && (
-        <RunList
-          params={{ assigned_to_me: '1', state: 'running' }}
-          empty="Tidak ada langkah yang menunggu Anda."
-          line={(r) => `${r.open_task?.kind === 'approval' ? 'Setujui' : 'Isi data'}: ${r.current_step?.label ?? ''}${r.open_task?.due_date ? ` · batas ${formatDate(r.open_task.due_date)}` : ''}`}
-        />
+      {center.isPending ? (
+        <TableSkeleton rows={4} columns={3} label="Memuat transaksi…" />
+      ) : center.isError ? (
+        <ErrorState error={center.error} onRetry={() => center.refetch()} />
+      ) : center.data.data.length === 0 ? (
+        <Card>
+          <EmptyState icon={Inbox} title="Belum ada transaksi yang dapat Anda lakukan" description="Role Anda belum diberi izin mencatat transaksi. Hubungi Supervisor atau Super Admin organisasi Anda." />
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {GROUP_ORDER.map((group) => {
+            const cards = center.data.data.filter((c) => c.group === group)
+            if (cards.length === 0) return null
+            return (
+              <section key={group}>
+                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{meta?.groups[group] ?? group}</h2>
+                <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {cards.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => setRecording(c)}
+                        className="flex h-full w-full flex-col rounded-xl bg-white p-4 text-left shadow-card ring-1 ring-slate-200 transition hover:ring-brand-300 focus-visible:outline-2 focus-visible:outline-brand-600"
+                      >
+                        <span className="flex w-full items-start justify-between gap-2">
+                          <span className="font-semibold text-slate-900">{c.name}</span>
+                          {c.needs_approval ? (
+                            <Badge tone="amber">
+                              <ShieldCheck className="size-3" aria-hidden />
+                              Perlu persetujuan
+                            </Badge>
+                          ) : (
+                            <Badge tone="green">
+                              <Zap className="size-3" aria-hidden />
+                              Langsung tercatat
+                            </Badge>
+                          )}
+                        </span>
+                        {c.description && <span className="mt-1 text-sm text-slate-600">{c.description}</span>}
+                        {c.needs_approval && <span className="mt-2 text-xs text-slate-500">{c.summary}</span>}
+                        {c.categories.length > 0 && <span className="mt-2 text-xs text-slate-500">Untuk aset {c.categories.map((x) => x.name).join(', ')}</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )
+          })}
+        </div>
       )}
-      {tab === 'berjalan' && (
-        <RunList
-          params={{ state: 'running' }}
-          empty="Tidak ada transaksi beralur yang sedang berjalan dalam cakupan data Anda."
-          line={(r) => `Tahapan sekarang: ${r.current_step?.label ?? '-'}${r.open_task?.assignee_name ? ` · menunggu ${r.open_task.assignee_name}` : ''}`}
-        />
-      )}
-      {tab === 'saya' && <RunList params={{ mine: '1' }} empty="Anda belum memulai transaksi yang berjalan dengan alur." line={(r) => (r.state === 'running' ? `Tahapan sekarang: ${r.current_step?.label ?? '-'}` : r.state_label)} />}
 
       {recording && (
         <TransactionFormModal
@@ -139,43 +108,5 @@ export function TransactionCenterPage() {
         />
       )}
     </>
-  )
-}
-
-function RunList({ params, empty, line }: { params: Record<string, string>; empty: string; line: (r: TransactionRun) => string }) {
-  const runs = useQuery({ queryKey: ['/transaction-runs', 'center', params], queryFn: () => runsApi.list({ ...params, per_page: '50' }) })
-  if (runs.isPending) return <TableSkeleton rows={4} columns={3} />
-  if (runs.isError) return <ErrorState error={runs.error} onRetry={() => runs.refetch()} />
-  if (runs.data.data.length === 0) {
-    return (
-      <Card>
-        <EmptyState icon={Inbox} title={empty} />
-      </Card>
-    )
-  }
-  return (
-    <Card>
-      <ul className="divide-y divide-slate-100">
-        {runs.data.data.map((r) => (
-          <li key={r.id}>
-            <Link to={`/transaksi/berjalan/${r.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
-              <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-sm font-semibold text-slate-900">{r.transaction_number}</span>
-                  <span className="text-sm text-slate-700">{r.type_definition?.name}</span>
-                  <Badge tone={runStateTone[r.state]}>{r.state_label}</Badge>
-                </span>
-                <span className="block truncate text-sm text-slate-600">{line(r)}</span>
-                <span className="block truncate text-xs text-slate-500">
-                  {(r.assets ?? []).map((a) => a.name).join(', ')}
-                  {r.created_by ? ` · diajukan ${r.created_by.name}` : ''} · {formatDateTime(r.created_at)}
-                </span>
-              </span>
-              <ArrowRight className="size-4 shrink-0 text-slate-400" aria-hidden />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Card>
   )
 }

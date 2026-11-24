@@ -4,6 +4,7 @@ namespace Tests\Feature\Dashboards;
 
 use App\Domain\Approvals\Models\ApprovalRequest;
 use App\Domain\Dashboards\Home\HomeCards;
+use App\Domain\Dashboards\Models\UserDashboardPreference;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\TenantContext;
@@ -40,7 +41,10 @@ class HomeCardsTest extends TestCase
         $this->assertSame(array_keys(HomeCards::CARDS), $keys);   // Super Admin: everything, in order
 
         $this->actingAs($this->member(['transaction.view', 'asset.view']), 'web');
-        $this->assertSame(['transaction_tasks', 'my_requests', 'my_assets', 'overdue_outgoing', 'overdue_loans', 'due_soon', 'date_reminders'], array_column($this->cards(), 'key'));
+        $this->assertSame(['decisions', 'my_requests', 'my_assets', 'overdue_outgoing', 'overdue_loans', 'due_soon', 'date_reminders'], array_column($this->cards(), 'key'));
+        // Without approval.manage the inbox card holds only the steps of transactions.
+        $this->assertNull($this->card('decisions')['approvals']);
+        $this->assertSame(0, $this->card('decisions')['tasks']['count']);
 
         $this->actingAs($this->member([]), 'web');
         $this->assertSame(['my_requests'], array_column($this->cards(), 'key'));
@@ -53,7 +57,7 @@ class HomeCardsTest extends TestCase
         $this->approval($this->admin, 'Ubah kategori milik admin');
         $rejected = $this->approval($requester, 'Ubah lokasi Laptop', ApprovalRequest::REJECTED, 'Lokasi tujuan salah.');
 
-        $card = $this->card('approvals_to_decide');
+        $card = $this->card('decisions')['approvals'];
         $this->assertSame(1, $card['count']);
         $this->assertSame([$theirs], array_column($card['items'], 'id'));
         $this->assertSame($requester->name, $card['items'][0]['requested_by']);
@@ -138,28 +142,46 @@ class HomeCardsTest extends TestCase
     public function test_another_organization_sees_none_of_this_and_cards_are_cached_for_a_minute(): void
     {
         $this->approval($this->member([]), 'Pengajuan ALPHA');
-        $this->assertSame(1, $this->card('approvals_to_decide')['count']);
+        $this->assertSame(1, $this->card('decisions')['count']);
 
         ['admin' => $other] = $this->createOrganization('BETA');
         $this->actingAs($other, 'web');
-        $this->assertSame(0, $this->card('approvals_to_decide')['count']);
-        $this->assertNotContains('Pengajuan ALPHA', array_column($this->card('approvals_to_decide')['items'], 'summary'));
+        $this->assertSame(0, $this->card('decisions')['count']);
+        $this->assertNotContains('Pengajuan ALPHA', array_column($this->card('decisions')['approvals']['items'], 'summary'));
 
         // A new request shows after the cache expires, not before.
         $this->actingAs($this->admin, 'web');
         $this->approval($this->member([]), 'Pengajuan kedua');
-        $this->assertSame(1, $this->card('approvals_to_decide')['count']);
+        $this->assertSame(1, $this->card('decisions')['count']);
         $this->travel(HomeCards::CACHE_SECONDS + 1)->seconds();
-        $this->assertSame(2, $this->card('approvals_to_decide')['count']);
+        $this->assertSame(2, $this->card('decisions')['count']);
+    }
+
+    public function test_an_arrangement_saved_with_the_former_inbox_cards_moves_to_the_merged_card(): void
+    {
+        $saved = fn (array $cards) => $this->tenancy()->runAsSystem(fn () => (UserDashboardPreference::query()->firstWhere('user_id', $this->admin->id) ?? new UserDashboardPreference)
+            ->forceFill(['organization_id' => $this->org->id, 'user_id' => $this->admin->id, 'home_cards' => $cards])->save());
+        $preferences = fn () => $this->getJson('/api/home/cards')->json('meta.preferences');
+
+        // It takes the place of the first of them, once.
+        $saved(['order' => ['my_requests', 'transaction_tasks', 'approvals_to_decide', 'license'], 'hidden' => []]);
+        $this->assertSame(['order' => ['my_requests', 'decisions', 'license'], 'hidden' => []], $preferences());
+
+        // Hidden only when every one of them was hidden.
+        $saved(['order' => [], 'hidden' => ['transaction_tasks']]);
+        $this->travel(HomeCards::CACHE_SECONDS + 1)->seconds();
+        $this->assertSame(['order' => [], 'hidden' => ['decisions']], $preferences());
+        $saved(['order' => ['approvals_to_decide'], 'hidden' => ['transaction_tasks']]);
+        $this->assertSame(['order' => ['decisions'], 'hidden' => []], $preferences());
     }
 
     public function test_each_member_keeps_their_own_card_order_and_hidden_cards(): void
     {
         $this->assertSame(['order' => [], 'hidden' => []], $this->getJson('/api/home/cards')->json('meta.preferences'));
 
-        $this->putJson('/api/home/preferences', ['order' => ['my_requests', 'approvals_to_decide'], 'hidden' => ['recent_activity']])
+        $this->putJson('/api/home/preferences', ['order' => ['my_requests', 'decisions'], 'hidden' => ['recent_activity']])
             ->assertOk()->assertJsonPath('data.hidden', ['recent_activity']);
-        $this->assertSame(['order' => ['my_requests', 'approvals_to_decide'], 'hidden' => ['recent_activity']],
+        $this->assertSame(['order' => ['my_requests', 'decisions'], 'hidden' => ['recent_activity']],
             $this->getJson('/api/home/cards')->json('meta.preferences'));
 
         // Only card keys, each once.

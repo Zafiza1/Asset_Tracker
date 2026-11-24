@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import clsx from 'clsx'
 import { BellRing, CheckCircle2, CircleSlash, ExternalLink, FileClock, SearchX, Send, XCircle, type LucideIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Badge, StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
@@ -17,7 +17,7 @@ import { api, ApiError, qs } from '../../lib/api/client'
 import type { Paginated, Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { errorMessage } from '../../lib/forms'
-import { formatDateTime } from '../../lib/format'
+import { formatDate, formatDateTime } from '../../lib/format'
 import {
   APPROVALS_KEY,
   approvalCategoryLabel,
@@ -28,6 +28,8 @@ import {
   type ApprovalRequest,
   type ApprovalStatus,
 } from './api'
+import { runsApi, type TransactionRun } from '../transactionTypes/api'
+import { useTaskCount } from '../transactionTypes/hooks'
 
 type Tab = ApprovalStatus | ''
 
@@ -42,15 +44,25 @@ const TABS: { status: Tab; label: string }[] = [
 /** A rejection reason must say something; mirrors the API rule (min 5 characters). */
 const REJECT_MIN = 5
 
+/** One row of the list: a data change request, or a step of a transaction waiting for the user. */
+interface InboxRow {
+  id: string
+  approval?: ApprovalRequest
+  task?: TransactionRun
+}
+
 /**
- * Persetujuan (approval requests of assets and master data). Super Admin and Supervisor
- * (approval.manage) see every request and approve or reject pending ones; other users see it as
- * "Pengajuan Saya": their own submissions, opening on all of them so recent decisions show first. The page is built around deciding: what waits, who asked, what
- * changes, and who decided.
+ * Persetujuan: one approval list. Super Admin, Admin and Supervisor (approval.manage) decide the
+ * data change requests of others; under "Menunggu" the steps of transactions waiting for them
+ * are in the same list (kind "Transaksi"), and open on the transaction. Everyone else sees it as
+ * "Pengajuan Saya": the outcome of their own submissions, plus any transaction step a flow gave
+ * them. Their own changes need no approval, so approvers have no "Pengajuan Saya".
  */
 export function NotificationsPage() {
   const { can } = useAuth()
   const canDecide = can('approval.manage')
+  const seesTransactions = can('transaction.view')
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const [openId, setOpenId] = useState<string | null>(null)
 
@@ -64,7 +76,8 @@ export function NotificationsPage() {
     setSearchDraft(search)
   }
 
-  const listFilters = { category: params.get('category'), search: search || null }
+  const category = params.get('category') ?? ''
+  const listFilters = { category: category || null, search: search || null }
   const sort = params.get('sort') ?? ''
   const filters = { status, ...listFilters, page: params.get('page'), sort: sort || null }
   const query = useQuery({
@@ -77,6 +90,21 @@ export function NotificationsPage() {
     queryFn: () => api.get<Resource<ApprovalCounts>>(`/approvals/counts${qs(listFilters)}`),
     placeholderData: keepPreviousData,
   }).data?.data
+  // Steps of transactions waiting for the user belong under "Menunggu" (all of them: there are few).
+  const showTasks = seesTransactions && status === 'pending' && (category === '' || category === 'transaction')
+  const tasks = useQuery({
+    queryKey: ['/transaction-runs', 'center', { assigned_to_me: '1', state: 'running' }],
+    queryFn: () => runsApi.list({ assigned_to_me: '1', state: 'running', per_page: '50' }),
+    enabled: seesTransactions,
+  })
+  const taskTotal = useTaskCount(seesTransactions).data ?? 0
+  const term = search.toLowerCase()
+  const taskRows: InboxRow[] = showTasks
+    ? (tasks.data?.data ?? [])
+        .filter((r) => !term || [r.transaction_number, r.type_definition?.name, r.current_step?.label, r.created_by?.name].some((v) => v?.toLowerCase().includes(term)))
+        .map((r) => ({ id: `task-${r.id}`, task: r }))
+    : []
+  const rows: InboxRow[] = [...taskRows, ...(query.data?.data ?? []).map((a) => ({ id: a.id, approval: a }))]
 
   const update = (next: Record<string, string>) => {
     const merged = new URLSearchParams(params)
@@ -85,30 +113,46 @@ export function NotificationsPage() {
     for (const [k, v] of [...merged.entries()]) if (v === '' && k !== 'status') merged.delete(k)
     setParams(merged)
   }
-  const filtered = Boolean(search || params.get('category'))
+  const filtered = Boolean(search || category)
   const resetFilters = () => update({ search: '', category: '' })
 
-  const columns: Column<ApprovalRequest>[] = [
+  const columns: Column<InboxRow>[] = [
     {
       key: 'action',
       header: 'Pengajuan',
       sortKey: 'action',
-      cell: (r) => (
-        <div className="min-w-0">
-          <p className="font-medium text-slate-900">{r.action_label}</p>
-          <p className="truncate text-xs text-slate-500">{r.summary}</p>
-        </div>
-      ),
+      cell: ({ approval, task }) =>
+        task ? (
+          <div className="min-w-0">
+            <Link to={`/transaksi/berjalan/${task.id}`} className="font-medium text-slate-900 hover:underline" onClick={(e) => e.stopPropagation()}>
+              <span className="font-mono">{task.transaction_number}</span> · {task.open_task?.kind === 'approval' ? 'Setujui' : 'Isi data'}
+            </Link>
+            <p className="truncate text-xs text-slate-500">
+              {[task.type_definition?.name, task.current_step?.label, task.open_task?.due_date && `batas ${formatDate(task.open_task.due_date)}`].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+        ) : (
+          <div className="min-w-0">
+            <p className="font-medium text-slate-900">{approval!.action_label}</p>
+            <p className="truncate text-xs text-slate-500">{approval!.summary}</p>
+          </div>
+        ),
     },
-    { key: 'category', header: 'Jenis', sortKey: 'category', cell: (r) => <Badge tone="blue">{approvalCategoryLabel[r.category] ?? r.category_label}</Badge>, hideOnMobile: true },
+    {
+      key: 'category',
+      header: 'Jenis',
+      sortKey: 'category',
+      cell: ({ approval }) => <Badge tone={approval ? 'blue' : 'amber'}>{approval ? (approvalCategoryLabel[approval.category] ?? approval.category_label) : 'Transaksi'}</Badge>,
+      hideOnMobile: true,
+    },
     {
       key: 'requester',
       header: 'Diajukan oleh',
       sortKey: 'requester',
-      cell: (r) => (
+      cell: ({ approval, task }) => (
         <div>
-          <p className="text-slate-900">{r.requester?.name ?? '—'}</p>
-          <p className="text-xs text-slate-500">{formatDateTime(r.created_at)}</p>
+          <p className="text-slate-900">{(approval ? approval.requester?.name : task!.created_by?.name) ?? '—'}</p>
+          <p className="text-xs text-slate-500">{formatDateTime(approval ? approval.created_at : task!.created_at)}</p>
         </div>
       ),
       hideOnMobile: true,
@@ -120,8 +164,8 @@ export function NotificationsPage() {
             key: 'decider',
             header: 'Diputuskan oleh',
             sortKey: 'decider',
-            cell: (r: ApprovalRequest) =>
-              r.decided_at ? (
+            cell: ({ approval: r }: InboxRow) =>
+              r?.decided_at ? (
                 <div>
                   <p className="text-slate-900">{r.status === 'cancelled' ? 'Dibatalkan pengaju' : (r.decider?.name ?? '—')}</p>
                   <p className="text-xs text-slate-500">{formatDateTime(r.decided_at)}</p>
@@ -132,10 +176,17 @@ export function NotificationsPage() {
             hideOnMobile: true,
           },
         ]),
-    { key: 'status', header: 'Status', sortKey: 'status', cell: (r) => <StatusBadge status={r.status}>{approvalStatusLabel[r.status]}</StatusBadge> },
+    {
+      key: 'status',
+      header: 'Status',
+      sortKey: 'status',
+      cell: ({ approval, task }) =>
+        approval ? <StatusBadge status={approval.status}>{approvalStatusLabel[approval.status]}</StatusBadge> : <Badge tone="amber">{task!.open_task?.kind === 'approval' ? 'Menunggu persetujuan' : 'Menunggu isian'}</Badge>,
+    },
   ]
 
   const empty = emptyState(status, canDecide, filtered)
+  const pendingCount = (counts?.pending ?? 0) + (seesTransactions ? taskTotal : 0)
 
   return (
     <>
@@ -143,16 +194,16 @@ export function NotificationsPage() {
         title={canDecide ? 'Persetujuan' : 'Pengajuan Saya'}
         description={
           canDecide
-            ? 'Pengajuan perubahan aset dan master data yang menunggu keputusan Anda.'
+            ? 'Tahapan transaksi serta perubahan aset dan master data yang menunggu keputusan Anda.'
             : 'Hasil pengajuan Anda: disetujui atau ditolak beserta alasannya. Perubahan aset dan master data berlaku setelah disetujui Super Admin atau Supervisor.'
         }
       />
-      {canDecide && status !== 'pending' && (counts?.pending ?? 0) > 0 && (
+      {status !== 'pending' && pendingCount > 0 && (canDecide || taskTotal > 0) && (
         <div className="mb-4">
           <Alert tone="warning">
-            {counts!.pending} pengajuan masih menunggu keputusan Anda.{' '}
+            {pendingCount} {canDecide ? 'pengajuan' : 'tahapan transaksi'} masih menunggu keputusan Anda.{' '}
             <button type="button" className="font-semibold underline" onClick={() => update({ status: 'pending' })}>
-              Lihat pengajuan
+              Lihat
             </button>
           </Alert>
         </div>
@@ -163,21 +214,25 @@ export function NotificationsPage() {
             label="Status pengajuan"
             value={status}
             onChange={(next) => update({ status: next })}
-            tabs={TABS.map((t) => ({ value: t.status, label: t.label, count: counts?.[t.status || 'all'], attention: t.status === 'pending' }))}
+            tabs={TABS.map((t) => ({
+              value: t.status,
+              label: t.label,
+              count: t.status === 'pending' ? pendingCount : counts?.[t.status || 'all'],
+              attention: t.status === 'pending',
+            }))}
           />
           <SearchForm
             value={searchDraft}
             onChange={setSearchDraft}
             onSubmit={() => update({ search: searchDraft.trim() })}
             label="Cari pengajuan"
-            placeholder={canDecide ? 'Cari nama data, pengaju, atau jenis perubahan' : 'Cari nama data atau jenis perubahan'}
+            placeholder={canDecide ? 'Cari nama data, pengaju, nomor transaksi, atau jenis perubahan' : 'Cari nama data atau jenis perubahan'}
             aside={
               <div className="flex flex-wrap items-center gap-3">
-                <Select aria-label="Jenis pengajuan" value={params.get('category') ?? ''} onChange={(e) => update({ category: e.target.value })} className="w-auto">
+                <Select aria-label="Jenis pengajuan" value={category} onChange={(e) => update({ category: e.target.value })} className="w-auto">
                   <option value="">Semua jenis</option>
-                  {/* Transactions no longer need approval; their label stays only for older requests. */}
                   {(Object.keys(approvalCategoryLabel) as ApprovalCategory[])
-                    .filter((c) => c !== 'transaction')
+                    .filter((c) => c !== 'transaction' || seesTransactions)
                     .map((c) => (
                       <option key={c} value={c}>
                         {approvalCategoryLabel[c]}
@@ -192,7 +247,7 @@ export function NotificationsPage() {
           <TableSkeleton columns={4} label="Memuat pengajuan…" />
         ) : query.isError ? (
           <ErrorState error={query.error} onRetry={() => void query.refetch()} />
-        ) : query.data.data.length === 0 ? (
+        ) : rows.length === 0 ? (
           <EmptyState
             icon={empty.icon}
             title={empty.title}
@@ -207,8 +262,14 @@ export function NotificationsPage() {
           />
         ) : (
           <>
-            <DataTable columns={columns} rows={query.data.data} onRowClick={(r) => setOpenId(r.id)} sort={sort} onSort={(next) => update({ sort: next })} />
-            <Pagination meta={query.data.meta} onPage={(page) => update({ page: String(page) })} />
+            <DataTable
+              columns={columns}
+              rows={rows}
+              onRowClick={(r) => (r.task ? navigate(`/transaksi/berjalan/${r.task.id}`) : setOpenId(r.id))}
+              sort={sort}
+              onSort={(next) => update({ sort: next })}
+            />
+            {query.data.meta && <Pagination meta={query.data.meta} onPage={(page) => update({ page: String(page) })} />}
           </>
         )}
       </Card>

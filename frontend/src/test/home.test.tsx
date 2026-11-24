@@ -15,11 +15,12 @@ afterEach(() => {
 
 const cards: HomeCard[] = [
   {
-    key: 'approvals_to_decide',
+    key: 'decisions',
     count: 1,
-    items: [{ id: 'ap1', summary: 'Pemindahan 3 aset ke Gudang Cirebon', action: 'transaction.create', requested_by: 'Andi', created_at: '2026-11-17T08:00:00Z' }],
+    overdue: 0,
+    tasks: { count: 0, overdue: 0, items: [] },
+    approvals: { count: 1, items: [{ id: 'ap1', summary: 'Pemindahan 3 aset ke Gudang Cirebon', action: 'location.create', requested_by: 'Andi', created_at: '2026-11-17T08:00:00Z' }] },
   },
-  { key: 'transaction_tasks', count: 0, overdue: 0, items: [] },
   {
     key: 'my_requests',
     days: 30,
@@ -31,6 +32,7 @@ const cards: HomeCard[] = [
     count: 1,
     items: [{ transaction_number: 'TRX-1', asset: { id: 'a1', name: 'Proyektor Epson' }, counterparty_name: 'Dinas Pendidikan', due_date: '2026-11-11', days_late: 8 }],
   },
+  { key: 'due_soon', days: 7, count: 0, items: [] },
 ]
 
 function setup(response: Partial<HomeCardsResponse['meta']['preferences']> = {}, wide = true, extra: HomeCard[] = []) {
@@ -68,24 +70,27 @@ describe('Beranda', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Peminjaman lewat batas' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Laptop Dell/ })).toHaveAttribute('href', '/aset/a7')
     expect(screen.getByText('dipinjam Budi')).toBeInTheDocument()
-    expect(screen.getByText('6 hari')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Peminjaman lewat batas' })).getByText('6 hari')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Lihat semua yang lewat batas/ })).toHaveAttribute('href', '/aset?overdue=1')
   })
 
-  it('shows the cards the server sent, with a calm message when nothing waits', async () => {
+  it('shows every card, with a calm message when nothing waits', async () => {
     setup()
     expect(await screen.findByText('Pemindahan 3 aset ke Gudang Cirebon')).toBeInTheDocument()
-    expect(cardTitles()).toEqual(['Menunggu keputusan saya', 'Langkah transaksi menunggu saya', 'Pengajuan saya', 'Keluar sementara lewat batas'])
-    expect(screen.getByText('Tidak ada langkah yang menunggu Anda.')).toBeInTheDocument()
+    expect(cardTitles()).toEqual(['Perlu keputusan saya', 'Pengajuan saya', 'Keluar sementara lewat batas', 'Jatuh tempo 7 hari'])
+    expect(screen.getByText('Tidak ada yang jatuh tempo dalam 7 hari.')).toBeInTheDocument()
+    // One inbox: the data change request, linked to Persetujuan.
+    expect(screen.getByText('Perubahan data · oleh Andi')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Buka Persetujuan/ })).toHaveAttribute('href', '/notifikasi?status=pending')
     expect(screen.getByText(/Lokasi tujuan salah/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Proyektor Epson/ })).toHaveAttribute('href', '/aset/a1')
     expect(screen.getByRole('link', { name: /Lihat aset belum kembali/ })).toHaveAttribute('href', '/transaksi/riwayat?not_returned=1')
   })
 
   it('follows the saved order and leaves hidden cards out', async () => {
-    setup({ order: ['overdue_outgoing', 'my_requests'], hidden: ['transaction_tasks'] })
-    await screen.findByText('Pemindahan 3 aset ke Gudang Cirebon')
-    expect(cardTitles()).toEqual(['Keluar sementara lewat batas', 'Pengajuan saya', 'Menunggu keputusan saya'])
+    setup({ order: ['overdue_outgoing', 'my_requests'], hidden: ['decisions'] })
+    await screen.findByText('Ubah lokasi Laptop Dell')
+    expect(cardTitles()).toEqual(['Keluar sementara lewat batas', 'Pengajuan saya', 'Jatuh tempo 7 hari'])
   })
 
   it('lets the member reorder, hide and save their cards', async () => {
@@ -94,8 +99,8 @@ describe('Beranda', () => {
     stackSections()
     // Dragged one place up (with the keyboard, as jsdom has no pointer layout).
     await moveWithKeyboard('Pengajuan saya', 'ArrowUp')
-    fireEvent.click(screen.getByRole('button', { name: 'Sembunyikan Menunggu keputusan saya' }))
-    const hiddenCard = screen.getByRole('region', { name: 'Menunggu keputusan saya' })
+    fireEvent.click(screen.getByRole('button', { name: 'Sembunyikan Perlu keputusan saya' }))
+    const hiddenCard = screen.getByRole('region', { name: 'Perlu keputusan saya' })
     expect(within(hiddenCard).getByText('Disembunyikan')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Simpan susunan' }))
@@ -103,10 +108,10 @@ describe('Beranda', () => {
     const put = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT')
     expect(put?.[0]).toBe('/api/home/preferences')
     expect(JSON.parse(String(put?.[1]?.body))).toEqual({
-      order: ['approvals_to_decide', 'my_requests', 'transaction_tasks', 'overdue_outgoing'],
-      hidden: ['approvals_to_decide'],
+      order: ['my_requests', 'decisions', 'overdue_outgoing', 'due_soon'],
+      hidden: ['decisions'],
     })
-    expect(cardTitles()).toEqual(['Pengajuan saya', 'Langkah transaksi menunggu saya', 'Keluar sementara lewat batas'])
+    expect(cardTitles()).toEqual(['Pengajuan saya', 'Keluar sementara lewat batas', 'Jatuh tempo 7 hari'])
   })
 
   it('offers no card arranging on a phone (D-34)', async () => {
@@ -119,7 +124,7 @@ describe('Beranda', () => {
 describe('home helpers', () => {
   it('puts placed cards first and new ones after, in server order', () => {
     const keys = arrangeCards(cards, ['overdue_outgoing']).map((c) => c.key)
-    expect(keys).toEqual(['overdue_outgoing', 'approvals_to_decide', 'transaction_tasks', 'my_requests'])
+    expect(keys).toEqual(['overdue_outgoing', 'decisions', 'my_requests', 'due_soon'])
   })
 
   it('says how long ago', () => {

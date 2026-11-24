@@ -91,7 +91,7 @@ function PersonalNote() {
   const { can } = useAuth()
   return can('approval.manage') ? (
     <Alert tone="info" title="Anda termasuk penyetuju">
-      Perubahan yang Anda buat langsung berlaku. Periksa menu <MenuLink to="/notifikasi">Persetujuan</MenuLink> secara rutin, karena perubahan pengguna lain menunggu keputusan Anda di sana.
+      Perubahan yang Anda buat langsung berlaku. Periksa menu <MenuLink to="/notifikasi">Persetujuan</MenuLink> secara rutin: perubahan data dari pengguna lain dan tahapan transaksi yang menunggu keputusan Anda ada di tab Menunggu, dalam satu daftar.
     </Alert>
   ) : (
     <Alert tone="info" title="Perubahan Anda perlu disetujui">

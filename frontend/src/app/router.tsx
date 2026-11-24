@@ -87,8 +87,8 @@ export const router = createBrowserRouter([
                   { path: '/transaksi/jenis/:id/rules', element: tenant('transaction.view', <TransactionRulesPage />) },
                   { path: '/transaksi/jenis/:id/panduan', element: tenant('transaction.view', <TransactionWizardPage />) },
                   { path: '/transaksi/jenis/:id/cara-kerja', element: tenant('transaction.view', <TransactionHowItWorksPage />) },
-                  // The former list of running transactions is part of the Transaction Center now; the detail stays (emails link to it).
-                  { path: '/transaksi/berjalan', element: <Navigate to="/transaksi?tab=tugas" replace /> },
+                  // The former list of running transactions is the Riwayat tab "Sedang diproses" now; the detail stays (emails link to it).
+                  { path: '/transaksi/berjalan', element: <Navigate to="/transaksi/riwayat?proses=1" replace /> },
                   { path: '/transaksi/berjalan/:id', element: tenant('transaction.view', <TransactionRunPage />) },
                   { path: '/notifikasi', element: tenant(null, <NotificationsPage />) },
                   { path: '/panduan', element: tenant(null, <GuidePage />) },

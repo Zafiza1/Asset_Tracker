@@ -44,10 +44,13 @@ final class HomeCards
 
     public const RECENT_DAYS = 30;
 
-    /** Card key => permission needed (null: every member). Order is the display order. */
+    /**
+     * Card key => permission needed (null: every member; a list: any one of them). Order is the
+     * display order.
+     */
     public const CARDS = [
-        'approvals_to_decide' => 'approval.manage',
-        'transaction_tasks' => 'transaction.view',
+        // One inbox (as the Persetujuan page): steps of transactions and data change requests.
+        'decisions' => ['approval.manage', 'transaction.view'],
         'my_requests' => null,
         'my_assets' => 'asset.view',
         'overdue_outgoing' => 'transaction.view',
@@ -61,6 +64,12 @@ final class HomeCards
         'users' => 'user.view',
         'my_reports' => 'report.generate',
         'recent_activity' => 'audit.view',
+    ];
+
+    /** Cards that replaced others: former key => current key, for arrangements saved before. */
+    public const REPLACED = [
+        'approvals_to_decide' => 'decisions',
+        'transaction_tasks' => 'decisions',
     ];
 
     public function __construct(
@@ -79,7 +88,7 @@ final class HomeCards
             $today = CarbonImmutable::now($tenant->organization->timezone ?: 'UTC')->startOfDay();
             $cards = [];
             foreach (self::CARDS as $key => $permission) {
-                if ($permission === null || $tenant->can($permission)) {
+                if ($permission === null || array_filter((array) $permission, fn (string $p) => $tenant->can($p)) !== []) {
                     $cards[] = ['key' => $key, ...$this->card($key, $today)];
                 }
             }
@@ -104,8 +113,7 @@ final class HomeCards
     private function card(string $key, CarbonImmutable $today): array
     {
         return match ($key) {
-            'approvals_to_decide' => $this->approvalsToDecide(),
-            'transaction_tasks' => $this->transactionTasks($today),
+            'decisions' => $this->decisions($today),
             'my_requests' => $this->myRequests($today),
             'my_assets' => $this->myAssets(),
             'overdue_outgoing' => $this->overdueOutgoing($today),
@@ -120,6 +128,24 @@ final class HomeCards
             'my_reports' => $this->myReports(),
             'recent_activity' => $this->recentActivity(),
         };
+    }
+
+    /**
+     * What waits for the user's decision: steps of transactions (with transaction.view) and data
+     * change requests of other users (with approval.manage). A part the user may not see is null.
+     */
+    private function decisions(CarbonImmutable $today): array
+    {
+        $tenant = $this->tenancy->tenant();
+        $tasks = $tenant->can('transaction.view') ? $this->transactionTasks($today) : null;
+        $approvals = $tenant->can('approval.manage') ? $this->approvalsToDecide() : null;
+
+        return [
+            'count' => ($tasks['count'] ?? 0) + ($approvals['count'] ?? 0),
+            'overdue' => $tasks['overdue'] ?? 0,
+            'tasks' => $tasks,
+            'approvals' => $approvals,
+        ];
     }
 
     /** Pending requests from other users, oldest first: they have waited longest. */

@@ -2,7 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { NotificationsPage } from '../features/approvals/NotificationsPage'
 import { TransactionCenterPage } from '../features/transactions/TransactionCenterPage'
+import { TransactionsPage } from '../features/transactions/TransactionsPage'
 import type { CenterCard, TransactionTypeDefinition } from '../features/transactionTypes/api'
 import type { Profile } from '../lib/api/types'
 import { AuthContext, type AuthState } from '../lib/auth/context'
@@ -39,6 +41,8 @@ function setup(cards: CenterCard[], path = '/transaksi') {
         <MemoryRouter initialEntries={[path]}>
           <Routes>
             <Route path="/transaksi" element={<TransactionCenterPage />} />
+            <Route path="/notifikasi" element={<NotificationsPage />} />
+            <Route path="/transaksi/riwayat" element={<TransactionsPage />} />
           </Routes>
         </MemoryRouter>
       </AuthContext.Provider>
@@ -59,7 +63,8 @@ describe('Transaction Center', () => {
     expect(within(moving).getByText(/sebelum aset dipindah/)).toBeInTheDocument()
     const lending = screen.getByRole('heading', { name: 'Peminjaman' }).closest('section')!
     expect(within(lending).getByText('Langsung tercatat')).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /Perlu tindakan saya/ })).toHaveTextContent('2')
+    // Only recording here: what waits is in Persetujuan, what is on its way under Riwayat.
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Riwayat transaksi/ })).toHaveAttribute('href', '/transaksi/riwayat')
   })
 
@@ -71,19 +76,22 @@ describe('Transaction Center', () => {
     expect(await screen.findByText(/Perlu disetujui Supervisor\./)).toBeInTheDocument()
   })
 
-  it('lists the steps waiting for the user', async () => {
+  it('sends the former "Perlu tindakan saya" tab to the approval list, where the steps waiting for the user are', async () => {
     const fetchMock = setup([card('t-mut', 'Mutasi antar lokasi')], '/transaksi?tab=tugas')
-    expect(await screen.findByText('MUT-2026-000044')).toBeInTheDocument()
-    expect(screen.getByText(/Setujui: Persetujuan Supervisor lokasi · batas/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /MUT-2026-000044/ })).toHaveAttribute('href', '/transaksi/berjalan/r1')
+    expect(await screen.findByRole('link', { name: /MUT-2026-000044/ })).toHaveAttribute('href', '/transaksi/berjalan/r1')
+    // A member without approval.manage: their own page, on "Menunggu".
+    expect(screen.getByRole('heading', { level: 1, name: 'Pengajuan Saya' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Menunggu/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText(/Mutasi antar lokasi · Persetujuan Supervisor lokasi · batas/)).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([u]) => String(u).includes('assigned_to_me=1'))).toBe(true)
   })
 
-  it('shows every running transaction in view (the former "Transaksi Berjalan" menu)', async () => {
+  it('sends the former "Semua berjalan" tab to Riwayat, "Sedang diproses"', async () => {
     const fetchMock = setup([card('t-mut', 'Mutasi antar lokasi')], '/transaksi?tab=berjalan')
     expect(await screen.findByText('MUT-2026-000044')).toBeInTheDocument()
     expect(screen.getByText('Tahapan sekarang: Persetujuan Supervisor lokasi')).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Semua berjalan' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: /Sedang diproses/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('heading', { level: 1, name: 'Riwayat Transaksi' })).toBeInTheDocument()
     const runs = fetchMock.mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith('/api/transaction-runs'))
     expect(runs.some((u) => u.includes('state=running') && !u.includes('assigned_to_me') && !u.includes('mine'))).toBe(true)
   })
