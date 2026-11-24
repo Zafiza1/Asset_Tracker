@@ -27,6 +27,8 @@ import { TransactionTypeFormPage } from '../features/transactionTypes/Transactio
 import { TransactionTypeStartPage } from '../features/transactionTypes/TransactionTypeStartPage'
 import { TransactionWizardPage } from '../features/transactionTypes/TransactionWizardPage'
 import { TransactionTypesPage } from '../features/transactionTypes/TransactionTypesPage'
+import { TransactionTypesSoonPage } from '../features/transactionTypes/TransactionTypesSoonPage'
+import { transactionTypesOpen } from '../features/transactionTypes/availability'
 import { NotificationsPage } from '../features/approvals/NotificationsPage'
 import { AssetBoardPage } from '../features/assetBoard/AssetBoardPage'
 import { HomePage } from '../features/home/HomePage'
@@ -43,6 +45,9 @@ import { NotFound, RequireAuth, RequirePermission, RequireTenantUser, RouteError
 const tenant = (permission: string | null, element: React.ReactNode) => (
   <RequireTenantUser>{permission ? <RequirePermission permission={permission}>{element}</RequirePermission> : element}</RequireTenantUser>
 )
+
+/** A page of Jenis Transaksi: "Segera hadir" while the menu is closed. */
+const typesPage = (permission: string, element: React.ReactNode) => tenant(permission, transactionTypesOpen ? element : <TransactionTypesSoonPage />)
 
 export const router = createBrowserRouter([
   {
@@ -78,15 +83,15 @@ export const router = createBrowserRouter([
                   { path: '/transaksi', element: tenant('transaction.view', <TransactionCenterPage />) },
                   { path: '/transaksi/riwayat', element: tenant('transaction.view', <TransactionsPage />) },
                   // Organization transaction types, flows and running transactions (F-07).
-                  { path: '/transaksi/jenis', element: tenant('transaction.view', <TransactionTypesPage />) },
+                  { path: '/transaksi/jenis', element: typesPage('transaction.view', <TransactionTypesPage />) },
                   // F-08 "Jenis baru": template first (F08-01); an empty form is one of the choices.
-                  { path: '/transaksi/jenis/baru', element: tenant('transaction_type.manage', <TransactionTypeStartPage />) },
-                  { path: '/transaksi/jenis/baru/kosong', element: tenant('transaction_type.manage', <TransactionTypeFormPage />) },
-                  { path: '/transaksi/jenis/:id', element: tenant('transaction.view', <TransactionTypeFormPage />) },
-                  { path: '/transaksi/jenis/:id/alur', element: tenant('transaction.view', <FlowEditorPage />) },
-                  { path: '/transaksi/jenis/:id/rules', element: tenant('transaction.view', <TransactionRulesPage />) },
-                  { path: '/transaksi/jenis/:id/panduan', element: tenant('transaction.view', <TransactionWizardPage />) },
-                  { path: '/transaksi/jenis/:id/cara-kerja', element: tenant('transaction.view', <TransactionHowItWorksPage />) },
+                  { path: '/transaksi/jenis/baru', element: typesPage('transaction_type.manage', <TransactionTypeStartPage />) },
+                  { path: '/transaksi/jenis/baru/kosong', element: typesPage('transaction_type.manage', <TransactionTypeFormPage />) },
+                  { path: '/transaksi/jenis/:id', element: typesPage('transaction.view', <TransactionTypeFormPage />) },
+                  { path: '/transaksi/jenis/:id/alur', element: typesPage('transaction.view', <FlowEditorPage />) },
+                  { path: '/transaksi/jenis/:id/rules', element: typesPage('transaction.view', <TransactionRulesPage />) },
+                  { path: '/transaksi/jenis/:id/panduan', element: typesPage('transaction.view', <TransactionWizardPage />) },
+                  { path: '/transaksi/jenis/:id/cara-kerja', element: typesPage('transaction.view', <TransactionHowItWorksPage />) },
                   // The former list of running transactions is the Riwayat tab "Sedang diproses" now; the detail stays (emails link to it).
                   { path: '/transaksi/berjalan', element: <Navigate to="/transaksi/riwayat?proses=1" replace /> },
                   { path: '/transaksi/berjalan/:id', element: tenant('transaction.view', <TransactionRunPage />) },
