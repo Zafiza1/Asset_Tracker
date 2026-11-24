@@ -46,3 +46,11 @@ Mockup v0.2 memuat: galeri template berkategori; wizard 6 langkah (Informasi, Fo
 
 ## Keputusan
 Semua usulan disetujui sesuai rekomendasi: D-46, D-47, D-48, D-49 (versi v0.3: departemen dan penanggung jawab, bukan cabang), D-50, D-57, D-58, beserta mockup v0.3. Pemilik produk: "Saya ikut rekomendasi kamu" lalu "Sesuai rekomendasi kamu" (2026-11-21). Syarat APR-0008 terpenuhi: UI v0.2/v0.3 boleh dikodekan.
+
+## Perubahan Keputusan (2026-11-24)
+**D-57 dicabut** oleh pemilik produk: "Tetap persetujuan dari superadmin dan supervisor, penanggung jawab ndak boleh menyetujui". Yang menyetujui hanya Super Admin dan Supervisor, di semua jalur persetujuan. F08-50 dan F08-51 tidak berlaku lagi:
+- Penyetuju *Penanggung jawab aset* dihapus dari Designer, template, dan validasi; persetujuan otomatis bila pencatat adalah penanggung jawab ikut dihapus.
+- Alur yang sudah terbit (beku) dan tugas yang masih terbuka dialihkan ke *Supervisor yang membawahi aset* (migrasi `2026_11_24_000100`).
+- Pengguna yang ditunjuk alur tetapi bukan lagi Super Admin/Supervisor aktif tidak dapat menyetujui; Super Admin menggantikannya.
+
+Penanggung jawab tetap menjadi data kondisi (D-49), penerima email, dan penerima tetap mengonfirmasi serah terima (D-58).

@@ -86,10 +86,11 @@ class TransactionRunResource extends JsonResource
     private function assigneeName(TransactionTask $task): ?string
     {
         return match ($task->assignee_type) {
-            'user' => User::query()->whereKey($task->assignee_id)->value('name'),
+            // An approval named to someone who may no longer approve is the Super Admin's (RunAccess).
+            'user' => $task->kind === 'approval' && ! app(RunAccess::class)->approvers()->where('ur.user_id', $task->assignee_id)->exists()
+                ? 'Super Admin' : User::query()->whereKey($task->assignee_id)->value('name'),
             'role' => Role::query()->whereKey($task->assignee_id)->value('name'),
             'location_supervisor' => 'Atasan lokasi aset',
-            'asset_custodian' => 'Penanggung jawab aset',
             'department_supervisor' => 'Supervisor departemen '.(Department::query()->whereKey($task->assignee_id)->value('name') ?? 'penerima'),
             default => null,
         };

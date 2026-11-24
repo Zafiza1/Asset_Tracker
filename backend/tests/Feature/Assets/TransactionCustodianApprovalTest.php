@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Assets;
 
+use App\Domain\AssetTransactions\Models\TransactionFlowVersion;
 use App\Domain\Authorization\RoleTemplates;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Department;
@@ -14,10 +15,9 @@ use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
- * F-08i (D-49, D-57): conditions on the asset's department and custodian, and two approvers:
- * the custodians of the assets (members without an approval role, with a Supervisor for assets
- * without one and the recorder's own assets approved at once), and the Supervisors of the
- * receiver's department (else Super Admin).
+ * F-08i (D-49): conditions on the asset's department and custodian, and the Supervisors of the
+ * receiver's department (else Super Admin) as approvers. Only Super Admin and Supervisor approve
+ * (D-57 withdrawn): custodians do not, nor does a named user who no longer holds such a role.
  */
 class TransactionCustodianApprovalTest extends TestCase
 {
@@ -90,65 +90,72 @@ class TransactionCustodianApprovalTest extends TestCase
         $this->assertStringContainsString('departemen asal Penerima berbeda dengan departemen salah satu aset', $steps);
     }
 
-    public function test_each_custodian_approves_once_and_only_while_the_task_is_theirs(): void
+    public function test_a_custodian_never_approves_not_even_in_a_flow_published_before(): void
     {
-        $type = $this->approvalType(['type' => 'asset_custodian']);
-        $elsewhere = $this->location('LOC9', 'Gudang 9');
-        $sari = $this->member(scopes: [['scope_type' => 'location', 'ref_id' => $elsewhere]]);
-        $budi = $this->member(scopes: [['scope_type' => 'location', 'ref_id' => $elsewhere]]);
-        $other = $this->member();
-        $assets = [$this->asset(custodian: $sari->id), $this->asset(custodian: $sari->id), $this->asset(custodian: $budi->id)];
+        $type = $this->approvalType(['type' => 'location_supervisor']);
+        $this->publishUnchecked($type, ['type' => 'asset_custodian']);
+        $sari = $this->createTenantUser($this->org, [RoleTemplates::ADMIN]);
 
-        $run = $this->start($type, $assets)->assertCreated()->json('data');
-        $this->assertSame(['asset_custodian', 2, 'Penanggung jawab aset'], [$run['open_task']['assignee_type'], $run['open_task']['required_approvals'], $run['open_task']['assignee_name']]);
+        // The Supervisor over the assets approves instead; being the custodian (an Admin) changes nothing.
+        $run = $this->start($type, [$this->asset(custodian: $sari->id), $this->asset()])->assertCreated()->json('data');
+        $this->assertSame(['location_supervisor', 1], [$run['open_task']['assignee_type'], $run['open_task']['required_approvals']]);
+        $this->assertSame(403, $this->complete($run, 'approved', $sari)->status());
+        $this->complete($run, 'approved')->assertOk()->assertJsonPath('data.state', 'completed');
 
-        // A custodian sees the run only through the task, though the assets are outside their scope.
-        $this->actingAs($sari, 'web');
-        $this->getJson("/api/transaction-runs/{$run['id']}")->assertOk()->assertJsonPath('data.open_task.can_act', true);
-        $this->actingAs($this->admin, 'web');
-        $this->assertSame(403, $this->complete($run, 'approved', $other)->status(), 'not a custodian of these assets');
-        $this->assertSame(403, $this->complete($run, 'approved')->status(), 'no Supervisor part: every asset has a custodian');
-
-        $run = $this->complete($run, 'approved', $sari)->assertOk()->json('data');
-        $this->assertSame(['running', 'setuju'], [$run['state'], $run['current_step']['id']]);
-        $this->assertSame(404, $this->complete($run, 'approved', $sari)->status(), 'one approval per custodian: the task is no longer theirs');
-        $this->complete($run, 'approved', $budi)->assertOk()->assertJsonPath('data.state', 'completed');
-
-        // The task done, a custodian without the assets in scope no longer sees the run.
-        $this->actingAs($sari, 'web');
-        $this->assertSame(404, $this->getJson("/api/transaction-runs/{$run['id']}")->status());
-        $this->actingAs($this->admin, 'web');
-
-        // One custodian refusing refuses the transaction.
-        $run = $this->start($type, [$this->asset(custodian: $sari->id), $this->asset(custodian: $budi->id)])->json('data');
-        $this->complete($run, 'rejected', $budi)->assertOk()->assertJsonPath('data.state', 'rejected');
+        // A recorder who is the custodian: not approved at once, nor by themselves.
+        $run = $this->start($type, [$this->asset(custodian: $this->recorder->id)])->assertCreated()->assertJsonPath('data.state', 'running')->json('data');
+        $this->assertSame(403, $this->complete($run, 'approved', $this->recorder)->status());
+        $this->complete($run, 'approved')->assertOk()->assertJsonPath('data.state', 'completed');
     }
 
-    public function test_assets_without_an_active_custodian_go_to_the_supervisor_and_the_recorders_own_are_approved(): void
+    public function test_open_custodian_approvals_move_to_the_supervisor_over_the_assets(): void
     {
-        $type = $this->approvalType(['type' => 'asset_custodian']);
-        $sari = $this->member();
-        $gone = $this->member();
-        $absent = $this->asset(custodian: $gone->id);
-        $this->tenancy()->runAsTenant(new TenantContext($this->org, $this->admin),
-            fn () => DB::table('organization_members')->where('user_id', $gone->id)->update(['status' => User::STATUS_DEACTIVATED]));
+        $type = $this->approvalType(['type' => 'location_supervisor']);
+        $sari = $this->createTenantUser($this->org, [RoleTemplates::ADMIN]);
+        $run = $this->start($type, [$this->asset(custodian: $sari->id), $this->asset()])->json('data');
+        $tenant = new TenantContext($this->org, $this->admin);
+        $this->tenancy()->runAsTenant($tenant, fn () => DB::table('transaction_tasks')->where('id', $run['open_task']['id'])->update([
+            'assignee_type' => 'asset_custodian', 'required_approvals' => 2, 'approved_by' => json_encode([$this->recorder->id]),
+            'details' => json_encode(['custodians' => [$sari->id, $this->recorder->id], 'fallback' => false]),
+        ]));
+        $this->assertSame(403, $this->complete($run, 'approved', $sari)->status());
 
-        // No custodian, and an inactive one: the Supervisor over the assets approves once, the reasons kept.
-        $run = $this->start($type, [$this->asset(), $absent, $this->asset(custodian: $sari->id)])->json('data');
-        $reasons = implode(' ', $run['open_task']['reasons']);
-        $this->assertStringContainsString('belum punya penanggung jawab', $reasons);
-        $this->assertStringContainsString('tidak aktif', $reasons);
-        $run = $this->complete($run, 'approved')->assertOk()->json('data');
-        $this->assertSame('running', $run['state'], 'the custodian still approves for their asset');
-        $this->assertSame(409, $this->complete($run, 'approved')->status(), 'the Supervisor part is given');
-        $this->complete($run, 'approved', $sari)->assertOk()->assertJsonPath('data.state', 'completed');
+        $migration = require database_path('migrations/2026_11_24_000100_custodian_approvals_to_supervisors.php');
+        $this->tenancy()->runAsTenant($tenant, fn () => $migration->up());
 
-        // The recorder is the only custodian: approved at once, and the history says so.
-        $run = $this->start($type, [$this->asset(custodian: $this->recorder->id)])->assertCreated()->assertJsonPath('data.state', 'completed')->json('data');
-        $this->actingAs($this->recorder, 'web');
-        $notes = array_column($this->getJson("/api/transaction-runs/{$run['id']}")->assertOk()->json('data.steps'), 'note');
-        $this->assertContains('Disetujui otomatis: pencatat adalah penanggung jawab.', $notes);
-        $this->actingAs($this->admin, 'web');
+        $task = $this->getJson("/api/transaction-runs/{$run['id']}")->assertOk()->json('data.open_task');
+        $this->assertSame(['location_supervisor', 1, 0], [$task['assignee_type'], $task['required_approvals'], $task['approvals']]);
+        $this->assertStringContainsString('Supervisor yang membawahi aset', $task['reasons'][0]);
+        $this->assertSame(403, $this->complete($run, 'approved', $sari)->status());
+        $this->complete($run, 'approved')->assertOk()->assertJsonPath('data.state', 'completed');
+    }
+
+    public function test_a_named_approver_who_lost_the_role_is_replaced_by_the_super_admin(): void
+    {
+        $budi = $this->createTenantUser($this->org, [RoleTemplates::SUPERVISOR]);
+        $other = $this->createTenantUser($this->org, [RoleTemplates::SUPERVISOR]);
+        $type = $this->approvalType(['type' => 'user', 'id' => $budi->id]);
+
+        // While a Supervisor, only they approve.
+        $run = $this->start($type, [$this->asset()])->assertCreated()->json('data');
+        $this->assertSame(403, $this->complete($run, 'approved')->status());
+        $this->complete($run, 'approved', $budi)->assertOk()->assertJsonPath('data.state', 'completed');
+
+        // Made an Admin while a task is open: no longer theirs, the Super Admin approves.
+        $open = $this->start($type, [$this->asset()])->json('data');
+        $this->tenancy()->runAsTenant(new TenantContext($this->org, $this->admin), fn () => DB::table('user_roles')
+            ->where('user_id', $budi->id)->update(['role_id' => $this->roleId($this->org, RoleTemplates::ADMIN)]));
+        $this->assertSame(403, $this->complete($open, 'approved', $budi)->status());
+        $this->assertSame(403, $this->complete($open, 'approved', $other)->status());
+        $this->assertSame('Super Admin', $this->getJson("/api/transaction-runs/{$open['id']}")->json('data.open_task.assignee_name'));
+        $this->complete($open, 'approved')->assertOk()->assertJsonPath('data.state', 'completed');
+
+        // A later transaction asks the Super Admin role from the start, and says why.
+        $run = $this->start($type, [$this->asset()])->json('data');
+        $this->assertSame(['role', $this->roleId($this->org, RoleTemplates::SUPER_ADMIN)], [$run['open_task']['assignee_type'], $run['open_task']['assignee_id']]);
+        $this->assertStringContainsString('persetujuan oleh Super Admin', $run['open_task']['reasons'][0]);
+        $this->assertSame(403, $this->complete($run, 'approved', $budi)->status());
+        $this->complete($run, 'approved')->assertOk()->assertJsonPath('data.state', 'completed');
     }
 
     public function test_the_receivers_department_supervisor_approves_else_the_super_admin(): void
@@ -183,7 +190,7 @@ class TransactionCustodianApprovalTest extends TestCase
         $this->assertStringContainsString('Gudang Timur', $response->json('data.open_task.reasons.0'));
     }
 
-    public function test_custodian_approvers_are_checked_and_told(): void
+    public function test_approvers_are_checked_and_told(): void
     {
         $type = $this->type();
         $graph = fn (array $approver, int $min = 1) => ['nodes' => [
@@ -194,13 +201,15 @@ class TransactionCustodianApprovalTest extends TestCase
         ], 'edges' => [$this->edge('start', 'setuju'), $this->edge('setuju', 'ok', 'approved'), $this->edge('setuju', 'tolak', 'rejected')]];
         $valid = fn (array $g) => $this->postJson("/api/transaction-types/{$type}/flow/validate", ['graph' => $g])->json('data.valid');
 
-        $this->assertTrue($valid($graph(['type' => 'asset_custodian'])));
-        $this->assertFalse($valid($graph(['type' => 'asset_custodian'], 2)));
+        $this->assertTrue($valid($graph(['type' => 'location_supervisor'])));
+        $this->assertFalse($valid($graph(['type' => 'asset_custodian'])));
         $this->assertTrue($valid($graph(['type' => 'target_department_supervisor', 'field' => 'penerima'])));
         $this->assertFalse($valid($graph(['type' => 'target_department_supervisor', 'field' => 'catatan'])));
 
         $this->putJson("/api/transaction-types/{$type}/flow", ['graph' => $graph(['type' => 'asset_custodian'])])->assertOk();
-        $this->assertStringContainsString('Penanggung jawab setiap aset', $this->getJson("/api/transaction-types/{$type}/flow/describe")->json('data.steps.1.sentence'));
+        $this->assertSame(422, $this->postJson("/api/transaction-types/{$type}/flow/publish")->status());
+        // A version published before tells who approves now.
+        $this->assertStringContainsString('upervisor yang membawahi aset', $this->getJson("/api/transaction-types/{$type}/flow/describe")->json('data.steps.1.sentence'));
     }
 
     /** An active type with a receiver (user) and a note field. */
@@ -228,6 +237,23 @@ class TransactionCustodianApprovalTest extends TestCase
         $this->postJson("/api/transaction-types/{$type}/flow/publish")->assertOk();
 
         return $type;
+    }
+
+    /**
+     * Publishes the type's flow with an approver that can no longer be chosen, as before the rule changed.
+     *
+     * @param  array<string, mixed>  $approver
+     */
+    private function publishUnchecked(string $type, array $approver): void
+    {
+        $graph = $this->getJson("/api/transaction-types/{$type}/flow")->assertOk()->json('data.active.graph');
+        $graph['nodes'] = array_map(fn (array $n) => $n['id'] === 'setuju' ? [...$n, 'config' => [...$n['config'], 'approver' => $approver]] : $n, $graph['nodes']);
+        $this->putJson("/api/transaction-types/{$type}/flow", ['graph' => $graph])->assertOk();
+        $this->tenancy()->runAsTenant(new TenantContext($this->org, $this->admin), function () use ($type) {
+            $draft = TransactionFlowVersion::query()->where('type_definition_id', $type)->where('status', TransactionFlowVersion::DRAFT)->firstOrFail();
+            $draft->forceFill(['status' => TransactionFlowVersion::PUBLISHED, 'published_at' => now()])->save();
+            DB::table('transaction_type_definitions')->where('id', $type)->update(['active_flow_version_id' => $draft->id]);
+        });
     }
 
     /** @param array<string, mixed> $rule */

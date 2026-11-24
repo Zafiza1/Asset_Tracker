@@ -127,7 +127,7 @@ export interface Rule {
 }
 
 export interface Who {
-  /** F-08i: asset_custodian and target_department_supervisor approve; asset_custodian also receives emails (F-08k). */
+  /** target_department_supervisor only approves (F-08i); asset_custodian only receives emails (F-08k): custodians do not approve. */
   type: 'starter' | 'role' | 'user' | 'field' | 'location_supervisor' | 'asset_custodian' | 'target_department_supervisor'
   id?: string
   field?: string
@@ -352,7 +352,7 @@ export interface OpenTask {
   id: string
   node_id: string
   kind: 'input' | 'approval'
-  assignee_type: 'user' | 'role' | 'location_supervisor' | 'asset_custodian' | 'department_supervisor'
+  assignee_type: 'user' | 'role' | 'location_supervisor' | 'department_supervisor'
   assignee_id: string | null
   assignee_name: string | null
   /** Why the task went to another approver than the flow named (F08-51/52). */

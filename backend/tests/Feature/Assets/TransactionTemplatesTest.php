@@ -269,11 +269,12 @@ class TransactionTemplatesTest extends TestCase
             'custodian_user_id' => $sari->id, 'department_id' => $this->masters['department']->id,
         ])->assertCreated()->json('data.id');
 
-        // To another department: the former custodian, then the receiving department's Supervisor, then the receiver.
+        // To another department: the Supervisor over the asset, then the receiving department's Supervisor, then the receiver.
         $laptop = $asset();
         $run = $this->start($type, $laptop, $values($budi))->assertCreated()->json('data');
-        $this->assertSame(['setuju_lama', 'asset_custodian'], [$run['current_step']['id'], $run['open_task']['assignee_type']]);
-        $run = $this->complete($run, ['decision' => 'approved'], $sari)->assertOk()->json('data');
+        $this->assertSame(['setuju', 'location_supervisor'], [$run['current_step']['id'], $run['open_task']['assignee_type']]);
+        $this->assertSame(403, $this->complete($run, ['decision' => 'approved'], $sari)->status(), 'the former custodian does not approve');
+        $run = $this->complete($run, ['decision' => 'approved'])->assertOk()->json('data');
         $this->assertSame(['ra_lintas', 'department_supervisor'], [$run['current_step']['id'], $run['open_task']['assignee_type']]);
         $run = $this->complete($run, ['decision' => 'approved'])->assertOk()->json('data');
         $this->assertSame('konfirmasi', $run['current_step']['id']);
@@ -288,13 +289,13 @@ class TransactionTemplatesTest extends TestCase
 
         // Within the same department: no cross-department approval.
         $colleague = $member($this->masters['department']->id);
-        $run = $this->complete($this->start($type, $asset(), $values($colleague))->json('data'), ['decision' => 'approved'], $sari)->json('data');
+        $run = $this->complete($this->start($type, $asset(), $values($colleague))->json('data'), ['decision' => 'approved'])->json('data');
         $this->assertSame('konfirmasi', $run['current_step']['id']);
 
-        // Refused by the former custodian: nothing changes.
+        // Refused: nothing changes.
         $kept = $asset();
         $run = $this->start($type, $kept, $values($budi))->json('data');
-        $this->complete($run, ['decision' => 'rejected', 'note' => 'Masih dipakai.'], $sari)->assertOk()->assertJsonPath('data.state', 'rejected');
+        $this->complete($run, ['decision' => 'rejected', 'note' => 'Masih dipakai.'])->assertOk()->assertJsonPath('data.state', 'rejected');
         $this->getJson("/api/assets/{$kept}")->assertJsonPath('data.custodian_user_id', $sari->id);
     }
 

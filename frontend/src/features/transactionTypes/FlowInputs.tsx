@@ -47,7 +47,6 @@ export function WhoPicker({ label, value, roles, members, fields, onChange, appr
         { value: 'location_supervisor', label: 'Supervisor yang membawahi aset' },
         { value: 'role', label: 'Role' },
         { value: 'user', label: 'Pengguna tertentu' },
-        { value: 'asset_custodian', label: 'Penanggung jawab aset' },
         { value: 'target_department_supervisor', label: 'Supervisor departemen penerima' },
       ]
     : [
@@ -57,16 +56,22 @@ export function WhoPicker({ label, value, roles, members, fields, onChange, appr
         { value: 'field', label: 'Pengguna dari field' },
         ...(notify ? [{ value: 'asset_custodian' as const, label: 'Penanggung jawab aset saat itu' }] : []),
       ]
+  // A choice no longer offered (custodians as approvers, D-57 withdrawn) must be made again.
+  const offered = kinds.some((k) => k.value === value.type)
   const hints: Partial<Record<Who['type'], string>> = {
     location_supervisor: 'Super Admin atau Supervisor yang cakupan datanya meliputi semua aset (lokasi atau departemennya).',
-    asset_custodian: 'Setiap penanggung jawab menyetujui asetnya sendiri. Aset tanpa penanggung jawab aktif disetujui Supervisor yang membawahi aset; aset milik pencatat dianggap disetujui.',
     target_department_supervisor: 'Supervisor yang cakupannya meliputi departemen asal orang di field yang dipilih; bila tidak ada, Super Admin.',
   }
   return (
     <div className="space-y-2">
       <Field label={label} hint={approval ? hints[value.type] : undefined}>
         {(p) => (
-          <Select {...p} value={value.type} onChange={(e) => onChange({ type: e.target.value as Who['type'] })}>
+          <Select {...p} value={offered ? value.type : ''} onChange={(e) => onChange({ type: e.target.value as Who['type'] })}>
+            {!offered && (
+              <option value="" disabled>
+                — Pilih lagi —
+              </option>
+            )}
             {kinds.map((k) => (
               <option key={k.value} value={k.value}>
                 {k.label}
@@ -99,7 +104,7 @@ export function WhoPicker({ label, value, roles, members, fields, onChange, appr
       {value.type === 'target_department_supervisor' && (
         <FieldSelect label="Field penerima" fields={fields} types={['user']} value={value.field} onChange={(field) => onChange({ type: 'target_department_supervisor', field })} />
       )}
-      {approval && value.type !== 'asset_custodian' && <p className="text-xs text-slate-500">Hanya Super Admin dan Supervisor yang dapat menyetujui.</p>}
+      {approval && <p className="text-xs text-slate-500">Hanya Super Admin dan Supervisor yang dapat menyetujui.</p>}
     </div>
   )
 }

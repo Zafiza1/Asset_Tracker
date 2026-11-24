@@ -53,7 +53,7 @@ final class FlowGraph
     ];
 
     /** Approvers that are not a fixed person or role (F-08i): resolved per transaction when the task is made. */
-    public const CONTEXT_APPROVERS = ['location_supervisor', 'asset_custodian', 'target_department_supervisor'];
+    public const CONTEXT_APPROVERS = ['location_supervisor', 'target_department_supervisor'];
 
     /** Statuses a flow action may set (disposal keeps its own permission and transaction). */
     public const ACTION_STATUSES = [AssetStatus::AVAILABLE, AssetStatus::IN_USE, AssetStatus::UNDER_MAINTENANCE, AssetStatus::LOST];
@@ -286,8 +286,8 @@ final class FlowGraph
                     $issues[] = 'jumlah minimal penyetuju 1 sampai '.self::MAX_APPROVALS.'.';
                 } elseif ($min > 1 && ($approver['type'] ?? null) === 'user') {
                     $issues[] = 'penyetuju satu pengguna hanya dapat memberi satu persetujuan; pilih role atau atasan lokasi.';
-                } elseif ($min > 1 && in_array($approver['type'] ?? null, ['asset_custodian', 'target_department_supervisor'], true)) {
-                    $issues[] = 'penyetuju ini memberi satu persetujuan (penanggung jawab: satu per orang); jumlah minimal harus 1.';
+                } elseif ($min > 1 && ($approver['type'] ?? null) === 'target_department_supervisor') {
+                    $issues[] = 'penyetuju ini memberi satu persetujuan; jumlah minimal harus 1.';
                 }
                 break;
             case 'condition':
@@ -391,8 +391,12 @@ final class FlowGraph
 
             return $approval && ! $approver ? ['penyetuju harus memegang role Super Admin atau Supervisor.'] : [];
         }
-        if ($approval && in_array($type, ['location_supervisor', 'asset_custodian'], true)) {
+        if ($approval && $type === 'location_supervisor') {
             return [];
+        }
+        // Withdrawn (D-57): only Super Admin and Supervisor approve.
+        if ($approval && $type === 'asset_custodian') {
+            return ['penanggung jawab aset tidak dapat menyetujui; pilih Super Admin atau Supervisor.'];
         }
         if ($approval && $type === 'target_department_supervisor') {
             return $field($assignee['field'] ?? null, 'user') ? [] : ['pilih field pengguna penerima untuk Supervisor departemen penerima.'];

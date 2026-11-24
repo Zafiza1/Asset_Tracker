@@ -18,12 +18,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $run_id
  * @property string $node_id
  * @property string $kind
- * @property string $assignee_type role|user|location_supervisor|asset_custodian|department_supervisor
+ * @property string $assignee_type role|user|location_supervisor|department_supervisor (asset_custodian: closed tasks from before D-57 was withdrawn)
  * @property string|null $assignee_id
  * @property string $status
  * @property int $required_approvals
  * @property list<string> $approved_by
- * @property array<string, mixed> $details who approves as custodian and why a task fell back to another approver (F-08i)
+ * @property array<string, mixed> $details why a task fell back to another approver (F-08i)
  */
 class TransactionTask extends Model
 {

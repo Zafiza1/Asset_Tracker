@@ -200,7 +200,7 @@ final class TransactionTemplates
                 ],
                 'graph' => self::graph([
                     self::node('start', 'start', 'Diajukan'),
-                    self::node('setuju_lama', 'approval', 'Persetujuan penanggung jawab lama', ['approver' => ['type' => 'asset_custodian'], 'min_approvals' => 1]),
+                    self::node('setuju', 'approval', 'Persetujuan Supervisor', ['approver' => ['type' => 'location_supervisor'], 'min_approvals' => 1]),
                     self::node('konfirmasi', 'input', 'Konfirmasi penerima', ['assignee' => ['type' => 'field', 'field' => 'penanggung_jawab_baru'], 'fields' => ['berita_acara']]),
                     self::node('kabari_lama', 'action', 'Email ke penanggung jawab lama', ['actions' => [
                         ['kind' => 'notify', 'to' => ['type' => 'asset_custodian'], 'message' => 'Aset yang Anda pegang telah diserahterimakan kepada penanggung jawab baru.'],
@@ -214,7 +214,7 @@ final class TransactionTemplates
                     self::node('selesai', 'end', 'Selesai', ['result' => 'completed']),
                     self::node('ditolak', 'end', 'Ditolak', ['result' => 'rejected']),
                 ], [
-                    ['start', 'setuju_lama'], ['setuju_lama', 'konfirmasi', 'approved'], ['setuju_lama', 'ditolak', 'rejected'],
+                    ['start', 'setuju'], ['setuju', 'konfirmasi', 'approved'], ['setuju', 'ditolak', 'rejected'],
                     ['konfirmasi', 'kabari_lama'], ['kabari_lama', 'ganti'], ['ganti', 'kabari_baru'], ['kabari_baru', 'selesai'],
                 ]),
                 'rules' => [

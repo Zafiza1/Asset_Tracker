@@ -454,8 +454,8 @@ final class FlowDescriber
         $who = match ($approver['type'] ?? null) {
             'role' => ($min > 1 ? "{$min} pemegang" : 'Pemegang').' role '.$this->name('role', $approver['id'] ?? null),
             'user' => $this->name('user', $approver['id'] ?? null),
-            'location_supervisor' => ($min > 1 ? "{$min} " : '').'Supervisor yang membawahi aset',
-            'asset_custodian' => 'Penanggung jawab setiap aset (bila belum ada atau tidak aktif: Supervisor yang membawahi aset; pencatat yang menjadi penanggung jawab dianggap menyetujui)',
+            // asset_custodian: flows published before D-57 was withdrawn (FlowEngine::openTask).
+            'location_supervisor', 'asset_custodian' => ($min > 1 ? "{$min} " : '').'Supervisor yang membawahi aset',
             'target_department_supervisor' => 'Supervisor departemen asal '.$this->fieldLabel((string) ($approver['field'] ?? '')).' (bila tidak ada: Super Admin)',
             default => 'Penyetuju '.self::MISSING,
         };
