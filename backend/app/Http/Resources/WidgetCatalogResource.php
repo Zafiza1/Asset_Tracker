@@ -17,6 +17,7 @@ class WidgetCatalogResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'component_type' => $this->component_type,
+            'required_permission' => $this->required_permission,
             // Declarative field list (types, options, bounds): data for the configuration form, never code.
             'configuration_schema' => (object) $this->configuration_schema,
             'supported_data_sources' => $this->supported_data_sources,

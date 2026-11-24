@@ -69,12 +69,16 @@ class SpreadsheetImportTest extends TestCase
             // A DateTime becomes a real date cell (serial number + date format), as Excel saves it.
             ['Laptop Dell', 'SN-1', 'CAT1', 'LOC1', 'Aktif', null, new DateTimeImmutable('2024-01-15'), 15000000, 'Staf IT'],
             ['Meja', null, 'cat1', 'LOC1', null, null, '2024-02-01', null, null],
-        ])->assertOk()->assertJsonPath('data.imported', 2);
+            ['Kursi', null, 'CAT1', 'LOC1', 'Tersedia', null, null, null, null],
+            // The former label of "Tersedia", from a template filled in before 2026-11-23.
+            ['Lemari', null, 'CAT1', 'LOC1', 'Tidak Aktif', null, null, null, null],
+        ])->assertOk()->assertJsonPath('data.imported', 4);
 
         $laptop = Asset::query()->where('name', 'Laptop Dell')->firstOrFail();
         $this->assertSame('in_use', $laptop->status);
         $this->assertSame('2024-01-15', $laptop->acquisition_date->format('Y-m-d'));
         $this->assertSame('in_use', Asset::query()->where('name', 'Meja')->value('status'));
+        $this->assertSame(['available', 'available'], [Asset::query()->where('name', 'Kursi')->value('status'), Asset::query()->where('name', 'Lemari')->value('status')]);
     }
 
     public function test_assets_import_fills_the_required_condition_from_its_column(): void
@@ -134,8 +138,8 @@ class SpreadsheetImportTest extends TestCase
         $this->assertSame(DataValidation::TYPE_DATE, $data->getCell('G500')->getDataValidation()->getType());
 
         $lists = $book->getSheetByName('Daftar Pilihan')->toArray();
-        $this->assertSame(['Kategori', 'Lokasi', 'Status', 'Kondisi'], $lists[0]);
-        $this->assertSame(['CAT1 — Kategori 1', 'LOC1 — Gudang 1', 'Aktif', 'Baru'], $lists[1]);
+        $this->assertSame(['Kategori', 'Lokasi', 'Status', 'Kondisi', 'Departemen'], $lists[0]);
+        $this->assertSame(['CAT1 — Kategori 1', 'LOC1 — Gudang 1', 'Aktif', 'Baru', 'DEP1 — Departemen 1'], $lists[1]);
         $this->assertStringContainsString('Template Import Pendataan Aset', (string) $book->getSheetByName('Petunjuk')->getCell('A1')->getValue());
 
         $this->template('/api/locations/template');

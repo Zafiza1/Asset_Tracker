@@ -7,7 +7,8 @@ namespace App\Domain\Assets;
  * an archived asset keeps its last status and history but leaves the active inventory.
  *
  * The stored keys predate the current labels: in_use is in service ("Aktif"), available is
- * out of service, not in anyone's use ("Tidak Aktif").
+ * not in anyone's use, ready to be used ("Tersedia"; labelled "Tidak Aktif" from 2026-11-05 to
+ * 2026-11-23, which read like the separate archiving action "Nonaktifkan").
  */
 final class AssetStatus
 {
@@ -36,11 +37,16 @@ final class AssetStatus
 
     public const LABELS = [
         self::IN_USE => 'Aktif',
-        self::AVAILABLE => 'Tidak Aktif',
+        self::AVAILABLE => 'Tersedia',
         self::UNDER_MAINTENANCE => 'Dalam Perbaikan',
         self::ON_LOAN => 'Dipinjamkan',
         self::OFF_SITE => 'Di Luar Organisasi',
         self::LOST => 'Hilang',
         self::DISPOSED => 'Dihapuskan',
+    ];
+
+    /** Former labels still understood on import, so spreadsheets filled in earlier keep working (lower case). */
+    public const FORMER_LABELS = [
+        'tidak aktif' => self::AVAILABLE,
     ];
 }

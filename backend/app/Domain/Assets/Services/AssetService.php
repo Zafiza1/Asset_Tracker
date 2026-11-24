@@ -9,6 +9,9 @@ use App\Domain\AssetTransactions\Services\AssetTransactionService;
 use App\Domain\AssetTransactions\TransactionLog;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Audit\AuditLogger;
+use App\Domain\Identity\Models\OrganizationMember;
+use App\Domain\Identity\Models\User;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
@@ -19,7 +22,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
 
 /**
  * Asset Management: register, edit descriptive data, deactivate (archive) and reactivate.
@@ -29,7 +31,7 @@ use Illuminate\Validation\ValidationException;
 final class AssetService
 {
     private const AUDIT = ['serial_number', 'name', 'category_id', 'location_id', 'status',
-        'acquisition_date', 'acquisition_cost', 'description'];
+        'acquisition_date', 'acquisition_cost', 'description', 'custodian_user_id', 'department_id'];
 
     /** Private disk: asset photos are served only through the (scoped) asset route. */
     public const IMAGE_DISK = 'local';
@@ -50,14 +52,17 @@ final class AssetService
         if ($locationId !== null) {
             $this->assertActive(Location::class, $locationId, 'location_id', 'Lokasi');
         }
-        if (! $this->scope->allowsLocation($locationId)) {
-            throw ApiException::unprocessable('LOCATION_OUT_OF_SCOPE', 'Lokasi berada di luar cakupan data Anda.', ['fields' => ['location_id' => ['Pilih lokasi dalam cakupan data Anda.']]]);
+        if (! $this->scope->allowsAsset($locationId, $data['department_id'] ?? null)) {
+            throw self::outOfScope($this->scope->hasDepartments());
         }
         $this->assertSerialAvailable($data['serial_number'] ?? null);
+        $this->assertResponsibility($data);
         $status = $data['status'] ?? AssetStatus::IN_USE;
-        $values = $this->attributes->resolveValues($data['category_id'], [], $data['attributes'] ?? []);
+        $hidden = $this->attributes->resolveHidden($data['category_id'], $data['hidden_attributes'] ?? []);
+        $values = $this->attributes->resolveValues($data['category_id'], [], $data['attributes'] ?? [], $hidden);
+        $extras = $this->attributes->resolveExtras($data['category_id'], $hidden, $data['extra_attributes'] ?? []);
 
-        return DB::transaction(function () use ($data, $locationId, $status, $values) {
+        return DB::transaction(function () use ($data, $locationId, $status, $values, $hidden, $extras) {
             $userId = $this->tenancy->tenant()->userId();
 
             $asset = new Asset;
@@ -66,6 +71,8 @@ final class AssetService
                 'location_id' => $locationId,
                 'status' => $status,
                 'attribute_values' => $values,
+                'hidden_attributes' => $hidden,
+                'extra_attributes' => $extras,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ])->save();
@@ -94,15 +101,37 @@ final class AssetService
         if (array_key_exists('serial_number', $data)) {
             $this->assertSerialAvailable($data['serial_number'], $asset->id);
         }
+        // Only a new choice must be active: an asset keeps a custodian who has since left.
+        $this->assertResponsibility(array_filter(
+            array_intersect_key($data, array_flip(['custodian_user_id', 'department_id'])),
+            fn ($id, $field) => $id !== $asset->getAttribute($field),
+            ARRAY_FILTER_USE_BOTH,
+        ));
+        // F-09 §3.3: a new department must keep the asset within the user's own scope.
+        if (array_key_exists('department_id', $data) && $data['department_id'] !== $asset->department_id
+            && ! $this->scope->allowsAsset($asset->location_id, $data['department_id'])) {
+            throw self::outOfScope(true);
+        }
         $changes = array_intersect_key($data, array_flip(Asset::EDITABLE));
         // Values are revalidated when they are sent or when the category (hence the set of fields) changes.
         $categoryId = $changes['category_id'] ?? $asset->category_id;
-        if (array_key_exists('attributes', $data) || $categoryId !== $asset->category_id) {
+        $fieldsChange = array_key_exists('attributes', $data) || array_key_exists('hidden_attributes', $data) || array_key_exists('extra_attributes', $data);
+        if ($fieldsChange || $categoryId !== $asset->category_id) {
+            $hidden = $this->attributes->resolveHidden($categoryId, $data['hidden_attributes'] ?? $asset->hidden_attributes ?? []);
             $current = $categoryId === $asset->category_id ? $asset->attribute_values
                 : $this->attributes->carryOver($asset->category_id, $categoryId, $asset->attribute_values);
-            $values = $this->attributes->resolveValues($categoryId, $current, $data['attributes'] ?? null);
+            $values = $this->attributes->resolveValues($categoryId, $current, $data['attributes'] ?? null, $hidden);
             if (! self::sameValues($values, $asset->attribute_values)) {
                 $changes['attribute_values'] = $values;
+            }
+            if ($hidden !== ($asset->hidden_attributes ?? [])) {
+                $changes['hidden_attributes'] = $hidden;
+            }
+            $extras = $this->attributes->resolveExtras($categoryId, $hidden, $data['extra_attributes'] ?? $asset->extra_attributes ?? []);
+            // jsonb keeps no key order, so the fields are compared by their parts.
+            $parts = fn (array $list) => array_map(fn (array $e) => [$e['label'] ?? null, $e['data_type'] ?? null, $e['value'] ?? null], $list);
+            if ($parts($extras) !== $parts($asset->extra_attributes ?? [])) {
+                $changes['extra_attributes'] = $extras;
             }
         }
 
@@ -223,6 +252,41 @@ final class AssetService
         }
     }
 
+    /**
+     * A chosen custodian is an active member (with an active account) of this organization and a
+     * chosen department an active department. NULL (cleared) always passes.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function assertResponsibility(array $data): void
+    {
+        if (($data['department_id'] ?? null) !== null) {
+            $this->assertActive(Department::class, $data['department_id'], 'department_id', 'Departemen');
+        }
+        $userId = $data['custodian_user_id'] ?? null;
+        if ($userId === null) {
+            return;
+        }
+        $active = OrganizationMember::query()->where('user_id', $userId)->where('status', User::STATUS_ACTIVE)
+            ->whereHas('user', fn ($q) => $q->where('status', User::STATUS_ACTIVE))->exists();
+        if (! $active) {
+            $message = 'Penanggung jawab harus anggota aktif organisasi ini.';
+            throw ApiException::unprocessable('INVALID_REFERENCE', $message, ['fields' => ['custodian_user_id' => [$message]]]);
+        }
+    }
+
+    /** The asset would end up outside the user's data scope (F-09 §3.3). */
+    private static function outOfScope(bool $byDepartment): ApiException
+    {
+        if ($byDepartment) {
+            $message = 'Departemen atau lokasi aset harus berada dalam cakupan data Anda.';
+
+            return ApiException::unprocessable('ASSET_OUT_OF_SCOPE', $message, ['fields' => ['department_id' => [$message]]]);
+        }
+
+        return ApiException::unprocessable('LOCATION_OUT_OF_SCOPE', 'Lokasi berada di luar cakupan data Anda.', ['fields' => ['location_id' => ['Pilih lokasi dalam cakupan data Anda.']]]);
+    }
+
     private function assertSerialAvailable(?string $serial, ?string $exceptId = null): void
     {
         if ($serial === null || $serial === '') {
@@ -241,6 +305,8 @@ final class AssetService
         $values = $asset->only(self::AUDIT);
         $values['acquisition_date'] = $asset->acquisition_date?->toDateString();
         $values['attributes'] = $asset->attribute_values;
+        $values['hidden_attributes'] = $asset->hidden_attributes ?? [];
+        $values['extra_attributes'] = $asset->extra_attributes ?? [];
 
         return $values;
     }

@@ -2,8 +2,12 @@
 
 namespace App\Domain\AssetTransactions\Services;
 
+use App\Domain\AssetTransactions\Flows\FlowGraph;
+use App\Domain\AssetTransactions\Flows\FlowVersionService;
+use App\Domain\AssetTransactions\Models\TransactionFlowVersion;
 use App\Domain\AssetTransactions\Models\TransactionTypeDefinition;
 use App\Domain\AssetTransactions\Models\TransactionTypeField;
+use App\Domain\AssetTransactions\Templates\TransactionTemplates;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Domain\Audit\AuditLogger;
@@ -25,7 +29,97 @@ final class TransactionTypeService
     public function __construct(
         private readonly Tenancy $tenancy,
         private readonly AuditLogger $audit,
+        private readonly FlowVersionService $flows,
     ) {}
+
+    /**
+     * A new draft organization type copied from $source (F-08 "Salin jenis", D-40): its fields,
+     * categories, asset rules and flow (the published version, else the draft) become the copy's
+     * own and stay unlinked. A copy of a system type keeps its core action (core_type), so the
+     * core rules still apply; without a flow it starts from Mulai → Aksi inti → Selesai.
+     */
+    public function duplicate(TransactionTypeDefinition $source, string $code, string $name): TransactionTypeDefinition
+    {
+        return DB::transaction(function () use ($source, $code, $name) {
+            $source->loadMissing(['fields', 'categories:id']);
+            $copy = new TransactionTypeDefinition;
+            $copy->fill([
+                'name' => $name, 'description' => $source->description, 'icon' => $source->icon,
+                'multi_asset' => $source->multi_asset, 'locks_assets' => $source->locks_assets,
+            ]);
+            $copy->forceFill([
+                'code' => $this->code($code), 'status' => TransactionTypeDefinition::DRAFT,
+                'core_type' => $source->coreType(), 'created_by' => $this->tenancy->tenant()->userId(),
+            ])->save();
+            $this->syncCategories($copy, $source->categories->pluck('id')->all());
+            $this->syncFields($copy, $source->fields->map(fn (TransactionTypeField $f) => [
+                'key' => $f->key, 'label' => $f->label, 'data_type' => $f->data_type, 'settings' => $f->settings ?? [], 'is_required' => $f->is_required,
+            ])->all());
+
+            $version = TransactionFlowVersion::query()->whereKey($source->active_flow_version_id)->first() ?? $this->flows->draft($source);
+            $graph = $version?->graph ?? ($source->coreType() !== null ? FlowGraph::coreStarter('Catat '.mb_strtolower($source->name)) : null);
+            if ($graph !== null) {
+                // A rules flow stays one, its named rules copied with it (F-08g).
+                $rules = $version?->graph_source === TransactionFlowVersion::SOURCE_RULES ? $version->rules : null;
+                $this->flows->saveDraft($copy, $graph, "Disalin dari {$source->name} ({$source->code}).", $rules);
+            }
+            $this->audit->record('transaction_type.duplicated', $copy, after: [...$this->snapshot($copy), 'source' => $source->code]);
+
+            return $copy;
+        });
+    }
+
+    /**
+     * New draft organization types from a ready-made template (F-08c, D-40): the template's fields
+     * and flow become the type's own (draft flow, roles resolved for this organization), with
+     * source_template_key as the only trace of the template. A template with a pair also makes
+     * its closing type, which closes the first ("Berpasangan"). Code and name default to the
+     * template's.
+     *
+     * @return array{0: TransactionTypeDefinition, 1: TransactionTypeDefinition|null} the type and its closing pair
+     */
+    public function fromTemplate(string $key, ?string $code = null, ?string $name = null, ?string $pairCode = null, ?string $pairName = null): array
+    {
+        $template = TransactionTemplates::find($key);
+        if ($template === null) {
+            throw ValidationException::withMessages(['template' => 'Template tidak ditemukan.']);
+        }
+        if ($template['closes'] !== null) {
+            $with = TransactionTemplates::find($template['closes'])['name'];
+            throw ValidationException::withMessages(['template' => "Template ini dibuat bersama template {$with}. Pakai template {$with}."]);
+        }
+
+        return DB::transaction(function () use ($key, $template, $code, $name, $pairCode, $pairName) {
+            $type = $this->makeFromTemplate($key, $template, $code ?? $template['code'], $name ?? $template['name'], null, 'code');
+            $pair = null;
+            if ($template['pair'] !== null) {
+                $pairTemplate = TransactionTemplates::find($template['pair']);
+                $pair = $this->makeFromTemplate($template['pair'], $pairTemplate, $pairCode ?? $pairTemplate['code'], $pairName ?? $pairTemplate['name'], $type->id, 'pair.code');
+            }
+
+            return [$type, $pair];
+        });
+    }
+
+    /** @param array<string, mixed> $template one of TransactionTemplates::all() */
+    private function makeFromTemplate(string $key, array $template, string $code, string $name, ?string $closesTypeId, string $codeAttribute): TransactionTypeDefinition
+    {
+        $definition = new TransactionTypeDefinition;
+        $definition->fill([
+            'name' => $name, 'description' => $template['purpose'], 'icon' => $template['icon'],
+            'multi_asset' => $template['multi_asset'], 'locks_assets' => $template['locks_assets'], 'closes_type_id' => $closesTypeId,
+        ]);
+        $definition->forceFill([
+            'code' => $this->code($code, null, $codeAttribute), 'status' => TransactionTypeDefinition::DRAFT,
+            'core_type' => $template['core_type'], 'source_template_key' => $key, 'created_by' => $this->tenancy->tenant()->userId(),
+        ])->save();
+        $this->syncFields($definition, $template['fields']);
+        $this->flows->saveDraft($definition, TransactionTemplates::resolveRoles($template['graph']), "Dibuat dari template {$template['name']}.",
+            TransactionTemplates::resolveRuleRoles($template['rules']));
+        $this->audit->record('transaction_type.created_from_template', $definition, after: [...$this->snapshot($definition), 'template' => $key]);
+
+        return $definition;
+    }
 
     /** @param array<string, mixed> $data validated (see TransactionTypeController::rules) */
     public function create(array $data): TransactionTypeDefinition
@@ -49,6 +143,10 @@ final class TransactionTypeService
     {
         return DB::transaction(function () use ($definition, $data) {
             $definition = TransactionTypeDefinition::query()->lockForUpdate()->findOrFail($definition->id);
+            // A system type takes the organization's own fields (F-07f-2); the rest stays built-in.
+            if ($definition->isSystem() && array_diff(array_keys($data), ['fields']) !== []) {
+                self::assertNotSystem($definition);
+            }
             $before = $this->snapshot($definition);
 
             if (isset($data['code']) && strtoupper($data['code']) !== $definition->code) {
@@ -78,6 +176,7 @@ final class TransactionTypeService
     public function delete(TransactionTypeDefinition $definition): void
     {
         DB::transaction(function () use ($definition) {
+            self::assertNotSystem($definition);
             if ($definition->transactions()->exists()) {
                 throw ApiException::conflict('TYPE_IN_USE', 'Jenis ini sudah dipakai transaksi. Nonaktifkan jenisnya bila tidak dipakai lagi.');
             }
@@ -98,7 +197,7 @@ final class TransactionTypeService
     {
         $attributes = array_intersect_key($data, array_flip(['name', 'description', 'icon', 'multi_asset', 'locks_assets', 'closes_type_id']));
         if (! empty($attributes['closes_type_id'])) {
-            if ($attributes['closes_type_id'] === $current?->id || ! TransactionTypeDefinition::query()->whereKey($attributes['closes_type_id'])->exists()) {
+            if ($attributes['closes_type_id'] === $current?->id || ! TransactionTypeDefinition::query()->organizationOwn()->whereKey($attributes['closes_type_id'])->exists()) {
                 throw ValidationException::withMessages(['closes_type_id' => 'Jenis yang ditutup tidak ditemukan.']);
             }
         }
@@ -106,17 +205,28 @@ final class TransactionTypeService
         return $attributes;
     }
 
+    /**
+     * System types (F-07f) keep their name, code, rules and pairing, and are never deleted; the
+     * organization may add fields (update with `fields` only) and a flow around the core action.
+     */
+    public static function assertNotSystem(TransactionTypeDefinition $definition): void
+    {
+        if ($definition->isSystem()) {
+            throw ApiException::conflict('SYSTEM_TYPE_READONLY', "Jenis sistem {$definition->name} memakai aturan bawaan aplikasi. Yang dapat diubah hanya field tambahan dan alurnya; jenisnya tidak dapat dihapus.");
+        }
+    }
+
     /** Upper-case, not a system prefix, not used by another type of the organization. */
-    private function code(string $code, ?string $ignoreId = null): string
+    private function code(string $code, ?string $ignoreId = null, string $attribute = 'code'): string
     {
         $code = strtoupper($code);
         if (in_array($code, TransactionType::PREFIXES, true)) {
-            throw ValidationException::withMessages(['code' => "Kode {$code} dipakai jenis sistem. Pilih kode lain."]);
+            throw ValidationException::withMessages([$attribute => "Kode {$code} dipakai jenis sistem. Pilih kode lain."]);
         }
         $taken = TransactionTypeDefinition::query()->where('code', $code)
             ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))->exists();
         if ($taken) {
-            throw ValidationException::withMessages(['code' => "Kode {$code} sudah dipakai jenis lain."]);
+            throw ValidationException::withMessages([$attribute => "Kode {$code} sudah dipakai jenis lain."]);
         }
 
         return $code;

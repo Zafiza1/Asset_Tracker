@@ -71,7 +71,7 @@ class DataScopeEscalationTest extends TestCase
             'organization.view', 'catalog.generic.view', 'user.view', 'user.update',
             'master.tenant.view', 'master.tenant.create', 'master.tenant.update', 'master.tenant.archive',
             'asset.view', 'asset.create', 'asset.update', 'asset.transfer', 'asset.archive', 'asset.restore',
-            'transaction.view', 'transaction.create', 'report.view', 'approval.manage',
+            'transaction.view', 'transaction.create', 'report.view', 'dashboard.view', 'approval.manage',
         ]);
         $this->head = $this->createTenantUser($this->org, ['KEPALA'], $this->scopeAt($this->gedungA));
     }
@@ -182,14 +182,15 @@ class DataScopeEscalationTest extends TestCase
         $this->getJson('/api/assets')->assertOk()->assertJsonCount(0, 'data');
         $this->getJson("/api/assets/{$this->assetA->id}")->assertNotFound();
         $this->getJson('/api/transactions')->assertOk()->assertJsonCount(0, 'data');
-        $this->getJson('/api/dashboard')->assertOk()->assertJsonPath('data.summary.total', 0);
+        $this->assertSame(0, $this->widgetData($this->org, $this->head, 'total_assets')['value']);
         $this->postJson('/api/transactions', ['asset_id' => $this->assetA->id, 'type' => 'note', 'notes' => 'x'])->assertNotFound();
         $this->assertErrorCode($this->postJson('/api/locations', $this->locationPayload('BARU', $this->a1)), 422, 'LOCATION_OUT_OF_SCOPE');
     }
 
     public function test_scope_without_any_location_never_allows_a_location(): void
     {
-        // Department scopes grant no assets; they must not count as "every location" either.
+        // A department scope is not "every location": an asset outside the department is refused
+        // (F-09 §3.3; department assets themselves are covered by DepartmentScopeTest).
         Notification::fake();
         $department = $this->masters['department'];
         $this->customRole('KOORDINATOR', ['user.view', 'user.create', 'role.manage', 'role.view',
@@ -197,7 +198,7 @@ class DataScopeEscalationTest extends TestCase
         $coordinator = $this->createTenantUser($this->org, ['KOORDINATOR'], [['scope_type' => 'department', 'ref_id' => $department->id]]);
         $this->loginAs($coordinator);
 
-        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id, 'location_id' => $this->gedungB->id]), 422, 'LOCATION_OUT_OF_SCOPE');
+        $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'X', 'serial_number' => 'SN-X', 'category_id' => $this->masters['category']->id, 'location_id' => $this->gedungB->id]), 422, 'ASSET_OUT_OF_SCOPE');
         $this->assertErrorCode($this->postJson('/api/invitations', $this->invitation('calon@alpha.test', $this->scopeAt($this->gedungB))), 403, 'SCOPE_ESCALATION');
         $this->postJson('/api/invitations', $this->invitation('calon@alpha.test', [['scope_type' => 'department', 'ref_id' => $department->id]]))->assertCreated();
         $this->assertFalse(Asset::query()->where('name', 'X')->exists());
@@ -450,9 +451,9 @@ class DataScopeEscalationTest extends TestCase
         $this->getJson("/api/transactions?asset_id={$this->assetB->id}")->assertOk()->assertJsonCount(0, 'data');
         $this->getJson("/api/transactions/{$trxB}")->assertNotFound();
 
-        $dashboard = $this->getJson('/api/dashboard')->assertOk();
-        $dashboard->assertJsonPath('data.summary.total', 1);
-        $this->assertSame([$this->a1->id], array_column($dashboard->json('data.by_location'), 'id'));
+        // Dashboard Aset widgets count inside the member's scope as well.
+        $this->assertSame(1, $this->widgetData($this->org, $this->head, 'total_assets')['value']);
+        $this->assertSame([$this->a1->id], array_column($this->widgetData($this->org, $this->head, 'assets_by_location')['items'], 'id'));
     }
 
     public function test_out_of_scope_assets_cannot_be_modified(): void

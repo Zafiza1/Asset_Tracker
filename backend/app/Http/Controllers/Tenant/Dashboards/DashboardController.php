@@ -57,14 +57,15 @@ class DashboardController extends Controller
 
     /**
      * Sidebar groups: Overview, every active category (with its dashboard once created),
-     * My Dashboards (created by the member) and Shared With Me (organization dashboards others made).
+     * My Dashboards (created by the member, including their asset board) and Shared With Me
+     * (organization dashboards others made).
      */
     public function navigation(Request $request): JsonResponse
     {
         $overview = $this->service->overview();
         $userId = $request->user()->id;
 
-        $custom = $this->accessible()->where('dashboard_type', DashboardType::CUSTOM)
+        $custom = $this->accessible()->whereIn('dashboard_type', [DashboardType::CUSTOM, DashboardType::ASSET_BOARD])
             ->where('status', Dashboard::STATUS_ACTIVE)->with('creator')->withCount('widgets')->orderBy('name')->get();
         $categoryDashboards = Dashboard::query()->where('dashboard_type', DashboardType::CATEGORY)->pluck('id', 'category_id');
         $categories = TenantAssetCategory::query()->where('status', MasterStatus::ACTIVE)
@@ -102,6 +103,12 @@ class DashboardController extends Controller
     public function category(TenantAssetCategory $tenantCategory): DashboardResource
     {
         return $this->detail($this->service->forCategory($tenantCategory));
+    }
+
+    /** The member's asset board: provisioned from their role's template on first open (F-06 §4.1). */
+    public function assetBoard(Request $request): DashboardResource
+    {
+        return $this->detail($this->service->assetBoard($request->user()));
     }
 
     public function store(Request $request): JsonResponse
@@ -142,7 +149,7 @@ class DashboardController extends Controller
         Gate::authorize('manage', $dashboard);
         $data = $request->validate(['template_id' => ['nullable', 'uuid']]);
 
-        return $this->detail($this->service->applyTemplate($dashboard, $data['template_id'] ?? null));
+        return $this->detail($this->service->applyTemplate($dashboard, $data['template_id'] ?? null, $request->user()));
     }
 
     private function detail(Dashboard $dashboard, bool $created = false): DashboardResource

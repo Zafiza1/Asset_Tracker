@@ -4,6 +4,8 @@ namespace App\Domain\Assets;
 
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Audit\Models\AuditLog;
+use App\Domain\Identity\Models\OrganizationMember;
+use App\Domain\Organization\Models\Department;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use App\Http\Resources\AssetTransactionResource;
@@ -28,6 +30,8 @@ final class AssetTimeline
         'name' => 'Nama aset',
         'serial_number' => 'No seri',
         'category_id' => 'Kategori',
+        'custodian_user_id' => 'Penanggung jawab',
+        'department_id' => 'Departemen',
         'acquisition_date' => 'Tanggal perolehan',
         'acquisition_cost' => 'Harga perolehan',
         'description' => 'Deskripsi',
@@ -63,7 +67,9 @@ final class AssetTimeline
                 'kind' => 'transaction',
                 'occurred_at' => $t->created_at?->toIso8601String(),
                 'actor' => $t->creator?->name,
-                'transaction' => (new AssetTransactionResource($t))->toArray($request),
+                // resolve(), not toArray(): it drops the resource's when() fields that do not apply
+                // (field_values of a built-in type), which toArray() would send as an empty object.
+                'transaction' => (new AssetTransactionResource($t))->resolve($request),
                 '_day' => $t->transaction_date->toDateString(),
                 '_at' => $t->created_at?->format('Y-m-d H:i:s.u'),
             ]);
@@ -106,7 +112,7 @@ final class AssetTimeline
      *
      * @param  array<string, mixed>  $before
      * @param  array<string, mixed>  $after
-     * @param  array{categories: array<string, string>, attributes: array<string, TenantCategoryAttribute>}  $names
+     * @param  array{categories: array<string, string>, people: array<string, string>, departments: array<string, string>, attributes: array<string, TenantCategoryAttribute>}  $names
      * @return list<array{field: string, label: string, before: mixed, after: mixed}>
      */
     private function changes(array $before, array $after, array $names): array
@@ -135,8 +141,9 @@ final class AssetTimeline
                 continue;
             }
             $old = $before[$field] ?? null;
-            if ($field === 'category_id') {
-                [$old, $value] = [$names['categories'][$old] ?? $old, $names['categories'][$value] ?? $value];
+            $lookup = ['category_id' => 'categories', 'custodian_user_id' => 'people', 'department_id' => 'departments'][$field] ?? null;
+            if ($lookup !== null) {
+                [$old, $value] = [$names[$lookup][$old] ?? $old, $names[$lookup][$value] ?? $value];
             }
             $rows[] = ['field' => $field, 'label' => self::FIELD_LABELS[$field], 'before' => $old, 'after' => $value];
         }
@@ -145,20 +152,22 @@ final class AssetTimeline
     }
 
     /**
-     * Category names and attribute definitions mentioned by the logs, in two queries.
-     * Archived attributes are included: their keys are never reused.
+     * Names of the categories, people and departments and the attribute definitions mentioned
+     * by the logs, one query each. Archived attributes are included: their keys are never reused.
      *
      * @param  Collection<int, AuditLog>  $logs
-     * @return array{categories: array<string, string>, attributes: array<string, TenantCategoryAttribute>}
+     * @return array{categories: array<string, string>, people: array<string, string>, departments: array<string, string>, attributes: array<string, TenantCategoryAttribute>}
      */
     private function names(Collection $logs): array
     {
-        $categoryIds = [];
+        $ids = ['category_id' => [], 'custodian_user_id' => [], 'department_id' => []];
         $keys = [];
         foreach ($logs as $log) {
             foreach ([$log->before ?? [], $log->after ?? []] as $side) {
-                if (is_string($side['category_id'] ?? null)) {
-                    $categoryIds[] = $side['category_id'];
+                foreach (array_keys($ids) as $field) {
+                    if (is_string($side[$field] ?? null)) {
+                        $ids[$field][] = $side[$field];
+                    }
                 }
                 if (is_array($side['attributes'] ?? null)) {
                     array_push($keys, ...array_map('strval', array_keys($side['attributes'])));
@@ -167,7 +176,11 @@ final class AssetTimeline
         }
 
         return [
-            'categories' => $categoryIds === [] ? [] : TenantAssetCategory::query()->whereIn('id', array_unique($categoryIds))->pluck('name', 'id')->all(),
+            'categories' => $ids['category_id'] === [] ? [] : TenantAssetCategory::query()->whereIn('id', array_unique($ids['category_id']))->pluck('name', 'id')->all(),
+            // Members of this organization only (tenant scope on organization_members).
+            'people' => $ids['custodian_user_id'] === [] ? [] : OrganizationMember::query()->whereIn('organization_members.user_id', array_unique($ids['custodian_user_id']))
+                ->join('users', 'users.id', '=', 'organization_members.user_id')->pluck('users.name', 'organization_members.user_id')->all(),
+            'departments' => $ids['department_id'] === [] ? [] : Department::query()->whereIn('id', array_unique($ids['department_id']))->pluck('name', 'id')->all(),
             'attributes' => $keys === [] ? [] : TenantCategoryAttribute::query()->whereIn('key', array_unique($keys))->get()->keyBy('key')->all(),
         ];
     }

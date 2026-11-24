@@ -2,7 +2,6 @@
 
 namespace App\Domain\Identity\Models;
 
-use App\Domain\Identity\Models\User;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;

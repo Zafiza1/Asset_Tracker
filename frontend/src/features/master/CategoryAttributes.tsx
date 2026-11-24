@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { GripVertical, Info, Lock, Plus, Trash2, X } from 'lucide-react'
+import { GripVertical, Info, Lock, Plus, Trash2, Undo2, X } from 'lucide-react'
 import { useId, useState, type DragEvent, type ReactNode } from 'react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Alert, Spinner } from '../../components/ui/Feedback'
 import { Field, Input, Select } from '../../components/ui/Field'
+import { IconButton } from '../../components/ui/IconButton'
 import { Modal } from '../../components/ui/Modal'
 import { api, ApiError } from '../../lib/api/client'
 import type { AttributeOption, AttributeValue, CategoryAttribute, CategoryAttributeType, TenantCategory } from '../../lib/api/types'
@@ -24,16 +25,22 @@ export function AttributeFields({
   values,
   errors,
   onChange,
+  hidden = [],
+  onHiddenChange,
 }: {
   fields: CategoryAttribute[]
   values: Record<string, AttributeValue>
   errors: Record<string, string>
   onChange: (key: string, value: AttributeValue) => void
+  /** Keys of optional fields this asset does not use; with `onHiddenChange` each optional field can be left out. */
+  hidden?: string[]
+  onHiddenChange?: (hidden: string[]) => void
 }) {
   if (fields.length === 0) return null
+  const left = fields.filter((f) => hidden.includes(f.key))
 
   // Group fields by section
-  const groupedFields = fields.reduce((acc, f) => {
+  const groupedFields = fields.filter((f) => !hidden.includes(f.key)).reduce((acc, f) => {
     const section = f.section || 'other'
     if (!acc[section]) acc[section] = []
     acc[section].push(f)
@@ -49,15 +56,42 @@ export function AttributeFields({
           </legend>
           <div className="grid gap-4 sm:grid-cols-2">
             {sectionFields.map((f) => (
-              <div key={f.key} className={f.data_type === 'text' ? 'sm:col-span-2' : undefined}>
+              <div key={f.key} className={clsx('relative', f.data_type === 'text' && 'sm:col-span-2')}>
                 <Field label={f.label} required={f.is_required} error={errors[f.key]}>
                   {(p) => <AttributeValueInput id={p.id} spec={f} value={values[f.key] ?? null} onChange={(v) => onChange(f.key, v)} />}
                 </Field>
+                {/* A required field applies to every asset of the category, so only optional ones can be left out. */}
+                {onHiddenChange && !f.is_required && (
+                  <IconButton
+                    label={`Hapus atribut ${f.label} dari aset ini`}
+                    tooltip="Tidak dipakai aset ini"
+                    className="absolute -top-1.5 right-0"
+                    onClick={() => onHiddenChange([...hidden, f.key])}
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </IconButton>
+                )}
               </div>
             ))}
           </div>
         </fieldset>
       ))}
+      {onHiddenChange && left.length > 0 && (
+        <p className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+          <span>Tidak dipakai aset ini:</span>
+          {left.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => onHiddenChange(hidden.filter((k) => k !== f.key))}
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-slate-700 ring-1 ring-slate-200 hover:bg-brand-50 hover:text-brand-800"
+              aria-label={`Pakai lagi atribut ${f.label}`}
+            >
+              <Undo2 className="size-3.5" aria-hidden /> {f.label}
+            </button>
+          ))}
+        </p>
+      )}
     </div>
   )
 }

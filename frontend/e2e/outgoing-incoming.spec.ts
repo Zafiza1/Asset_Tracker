@@ -28,8 +28,8 @@ async function xsrf(page: Page): Promise<Record<string, string>> {
 test('keluar sementara → masuk → laporan transaksi keluar', async ({ page }) => {
   await login(page)
 
-  // 1. Outgoing, temporary, from the Transactions page.
-  await page.goto('/transaksi')
+  // 1. Outgoing, temporary, from the transaction history (Riwayat, D-50).
+  await page.goto('/transaksi/riwayat')
   await page.getByRole('button', { name: 'Catat transaksi' }).first().click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Jenis transaksi').selectOption('outgoing')
@@ -55,16 +55,17 @@ test('keluar sementara → masuk → laporan transaksi keluar', async ({ page })
   // 3. The asset is outside the organization; record it coming back from its detail page.
   await row.getByRole('link', { name: ASSET }).click()
   await expect(page.getByText('Di Luar Organisasi').first()).toBeVisible()
-  await expect(page.getByText(number)).toBeVisible()
+  // The number shows in the "Di luar organisasi" note and again in the asset's history.
+  await expect(page.getByText(number).first()).toBeVisible()
   await page.getByRole('button', { name: 'Catat masuk' }).click()
   const back = page.getByRole('dialog')
   await expect(back.getByLabel('Jenis transaksi')).toHaveValue('incoming')
   await back.getByRole('button', { name: /Catat masuk/ }).click()
   await expect(page.getByText('Transaksi dicatat')).toBeVisible()
-  await expect(page.getByText('Tidak Aktif').first()).toBeVisible()
+  await expect(page.getByText('Tersedia').first()).toBeVisible()
 
   // 4. Nothing is outside any more.
-  await page.goto('/transaksi?not_returned=1')
+  await page.goto('/transaksi/riwayat?not_returned=1')
   await expect(page.getByText('Tidak ada aset yang belum kembali')).toBeVisible()
 
   // 5. The outgoing report sample shows the transaction as returned (API: no sample picker in the UI yet).

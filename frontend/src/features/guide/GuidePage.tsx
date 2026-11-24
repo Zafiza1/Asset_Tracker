@@ -91,7 +91,7 @@ function PersonalNote() {
   const { can } = useAuth()
   return can('approval.manage') ? (
     <Alert tone="info" title="Anda termasuk penyetuju">
-      Perubahan yang Anda buat langsung berlaku. Periksa menu <MenuLink to="/notifikasi">Persetujuan</MenuLink> secara rutin, karena perubahan pengguna lain menunggu keputusan Anda di sana.
+      Perubahan yang Anda buat langsung berlaku. Periksa menu <MenuLink to="/notifikasi">Persetujuan</MenuLink> secara rutin: perubahan data dari pengguna lain dan tahapan transaksi yang menunggu keputusan Anda ada di tab Menunggu, dalam satu daftar.
     </Alert>
   ) : (
     <Alert tone="info" title="Perubahan Anda perlu disetujui">
@@ -164,7 +164,7 @@ function RolesSection() {
       <Card title="Siapa mengerjakan apa">
         <div className="space-y-3 p-5">
           <p className="text-sm text-slate-600">Menu yang tampil di sidebar mengikuti role Anda. Tabel ini menunjukkan hak role bawaan; organisasi dapat menguranginya atau membuat role sendiri.</p>
-          <div className="overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
+          <div className="relative overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
             <table className="w-full min-w-[34rem] text-sm">
               <thead className="bg-slate-50 text-left text-slate-700">
                 <tr>
@@ -386,7 +386,7 @@ const TRANSACTION_GUIDE = [
   { type: 'transfer', when: 'Aset pindah tempat', fill: 'Lokasi tujuan', effect: 'Lokasi aset berubah' },
   { type: 'status_change', when: 'Kondisi pemakaian berubah, misalnya masuk perbaikan', fill: 'Status baru', effect: 'Status aset berubah' },
   { type: 'loan', when: 'Aset dipinjamkan', fill: 'Nama peminjam, rencana tanggal kembali', effect: 'Status menjadi Dipinjamkan' },
-  { type: 'return', when: 'Aset pinjaman kembali', fill: 'Lokasi pengembalian bila berbeda', effect: 'Status menjadi Tidak Aktif' },
+  { type: 'return', when: 'Aset pinjaman kembali', fill: 'Lokasi pengembalian bila berbeda', effect: 'Status menjadi Tersedia' },
   { type: 'note', when: 'Kegiatan lain, misalnya servis rutin', fill: 'Keterangan aktivitas', effect: 'Hanya menambah riwayat' },
 ] as const
 
@@ -397,7 +397,7 @@ function Step7() {
       { when: 'Transaksi tersimpan', n: 8 },
     ]}>
       <NumberedList items={[
-        <>Buka <MenuLink to="/transaksi" permission="transaction.view">Transaksi Aset</MenuLink>, lalu klik <Label>Catat transaksi</Label>. Untuk satu aset, Anda juga dapat memulai dari halaman detail asetnya.</>,
+        <>Buka <MenuLink to="/transaksi" permission="transaction.view">Transaksi</MenuLink>, lalu pilih transaksinya di <Label>Buat transaksi</Label> (atau klik <Label>Catat transaksi</Label>). Untuk satu aset, Anda juga dapat memulai dari halaman detail asetnya. Riwayat lengkap ada di <Label>Riwayat transaksi</Label>.</>,
         'Pilih jenis transaksi, lalu isi data yang diminta.',
         'Isi tanggal transaksi. Tanggal boleh mundur, tetapi tidak boleh di masa depan.',
         'Centang aset yang terlibat. Satu transaksi dapat mencakup banyak aset.',
@@ -405,7 +405,7 @@ function Step7() {
       ]} />
 
       <h3 className="pt-1 text-sm font-semibold text-slate-900">Jenis transaksi yang dipilih</h3>
-      <div className="overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
+      <div className="relative overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
         <table className="w-full min-w-[40rem] text-sm">
           <thead className="bg-slate-50 text-left text-slate-700">
             <tr>
@@ -430,7 +430,7 @@ function Step7() {
 
       <h3 className="pt-1 text-sm font-semibold text-slate-900">Transaksi yang dapat dipilih menurut status aset</h3>
       {/* Read from the same rules as the transaction form, so this table cannot drift from it. */}
-      <div className="overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
+      <div className="relative overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
         <table className="w-full min-w-[40rem] text-sm">
           <thead className="bg-slate-50 text-slate-700">
             <tr>
@@ -471,7 +471,7 @@ function Step8() {
     ]}>
       <div className="grid gap-3 md:grid-cols-3">
         <PathCard title={<MenuLink to="/" permission="report.view">Dashboard</MenuLink>}>
-          <p>Ringkasan jumlah, nilai, status, dan lokasi aset. Gunakan <Label>Atur tata letak</Label> untuk menyusun analisis yang ingin ditampilkan. Isi widget menyesuaikan lebarnya: makin lebar, makin lengkap analisisnya.</p>
+          <p>Ringkasan jumlah, nilai, status, dan lokasi aset. Gunakan <Label>Atur tata letak</Label> untuk menyusun analisis yang ingin ditampilkan: seret widget ke posisi yang diinginkan. Kartu Beranda disusun dengan cara yang sama lewat <Label>Atur kartu</Label>. Isi widget menyesuaikan lebarnya: makin lebar, makin lengkap analisisnya.</p>
         </PathCard>
         <PathCard title={<MenuLink to="/laporan/template" permission="report.view">Template Laporan</MenuLink>}>
           <p>Susun sendiri format laporan dan data yang ingin dilaporkan: seret elemen ke kertas, pilih field, lalu <Label>Terbitkan</Label>. Template yang sudah terbit dapat dijalankan dan diunduh sebagai PDF atau Excel.</p>
@@ -602,6 +602,7 @@ function MenuLink({ to, permission, children }: { to: string; permission?: strin
   )
 }
 
+/** A Ya/Tidak cell. Its tables sit in a `relative` scroll box: the absolutely positioned sr-only text would otherwise widen the page. */
 function YesNo({ value }: { value: boolean }) {
   return (
     <td className="px-3 py-2 text-center">

@@ -75,6 +75,32 @@ class MobileAccessTest extends TestCase
         $this->assertTrue(AuditLog::query()->where('action', 'auth.mobile_login')->where('organization_id', $this->alpha->id)->exists());
     }
 
+    /** F-09: the scan result shows who holds the asset and its department, a custodian who left marked inactive. */
+    public function test_lookup_shows_custodian_and_department(): void
+    {
+        $token = $this->login()->json('data.token');
+        $this->bearer($token)->getJson("/api/assets/lookup?code={$this->asset->id}")->assertOk()
+            ->assertJsonPath('data.custodian', null)
+            ->assertJsonPath('data.department', null);
+
+        $sari = $this->createTenantUser($this->alpha, [], [], ['name' => 'Sari Dewi']);
+        $this->tenancy()->runAsTenant(new TenantContext($this->alpha, $this->admin), fn () => $this->asset->forceFill([
+            'custodian_user_id' => $sari->id,
+            'department_id' => $this->masters['department']->id,
+        ])->save());
+
+        $this->bearer($token)->getJson("/api/assets/lookup?code={$this->asset->id}")->assertOk()
+            ->assertJsonPath('data.custodian.name', 'Sari Dewi')
+            ->assertJsonPath('data.custodian.is_active', true)
+            ->assertJsonPath('data.department.code', 'DEP1');
+
+        OrganizationMember::query()->withoutGlobalScopes()->where('organization_id', $this->alpha->id)->where('user_id', $sari->id)
+            ->update(['status' => User::STATUS_DEACTIVATED]);
+        $this->bearer($token)->getJson("/api/assets/lookup?code={$this->asset->id}")->assertOk()
+            ->assertJsonPath('data.custodian.name', 'Sari Dewi')
+            ->assertJsonPath('data.custodian.is_active', false);
+    }
+
     public function test_wrong_password_is_rejected(): void
     {
         $this->assertErrorCode($this->login(['password' => 'wrong-password']), 422, 'INVALID_CREDENTIALS');

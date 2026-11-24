@@ -24,7 +24,7 @@ Setiap modul punya folder domain, controller, file route, dan folder fitur front
 |---|---|---|---|---|
 | Asset Management | `app/Domain/Assets` | `routes/modules/assets.php` | `src/features/assets` | Pendataan Aset |
 | Asset Transactions | `app/Domain/AssetTransactions` | `routes/modules/transactions.php` | `src/features/transactions` | Transaksi Aset |
-| Asset Analytics | `app/Domain/Analytics` | `routes/modules/analytics.php` | `src/features/dashboard` | Dashboard |
+| Asset Analytics | `app/Domain/Dashboards` | `routes/modules/analytics.php` | `src/features/assetBoard`, `src/features/home` | Beranda, Dashboard Aset |
 | Master Data (User Data) | `app/Domain/TenantMaster`, `app/Domain/Organization` | `routes/api.php` | `src/features/master` | Master Data |
 | Generic Data (internal) | `app/Domain/Internal`, `app/Domain/GenericMaster` | — (console saja) | — | tidak ada |
 
@@ -67,18 +67,18 @@ Pemeriksaan konsistensi memutar ulang transaksi (urut `seq`) dan membandingkan h
 
 ## 4. Aturan bisnis
 
-**Status aset** (kode tetap): Aktif (`in_use`), Tidak Aktif (`available`), Dalam Perbaikan, Dipinjamkan, Di Luar Organisasi (`off_site`, sejak 2026-11-17), Hilang, Dihapuskan. *Nonaktif* terpisah dari status.
+**Status aset** (kode tetap): Aktif (`in_use`), Tersedia (`available`; label "Tidak Aktif" 2026-11-05 s.d. 2026-11-23, diganti karena terbaca sama dengan aksi *Nonaktifkan*; impor masih menerima label lama), Dalam Perbaikan, Dipinjamkan, Di Luar Organisasi (`off_site`, sejak 2026-11-17), Hilang, Dihapuskan. *Nonaktif* terpisah dari status.
 
 | Transaksi | Permission tambahan | Syarat | Efek |
 |---|---|---|---|
-| Penambahan aset | `asset.create` | otomatis saat aset dibuat | status awal Aktif/Tidak Aktif/Dalam Perbaikan |
+| Penambahan aset | `asset.create` | otomatis saat aset dibuat | status awal Aktif/Tersedia/Dalam Perbaikan |
 | Pemindahan lokasi | `asset.transfer` | bukan Dipinjamkan/Di Luar Organisasi/Hilang/Dihapuskan; lokasi aktif & dalam scope; beda dari lokasi saat ini | ubah lokasi |
 | Perubahan status | `asset.status_change` (+ `asset.dispose` untuk Dihapuskan) | bukan Dipinjamkan/Di Luar Organisasi; status baru wajib dan berbeda dari saat ini | ubah status |
-| Peminjaman | `asset.assign` | status Aktif/Tidak Aktif; nama peminjam wajib | status Dipinjamkan + peminjam + rencana kembali |
-| Pengembalian | `asset.assign` | status Dipinjamkan | status Tidak Aktif; opsional lokasi baru |
-| Transaksi keluar (sementara) | `asset.outgoing` | status Aktif/Tidak Aktif; pihak luar, alasan, rencana tanggal kembali wajib | status Di Luar Organisasi |
-| Transaksi keluar (permanen) | `asset.outgoing` + `asset.dispose` | status Aktif/Tidak Aktif; pihak luar dan alasan wajib | status Dihapuskan |
-| Transaksi masuk | `asset.incoming` | status Di Luar Organisasi; tanggal tidak sebelum tanggal keluar | status Tidak Aktif atau Dalam Perbaikan; opsional lokasi baru; ditautkan ke transaksi keluarnya |
+| Peminjaman | `asset.assign` | status Aktif/Tersedia; nama peminjam wajib | status Dipinjamkan + peminjam + rencana kembali |
+| Pengembalian | `asset.assign` | status Dipinjamkan | status Tersedia; opsional lokasi baru |
+| Transaksi keluar (sementara) | `asset.outgoing` | status Aktif/Tersedia; pihak luar, alasan, rencana tanggal kembali wajib | status Di Luar Organisasi |
+| Transaksi keluar (permanen) | `asset.outgoing` + `asset.dispose` | status Aktif/Tersedia; pihak luar dan alasan wajib | status Dihapuskan |
+| Transaksi masuk | `asset.incoming` | status Di Luar Organisasi; tanggal tidak sebelum tanggal keluar | status Tersedia atau Dalam Perbaikan; opsional lokasi baru; ditautkan ke transaksi keluarnya |
 | Aktivitas lain | — | keterangan wajib | tidak mengubah aset |
 | Penonaktifan / pengaktifan kembali | `asset.archive` / `asset.restore` | aset dipinjam atau di luar organisasi tidak bisa dinonaktifkan | otomatis tercatat |
 
@@ -97,13 +97,12 @@ Semua transaksi manual memerlukan `transaction.create`; aset nonaktif tidak dapa
 
 ## 5. Dashboard (Asset Analytics)
 
-`GET /api/dashboard` (`report.view`) dihitung langsung dari database, dalam data scope user:
+Sejak F-06 (2026-11-20) dashboard tetap `GET /api/dashboard` dihapus. Gantinya ([F-06](factory/features/F-06-dashboard-utama-dan-manajemen-aset.md)):
 
-- ringkasan: aset aktif, nonaktif, total nilai perolehan, ditambahkan bulan ini;
-- distribusi per status, kategori, lokasi (termasuk "Tanpa lokasi");
-- transaksi 30 hari per jenis + 8 transaksi terbaru;
-- tren 12 bulan: aset ditambahkan vs perubahan (semua transaksi lain), berdasarkan tanggal transaksi;
-- perlu perhatian: peminjaman lewat batas, dalam perbaikan, belum ada lokasi.
+- **Beranda** (`/`, `GET /api/home/cards`): kartu tugas dan notifikasi sesuai izin pengguna.
+- **Dashboard Aset** (`/dashboard-aset`, `dashboard.view`): salinan pribadi template role (`GET /api/dashboards/asset-board`) dan dashboard per kategori, tersusun dari widget katalog (`GET /api/widget-catalog`). Setiap widget mengambil datanya sendiri (`GET /api/dashboards/{id}/widgets/{widget}/data`), dihitung langsung dari database dalam data scope pengguna dan dengan izin data widget itu.
+
+Peminjaman internal lewat batas tampil sebagai kartu Beranda dan widget *Peminjaman lewat batas* (F-06h). Bagian dashboard lama tanpa padanan widget: tingkat utilisasi (%), daftar aset tertua, dan umur per kategori.
 
 ## 6. API
 
@@ -119,7 +118,7 @@ Semua transaksi manual memerlukan `transaction.create`; aset nonaktif tidak dapa
 | `GET /api/assets/{id}/transactions` | `asset.view` + `transaction.view` |
 | `GET /api/transactions` — `search`, `type`, `asset_id`, `date_from`, `date_to` | `transaction.view` |
 | `POST /api/transactions` · `GET /api/transactions/{id}` | `transaction.create` · `transaction.view` |
-| `GET /api/dashboard` | `report.view` |
+| `GET /api/dashboards/asset-board` · `GET /api/dashboards/categories/{id}` · `GET /api/dashboards/{id}/widgets/{widget}/data` · `GET /api/widget-catalog` | `dashboard.view` (+ izin data per widget) |
 | `GET /api/approvals` — `status`, `category`, `mine`, `search` · `GET /api/approvals/summary` · `GET /api/approvals/{id}` · `POST /api/approvals/{id}/cancel` | semua anggota (non-approver hanya melihat pengajuannya sendiri) |
 | `POST /api/approvals/{id}/approve` · `/reject` (`note` opsional) | `approval.manage` |
 

@@ -8,28 +8,76 @@ use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 
 /**
- * Applies the user's data scope (docs/05-rbac-matrix.md §3) to assets through their location:
+ * Applies the user's data scope (docs/05-rbac-matrix.md §3) to assets:
  *  - organization: every asset;
- *  - location X: assets at X and its sub-locations.
- * Assets have no department, so department scopes alone see no assets, and assets without
- * a location are visible to organization-wide users only (fail-closed).
+ *  - location X: assets at X and its sub-locations;
+ *  - department D: assets of department D (F-09 §3.3);
+ *  - several entries: the union.
+ * Assets with neither a location nor a department are visible to organization-wide users
+ * only (fail-closed). A write may never leave an asset outside the writer's own scope
+ * (allowsAsset), so nobody can push an asset out of, or pull one into, their reach.
  */
 final class AssetScope
 {
     public function __construct(private readonly Tenancy $tenancy) {}
 
-    /** Filter a query on assets (or on a table with an asset location column). */
+    /**
+     * Filter a query on assets. `$locationColumn` may be qualified ("assets.location_id");
+     * the department column is taken from the same table.
+     */
     public function apply(Builder $query, string $locationColumn = 'location_id'): Builder
     {
         $scope = $this->scope();
         if ($scope->organizationWide) {
             return $query;
         }
-        if ($scope->locationIds === []) {
+        if ($scope->locationIds === [] && $scope->departmentIds === []) {
             return $query->whereRaw('false');
         }
+        $departmentColumn = substr($locationColumn, 0, -strlen('location_id')).'department_id';
 
-        return $query->whereIn($locationColumn, $this->locationsInScope($scope));
+        return $query->where(function ($w) use ($scope, $locationColumn, $departmentColumn) {
+            if ($scope->locationIds !== []) {
+                $w->orWhereIn($locationColumn, $this->locationsInScope($scope));
+            }
+            if ($scope->departmentIds !== []) {
+                $w->orWhereIn($departmentColumn, $scope->departmentIds);
+            }
+        });
+    }
+
+    /**
+     * Would an asset at this location and of this department be within the user's scope?
+     * Every write that sets either checks the result, so the asset stays within reach.
+     */
+    public function allowsAsset(?string $locationId, ?string $departmentId): bool
+    {
+        return $this->allowsAssetIn($this->scope(), $locationId, $departmentId);
+    }
+
+    /**
+     * allowsAsset() for a given scope, e.g. the recorder's when a flow action runs while another
+     * member completes the step (F-08k: a new department may not push the asset out of their reach).
+     */
+    public function allowsAssetIn(DataScope $scope, ?string $locationId, ?string $departmentId): bool
+    {
+        if ($scope->organizationWide) {
+            return true;
+        }
+        if ($departmentId !== null && in_array($departmentId, $scope->departmentIds, true)) {
+            return true;
+        }
+        if ($locationId === null || $scope->locationIds === []) {
+            return false;
+        }
+
+        return $this->locationsInScope($scope)->whereKey($locationId)->exists();
+    }
+
+    /** Has the user department entries (they may then place their department's assets anywhere)? */
+    public function hasDepartments(): bool
+    {
+        return $this->scope()->departmentIds !== [];
     }
 
     public function isOrganizationWide(): bool
@@ -37,7 +85,7 @@ final class AssetScope
         return $this->scope()->organizationWide;
     }
 
-    /** May the user place an asset at this location? NULL = no location. */
+    /** Is this location within the user's location entries? NULL = no location. */
     public function allowsLocation(?string $locationId): bool
     {
         $scope = $this->scope();

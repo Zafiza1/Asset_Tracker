@@ -178,6 +178,7 @@ export function CustomFieldInputs({ typeId, fields, values, onChange, errors = {
         return (
           <div key={f.key} className={wide ? 'sm:col-span-2' : undefined}>
             {control}
+            {s.help && <p className="mt-1 text-xs text-slate-600">{s.help}</p>}
           </div>
         )
       })}

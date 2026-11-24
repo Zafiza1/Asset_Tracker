@@ -36,7 +36,7 @@ class DashboardTemplateController extends Controller
         // Inactive templates only matter to the people who manage them.
         $inactive = ($filters['include_inactive'] ?? false) && $this->tenancy->tenant()->can('dashboard.manage');
 
-        $templates = DashboardTemplate::query()->withCount('widgets')
+        $templates = DashboardTemplate::query()->withCount('widgets')->with('role')
             ->when(! $inactive, fn ($q) => $q->where('is_active', true))
             ->when($filters['dashboard_type'] ?? null, fn ($q, $type) => $q->where('dashboard_type', $type))
             ->when($filters['scope'] ?? null, fn ($q, $scope) => $q->where('scope', $scope))
@@ -50,14 +50,14 @@ class DashboardTemplateController extends Controller
 
     public function show(DashboardTemplate $dashboardTemplate): DashboardTemplateResource
     {
-        return new DashboardTemplateResource($dashboardTemplate->load(['widgets.catalog', 'creator']));
+        return new DashboardTemplateResource($dashboardTemplate->load(['widgets.catalog', 'creator', 'role']));
     }
 
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate(DashboardTemplateService::createRules());
 
-        return (new DashboardTemplateResource($this->service->create($data, $request->user())->load(['widgets.catalog', 'creator'])))
+        return (new DashboardTemplateResource($this->service->create($data, $request->user())->load(['widgets.catalog', 'creator', 'role'])))
             ->response()->setStatusCode(201);
     }
 
@@ -65,7 +65,7 @@ class DashboardTemplateController extends Controller
     {
         $data = $request->validate(DashboardTemplateService::updateRules());
 
-        return new DashboardTemplateResource($this->service->update($dashboardTemplate, $data)->load(['widgets.catalog', 'creator']));
+        return new DashboardTemplateResource($this->service->update($dashboardTemplate, $data)->load(['widgets.catalog', 'creator', 'role']));
     }
 
     public function destroy(DashboardTemplate $dashboardTemplate): Response

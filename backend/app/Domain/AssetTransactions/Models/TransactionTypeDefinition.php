@@ -5,6 +5,7 @@ namespace App\Domain\AssetTransactions\Models;
 use App\Domain\Identity\Models\User;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +29,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $closes_type_id
  * @property string $status
  * @property string|null $created_by
+ * @property string|null $system_type one of the built-in types (F-07f); NULL for the organization's own types
+ * @property string|null $core_type the built-in type an organization type copied from a system type records (F-08)
+ * @property string|null $source_template_key the TransactionTemplates key the type was made from (F-08c); origin only
  */
 class TransactionTypeDefinition extends Model
 {
@@ -49,6 +53,33 @@ class TransactionTypeDefinition extends Model
             'multi_asset' => 'boolean',
             'locks_assets' => 'boolean',
         ];
+    }
+
+    /** One of the seven built-in types kept as a row of the organization (F-07f, D-26). */
+    public function isSystem(): bool
+    {
+        return $this->system_type !== null;
+    }
+
+    /**
+     * The built-in transaction this type's core action records: its own kind for a system type,
+     * the kind it was copied from for an organization type made from one (F-08); null otherwise.
+     */
+    public function coreType(): ?string
+    {
+        return $this->system_type ?? $this->core_type;
+    }
+
+    /** The current organization's row of a built-in type (installed for every organization). */
+    public static function system(string $type): ?self
+    {
+        return self::query()->where('system_type', $type)->first();
+    }
+
+    /** The organization's own types: what "Jenis organisasi" means everywhere except the type list. */
+    public function scopeOrganizationOwn(Builder $query): Builder
+    {
+        return $query->whereNull('system_type');
     }
 
     public function fields(): HasMany

@@ -37,7 +37,23 @@ final class FlowGraph
     public const OPERATORS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'empty', 'not_empty'];
 
     /** Fixed subjects; field.<key> subjects name a field of the type. */
-    public const SUBJECTS = ['asset.status', 'asset.condition', 'asset.category', 'asset.location', 'asset.acquisition_cost', 'starter.role'];
+    public const SUBJECTS = ['asset.status', 'asset.condition', 'asset.category', 'asset.location', 'asset.acquisition_cost', 'starter.role',
+        // F-08i (D-49): the asset's department and custodian, whether the recorder is the custodian,
+        // and whether a member in a user field (value = its key) comes from another department.
+        'asset.department', 'asset.custodian', 'starter.is_custodian', 'target.department_differs',
+        // The sifat of a core Keluar (types built on the outgoing core action), e.g. Penghapusan aset.
+        'core.outgoing_nature'];
+
+    /** Operators each of these subjects takes; the others take any of OPERATORS. */
+    private const SUBJECT_OPERATORS = [
+        'asset.custodian' => ['empty', 'not_empty'],
+        'starter.is_custodian' => ['eq', 'neq'],
+        'target.department_differs' => ['eq', 'neq'],
+        'core.outgoing_nature' => ['eq', 'neq', 'in', 'not_in'],
+    ];
+
+    /** Approvers that are not a fixed person or role (F-08i): resolved per transaction when the task is made. */
+    public const CONTEXT_APPROVERS = ['location_supervisor', 'asset_custodian', 'target_department_supervisor'];
 
     /** Statuses a flow action may set (disposal keeps its own permission and transaction). */
     public const ACTION_STATUSES = [AssetStatus::AVAILABLE, AssetStatus::IN_USE, AssetStatus::UNDER_MAINTENANCE, AssetStatus::LOST];
@@ -94,6 +110,8 @@ final class FlowGraph
         $nodes = collect($graph['nodes'])->keyBy('id');
         $edges = collect($graph['edges']);
         $label = fn (string $id) => '"'.($nodes[$id]['label'] ?? null ?: $id).'"';
+        // A system type, or a copy of one (F-08), is built around its core action.
+        $coreType = $typeId !== null ? TransactionTypeDefinition::query()->whereKey($typeId)->first(['system_type', 'core_type'])?->coreType() : null;
 
         $starts = $nodes->where('type', 'start');
         if ($starts->count() !== 1) {
@@ -128,7 +146,7 @@ final class FlowGraph
             if ($node['type'] !== 'start' && $edges->where('target', $id)->isEmpty()) {
                 $add('UNREACHABLE', "Langkah {$label($id)} tidak terhubung: belum ada garis masuk.", $id);
             }
-            foreach (self::configIssues($node, $fields, $typeId) as $message) {
+            foreach (self::configIssues($node, $fields, $typeId, $coreType) as $message) {
                 $add('CONFIG', "{$label($id)}: {$message}", $id);
             }
         }
@@ -153,7 +171,64 @@ final class FlowGraph
             $add('AUTOMATIC_LOOP', 'Ada perulangan tanpa langkah Isi data atau Persetujuan; transaksi dapat berputar tanpa akhir.');
         }
 
+        if ($coreType !== null) {
+            self::coreIssues($nodes, $edges, $starts->keys()->first(), $label, $add);
+        }
+
         return $issues;
+    }
+
+    /**
+     * The first flow of a type built around a core action: Mulai → Aksi inti → Selesai, which
+     * records exactly as without a flow (same shape as the editor's systemStarterGraph).
+     *
+     * @return array{nodes: list<array<string, mixed>>, edges: list<array<string, mixed>>}
+     */
+    public static function coreStarter(string $coreLabel): array
+    {
+        return ['nodes' => [
+            ['id' => 'start', 'type' => 'start', 'label' => 'Mulai', 'position' => ['x' => 0, 'y' => 80], 'config' => []],
+            ['id' => 'inti', 'type' => 'action', 'label' => $coreLabel, 'position' => ['x' => 280, 'y' => 80], 'config' => ['actions' => [['kind' => FlowActions::CORE]]]],
+            ['id' => 'selesai', 'type' => 'end', 'label' => 'Selesai', 'position' => ['x' => 560, 'y' => 80], 'config' => ['result' => 'completed']],
+        ], 'edges' => [
+            ['id' => 'e_start_inti', 'source' => 'start', 'target' => 'inti', 'outcome' => null],
+            ['id' => 'e_inti_selesai', 'source' => 'inti', 'target' => 'selesai', 'outcome' => null],
+        ]];
+    }
+
+    /** @param array<string, mixed> $node an action step holding the core action (F-07f-2) */
+    public static function isCore(array $node): bool
+    {
+        return ($node['type'] ?? null) === 'action'
+            && collect($node['config']['actions'] ?? [])->contains(fn ($a) => is_array($a) && ($a['kind'] ?? null) === FlowActions::CORE);
+    }
+
+    /**
+     * A system type's flow (F-07f-2) holds its core action once, and no way to a completed end
+     * passes it by: the built-in transaction is always recorded when the run completes.
+     *
+     * @param  Collection<string, array<string, mixed>>  $nodes
+     * @param  Collection<int, array<string, mixed>>  $edges
+     */
+    private static function coreIssues(Collection $nodes, Collection $edges, ?string $start, \Closure $label, \Closure $add): void
+    {
+        $core = $nodes->filter(fn ($n) => self::isCore($n))->keys();
+        if ($core->count() !== 1) {
+            $add('CORE_COUNT', 'Alur jenis sistem harus memiliki tepat satu langkah Aksi inti.');
+
+            return;
+        }
+        if ($start === null) {
+            return;
+        }
+        $coreId = $core->first();
+        $around = $edges->reject(fn ($e) => $e['source'] === $coreId || $e['target'] === $coreId);
+        foreach (self::reach($start, $around, 'source', 'target') as $id) {
+            $node = $nodes[$id];
+            if ($node['type'] === 'end' && ($node['config']['result'] ?? 'completed') === 'completed') {
+                $add('CORE_BYPASSED', "Transaksi dapat sampai di {$label($id)} tanpa melewati Aksi inti {$label($coreId)}.", $id);
+            }
+        }
     }
 
     /**
@@ -163,7 +238,7 @@ final class FlowGraph
      * @param  Collection<int, TransactionTypeField>  $fields
      * @return list<string>
      */
-    private static function configIssues(array $node, Collection $fields, ?string $typeId): array
+    private static function configIssues(array $node, Collection $fields, ?string $typeId, ?string $coreType = null): array
     {
         $config = $node['config'] ?? [];
         $byKey = $fields->keyBy('key');
@@ -178,6 +253,14 @@ final class FlowGraph
                     }
                 }
                 $issues = [...$issues, ...self::ruleIssues($config['preconditions']['rules'] ?? [], $byKey)];
+                // Refusals compiled from named rules (F-08g): each with conditions and a message for the recorder.
+                foreach ((array) ($config['rejections'] ?? []) as $rejection) {
+                    $rejection = is_array($rejection) ? $rejection : [];
+                    if (($rejection['rules'] ?? []) === [] || trim((string) ($rejection['message'] ?? '')) === '') {
+                        $issues[] = 'penolakan memerlukan syarat dan pesan.';
+                    }
+                    $issues = [...$issues, ...self::ruleIssues((array) ($rejection['rules'] ?? []), $byKey)];
+                }
                 break;
             case 'input':
                 $assignee = $config['assignee'] ?? ['type' => 'starter'];
@@ -203,6 +286,8 @@ final class FlowGraph
                     $issues[] = 'jumlah minimal penyetuju 1 sampai '.self::MAX_APPROVALS.'.';
                 } elseif ($min > 1 && ($approver['type'] ?? null) === 'user') {
                     $issues[] = 'penyetuju satu pengguna hanya dapat memberi satu persetujuan; pilih role atau atasan lokasi.';
+                } elseif ($min > 1 && in_array($approver['type'] ?? null, ['asset_custodian', 'target_department_supervisor'], true)) {
+                    $issues[] = 'penyetuju ini memberi satu persetujuan (penanggung jawab: satu per orang); jumlah minimal harus 1.';
                 }
                 break;
             case 'condition':
@@ -222,6 +307,15 @@ final class FlowGraph
                 }
                 foreach ($actions as $action) {
                     $action = is_array($action) ? $action : [];
+                    if (($action['kind'] ?? null) === FlowActions::CORE) {
+                        if ($coreType === null) {
+                            $issues[] = 'aksi inti hanya ada pada jenis sistem dan salinannya.';
+                        } elseif (count($actions) > 1) {
+                            $issues[] = 'aksi inti berdiri sendiri di langkahnya; pindahkan aksi lain ke langkah Aksi tersendiri.';
+                        }
+
+                        continue;
+                    }
                     $optional = fn (?string $key, string $type) => $key === null || $field($key, $type);
                     $ok = match ($action['kind'] ?? null) {
                         'set_status' => in_array($action['status'] ?? null, self::ACTION_STATUSES, true),
@@ -233,7 +327,9 @@ final class FlowGraph
                         'return' => $optional($action['location_field'] ?? null, 'location'),
                         'notify' => is_string($action['message'] ?? null) && trim($action['message']) !== ''
                             && mb_strlen($action['message']) <= FlowActions::MAX_MESSAGE
-                            && self::assigneeIssues(is_array($action['to'] ?? null) ? $action['to'] : [], $field, false) === [],
+                            && ((($action['to']['type'] ?? null) === 'asset_custodian')
+                                || self::assigneeIssues(is_array($action['to'] ?? null) ? $action['to'] : [], $field, false) === []),
+                        'set_custodian' => $field($action['user_field'] ?? null, 'user') && is_bool($action['set_department'] ?? false),
                         default => false,
                     };
                     if (! $ok) {
@@ -295,8 +391,11 @@ final class FlowGraph
 
             return $approval && ! $approver ? ['penyetuju harus memegang role Super Admin atau Supervisor.'] : [];
         }
-        if ($approval && $type === 'location_supervisor') {
+        if ($approval && in_array($type, ['location_supervisor', 'asset_custodian'], true)) {
             return [];
+        }
+        if ($approval && $type === 'target_department_supervisor') {
+            return $field($assignee['field'] ?? null, 'user') ? [] : ['pilih field pengguna penerima untuk Supervisor departemen penerima.'];
         }
         if (! $approval && $type === 'starter') {
             return [];
@@ -306,6 +405,18 @@ final class FlowGraph
         }
 
         return ["pilih {$who}."];
+    }
+
+    /**
+     * Unknown subjects or operators in a list of conditions (also used for named rules, F-08g).
+     *
+     * @param  list<mixed>  $rules
+     * @param  Collection<int, TransactionTypeField>  $fields
+     * @return list<string>
+     */
+    public static function conditionIssues(array $rules, Collection $fields): array
+    {
+        return self::ruleIssues($rules, $fields->keyBy('key'));
     }
 
     /**
@@ -320,8 +431,13 @@ final class FlowGraph
             $subject = is_array($rule) ? ($rule['subject'] ?? null) : null;
             $known = in_array($subject, self::SUBJECTS, true)
                 || (is_string($subject) && str_starts_with($subject, 'field.') && isset($byKey[substr($subject, 6)]));
-            if (! $known || ! in_array($rule['op'] ?? null, self::OPERATORS, true)) {
+            $ops = self::SUBJECT_OPERATORS[$subject] ?? self::OPERATORS;
+            if (! $known || ! in_array($rule['op'] ?? null, $ops, true)) {
                 $issues[] = 'syarat memakai data atau operator yang tidak dikenal.';
+            } elseif ($subject === 'target.department_differs' && ($byKey[$rule['value'] ?? '']->data_type ?? null) !== 'user') {
+                $issues[] = 'pilih field pengguna penerima untuk syarat lintas departemen.';
+            } elseif ($subject === 'starter.is_custodian' && ! is_bool($rule['value'] ?? null)) {
+                $issues[] = 'syarat penanggung jawab memerlukan nilai ya atau tidak.';
             }
         }
 

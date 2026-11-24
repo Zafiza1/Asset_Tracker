@@ -21,7 +21,6 @@ class DatabaseSeeder extends Seeder
                 GenericCatalogSeeder::class,
                 DashboardCatalogSeeder::class,
                 ReportFieldRegistrySeeder::class,
-                PlatformAdminSeeder::class,
             ]);
         });
     }

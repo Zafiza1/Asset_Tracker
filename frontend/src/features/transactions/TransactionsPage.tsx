@@ -20,14 +20,20 @@ import { formatDate } from '../../lib/format'
 import { outgoingNatureLabel, transactionTypeLabel, type AssetTransaction, type OutgoingNature, type TransactionType } from './api'
 import { TransactionChanges } from './TransactionChanges'
 import { TransactionFormModal } from './TransactionFormModal'
+import { RunList } from './RunList'
+import { runsApi } from '../transactionTypes/api'
 
 const FILTERS = ['page', 'per_page', 'search', 'type', 'outgoing_nature', 'not_returned', 'date_from', 'date_to', 'sort', 'columns'] as const
 const DEFAULT_PER_PAGE = 25
 const ADVANCED = ['type', 'outgoing_nature', 'date_from', 'date_to'] as const
 
-/** List tabs; counts come from GET /transactions/counts under the other filters. */
-type Tab = '' | 'outgoing' | 'incoming' | 'not_returned'
-const TABS: { value: Tab; label: string; count: 'all' | Exclude<Tab, ''> }[] = [
+/**
+ * List tabs; counts come from GET /transactions/counts under the other filters. "Sedang diproses"
+ * (proses=1) lists the transactions with a flow still on their way (waiting for an approval or an
+ * input): they are recorded here only once their action has run, so they would not show otherwise.
+ */
+type Tab = '' | 'outgoing' | 'incoming' | 'not_returned' | 'proses'
+const TABS: { value: Exclude<Tab, 'proses'>; label: string; count: 'all' | Exclude<Tab, '' | 'proses'> }[] = [
   { value: '', label: 'Semua', count: 'all' },
   { value: 'outgoing', label: 'Keluar', count: 'outgoing' },
   { value: 'incoming', label: 'Masuk', count: 'incoming' },
@@ -35,7 +41,7 @@ const TABS: { value: Tab; label: string; count: 'all' | Exclude<Tab, ''> }[] = [
 ]
 
 /** Empty list of a tab (without search or other filters): says what the tab holds, not "no data at all". */
-const TAB_EMPTY: Record<Exclude<Tab, ''>, { title: string; description: string }> = {
+const TAB_EMPTY: Record<Exclude<Tab, '' | 'proses'>, { title: string; description: string }> = {
   outgoing: { title: 'Belum ada transaksi keluar', description: 'Aset yang dikirim ke pihak luar, sementara atau permanen, muncul di sini.' },
   incoming: { title: 'Belum ada transaksi masuk', description: 'Aset yang kembali dari pihak luar muncul di sini.' },
   not_returned: { title: 'Tidak ada aset yang belum kembali', description: 'Semua aset yang keluar sementara sudah dicatat masuk kembali.' },
@@ -108,7 +114,8 @@ export function TransactionsPage() {
   // Every applied filter as a removable chip.
   const type = params.get('type') as TransactionType | null
   const nature = params.get('outgoing_nature') as OutgoingNature | null
-  const tab: Tab | 'other' = params.get('not_returned') === '1' ? 'not_returned' : !type ? '' : type === 'outgoing' || type === 'incoming' ? type : 'other'
+  const inProcess = params.get('proses') === '1'
+  const tab: Tab | 'other' = inProcess ? 'proses' : params.get('not_returned') === '1' ? 'not_returned' : !type ? '' : type === 'outgoing' || type === 'incoming' ? type : 'other'
   const chips: FilterChip[] = [
     ...searchChip(params.get('search'), () => (setSearch(''), update({ search: '' }))),
     ...(type ? [{ key: 'type', label: `Jenis: ${transactionTypeLabel[type] ?? type}`, clear: () => update({ type: '' }) }] : []),
@@ -116,6 +123,12 @@ export function TransactionsPage() {
     ...(params.get('date_from') ? [{ key: 'from', label: `Dari ${formatDate(params.get('date_from')!)}`, clear: () => update({ date_from: '' }) }] : []),
     ...(params.get('date_to') ? [{ key: 'to', label: `Sampai ${formatDate(params.get('date_to')!)}`, clear: () => update({ date_to: '' }) }] : []),
   ]
+
+  // Transactions with a flow still on their way, for the "Sedang diproses" tab.
+  const inProcessCount = useQuery({
+    queryKey: ['/transaction-runs', 'in-process-count'],
+    queryFn: async () => (await runsApi.list({ state: 'running', per_page: '1' })).meta.total,
+  })
 
   const resetAll = () => (setSearch(''), resetFilters(), setParams(new URLSearchParams()))
 
@@ -152,7 +165,7 @@ export function TransactionsPage() {
   return (
     <>
       <PageHeader
-        title="Transaksi Aset"
+        title="Riwayat Transaksi"
         description="Riwayat perpindahan, peminjaman, aset keluar dan masuk organisasi, serta perubahan status aset."
         actions={
           can('transaction.create') && (
@@ -167,10 +180,26 @@ export function TransactionsPage() {
           <PillTabs
             label="Saring jenis transaksi"
             value={tab}
-            onChange={(next) => update({ type: next === 'outgoing' || next === 'incoming' ? next : '', not_returned: next === 'not_returned' ? '1' : '' })}
-            tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts.data?.data[t.count], attention: t.value === 'not_returned' }))}
+            onChange={(next) =>
+              next === 'proses'
+                ? setParams(new URLSearchParams({ proses: '1' }))
+                : update({ proses: '', type: next === 'outgoing' || next === 'incoming' ? next : '', not_returned: next === 'not_returned' ? '1' : '' })
+            }
+            tabs={[
+              ...TABS.map((t) => ({ value: t.value as Tab, label: t.label, count: counts.data?.data[t.count], attention: t.value === 'not_returned' })),
+              { value: 'proses', label: 'Sedang diproses', count: inProcessCount.data },
+            ]}
           />
         </div>
+        {inProcess ? (
+          <RunList
+            bare
+            params={{ state: 'running' }}
+            empty="Tidak ada transaksi yang sedang diproses dalam cakupan data Anda."
+            line={(r) => `Tahapan sekarang: ${r.current_step?.label ?? '-'}${r.open_task?.assignee_name ? ` · menunggu ${r.open_task.assignee_name}` : ''}`}
+          />
+        ) : (
+        <>
         <FilterPanel>
           <SearchForm
             value={search}
@@ -215,8 +244,8 @@ export function TransactionsPage() {
         ) : query.data!.data.length === 0 ? (
           <EmptyState
             icon={chips.length > 0 ? SearchX : ArrowLeftRight}
-            title={chips.length > 0 ? 'Tidak ada transaksi yang cocok' : tab && tab !== 'other' ? TAB_EMPTY[tab].title : 'Belum ada transaksi'}
-            description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : tab && tab !== 'other' ? TAB_EMPTY[tab].description : 'Transaksi muncul di sini setelah aset ditambahkan atau dicatat aktivitasnya.'}
+            title={chips.length > 0 ? 'Tidak ada transaksi yang cocok' : tab && tab !== 'other' && tab !== 'proses' ? TAB_EMPTY[tab].title : 'Belum ada transaksi'}
+            description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : tab && tab !== 'other' && tab !== 'proses' ? TAB_EMPTY[tab].description : 'Transaksi muncul di sini setelah aset ditambahkan atau dicatat aktivitasnya.'}
             action={
               chips.length > 0 ? (
                 <Button variant="secondary" onClick={resetAll}>
@@ -243,6 +272,8 @@ export function TransactionsPage() {
             />
             <Pagination meta={query.data!.meta} onPage={(p) => update({ page: String(p) })} onPerPage={(n) => update({ per_page: n === DEFAULT_PER_PAGE ? '' : String(n) })} />
           </>
+        )}
+        </>
         )}
       </Card>
       {creating && <TransactionFormModal onClose={() => setCreating(false)} />}

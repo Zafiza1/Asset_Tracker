@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $name
  * @property string|null $description
  * @property string $component_type
+ * @property string|null $required_permission
  * @property array<string, mixed> $configuration_schema
  * @property list<string> $supported_data_sources
  * @property array{w?: int, h?: int} $default_layout

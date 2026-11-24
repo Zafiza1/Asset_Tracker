@@ -65,7 +65,7 @@ php artisan key:generate
 php -r 'echo "DB_CONTEXT_KEY=base64:".base64_encode(random_bytes(32)).PHP_EOL;' >> .env
 php artisan migrate --database=pgsql_owner
 php artisan db:context-key install                            # setelah setiap migrate:fresh juga
-php artisan db:seed --database=pgsql_owner                    # data referensi (+ admin platform bila PLATFORM_ADMIN_* diisi)
+php artisan db:seed --database=pgsql_owner                    # data referensi
 php artisan db:seed --database=pgsql_owner --class=DemoSeeder # opsional, lokal saja: 2 organisasi demo
 php artisan serve
 ```

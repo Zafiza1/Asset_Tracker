@@ -160,6 +160,13 @@ class AuthController extends Controller
             throw ApiException::unprocessable('INVALID_CREDENTIALS', 'Email atau password salah.');
         }
 
+        // The platform administration was retired (super admins are now tenant users with the
+        // SUPER_ADMIN role); leftover platform accounts can no longer sign in.
+        if ($user->isPlatformUser()) {
+            $this->audit->record('auth.login_failed', $user, metadata: ['reason' => 'platform_account_retired'], actor: $user);
+            throw ApiException::forbidden('PLATFORM_ACCOUNT_RETIRED', 'Akun platform sudah tidak digunakan. Masuk dengan akun organisasi Anda.');
+        }
+
         if ($user->isTenantUser() && $this->access->accessible($user)->isEmpty()) {
             $this->audit->record('auth.login_failed', $user, metadata: ['reason' => 'organization_inactive'], actor: $user);
             throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Organisasi Anda sedang tidak aktif.');

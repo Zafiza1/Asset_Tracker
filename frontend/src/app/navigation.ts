@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, KeyRound, LayoutDashboard, Layers, ListChecks, MapPin, QrCode, Users, Workflow, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, Home, KeyRound, LayoutDashboard, MapPin, Network, QrCode, Users, Workflow, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -8,10 +8,8 @@ export interface NavItem {
   permission?: string
   /** Hidden when the user has this permission (a lighter entry that a fuller one replaces). */
   hiddenWithPermission?: string
-  /** Shows the number of pending approval requests next to the label. */
-  approvalBadge?: boolean
-  /** Shows the number of transaction steps waiting for the user (F-07). */
-  taskBadge?: boolean
+  /** Shows the number of decisions waiting in Persetujuan (transaction steps and data change requests). */
+  inboxBadge?: boolean
 }
 
 export interface NavSection {
@@ -27,18 +25,24 @@ export interface NavSection {
  * a user menu; developers inspect it with `php artisan asset:inspect`.
  */
 export const tenantNavigation: NavSection[] = [
-  { items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard }] },
+  {
+    items: [
+      { to: '/', label: 'Beranda', icon: Home },
+      { to: '/dashboard-aset', label: 'Dashboard Aset', icon: LayoutDashboard, permission: 'dashboard.view' },
+    ],
+  },
   {
     group: 'Operasional',
     title: 'Manajemen Aset',
     items: [
       { to: '/aset', label: 'Data Aset', icon: Boxes, permission: 'asset.view' },
-      { to: '/transaksi', label: 'Transaksi Aset', icon: ArrowLeftRight, permission: 'transaction.view' },
-      { to: '/transaksi/berjalan', label: 'Transaksi Berjalan', icon: ListChecks, permission: 'transaction.view', taskBadge: true },
-      // Approval requests on one page: approvers (Super Admin, Supervisor) decide them under
-      // "Persetujuan"; everyone else follows whether their own submissions were approved under "Pengajuan Saya".
-      { to: '/notifikasi', label: 'Persetujuan', icon: Bell, permission: 'approval.manage', approvalBadge: true },
-      { to: '/notifikasi', label: 'Pengajuan Saya', icon: ClipboardList, hiddenWithPermission: 'approval.manage' },
+      // The Transaction Center (D-50): recording, and every running transaction.
+      { to: '/transaksi', label: 'Transaksi', icon: ArrowLeftRight, permission: 'transaction.view' },
+      // One approval list: approvers (Super Admin, Admin, Supervisor) decide data change requests and
+      // the steps of transactions under "Persetujuan"; their own changes need no approval. Everyone
+      // else follows the outcome of their submissions under "Pengajuan Saya".
+      { to: '/notifikasi', label: 'Persetujuan', icon: Bell, permission: 'approval.manage', inboxBadge: true },
+      { to: '/notifikasi', label: 'Pengajuan Saya', icon: ClipboardList, hiddenWithPermission: 'approval.manage', inboxBadge: true },
     ],
   },
   {
@@ -54,6 +58,7 @@ export const tenantNavigation: NavSection[] = [
     items: [
       { to: '/master/kategori', label: 'Kategori Aset', icon: FolderTree, permission: 'master.tenant.view' },
       { to: '/master/lokasi', label: 'Lokasi', icon: MapPin, permission: 'master.tenant.view' },
+      { to: '/master/departemen', label: 'Departemen', icon: Network, permission: 'master.tenant.view' },
       { to: '/transaksi/jenis', label: 'Jenis Transaksi', icon: Workflow, permission: 'transaction_type.manage' },
     ],
   },
@@ -76,23 +81,19 @@ export const tenantNavigation: NavSection[] = [
   { items: [{ to: '/panduan', label: 'Panduan', icon: BookOpen }] },
 ]
 
-export const platformNavigation: NavSection[] = [
-  {
-    title: 'Platform',
-    items: [
-      { to: '/platform/organisasi', label: 'Organisasi', icon: Building2, permission: 'platform.organization.view' },
-      { to: '/platform/audit', label: 'Audit Platform', icon: FileClock, permission: 'platform.audit.view' },
-    ],
-  },
-  {
-    title: 'Generic Master',
-    items: [
-      { to: '/platform/master/kategori', label: 'Kategori', icon: FolderTree, permission: 'master.generic.view' },
-      { to: '/platform/master/definisi', label: 'Definisi & Versi', icon: Layers, permission: 'master.generic.view' },
-      { to: '/platform/master/referensi', label: 'Referensi', icon: BookOpen, permission: 'master.generic.view' },
-    ],
-  },
-]
+/**
+ * The menu entry of the current page: the one whose address matches the most of the path, so
+ * on /transaksi/jenis only "Jenis Transaksi" is current, not also "Transaksi" (/transaksi).
+ * Pages without an entry of their own fall under the closest one (/transaksi/riwayat → Transaksi).
+ */
+export function currentNavTarget(sections: NavSection[], pathname: string): string | null {
+  let best: string | null = null
+  for (const { to } of sections.flatMap((s) => s.items)) {
+    const matches = to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(to + '/')
+    if (matches && (best === null || to.length > best.length)) best = to
+  }
+  return best
+}
 
 /** Breadcrumb labels per first path segment. */
 export const breadcrumbLabels: Record<string, string> = {
@@ -107,11 +108,14 @@ export const breadcrumbLabels: Record<string, string> = {
   audit: 'Audit Trail',
   notifikasi: 'Persetujuan',
   panduan: 'Panduan',
-  platform: 'Platform',
   baru: 'Baru',
   'ubah-password': 'Ubah Password',
   aset: 'Data Aset',
-  transaksi: 'Transaksi Aset',
+  transaksi: 'Transaksi',
+  riwayat: 'Riwayat',
+  kosong: 'Kosong',
+  rules: 'Rules',
+  'cara-kerja': 'Cara kerja',
   jenis: 'Jenis Transaksi',
   alur: 'Alur',
   berjalan: 'Transaksi Berjalan',
@@ -123,8 +127,9 @@ export const breadcrumbLabels: Record<string, string> = {
   definisi: 'Definisi',
   versi: 'Versi',
   lokasi: 'Lokasi',
+  departemen: 'Departemen',
   referensi: 'Referensi',
 }
 
 /** Intermediate path segments without a page of their own: shown as text, not links. */
-export const breadcrumbTextOnly = new Set(['/platform', '/master', '/modul','/platform/master', '/platform/master/versi'])
+export const breadcrumbTextOnly = new Set(['/master', '/modul'])

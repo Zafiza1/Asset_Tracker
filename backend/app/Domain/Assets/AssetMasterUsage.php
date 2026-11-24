@@ -11,6 +11,7 @@ final class AssetMasterUsage implements MasterUsage
     private const COLUMNS = [
         self::CATEGORY => 'category_id',
         self::LOCATION => 'location_id',
+        self::DEPARTMENT => 'department_id',
     ];
 
     public function inUse(string $master, string $id): bool

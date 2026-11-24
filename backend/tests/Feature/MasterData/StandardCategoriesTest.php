@@ -27,9 +27,11 @@ class StandardCategoriesTest extends TestCase
             $this->assertEqualsCanonicalizing(array_keys(StandardCategories::all()), $categories->keys()->all());
 
             $labels = fn (string $code) => TenantCategoryAttribute::query()->where('category_id', $categories[$code]->id)->where('is_default', true)->pluck('label')->all();
-            foreach (['Merek', 'Model / Tipe', 'Catatan', 'Kondisi Aset', 'Satuan', 'Pemilik', 'Penanggung Jawab', 'Jam Operasi'] as $general) {
+            foreach (['Merek', 'Model / Tipe', 'Catatan', 'Kondisi Aset', 'Satuan', 'Pemilik', 'Jam Operasi'] as $general) {
                 $this->assertContains($general, $labels('AST_INVENTARIS'));
             }
+            // The asset's own Penanggung jawab (F-09) replaces the former text field.
+            $this->assertNotContains('Penanggung Jawab', $labels('AST_INVENTARIS'));
             // Category-specific fields are ordinary (editable, removable) fields, not defaults.
             $specific = fn (string $code) => TenantCategoryAttribute::query()->where('category_id', $categories[$code]->id)->where('is_default', false)->pluck('label')->all();
             $this->assertNotContains('Nomor Polisi', $labels('AST_KENDARAAN'));
@@ -92,7 +94,7 @@ class StandardCategoriesTest extends TestCase
 
     public function test_status_labels_match_the_default_choices(): void
     {
-        $this->assertSame(['Aktif', 'Tidak Aktif', 'Dalam Perbaikan', 'Dipinjamkan', 'Di Luar Organisasi', 'Hilang', 'Dihapuskan'], array_values(AssetStatus::LABELS));
+        $this->assertSame(['Aktif', 'Tersedia', 'Dalam Perbaikan', 'Dipinjamkan', 'Di Luar Organisasi', 'Hilang', 'Dihapuskan'], array_values(AssetStatus::LABELS));
     }
 
     public function test_location_is_required_while_the_serial_number_is_optional(): void

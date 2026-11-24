@@ -118,31 +118,31 @@ class SpreadsheetEditTest extends TestCase
         $versions = [$asset->refresh()->lock_version, $other->refresh()->lock_version];
 
         $filtered = $this->download('/api/assets/edit-sheet?search=FIX-2')->getSheetByName('Data');
-        $this->assertSame([$other->id], array_keys($this->rowsByKey($filtered, 'J')));
+        $this->assertSame([$other->id], array_keys($this->rowsByKey($filtered, 'L')));
         // Picked assets replace the list filters.
         $picked = $this->download("/api/assets/edit-sheet?search=FIX-2&ids={$asset->id}")->getSheetByName('Data');
-        $this->assertSame([$asset->id], array_keys($this->rowsByKey($picked, 'J')));
+        $this->assertSame([$asset->id], array_keys($this->rowsByKey($picked, 'L')));
         $this->getJson('/api/assets/edit-sheet?ids=bukan-uuid')->assertUnprocessable();
 
         $book = $this->download('/api/assets/edit-sheet');
         $data = $book->getSheetByName('Data');
         // The internal asset number is not in the sheet; rows are matched by the hidden id column.
         $this->assertSame(['Nama Aset *', 'Kategori *', 'No Seri'], $data->rangeToArray('A1:C1')[0]);
-        $this->assertSame('Lokasi (info)', $data->getCell('G1')->getValue());
-        $this->assertSame('Terakhir Diubah (info)', $data->getCell('I1')->getValue());
-        $this->assertSame('ID *', $data->getCell('J1')->getValue());
-        $this->assertFalse($data->getColumnDimension('J')->getVisible());
+        $this->assertSame('Lokasi (info)', $data->getCell('I1')->getValue());
+        $this->assertSame('Terakhir Diubah (info)', $data->getCell('K1')->getValue());
+        $this->assertSame('ID *', $data->getCell('L1')->getValue());
+        $this->assertFalse($data->getColumnDimension('L')->getVisible());
         $this->assertNotContains($asset->asset_number, array_merge(...$data->toArray()));
-        $row = $this->rowOf($data, $asset->id, 'J');
-        $this->assertSame('LOC1 — Gudang 1', $data->getCell("G{$row}")->getValue());
-        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $data->getCell("I{$row}")->getValue());
+        $row = $this->rowOf($data, $asset->id, 'L');
+        $this->assertSame('LOC1 — Gudang 1', $data->getCell("I{$row}")->getValue());
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $data->getCell("K{$row}")->getValue());
 
         $data->setCellValue("A{$row}", 'Laptop Dell')
             ->setCellValue("B{$row}", 'MEJA — Meja')
             ->setCellValue("C{$row}", '00123')
             ->setCellValue("E{$row}", 15000000)
             // Reference columns (location) are ignored, even when edited.
-            ->setCellValue("G{$row}", 'TIDAK-ADA');
+            ->setCellValue("I{$row}", 'TIDAK-ADA');
         $this->upload('/api/assets/edit-sheet', $book)->assertOk()->assertJsonPath('data.updated', 1);
 
         $number = $asset->asset_number;
@@ -162,8 +162,8 @@ class SpreadsheetEditTest extends TestCase
         $asset = $this->createAssetFixture($this->org, $this->masters)['asset'];
         $book = $this->download('/api/assets/edit-sheet');
         $data = $book->getSheetByName('Data');
-        $row = $this->rowOf($data, $asset->id, 'J');
-        $data->setCellValue("A{$row}", 'Nama dari file')->setCellValue("I{$row}", '');
+        $row = $this->rowOf($data, $asset->id, 'L');
+        $data->setCellValue("A{$row}", 'Nama dari file')->setCellValue("K{$row}", '');
 
         $response = $this->upload('/api/assets/edit-sheet', $book);
 
@@ -178,8 +178,8 @@ class SpreadsheetEditTest extends TestCase
         $other = $this->createAssetFixture($this->org, $this->masters, '2')['asset'];
         $book = $this->download('/api/assets/edit-sheet');
         $data = $book->getSheetByName('Data');
-        $data->setCellValue('J'.$this->rowOf($data, $asset->id, 'J'), '0199a000-0000-7000-8000-000000000000');
-        $data->setCellValue('J'.$this->rowOf($data, $other->id, 'J'), '0199a000-0000-7000-8000-000000000000');
+        $data->setCellValue('L'.$this->rowOf($data, $asset->id, 'L'), '0199a000-0000-7000-8000-000000000000');
+        $data->setCellValue('L'.$this->rowOf($data, $other->id, 'L'), '0199a000-0000-7000-8000-000000000000');
 
         $response = $this->upload('/api/assets/edit-sheet', $book);
 
@@ -197,7 +197,7 @@ class SpreadsheetEditTest extends TestCase
         $this->patchJson("/api/assets/{$asset->id}", ['name' => 'Diubah orang lain'])->assertOk();
 
         $data = $book->getSheetByName('Data');
-        $data->setCellValue('A'.$this->rowOf($data, $asset->id, 'J'), 'Nama dari file');
+        $data->setCellValue('A'.$this->rowOf($data, $asset->id, 'L'), 'Nama dari file');
         $response = $this->upload('/api/assets/edit-sheet', $book);
 
         $this->assertErrorCode($response, 422, 'IMPORT_FAILED');
@@ -285,6 +285,49 @@ class SpreadsheetEditTest extends TestCase
         $this->books = [];
         gc_collect_cycles();
         parent::tearDown();
+    }
+
+    public function test_asset_sheet_sets_department_and_custodian_by_code_and_email(): void
+    {
+        $asset = $this->createAssetFixture($this->org, $this->masters)['asset'];
+        $sari = $this->createTenantUser($this->org, [], [], ['name' => 'Sari', 'email' => 'sari@alpha.test']);
+
+        $book = $this->download('/api/assets/edit-sheet');
+        $data = $book->getSheetByName('Data');
+        $this->assertSame(['Departemen', 'Penanggung Jawab (email)'], $data->rangeToArray('G1:H1')[0]);
+        $row = $this->rowOf($data, $asset->id, 'L');
+        $data->setCellValue("G{$row}", 'DEP1 — Departemen 1')->setCellValue("H{$row}", 'SARI@alpha.test');
+        $this->upload('/api/assets/edit-sheet', $book)->assertOk()->assertJsonPath('data.updated', 1);
+
+        $asset->refresh();
+        $this->assertSame([$this->masters['department']->id, $sari->id], [$asset->department_id, $asset->custodian_user_id]);
+        // Written back on the next download, so an untouched row stays unchanged.
+        $again = $this->download('/api/assets/edit-sheet')->getSheetByName('Data');
+        $row = $this->rowOf($again, $asset->id, 'L');
+        $this->assertSame(['DEP1 — Departemen 1', 'sari@alpha.test'], [$again->getCell("G{$row}")->getValue(), $again->getCell("H{$row}")->getValue()]);
+
+        // An email outside the organization is refused for that row.
+        $book = $this->download('/api/assets/edit-sheet');
+        $data = $book->getSheetByName('Data');
+        $data->setCellValue('H'.$this->rowOf($data, $asset->id, 'L'), 'orang@luar.test');
+        $this->assertErrorCode($this->upload('/api/assets/edit-sheet', $book), 422, 'IMPORT_FAILED');
+    }
+
+    public function test_asset_sheet_from_before_f09_still_uploads_and_keeps_the_custodian(): void
+    {
+        $asset = $this->createAssetFixture($this->org, $this->masters)['asset'];
+        $sari = $this->createTenantUser($this->org);
+        Asset::query()->whereKey($asset->id)->update(['custodian_user_id' => $sari->id, 'department_id' => $this->masters['department']->id]);
+
+        // The pre-F-09 layout: no Departemen / Penanggung Jawab columns.
+        $book = $this->download('/api/assets/edit-sheet');
+        $data = $book->getSheetByName('Data');
+        $data->removeColumn('G', 2);
+        $data->setCellValue('A'.$this->rowOf($data, $asset->id, 'J'), 'Nama baru');
+        $this->upload('/api/assets/edit-sheet', $book)->assertOk()->assertJsonPath('data.updated', 1);
+
+        $asset->refresh();
+        $this->assertSame(['Nama baru', $sari->id, $this->masters['department']->id], [$asset->name, $asset->custodian_user_id, $asset->department_id]);
     }
 
     private function download(string $uri): Spreadsheet

@@ -35,12 +35,23 @@ const detail: ApprovalRequest = {
   history: [{ action: 'approval.submitted', label: 'Diajukan', actor: 'Andi', note: null, at: '2026-11-10T08:00:00Z' }],
 }
 
-function renderPage({ rows = [request], counts = { pending: 1, approved: 4, rejected: 2, cancelled: 0, all: 7 }, url = '/notifikasi', approver = true } = {}) {
+// A transaction step waiting for the user (a flow approval), listed with the requests under "Menunggu".
+const run = {
+  id: 'r1', transaction_number: 'PJK-2026-000003', state: 'running', state_label: 'Berjalan',
+  type_definition: { id: 't1', code: 'PJK', name: 'Peminjaman ke karyawan' }, current_step: { id: 's1', type: 'approval', label: 'Approval aset bernilai tinggi' },
+  assets: [], created_by: { id: 'u3', name: 'Rina' }, created_at: '2026-11-23T02:00:00Z',
+  open_task: { id: 'k1', node_id: 's1', kind: 'approval', due_date: null, can_act: true },
+}
+
+function renderPage({ rows = [request], counts = { pending: 1, approved: 4, rejected: 2, cancelled: 0, all: 7 }, url = '/notifikasi', approver = true, tasks = false } = {}) {
   const posts: { url: string; body: unknown }[] = []
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input)
+      if (path.startsWith('/api/transaction-runs')) {
+        return new Response(JSON.stringify({ data: tasks ? [run] : [], meta: { current_page: 1, last_page: 1, per_page: 50, total: tasks ? 1 : 0 } }), { status: 200 })
+      }
       if (init?.method === 'POST') posts.push({ url: path, body: init.body ? JSON.parse(String(init.body)) : null })
       const data = path.includes('/approvals/counts') ? counts : path.includes('/approvals/a1') ? detail : null
       const body = data ? { data } : { data: rows, meta: { current_page: 1, last_page: 1, per_page: 25, total: rows.length } }
@@ -50,7 +61,7 @@ function renderPage({ rows = [request], counts = { pending: 1, approved: 4, reje
   const auth: AuthState = {
     profile: { user: { id: 'u1' }, permissions: approver ? ['approval.manage'] : [] } as unknown as Profile,
     isLoading: false,
-    can: (p) => approver && p === 'approval.manage',
+    can: (p) => (approver && p === 'approval.manage') || (tasks && p === 'transaction.view'),
     login: vi.fn(),
     signUp: vi.fn(),
     logout: vi.fn(),
@@ -109,6 +120,24 @@ describe('Persetujuan page', () => {
     fireEvent.change(within(dialog).getByLabelText(/Alasan penolakan/), { target: { value: 'Nama tidak sesuai label' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Tolak pengajuan', hidden: true }))
     await vi.waitFor(() => expect(posts.find((p) => p.url.endsWith('/approvals/a1/reject'))?.body).toEqual({ note: 'Nama tidak sesuai label' }))
+  })
+})
+
+describe('transaction steps in the same list', () => {
+  it('lists the steps waiting for the approver under Menunggu, as kind Transaksi, opening the transaction', async () => {
+    renderPage({ tasks: true })
+    expect(await screen.findByRole('link', { name: /PJK-2026-000003/ })).toHaveAttribute('href', '/transaksi/berjalan/r1')
+    expect(screen.getByText('Peminjaman ke karyawan · Approval aset bernilai tinggi')).toBeInTheDocument()
+    expect(screen.getByText('Perubahan data aset')).toBeInTheDocument()
+    // One tab row, one list: the count holds both.
+    expect(await screen.findByRole('tab', { name: /Menunggu\s*2/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getAllByRole('tablist')).toHaveLength(1)
+  })
+
+  it('leaves the steps out of the other tabs and of the other kinds', async () => {
+    renderPage({ tasks: true, url: '/notifikasi?category=asset' })
+    expect(await screen.findByText('Perubahan data aset')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /PJK-2026-000003/ })).not.toBeInTheDocument()
   })
 })
 

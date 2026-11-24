@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Domain\Assets\Models\Asset;
+use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\TenantMaster\Models\CategoryModule;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
@@ -26,12 +27,24 @@ class AssetResource extends JsonResource
             'barcode_enabled' => in_array(OrganizationModule::BARCODE, $modules, true),
             'location_id' => $this->location_id,
             'location' => $this->whenLoaded('location', fn () => Ref::of($this->location)),
+            // F-09: who answers for the asset. A custodian who has since left stays, marked inactive.
+            'custodian_user_id' => $this->custodian_user_id,
+            'custodian' => $this->whenLoaded('custodianMember', fn () => $this->custodianMember === null ? null : [
+                'id' => $this->custodian_user_id,
+                'name' => $this->custodianMember->user?->name,
+                'is_active' => $this->custodianMember->isActive() && $this->custodianMember->user?->status === User::STATUS_ACTIVE,
+            ]),
+            'department_id' => $this->department_id,
+            'department' => $this->whenLoaded('department', fn () => Ref::of($this->department)),
             'status' => $this->status,
             'acquisition_date' => $this->acquisition_date?->toDateString(),
             'acquisition_cost' => $this->acquisition_cost,
             'description' => $this->description,
             // Category field values keyed by attribute key; always a JSON object.
             'attributes' => (object) $this->attribute_values,
+            // Optional category fields this asset does not use, and fields only it has.
+            'hidden_attributes' => $this->hidden_attributes ?? [],
+            'extra_attributes' => $this->extra_attributes ?? [],
             // The file name is random per upload, so it doubles as a cache buster.
             'image_url' => $this->image_path === null ? null
                 : '/api/assets/'.$this->id.'/image?v='.pathinfo($this->image_path, PATHINFO_FILENAME),

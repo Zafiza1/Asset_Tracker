@@ -44,20 +44,32 @@ final class HomeCards
 
     public const RECENT_DAYS = 30;
 
-    /** Card key => permission needed (null: every member). Order is the display order. */
+    /**
+     * Card key => permission needed (null: every member; a list: any one of them). Order is the
+     * display order.
+     */
     public const CARDS = [
-        'approvals_to_decide' => 'approval.manage',
-        'transaction_tasks' => 'transaction.view',
+        // One inbox (as the Persetujuan page): steps of transactions and data change requests.
+        'decisions' => ['approval.manage', 'transaction.view'],
         'my_requests' => null,
+        'my_assets' => 'asset.view',
         'overdue_outgoing' => 'transaction.view',
+        'overdue_loans' => 'transaction.view',
         'due_soon' => 'transaction.view',
         'date_reminders' => 'asset.view',
         'incomplete_assets' => 'asset.update',
+        'inactive_custodians' => 'asset.update',
         'license' => 'license.manage',
         'invitations' => 'user.create',
         'users' => 'user.view',
         'my_reports' => 'report.generate',
         'recent_activity' => 'audit.view',
+    ];
+
+    /** Cards that replaced others: former key => current key, for arrangements saved before. */
+    public const REPLACED = [
+        'approvals_to_decide' => 'decisions',
+        'transaction_tasks' => 'decisions',
     ];
 
     public function __construct(
@@ -76,7 +88,7 @@ final class HomeCards
             $today = CarbonImmutable::now($tenant->organization->timezone ?: 'UTC')->startOfDay();
             $cards = [];
             foreach (self::CARDS as $key => $permission) {
-                if ($permission === null || $tenant->can($permission)) {
+                if ($permission === null || array_filter((array) $permission, fn (string $p) => $tenant->can($p)) !== []) {
                     $cards[] = ['key' => $key, ...$this->card($key, $today)];
                 }
             }
@@ -101,19 +113,39 @@ final class HomeCards
     private function card(string $key, CarbonImmutable $today): array
     {
         return match ($key) {
-            'approvals_to_decide' => $this->approvalsToDecide(),
-            'transaction_tasks' => $this->transactionTasks($today),
+            'decisions' => $this->decisions($today),
             'my_requests' => $this->myRequests($today),
+            'my_assets' => $this->myAssets(),
             'overdue_outgoing' => $this->overdueOutgoing($today),
+            'overdue_loans' => $this->overdueLoans($today),
             'due_soon' => $this->dueSoon($today),
             'date_reminders' => $this->dateReminders($today),
             'incomplete_assets' => $this->incompleteAssets(),
+            'inactive_custodians' => $this->inactiveCustodians(),
             'license' => $this->license($today),
             'invitations' => $this->invitations(),
             'users' => $this->users($today),
             'my_reports' => $this->myReports(),
             'recent_activity' => $this->recentActivity(),
         };
+    }
+
+    /**
+     * What waits for the user's decision: steps of transactions (with transaction.view) and data
+     * change requests of other users (with approval.manage). A part the user may not see is null.
+     */
+    private function decisions(CarbonImmutable $today): array
+    {
+        $tenant = $this->tenancy->tenant();
+        $tasks = $tenant->can('transaction.view') ? $this->transactionTasks($today) : null;
+        $approvals = $tenant->can('approval.manage') ? $this->approvalsToDecide() : null;
+
+        return [
+            'count' => ($tasks['count'] ?? 0) + ($approvals['count'] ?? 0),
+            'overdue' => $tasks['overdue'] ?? 0,
+            'tasks' => $tasks,
+            'approvals' => $approvals,
+        ];
     }
 
     /** Pending requests from other users, oldest first: they have waited longest. */
@@ -194,6 +226,23 @@ final class HomeCards
         ];
     }
 
+    /** Internal loans past their planned return date, most overdue first. */
+    private function overdueLoans(CarbonImmutable $today): array
+    {
+        $query = $this->assets()->where('status', AssetStatus::ON_LOAN)->where('loan_due_date', '<', $today->toDateString());
+
+        return [
+            'count' => (clone $query)->count(),
+            'items' => $query->orderBy('loan_due_date')->limit(self::ITEMS)->get(['id', 'name', 'borrower_name', 'loan_due_date'])
+                ->map(fn (Asset $a) => [
+                    'asset' => ['id' => $a->id, 'name' => $a->name],
+                    'borrower_name' => $a->borrower_name,
+                    'due_date' => $a->loan_due_date?->toDateString(),
+                    'days_late' => $this->daysBetween($a->loan_due_date?->toDateString(), $today),
+                ])->all(),
+        ];
+    }
+
     /** Loans and temporary outgoing assets due today or within DUE_SOON_DAYS days, earliest first. */
     private function dueSoon(CarbonImmutable $today): array
     {
@@ -257,6 +306,36 @@ final class HomeCards
             ->orWhereExists($required)
             ->orWhere(fn ($w) => $w->whereNull('location_id')->where('status', '!=', AssetStatus::DISPOSED)))->count(),
             'counts' => $counts];
+    }
+
+    /** F-09: active assets the user answers for (same list as "Aset saya"). */
+    private function myAssets(): array
+    {
+        $query = $this->assets()->where('assets.custodian_user_id', $this->tenancy->tenant()->userId());
+
+        return [
+            'count' => (clone $query)->count(),
+            'items' => $query->orderBy('assets.name')->orderBy('assets.id')->limit(self::ITEMS)->get(['assets.id', 'assets.name'])
+                ->map(fn (Asset $a) => ['id' => $a->id, 'name' => $a->name])->all(),
+        ];
+    }
+
+    /**
+     * F-09 / D-55: active assets whose custodian has left (membership or account no longer
+     * active). They stay recorded so the responsibility is not lost; someone has to take over.
+     */
+    private function inactiveCustodians(): array
+    {
+        $active = OrganizationMember::query()->select('organization_members.user_id')
+            ->join('users', 'users.id', '=', 'organization_members.user_id')
+            ->where('organization_members.status', User::STATUS_ACTIVE)->where('users.status', User::STATUS_ACTIVE);
+        $query = $this->assets()->whereNotNull('assets.custodian_user_id')->whereNotIn('assets.custodian_user_id', $active);
+
+        return [
+            'count' => (clone $query)->count(),
+            'items' => $query->with('custodianMember.user:id,name')->orderBy('assets.name')->orderBy('assets.id')->limit(self::ITEMS)->get()
+                ->map(fn (Asset $a) => ['asset' => ['id' => $a->id, 'name' => $a->name], 'custodian' => $a->custodianMember?->user?->name])->all(),
+        ];
     }
 
     private function license(CarbonImmutable $today): array

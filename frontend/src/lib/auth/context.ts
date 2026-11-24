@@ -41,7 +41,6 @@ export const ME_KEY = ['auth', 'me'] as const
  */
 export function landingPath(profile: Profile, from?: string): string {
   if (profile.user.must_change_password) return '/ubah-password'
-  if (profile.user.user_type === 'platform') return from ?? '/platform/organisasi'
   if (profile.organizations.length > 1) return '/pilih-organisasi'
   return from ?? '/'
 }

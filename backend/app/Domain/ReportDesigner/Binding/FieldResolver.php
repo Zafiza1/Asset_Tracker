@@ -2,7 +2,10 @@
 
 namespace App\Domain\ReportDesigner\Binding;
 
+use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Domain\ReportDesigner\Catalog\FieldCatalog;
+use App\Domain\ReportDesigner\Catalog\TransactionReportFields;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
@@ -18,8 +21,8 @@ final class FieldResolver
 {
     /** Eager-loadable relations each row source needs for its catalog bind paths. */
     public const EAGER_LOADS = [
-        'asset' => ['category', 'location'],
-        'asset_transaction' => ['asset.category', 'asset.location', 'fromLocation', 'toLocation', 'creator', 'incomingTransaction', 'outgoingTransaction'],
+        'asset' => ['category', 'location', 'department', 'custodianMember.user'],
+        'asset_transaction' => ['asset.category', 'asset.location', 'asset.department', 'asset.custodianMember.user', 'fromLocation', 'toLocation', 'creator', 'incomingTransaction', 'outgoingTransaction', 'typeDefinition.fields'],
     ];
 
     /**
@@ -29,12 +32,45 @@ final class FieldResolver
      */
     public function rowValue(Model $row, string $source, string $fieldKey): mixed
     {
+        // Organization transaction-type fields (F-07g): the row's type code must match
+        // and the value comes from its stored field_values — never a dot path.
+        if ($source === 'asset_transaction' && TransactionReportFields::parse($fieldKey) !== null) {
+            return $this->customTransactionValue($row, $fieldKey);
+        }
+
         $field = FieldCatalog::fields($source)[$fieldKey] ?? null;
         if ($field === null) {
             return null;
         }
 
         return $this->walk($row, explode('.', $field[2]));
+    }
+
+    /**
+     * One custom transaction field of one row: scalar types pass their stored value to the
+     * formatter; choice/reference types resolve through TransactionFieldTypes::display()
+     * (option labels, member/location names, Ya/Tidak) like the transaction detail page.
+     */
+    private function customTransactionValue(Model $row, string $fieldKey): mixed
+    {
+        if (! $row instanceof AssetTransaction) {
+            return null;
+        }
+        [$code, $key] = TransactionReportFields::parse($fieldKey);
+        $definition = $row->typeDefinition;
+        if ($definition === null || strtoupper($definition->code) !== strtoupper($code)) {
+            return null;
+        }
+        $field = $definition->fields->firstWhere('key', $key);
+        if ($field === null) {
+            return null;
+        }
+        $values = $row->field_values ?? [];
+        if (TransactionReportFields::isDisplayType($field)) {
+            return TransactionFieldTypes::display([$field], $values)[$key] ?? null;
+        }
+
+        return $values[$key] ?? null;
     }
 
     /**

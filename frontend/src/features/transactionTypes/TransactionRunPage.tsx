@@ -96,6 +96,11 @@ export function TransactionRunPage() {
             Langkah ini dikerjakan oleh {task.assignee_name ?? 'penanggung jawabnya'}
             {task.kind === 'approval' && task.required_approvals > 1 ? ` (${task.approvals} dari ${task.required_approvals} persetujuan)` : ''}
             {task.due_date ? `, batas ${formatDate(task.due_date)}` : ''}.
+            {(task.reasons ?? []).map((reason) => (
+              <span key={reason} className="mt-1 block">
+                {reason}
+              </span>
+            ))}
           </Alert>
         </div>
       )}
@@ -146,6 +151,8 @@ export function TransactionRunPage() {
         </Card>
         <Card title="Data">
           <div className="space-y-4 p-5">
+            {/* A system type's built-in input (borrower, target location...), recorded at its core step. */}
+            <FieldValueList values={r.system_values ?? []} variant="grid" />
             <FieldValueList values={r.field_values ?? []} variant="grid" emptyText={() => 'belum diisi'} />
             <div>
               <p className="mb-1 text-sm text-slate-500">Aset</p>

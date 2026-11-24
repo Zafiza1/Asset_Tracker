@@ -4,6 +4,7 @@ namespace Tests\Feature\Dashboards;
 
 use App\Domain\Approvals\Models\ApprovalRequest;
 use App\Domain\Dashboards\Home\HomeCards;
+use App\Domain\Dashboards\Models\UserDashboardPreference;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Tenancy\TenantContext;
@@ -40,7 +41,10 @@ class HomeCardsTest extends TestCase
         $this->assertSame(array_keys(HomeCards::CARDS), $keys);   // Super Admin: everything, in order
 
         $this->actingAs($this->member(['transaction.view', 'asset.view']), 'web');
-        $this->assertSame(['transaction_tasks', 'my_requests', 'overdue_outgoing', 'due_soon', 'date_reminders'], array_column($this->cards(), 'key'));
+        $this->assertSame(['decisions', 'my_requests', 'my_assets', 'overdue_outgoing', 'overdue_loans', 'due_soon', 'date_reminders'], array_column($this->cards(), 'key'));
+        // Without approval.manage the inbox card holds only the steps of transactions.
+        $this->assertNull($this->card('decisions')['approvals']);
+        $this->assertSame(0, $this->card('decisions')['tasks']['count']);
 
         $this->actingAs($this->member([]), 'web');
         $this->assertSame(['my_requests'], array_column($this->cards(), 'key'));
@@ -53,7 +57,7 @@ class HomeCardsTest extends TestCase
         $this->approval($this->admin, 'Ubah kategori milik admin');
         $rejected = $this->approval($requester, 'Ubah lokasi Laptop', ApprovalRequest::REJECTED, 'Lokasi tujuan salah.');
 
-        $card = $this->card('approvals_to_decide');
+        $card = $this->card('decisions')['approvals'];
         $this->assertSame(1, $card['count']);
         $this->assertSame([$theirs], array_column($card['items'], 'id'));
         $this->assertSame($requester->name, $card['items'][0]['requested_by']);
@@ -85,6 +89,32 @@ class HomeCardsTest extends TestCase
         $this->assertSame(['Proyektor'], array_column(array_column($this->card('overdue_outgoing')['items'], 'asset'), 'name'));
     }
 
+    public function test_overdue_loans_are_internal_loans_past_their_return_date_in_scope(): void
+    {
+        $late = $this->asset('Laptop', $this->masters['location']->id);
+        $later = $this->asset('Kamera', $this->masters['location']->id);
+        $elsewhere = $this->asset('Proyektor', $this->otherLocation());
+        $onTime = $this->asset('Printer', $this->masters['location']->id);
+        $this->loan($late, now()->subDays(10), now()->subDays(4), 'Budi');
+        $this->loan($later, now()->subDays(5), now()->subDays(1), 'Sari');
+        $this->loan($elsewhere, now()->subDays(10), now()->subDays(2), 'Andi');
+        $this->loan($onTime, now()->subDay(), now()->addDays(3), 'Dewi');
+        // Temporary outgoing past its date is a different card.
+        $this->outgoing($this->asset('Genset', $this->masters['location']->id), now()->addDay());
+        $this->travel(2)->days();
+
+        $card = $this->card('overdue_loans');
+        $this->assertSame(3, $card['count']);
+        $this->assertSame(['Laptop', 'Proyektor', 'Kamera'], array_column(array_column($card['items'], 'asset'), 'name'));   // most overdue first
+        $this->assertSame(['Budi', 6], [$card['items'][0]['borrower_name'], $card['items'][0]['days_late']]);
+        // "Lihat semua yang lewat batas": the asset list with overdue=1 has the same loans, not the one on time.
+        $this->assertEqualsCanonicalizing(['Laptop', 'Kamera', 'Proyektor'], array_column($this->getJson('/api/assets?overdue=1')->assertOk()->json('data'), 'name'));
+
+        $this->actingAs($this->member(['transaction.view', 'asset.view'], location: $this->masters['location']->id), 'web');
+        $this->assertSame(['Laptop', 'Kamera'], array_column(array_column($this->card('overdue_loans')['items'], 'asset'), 'name'));
+        $this->assertEqualsCanonicalizing(['Laptop', 'Kamera'], array_column($this->getJson('/api/assets?overdue=1')->assertOk()->json('data'), 'name'));
+    }
+
     public function test_date_reminders_and_incomplete_assets(): void
     {
         $soon = $this->asset('Avanza', $this->masters['location']->id, ['pajak_stnk' => now()->addDays(6)->toDateString(), 'nomor_polisi' => 'D 1234 AB']);
@@ -112,19 +142,59 @@ class HomeCardsTest extends TestCase
     public function test_another_organization_sees_none_of_this_and_cards_are_cached_for_a_minute(): void
     {
         $this->approval($this->member([]), 'Pengajuan ALPHA');
-        $this->assertSame(1, $this->card('approvals_to_decide')['count']);
+        $this->assertSame(1, $this->card('decisions')['count']);
 
         ['admin' => $other] = $this->createOrganization('BETA');
         $this->actingAs($other, 'web');
-        $this->assertSame(0, $this->card('approvals_to_decide')['count']);
-        $this->assertNotContains('Pengajuan ALPHA', array_column($this->card('approvals_to_decide')['items'], 'summary'));
+        $this->assertSame(0, $this->card('decisions')['count']);
+        $this->assertNotContains('Pengajuan ALPHA', array_column($this->card('decisions')['approvals']['items'], 'summary'));
 
         // A new request shows after the cache expires, not before.
         $this->actingAs($this->admin, 'web');
         $this->approval($this->member([]), 'Pengajuan kedua');
-        $this->assertSame(1, $this->card('approvals_to_decide')['count']);
+        $this->assertSame(1, $this->card('decisions')['count']);
         $this->travel(HomeCards::CACHE_SECONDS + 1)->seconds();
-        $this->assertSame(2, $this->card('approvals_to_decide')['count']);
+        $this->assertSame(2, $this->card('decisions')['count']);
+    }
+
+    public function test_an_arrangement_saved_with_the_former_inbox_cards_moves_to_the_merged_card(): void
+    {
+        $saved = fn (array $cards) => $this->tenancy()->runAsSystem(fn () => (UserDashboardPreference::query()->firstWhere('user_id', $this->admin->id) ?? new UserDashboardPreference)
+            ->forceFill(['organization_id' => $this->org->id, 'user_id' => $this->admin->id, 'home_cards' => $cards])->save());
+        $preferences = fn () => $this->getJson('/api/home/cards')->json('meta.preferences');
+
+        // It takes the place of the first of them, once.
+        $saved(['order' => ['my_requests', 'transaction_tasks', 'approvals_to_decide', 'license'], 'hidden' => []]);
+        $this->assertSame(['order' => ['my_requests', 'decisions', 'license'], 'hidden' => []], $preferences());
+
+        // Hidden only when every one of them was hidden.
+        $saved(['order' => [], 'hidden' => ['transaction_tasks']]);
+        $this->travel(HomeCards::CACHE_SECONDS + 1)->seconds();
+        $this->assertSame(['order' => [], 'hidden' => ['decisions']], $preferences());
+        $saved(['order' => ['approvals_to_decide'], 'hidden' => ['transaction_tasks']]);
+        $this->assertSame(['order' => ['decisions'], 'hidden' => []], $preferences());
+    }
+
+    public function test_each_member_keeps_their_own_card_order_and_hidden_cards(): void
+    {
+        $this->assertSame(['order' => [], 'hidden' => []], $this->getJson('/api/home/cards')->json('meta.preferences'));
+
+        $this->putJson('/api/home/preferences', ['order' => ['my_requests', 'decisions'], 'hidden' => ['recent_activity']])
+            ->assertOk()->assertJsonPath('data.hidden', ['recent_activity']);
+        $this->assertSame(['order' => ['my_requests', 'decisions'], 'hidden' => ['recent_activity']],
+            $this->getJson('/api/home/cards')->json('meta.preferences'));
+
+        // Only card keys, each once.
+        $this->putJson('/api/home/preferences', ['order' => ['bukan_kartu'], 'hidden' => []])->assertUnprocessable();
+        $this->putJson('/api/home/preferences', ['order' => ['my_requests', 'my_requests'], 'hidden' => []])->assertUnprocessable();
+        $this->putJson('/api/home/preferences', ['order' => []])->assertUnprocessable();
+
+        // A member without any dashboard permission has their own, untouched preferences.
+        $this->actingAs($this->member([]), 'web');
+        $this->assertSame(['order' => [], 'hidden' => []], $this->getJson('/api/home/cards')->json('meta.preferences'));
+        $this->putJson('/api/home/preferences', ['order' => [], 'hidden' => ['my_requests']])->assertOk();
+        $this->actingAs($this->admin, 'web');
+        $this->assertSame(['recent_activity'], $this->getJson('/api/home/cards')->json('meta.preferences.hidden'));
     }
 
     /** @return list<array<string, mixed>> */
@@ -182,6 +252,14 @@ class HomeCardsTest extends TestCase
     private function otherLocation(): string
     {
         return $this->postJson('/api/locations', ['name' => 'Gudang Lain '.Str::random(4)])->assertCreated()->json('data.id');
+    }
+
+    private function loan(string $assetId, \DateTimeInterface $on, \DateTimeInterface $due, string $borrower): void
+    {
+        $this->postJson('/api/transactions', [
+            'asset_id' => $assetId, 'type' => 'loan', 'borrower_name' => $borrower,
+            'transaction_date' => $on->format('Y-m-d'), 'due_date' => $due->format('Y-m-d'),
+        ])->assertCreated();
     }
 
     private function outgoing(string $assetId, \DateTimeInterface $due): void

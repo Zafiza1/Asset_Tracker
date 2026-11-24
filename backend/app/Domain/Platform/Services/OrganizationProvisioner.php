@@ -2,12 +2,16 @@
 
 namespace App\Domain\Platform\Services;
 
+use App\Domain\AssetTransactions\SystemTransactionTypes;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Authorization\Models\Permission;
 use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\Models\UserDataScope;
 use App\Domain\Authorization\PermissionCatalog;
 use App\Domain\Authorization\RoleTemplates;
+use App\Domain\Dashboards\DashboardType;
+use App\Domain\Dashboards\Models\DashboardTemplate;
+use App\Domain\Dashboards\Models\TemplateWidget;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Organization;
@@ -29,6 +33,13 @@ use LogicException;
  */
 final class OrganizationProvisioner
 {
+    /** Built-in role => system asset board template it is mapped to (F-06 §4.1, D-21). */
+    private const ASSET_BOARD_TEMPLATES = [
+        RoleTemplates::SUPER_ADMIN => 'asset_board_super_admin',
+        RoleTemplates::SUPERVISOR => 'asset_board_supervisor',
+        RoleTemplates::ADMIN => 'asset_board_admin',
+    ];
+
     public function __construct(
         private readonly Tenancy $tenancy,
         private readonly AuditLogger $audit,
@@ -57,6 +68,8 @@ final class OrganizationProvisioner
             $settings->forceFill(['organization_id' => $org->id])->save();
 
             $roles = $this->createRoles($org);
+            $this->mapAssetBoardTemplates($org, $roles);
+            SystemTransactionTypes::install($org->id);
             if ($standardCategories) {
                 $this->categories->installStandard($org->id);
             }
@@ -122,5 +135,59 @@ final class OrganizationProvisioner
         }
 
         return $roles;
+    }
+
+    /**
+     * F-06 §4.1 (D-21): map the three built-in asset board templates to the three built-in roles.
+     * Creates organization templates as copies of the system templates. The role mapping, not
+     * is_default, decides which template a member gets (TemplateResolver::forRole), so the copies
+     * are not marked default: at most one default per owner and dashboard type is allowed.
+     *
+     * @param  array<string, Role>  $roles
+     */
+    private function mapAssetBoardTemplates(Organization $org, array $roles): void
+    {
+        $systemTemplates = DashboardTemplate::query()->whereNull('organization_id')
+            ->where('dashboard_type', DashboardType::ASSET_BOARD)
+            ->whereIn('template_key', array_values(self::ASSET_BOARD_TEMPLATES))
+            ->with('widgets')
+            ->get()->keyBy('template_key');
+
+        foreach (self::ASSET_BOARD_TEMPLATES as $roleCode => $templateKey) {
+            $systemTemplate = $systemTemplates[$templateKey] ?? null;
+            $role = $roles[$roleCode] ?? null;
+            if ($systemTemplate === null || $role === null) {
+                continue;
+            }
+
+            // Columns outside $fillable (organization, source, scope, version, role) need forceFill.
+            $orgTemplate = new DashboardTemplate;
+            $orgTemplate->forceFill([
+                'organization_id' => $org->id,
+                'source_template_id' => $systemTemplate->id,
+                'template_key' => $templateKey,
+                'name' => $systemTemplate->name,
+                'description' => $systemTemplate->description,
+                'dashboard_type' => DashboardType::ASSET_BOARD,
+                'category_type_key' => null,
+                'scope' => DashboardTemplate::SCOPE_ORGANIZATION,
+                'version' => $systemTemplate->version,
+                'is_default' => false,
+                'is_active' => true,
+                'role_id' => $role->id,
+            ])->save();
+
+            foreach ($systemTemplate->widgets as $templateWidget) {
+                (new TemplateWidget)->forceFill([
+                    'organization_id' => $org->id,
+                    'template_id' => $orgTemplate->id,
+                    'widget_catalog_id' => $templateWidget->widget_catalog_id,
+                    'title' => $templateWidget->title,
+                    'configuration' => $templateWidget->configuration,
+                    'layout' => $templateWidget->layout,
+                    'sort_order' => $templateWidget->sort_order,
+                ])->save();
+            }
+        }
     }
 }

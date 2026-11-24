@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup F-08 · Transaction Builder Terpandu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  Mockup persetujuan UI (APR-0008) untuk docs/factory/features/F-08-transaction-builder-terpandu.md (CSS dasar dari mockup F-07).
+  CSS dasar sama dengan mockup F-05 (token docs/design/figma-tokens.json, komponen docs/09).
+-->
+<style>
+:root{
+  --brand-50:#eff6ff;--brand-100:#dbeafe;--brand-600:#2563eb;--brand-700:#1d4ed8;--brand-800:#1e40af;
+  --s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;--s300:#cbd5e1;--s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;--s900:#0f172a;
+  --g50:#f0fdf4;--g600:#16a34a;--g700:#15803d;--a50:#fffbeb;--a600:#d97706;--a800:#92400e;--r50:#fef2f2;--r600:#dc2626;--r700:#b91c1c;
+  --shadow-card:0 1px 2px #0f172a0a,0 1px 3px #0f172a0f;--shadow-raised:0 4px 12px -2px #0f172a14,0 2px 4px -2px #0f172a0f;--shadow-overlay:0 20px 40px -12px #0f172a40;
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 "Source Sans 3",system-ui,sans-serif;color:var(--s700);background:#e9edf2}
+h1,h2,h3{font-family:Lexend,"Source Sans 3",sans-serif;color:var(--s900);margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brand-600);outline-offset:2px}
+.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--s500)} .xs{font-size:12px}
+svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+svg.i.sm{width:14px;height:14px}
+
+/* Kontrol mockup (bukan bagian aplikasi) */
+.mk{position:sticky;top:0;z-index:50;background:var(--s900);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.mk b{font-family:Lexend;font-weight:500;margin-right:4px}
+.mk .grp{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.mk .grp span{font-size:12px;color:var(--s400);margin-right:4px}
+.mk button{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}
+.mk button[aria-pressed=true]{background:var(--brand-700);border-color:var(--brand-600);color:#fff}
+.note{max-width:1180px;margin:12px auto 0;padding:0 16px;font-size:13px;color:var(--s600)}
+.note code{background:#fff;border:1px solid var(--s200);border-radius:4px;padding:0 4px}
+
+/* Bingkai aplikasi */
+.stage{padding:16px;display:flex;justify-content:center}
+.frame{width:100%;max-width:1180px;background:var(--s50);border:1px solid var(--s300);border-radius:12px;overflow:hidden;container-type:inline-size;transition:max-width .2s}
+.frame.narrow{max-width:375px}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:760px}
+.side{background:#fff;border-right:1px solid var(--s200);padding:16px 12px}
+.logo{display:flex;gap:8px;align-items:center;font-family:Lexend;font-weight:600;color:var(--s900);padding:4px 8px 16px}
+.logo i{width:28px;height:28px;border-radius:8px;background:var(--brand-700);display:inline-block}
+.nav a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:var(--s600);text-decoration:none;margin-bottom:2px}
+.nav a.on{background:var(--brand-50);color:var(--brand-700);font-weight:600;box-shadow:inset 3px 0 0 var(--brand-700)}
+.main{min-width:0}
+.top{height:56px;background:#fff;border-bottom:1px solid var(--s200);display:flex;align-items:center;gap:12px;padding:0 20px}
+.burger{display:none}
+.gsearch{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;border:1px solid var(--s300);border-radius:8px;padding:0 10px;height:36px;color:var(--s400)}
+.gsearch kbd{margin-left:auto;font-size:11px;border:1px solid var(--s200);border-radius:4px;padding:0 4px}
+.avatar{margin-left:auto;width:32px;height:32px;border-radius:50%;background:var(--brand-100);color:var(--brand-700);display:grid;place-items:center;font-weight:600}
+.content{padding:24px}
+
+/* Komponen */
+.ph{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.ph h1{font-size:24px;font-weight:600}
+.ph p{margin:4px 0 0;color:var(--s500)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;border-radius:8px;border:1px solid transparent;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn.sm{min-height:32px;padding:0 10px;font-size:13px}
+.btn.primary{background:var(--brand-700);color:#fff}.btn.primary:hover{background:var(--brand-800)}
+.btn.secondary{background:#fff;border-color:var(--s300);color:var(--s700)}.btn.secondary:hover{background:var(--s50)}
+.btn.ghost{background:transparent;color:var(--s600)}.btn.ghost:hover{background:var(--s100)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.card{background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-card)}
+.card-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--s200)}
+.card-h h3{font-size:16px;font-weight:600;font-family:"Source Sans 3"}
+.pad{padding:16px}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:9999px;padding:1px 8px 1px 6px;font-size:12px;font-weight:600;white-space:nowrap;box-shadow:inset 0 0 0 1px currentColor}
+.badge.green{background:var(--g50);color:var(--g700)}.badge.amber{background:var(--a50);color:var(--a800)}.badge.red{background:var(--r50);color:var(--r700)}.badge.slate{background:var(--s100);color:var(--s700)}.badge.blue{background:var(--brand-50);color:var(--brand-700)}
+.badge.green,.badge.amber,.badge.red,.badge.slate,.badge.blue{box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 25%,transparent)}
+.pills{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}
+.pill{border:1px solid var(--s200);background:#fff;border-radius:9999px;padding:4px 12px;font-size:13px;cursor:pointer;color:var(--s600)}
+.pill[aria-selected=true]{background:var(--brand-50);border-color:var(--brand-600);color:var(--brand-700);font-weight:600}
+.pill .n{margin-left:4px;color:var(--s400);font-weight:500}
+.filters{padding:12px 16px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--s200)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.input,.select{height:40px;border:1px solid var(--s300);border-radius:8px;background:#fff;padding:0 10px;min-width:0}
+.input.err,.select.err{border-color:var(--r600);box-shadow:0 0 0 1px var(--r600)}
+textarea.input{height:auto;padding:8px 10px;min-height:64px;resize:vertical}
+.search{flex:1;min-width:200px;position:relative}
+.search .input{width:100%;padding-left:34px}
+.search svg{position:absolute;left:10px;top:12px;color:var(--s400)}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--s100);border-radius:9999px;padding:2px 6px 2px 10px;font-size:12px}
+.chip button{border:0;background:none;padding:2px;cursor:pointer;color:var(--s500);display:grid}
+.link{color:var(--brand-700);background:none;border:0;padding:0;cursor:pointer;font-weight:600;font-size:13px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;font-weight:600;color:var(--s600);background:var(--s50);padding:10px 12px;border-bottom:1px solid var(--s200);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--s100);vertical-align:top}
+tr.dis td{color:var(--s400)}
+tbody tr:hover td{background:#fbfdff}
+.pager{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:13px;color:var(--s500);flex-wrap:wrap;gap:8px}
+.sub{display:none}
+.alert{display:flex;gap:10px;border-radius:8px;padding:10px 12px;border:1px solid}
+.alert.red{background:var(--r50);border-color:#fecaca;color:var(--r700)}
+.alert.amber{background:var(--a50);border-color:#fde68a;color:var(--a800)}
+.alert.blue{background:var(--brand-50);border-color:var(--brand-100);color:var(--brand-800)}
+.alert p{margin:2px 0 0}
+.empty{text-align:center;padding:48px 16px}
+.empty .ic{width:48px;height:48px;border-radius:12px;background:var(--s100);display:grid;place-items:center;margin:0 auto 12px;color:var(--s500)}
+.empty h3{font-size:16px;font-family:"Source Sans 3";font-weight:600}
+.empty p{margin:4px auto 16px;max-width:360px;color:var(--s500)}
+.sk{background:linear-gradient(90deg,var(--s100),var(--s200),var(--s100));background-size:200% 100%;animation:sk 1.2s infinite;border-radius:6px;height:12px}
+@keyframes sk{to{background-position:-200% 0}}
+.err-state{text-align:center;padding:40px 16px}
+.err-state .ic{color:var(--r600);margin:0 auto 8px;width:40px;height:40px;display:grid;place-items:center;background:var(--r50);border-radius:12px}
+.toast{position:fixed;right:20px;bottom:20px;background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-overlay);padding:12px 14px;display:flex;gap:10px;max-width:360px;z-index:60}
+.toast .ok{color:var(--g600)}
+
+/* Modal */
+.overlay{position:absolute;inset:0;background:#0f172a66;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow:auto}
+.modal{background:#fff;border-radius:12px;box-shadow:var(--shadow-overlay);width:100%;max-width:880px}
+.modal-h{display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px;border-bottom:1px solid var(--s200)}
+.modal-h h2{font-size:18px;font-weight:600}
+.modal-b{padding:20px;display:flex;flex-direction:column;gap:20px}
+.modal-f{display:flex;justify-content:space-between;gap:8px;padding:14px 20px;border-top:1px solid var(--s200);background:var(--s50);border-radius:0 0 12px 12px;flex-wrap:wrap}
+.step{display:flex;gap:8px;align-items:center;font-weight:600;color:var(--s900);margin-bottom:10px}
+.step i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--brand-50);color:var(--brand-700);display:grid;place-items:center;font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-weight:600;color:var(--s700);font-size:13px}
+.field label .req{color:var(--r600)}
+.field .hint{font-size:12px;color:var(--s500)}
+.field .msg{font-size:12px;color:var(--r700);display:flex;gap:4px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--s300);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:8px 14px;cursor:pointer;min-height:40px}
+.seg button+button{border-left:1px solid var(--s300)}
+.seg button[aria-pressed=true]{background:var(--brand-50);color:var(--brand-700);font-weight:600}
+.typecards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tc{border:1px solid var(--s200);border-radius:8px;padding:10px;background:#fff;text-align:left;cursor:pointer;display:flex;gap:8px;align-items:flex-start}
+.tc small{display:block;color:var(--s500);font-size:12px;font-weight:400}
+.tc[aria-pressed=true]{border-color:var(--brand-600);background:var(--brand-50);box-shadow:0 0 0 1px var(--brand-600)}
+.picked{display:flex;flex-wrap:wrap;gap:6px}
+.picked .chip{background:var(--brand-50);color:var(--brand-800)}
+.box{border:1px solid var(--s200);border-radius:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.kv dt{color:var(--s500)} .kv dd{margin:0;color:var(--s900)}
+.detail{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.timeline{list-style:none;margin:0;padding:0}
+.timeline li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--s100)}
+.dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none}
+.hidden{display:none!important}
+
+/* 375px: container query mengikuti lebar bingkai */
+@container (max-width: 640px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .burger{display:grid}
+  .gsearch kbd,.gsearch .t{display:none}
+  .gsearch{max-width:40px;padding:0;justify-content:center}
+  .content{padding:16px}
+  .hm{display:none}
+  .sub{display:block;margin-top:4px}
+  .grid2,.detail{grid-template-columns:1fr}
+  .typecards{grid-template-columns:1fr 1fr}
+  .overlay{padding:0;align-items:stretch}
+  .modal{border-radius:0;max-width:none}
+  .modal-f{border-radius:0;position:sticky;bottom:0}
+  .modal-f .btn{flex:1}
+  .ph .btn{width:100%}
+  .search{min-width:0}
+  .lbl-long{display:none}
+}
+/* F-07 */
+/* D-34: di mobile tidak ada editor; hanya hasil jadi */
+.mob-only{display:none}
+@container (max-width: 640px){
+  .desk-only{display:none!important}
+  .mob-only{display:flex}
+  /* Read-only diagram: the whole flow scaled to the phone width. */
+  .flow-shell{min-height:0}
+  .flowcanvas{height:auto;overflow:hidden}
+  .flowcanvas .inner{zoom:.45}
+  .flowcanvas .zoom{display:none}
+  .node.sel{outline:none}
+}
+.app.focus{grid-template-columns:1fr}.app.focus .side{display:none}
+.nav .sec{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--s400);padding:12px 10px 4px}
+.purple{--p50:#f5f3ff;--p600:#7c3aed;--p700:#6d28d9}
+.badge.purple{background:#f5f3ff;color:#6d28d9;box-shadow:inset 0 0 0 1px #6d28d940}
+.fieldrows{display:flex;flex-direction:column}
+.fr{display:grid;grid-template-columns:24px 1.4fr 1fr 1fr 110px 40px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--s100)}
+.fr.head{font-size:12px;font-weight:600;color:var(--s600);background:var(--s50)}
+.fr .drag{color:var(--s400);cursor:grab}
+.fr b{color:var(--s900)}
+.fr .k{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--s500)}
+.typeic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--brand-50);color:var(--brand-700);flex:none}
+.flow-shell{display:grid;grid-template-columns:150px 1fr 290px;min-height:600px;border-top:1px solid var(--s200)}
+.palette{background:#fff;border-right:1px solid var(--s200);padding:12px;display:flex;flex-direction:column;gap:8px}
+.palette h3,.props h3{font-size:13px;font-weight:700;font-family:"Source Sans 3";color:var(--s700)}
+.pi{display:flex;gap:8px;align-items:center;border:1px solid var(--s200);border-radius:8px;padding:8px;background:#fff;cursor:grab;font-size:13px;font-weight:600;color:var(--s700)}
+.pi i{width:18px;height:14px;flex:none;display:inline-block}
+.flowcanvas{position:relative;background:var(--s100);background-image:radial-gradient(var(--s300) 1px,transparent 1px);background-size:16px 16px;overflow:auto}
+.flowcanvas .inner{position:relative;width:720px;height:600px}
+.flowcanvas svg.edges{position:absolute;inset:0;width:700px;height:600px;overflow:visible}
+.edges path{fill:none;stroke:var(--s400);stroke-width:2}
+.edges path.on{stroke:var(--brand-600);stroke-width:3}
+.edges path.bad{stroke:var(--r600);stroke-dasharray:6 4}
+.edges text{font:600 11px "Source Sans 3",sans-serif;fill:var(--s600)}
+.edges rect.lbl{fill:#fff;stroke:var(--s200)}
+.node{position:absolute;background:#fff;border:2px solid var(--s300);border-radius:10px;padding:8px 10px;width:170px;font-size:12px;box-shadow:var(--shadow-card);cursor:pointer}
+.node b{display:block;font-size:13px;color:var(--s900)}
+.node small{color:var(--s500)}
+.node .kind{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.node.start,.node.end{border-radius:9999px;text-align:center;width:150px}
+.node.start{border-color:var(--g600)} .node.start .kind{color:var(--g700)}
+.node.end{border-color:var(--s500)} .node.end .kind{color:var(--s600)}
+.node.end.rej{border-color:var(--r600)} .node.end.rej .kind{color:var(--r700)}
+.node.nd-input .kind{color:var(--s600)}
+.node.approve{border-color:var(--brand-600)} .node.approve .kind{color:var(--brand-700)}
+.node.action{border-color:#7c3aed} .node.action .kind{color:#6d28d9}
+.node.wait{border-color:var(--a600)} .node.wait .kind{color:var(--a800)}
+.node.cond{width:150px;height:96px;border:0;background:none;box-shadow:none;display:grid;place-items:center;text-align:center;padding:0}
+.node.cond::before{content:"";position:absolute;inset:6px 14px;background:#fff;border:2px solid var(--a600);transform:rotate(45deg) scale(.72);border-radius:8px;box-shadow:var(--shadow-card)}
+.node.cond > *{position:relative}
+.node.cond .kind{color:var(--a800)}
+.node.sel{outline:3px solid var(--brand-600);outline-offset:2px}
+.node.path{box-shadow:0 0 0 4px var(--brand-100),var(--shadow-card)}
+.node.done{background:var(--g50)} .node.now{box-shadow:0 0 0 4px #fde68a,var(--shadow-card)}
+.node.err{border-color:var(--r600);background:var(--r50)}
+.node .port{position:absolute;width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid var(--s400)}
+.node .port.r{right:-6px;top:calc(50% - 5px)} .node .port.l{left:-6px;top:calc(50% - 5px)}
+.ftool{display:flex;gap:6px;align-items:center;justify-content:space-between;padding:8px 12px;background:#fff;border-bottom:1px solid var(--s200);flex-wrap:wrap}
+.zoom{position:absolute;left:12px;bottom:12px;display:flex;gap:4px;background:#fff;border:1px solid var(--s200);border-radius:8px;padding:2px;z-index:2}
+.props{background:#fff;border-left:1px solid var(--s200);padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.rule{border:1px solid var(--s200);border-radius:8px;padding:8px;display:grid;grid-template-columns:1fr;gap:6px;background:var(--s50)}
+.rule .row .select,.rule .row .input{height:34px;font-size:13px}
+.issues{display:flex;flex-direction:column;gap:6px}
+.issues li{list-style:none}
+.testbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:10px 12px;background:var(--brand-50);border-bottom:1px solid var(--brand-100)}
+.testbar .field{min-width:150px}
+.progress{display:flex;gap:0;align-items:center;overflow-x:auto;padding:16px}
+.ps{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:96px;text-align:center;font-size:12px;position:relative}
+.ps .dotx{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--s300);background:#fff;color:var(--s400);font-weight:700}
+.ps.done .dotx{background:var(--g600);border-color:var(--g600);color:#fff}
+.ps.now .dotx{background:var(--a50);border-color:var(--a600);color:var(--a800)}
+.ps.skip{opacity:.45}
+.ps::after{content:"";position:absolute;top:15px;left:calc(50% + 18px);width:calc(100% - 36px);height:2px;background:var(--s300)}
+.ps:last-child::after{display:none}
+.ps.done::after{background:var(--g600)}
+@container (max-width: 640px){
+  .flow-shell{grid-template-columns:1fr}
+  .palette{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--s200)}
+  .palette h3{display:none}
+  .pi{flex:none}
+  .flow-shell{min-height:0}
+  .flowcanvas{height:auto}
+  .props{border-left:0;border-top:1px solid var(--s200)}
+  .fr{grid-template-columns:20px 1fr 90px 36px}
+  .fr .hm2{display:none}
+}
+/* F-08: wizard, template gallery, sentences, preview, scenarios */
+.wiz{list-style:none;margin:0 0 16px;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.wiz li{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid var(--s200);border-radius:10px;padding:10px 12px}
+.wiz li .n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;background:var(--s100);color:var(--s500);flex:none}
+.wiz li b{display:block;color:var(--s900);font-size:13px} .wiz li small{color:var(--s500);font-size:12px}
+.wiz li.now{border-color:var(--brand-600);box-shadow:0 0 0 1px var(--brand-600)} .wiz li.now .n{background:var(--brand-700);color:#fff}
+.wiz li.done .n{background:var(--g600);color:#fff}
+.origin{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.origin .tc{padding:12px} .origin .tc b{color:var(--s900)}
+.tpl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tpl{border:1px solid var(--s200);border-radius:12px;padding:14px;background:#fff;display:flex;flex-direction:column;gap:8px}
+.tpl.sel{border-color:var(--brand-600);box-shadow:0 0 0 1px var(--brand-600)}
+.tpl header{display:flex;gap:10px;align-items:flex-start}
+.tpl h3{font-size:15px;font-family:"Source Sans 3";font-weight:700;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tpl header p{margin:2px 0 0;color:var(--s500);font-size:13px}
+.facts{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px}
+.facts li{font-size:12px;background:var(--s100);border-radius:9999px;padding:1px 8px;color:var(--s600)}
+.sent{margin:0;color:var(--s600);border-left:3px solid var(--brand-100);padding-left:8px}
+.tpl footer{margin-top:auto;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.split{display:grid;grid-template-columns:1fr 330px;gap:16px;align-items:start}
+.split-main{min-width:0;display:flex;flex-direction:column}
+.preview{position:sticky;top:12px;background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-card);padding:12px}
+.pv-tabs{display:flex;gap:6px;margin-bottom:10px}
+.mini-alert{font-size:12px;background:var(--brand-50);color:var(--brand-800);border-radius:8px;padding:6px 8px;margin-bottom:10px}
+.pf{margin-bottom:8px} .pf label{display:block;font-size:12px;font-weight:600;color:var(--s700);margin-bottom:2px} .pf .req{color:var(--r600)}
+.fake{height:32px;border:1px solid var(--s300);border-radius:6px;font-size:12px;color:var(--s400);padding:7px 8px}
+.fake.tall{height:48px}
+.pf.hl .fake{border-color:var(--brand-600);box-shadow:0 0 0 3px var(--brand-100)}
+.mflow{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:12px}
+.mflow li{border-left:3px solid var(--s300);padding:4px 8px;background:var(--s50);border-radius:0 6px 6px 0}
+.mflow li.s{border-color:var(--g600)} .mflow li.a{border-color:var(--brand-600)} .mflow li.c{border-color:var(--a600)} .mflow li.x{border-color:#7c3aed} .mflow li.i,.mflow li.e{border-color:var(--s500)}
+.mflow li.bad{border-color:var(--r600);background:var(--r50);color:var(--r700)}
+.fx{display:grid;grid-template-columns:20px 1.2fr 110px 80px 1.3fr auto;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--s100)}
+.fx b{color:var(--s900)} .fx .drag{color:var(--s400)}
+.ck{display:inline-flex;gap:6px;align-items:center;font-size:13px}
+.used{font-size:12px;color:var(--s600)} .used.warn{color:var(--a800);display:inline-flex;gap:4px;align-items:center}
+.fx .adv{grid-column:2/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px;background:var(--s50);border-radius:8px;padding:10px;margin-top:4px}
+.modebar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.q{background:#fff;border:1px solid var(--s200);border-radius:12px;box-shadow:var(--shadow-card);margin-bottom:12px}
+.q.bad{border-color:var(--r600);box-shadow:0 0 0 1px var(--r600)}
+.q-h{display:flex;gap:8px;align-items:center;padding:12px 16px 0}
+.q-h h3{font-size:15px;font-family:"Source Sans 3";font-weight:700}
+.qn{width:22px;height:22px;border-radius:50%;background:var(--brand-50);color:var(--brand-700);display:grid;place-items:center;font-size:12px;font-weight:700}
+.q-b{padding:10px 16px}
+.say{margin:0;padding:8px 16px 8px 38px;border-top:1px solid var(--s100);background:#fbfcfe;border-radius:0 0 12px 12px;font-size:13px;color:var(--s700);position:relative}
+.say svg{color:var(--brand-700);position:absolute;left:16px;top:10px}
+.say mark{background:#fef9c3;padding:0 2px;border-radius:3px}
+.sentence{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:14px}
+.select.inl,.input.inl{height:32px;font-size:13px;width:auto}
+.money{display:inline-flex;align-items:center;gap:4px} .money .input{width:120px}
+.extra{margin-top:10px;padding:10px;border:1px dashed var(--s300);border-radius:8px;display:flex;flex-direction:column;gap:6px}
+.act{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;font-size:14px}
+.wfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap}
+.grid-test{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:start}
+.scen{list-style:none;margin:0;display:flex;flex-direction:column;gap:8px}
+.scen li{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--s200);border-radius:10px;padding:10px}
+.scen li b{color:var(--s900);font-size:14px} .scen li small{display:block;color:var(--s500);font-size:12px;margin-top:2px}
+.scen .st{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none;margin-top:1px}
+.scen .ok .st{background:var(--g50);color:var(--g700)} .scen .bad{border-color:#fecaca;background:var(--r50)} .scen .bad .st{background:var(--r600);color:#fff}
+.scen .own{border-style:dashed} .scen .own .st{background:var(--s100);color:var(--s500)}
+.trace{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--s700);display:flex;flex-direction:column;gap:2px}
+.scen .trace li{display:list-item;border:0;border-radius:0;padding:0;background:none}
+.fx .badge{justify-self:start}
+.diff{list-style:none;margin:0;padding:0;font-size:13px;display:flex;flex-direction:column;gap:4px}
+.diff li{padding:4px 8px;border-radius:6px} .diff .chg{background:var(--a50);color:var(--a800)} .diff .add{background:var(--g50);color:var(--g700)}
+.doc{max-width:760px} .doc h2{font-size:18px;margin-bottom:4px} .doc h3{font-size:14px;font-family:"Source Sans 3";font-weight:700;margin:16px 0 4px}
+.doc .lead{margin:0 0 12px;color:var(--s600)} .doc p{margin:0}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+@container (max-width: 640px){
+  .wiz,.origin,.tpl-grid,.split,.grid-test{grid-template-columns:1fr}
+  .doc{max-width:none}
+}
+@media print{.mk,.note,.side,.top,.desk-only{display:none!important}.frame{border:0}.stage{padding:0}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 3l9 8M5 10v10h14V10"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></symbol>
+  <symbol id="i-flow" viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h4a2 2 0 0 1 2 2v7"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 21h20zM12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-truck" viewBox="0 0 24 24"><path d="M1 4h14v12H1zM15 9h4l4 4v3h-8"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l4-4M3 14a9 9 0 0 1 18 0"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V4h12"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5V21h16"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+</svg>
+
+<div class="mk" role="toolbar" aria-label="Kontrol mockup">
+  <b>Mockup F-08</b>
+  <div class="grp"><span>Layar</span>
+    <button data-view="start" aria-pressed="true">1. Titik awal</button>
+    <button data-view="form">2. Formulir</button>
+    <button data-view="rules">3. Aturan (sederhana)</button>
+    <button data-view="advanced">3. Alur lanjutan</button>
+    <button data-view="test">4. Uji &amp; terbitkan</button>
+    <button data-view="doc">Cara kerja</button>
+  </div>
+  <div class="grp"><span>Keadaan</span>
+    <button data-state="filled" aria-pressed="true">Isi</button>
+    <button data-state="invalid">Error validasi</button>
+    <button data-state="empty">Kosong</button>
+    <button data-state="loading">Memuat</button>
+  </div>
+  <div class="grp"><span>Lebar</span>
+    <button data-w="wide" aria-pressed="true">Desktop</button>
+    <button data-w="narrow">375px</button>
+  </div>
+</div>
+<p class="note">Requirement: <code>docs/factory/features/F-08-transaction-builder-terpandu.md</code>. Contoh: Supervisor membuat jenis <b>Mutasi antar lokasi</b> dari template, lalu menurunkan batas persetujuan Super Admin dari Rp 10 jt ke Rp 5 jt. Panel <b>Pratinjau</b> di kanan (langkah 2 dan 3) menunjukkan formulir pencatat dan "Cara kerja" yang berubah seketika. "Error validasi": langkah 3 = field Lokasi tujuan terhapus sehingga aksi pindah lokasi tidak lengkap; langkah 4 = satu skenario tidak sampai Selesai. "Kosong" = pencarian template tanpa hasil / jenis tanpa field. Pada 375px tidak ada editor (D-34): yang tampil adalah <b>Cara kerja</b>, hanya dilihat.</p>
+
+<div class="stage">
+<div class="frame" id="frame">
+<div class="app" id="app" style="position:relative">
+  <aside class="side">
+    <div class="logo"><i></i>Asset Tracker</div>
+    <nav class="nav">
+      <a href="#"><svg class="i"><use href="#i-home"/></svg>Beranda</a>
+      <a href="#"><svg class="i"><use href="#i-dash"/></svg>Dashboard Aset</a>
+      <div class="sec">Operasional</div>
+      <a href="#"><svg class="i"><use href="#i-box"/></svg>Data Aset</a>
+      <a href="#"><svg class="i"><use href="#i-swap"/></svg>Transaksi Aset</a>
+      <a href="#" class="on"><svg class="i"><use href="#i-flow"/></svg>Jenis Transaksi</a>
+      <a href="#"><svg class="i"><use href="#i-list"/></svg>Transaksi Berjalan</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="top">
+      <button class="btn ghost sm burger" aria-label="Buka menu"><svg class="i"><use href="#i-menu"/></svg></button>
+      <div class="gsearch"><svg class="i"><use href="#i-search"/></svg><span class="t">Cari aset, transaksi, menu…</span><kbd>Ctrl K</kbd></div>
+      <div class="avatar" title="Supervisor">SV</div>
+    </div>
+    <div class="content">
+
+      <!-- Header + wizard (desktop editor) -->
+      <div class="ph desk-only" data-screen="start form rules advanced test">
+        <div>
+          <p class="xs muted" style="margin:0 0 2px">Jenis Transaksi / <b style="color:var(--s700)">Jenis baru</b></p>
+          <h1 data-screen-show="start">Jenis transaksi baru</h1>
+          <h1 data-screen="form rules advanced test">Mutasi antar lokasi <span class="badge slate">Draft</span></h1>
+          <p data-screen-show="start">Mulai dari template agar tidak menyusun dari nol. Semua isian dapat diubah sebelum diterbitkan.</p>
+          <p data-screen="form rules advanced test">Dari template <b>Mutasi antar lokasi</b> · tersimpan otomatis sebagai draft 1 menit lalu</p>
+        </div>
+        <div class="row">
+          <button class="btn ghost">Simpan draft &amp; keluar</button>
+        </div>
+      </div>
+
+      <ol class="wiz desk-only" aria-label="Langkah" data-screen="start form rules advanced test">
+        <li data-wz="start"><span class="n">1</span><span><b>Titik awal</b><small>Template</small></span></li>
+        <li data-wz="form"><span class="n">2</span><span><b>Formulir</b><small>Nama &amp; field</small></span></li>
+        <li data-wz="rules advanced"><span class="n">3</span><span><b>Aturan &amp; alur</b><small>Siapa, syarat, efek</small></span></li>
+        <li data-wz="test"><span class="n">4</span><span><b>Uji &amp; terbitkan</b><small>Skenario, dokumentasi</small></span></li>
+      </ol>
+
+      <!-- ============ 1. TITIK AWAL ============ -->
+      <section data-screen="start" class="desk-only">
+        <div class="origin" role="radiogroup" aria-label="Titik awal">
+          <button class="tc" role="radio" aria-pressed="true"><span class="typeic"><svg class="i"><use href="#i-book"/></svg></span><span><b>Mulai dari template</b><small>Field dan alur sudah disiapkan; tinggal disesuaikan.</small></span></button>
+          <button class="tc" role="radio" aria-pressed="false"><span class="typeic"><svg class="i"><use href="#i-copy"/></svg></span><span><b>Salin jenis yang ada</b><small>Dari jenis organisasi Anda, beserta alur terbitnya.</small></span></button>
+          <button class="tc" role="radio" aria-pressed="false"><span class="typeic" style="background:var(--s100);color:var(--s600)"><svg class="i"><use href="#i-plus"/></svg></span><span><b>Mulai dari kosong</b><small>Untuk yang sudah terbiasa. Alur hanya Mulai → Selesai.</small></span></button>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="filters" style="flex-direction:row;flex-wrap:wrap">
+            <div class="search"><svg class="i"><use href="#i-search"/></svg><input class="input" aria-label="Cari template" placeholder="Cari template, mis. kalibrasi, mutasi" value=""></div>
+            <div class="pills" style="padding:0" role="tablist" aria-label="Kelompok template">
+              <button class="pill" role="tab" aria-selected="true">Semua <span class="n">12</span></button>
+              <button class="pill" role="tab" aria-selected="false">Perpindahan <span class="n">3</span></button>
+              <button class="pill" role="tab" aria-selected="false">Perawatan <span class="n">3</span></button>
+              <button class="pill" role="tab" aria-selected="false">Penghapusan <span class="n">1</span></button>
+              <button class="pill" role="tab" aria-selected="false">Jenis sistem <span class="n">7</span></button>
+            </div>
+          </div>
+
+          <div class="tpl-grid pad" data-state-show="filled invalid">
+            <article class="tpl sel" aria-label="Mutasi antar lokasi">
+              <header><span class="typeic"><svg class="i"><use href="#i-truck"/></svg></span><div><h3>Mutasi antar lokasi</h3><p>Memindah aset ke lokasi lain dengan persetujuan.</p></div></header>
+              <ul class="facts"><li>5 field</li><li>1–2 persetujuan</li><li>Pindah lokasi</li></ul>
+              <p class="sent xs">Perlu disetujui Supervisor lokasi; tambah persetujuan Super Admin bila nilai perolehan lebih dari Rp 10.000.000.</p>
+              <footer><button class="link">Lihat cara kerja</button><button class="btn primary sm">Pakai template</button></footer>
+            </article>
+            <article class="tpl" aria-label="Kirim kalibrasi">
+              <header><span class="typeic"><svg class="i"><use href="#i-gauge"/></svg></span><div><h3>Kirim kalibrasi</h3><p>Aset ke vendor kalibrasi, menunggu kembali.</p></div></header>
+              <ul class="facts"><li>4 field</li><li>1 persetujuan</li><li>Berpasangan</li></ul>
+              <p class="sent xs">Status aset menjadi Dalam Perbaikan sampai dicatat <i>Kembali dari kalibrasi</i>.</p>
+              <footer><button class="link">Lihat cara kerja</button><button class="btn secondary sm">Pakai template</button></footer>
+            </article>
+            <article class="tpl" aria-label="Perbaikan ke vendor">
+              <header><span class="typeic"><svg class="i"><use href="#i-wrench"/></svg></span><div><h3>Perbaikan ke vendor</h3><p>Aset rusak diperbaiki pihak luar.</p></div></header>
+              <ul class="facts"><li>3 field</li><li>1–2 persetujuan</li><li>Ubah status</li></ul>
+              <p class="sent xs">Super Admin ikut menyetujui bila estimasi biaya lebih dari Rp 5.000.000.</p>
+              <footer><button class="link">Lihat cara kerja</button><button class="btn secondary sm">Pakai template</button></footer>
+            </article>
+            <article class="tpl" aria-label="Serah terima ke karyawan">
+              <header><span class="typeic"><svg class="i"><use href="#i-user"/></svg></span><div><h3>Serah terima ke karyawan</h3><p>Aset dipinjamkan ke pengguna tertentu.</p></div></header>
+              <ul class="facts"><li>3 field</li><li>Tanpa persetujuan</li><li>Pinjamkan</li></ul>
+              <p class="sent xs">Hanya untuk aset berstatus Aktif atau Tidak Aktif. Email dikirim ke pemegang.</p>
+              <footer><button class="link">Lihat cara kerja</button><button class="btn secondary sm">Pakai template</button></footer>
+            </article>
+            <article class="tpl" aria-label="Penghapusan aset">
+              <header><span class="typeic" style="background:var(--r50);color:var(--r700)"><svg class="i"><use href="#i-trash"/></svg></span><div><h3>Penghapusan aset</h3><p>Usulan penghapusan dengan dua persetujuan.</p></div></header>
+              <ul class="facts"><li>3 field</li><li>2 persetujuan</li><li>Dihapuskan</li></ul>
+              <p class="sent xs">Disetujui Supervisor, lalu Super Admin, sebelum status menjadi Dihapuskan.</p>
+              <footer><button class="link">Lihat cara kerja</button><button class="btn secondary sm">Pakai template</button></footer>
+            </article>
+            <article class="tpl sys" aria-label="Pemindahan (jenis sistem)">
+              <header><span class="typeic" style="background:var(--s100);color:var(--s600)"><svg class="i"><use href="#i-shield"/></svg></span><div><h3>Pemindahan <span class="badge slate">Jenis sistem</span></h3><p>Perilaku bawaan aplikasi; aturan inti tetap.</p></div></header>
+              <ul class="facts"><li>2 field</li><li>Tanpa persetujuan</li><li>Pindah lokasi</li></ul>
+              <p class="sent xs">Salin untuk menambah field atau persetujuan. Aturan inti (mis. aset dipinjam tidak dapat dipindah) tetap berlaku.</p>
+              <footer><button class="link">Lihat cara kerja</button><button class="btn secondary sm">Pakai template</button></footer>
+            </article>
+          </div>
+          <div class="empty" data-state-show="empty">
+            <div class="ic"><svg class="i"><use href="#i-search"/></svg></div>
+            <h3>Tidak ada template "stock opname"</h3>
+            <p>Coba kata lain, atau mulai dari kosong dan susun alurnya dengan mode sederhana.</p>
+            <button class="btn secondary">Mulai dari kosong</button>
+          </div>
+          <div class="tpl-grid pad" data-state-show="loading" role="status" aria-label="Memuat template">
+            <div class="tpl"><div class="sk" style="width:60%"></div><div class="sk" style="margin-top:10px"></div><div class="sk" style="margin-top:6px;width:80%"></div></div>
+            <div class="tpl"><div class="sk" style="width:50%"></div><div class="sk" style="margin-top:10px"></div><div class="sk" style="margin-top:6px;width:70%"></div></div>
+            <div class="tpl"><div class="sk" style="width:55%"></div><div class="sk" style="margin-top:10px"></div><div class="sk" style="margin-top:6px;width:75%"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 2/3. EDITOR + PRATINJAU ============ -->
+      <div class="split desk-only" data-screen="form rules">
+        <div class="split-main">
+
+          <!-- 2. FORMULIR -->
+          <section data-screen="form">
+            <div class="card">
+              <div class="card-h"><h3>Jenis</h3></div>
+              <div class="pad grid2">
+                <div class="field"><label>Nama <span class="req">*</span></label><input class="input" value="Mutasi antar lokasi"></div>
+                <div class="field"><label>Kode / prefix nomor <span class="req">*</span></label><input class="input" value="MUT"><span class="hint">Diusulkan dari nama · nomor: MUT-2026-000001</span></div>
+                <div class="field" style="grid-column:1/-1"><label>Keterangan</label><input class="input" value="Memindah aset ke lokasi lain dengan persetujuan."></div>
+                <div class="field"><label>Jumlah aset per transaksi</label><div class="seg"><button aria-pressed="false">Satu aset</button><button aria-pressed="true">Banyak aset</button></div></div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:16px">
+              <div class="card-h"><h3>Isian formulir</h3><button class="btn secondary sm"><svg class="i sm"><use href="#i-plus"/></svg>Tambah field</button></div>
+              <div data-state-hide="empty">
+                <div class="fx"><span class="drag"><svg class="i sm"><use href="#i-grip"/></svg></span><b>Lokasi tujuan</b><span class="badge slate">Lokasi</span><label class="ck"><input type="checkbox" checked> Wajib</label><span class="used">Dipakai: Aksi pindah lokasi</span><button class="link">Pengaturan lanjutan</button></div>
+                <div class="fx"><span class="drag"><svg class="i sm"><use href="#i-grip"/></svg></span><b>Alasan</b><span class="badge slate">Teks panjang</span><label class="ck"><input type="checkbox" checked> Wajib</label><span class="used muted">Diisi saat mencatat</span><button class="link">Pengaturan lanjutan</button></div>
+                <div class="fx open"><span class="drag"><svg class="i sm"><use href="#i-grip"/></svg></span><b>Penerima</b><span class="badge slate">Pengguna</span><label class="ck"><input type="checkbox"> Wajib</label><span class="used">Dipakai: Isi data serah terima</span><button class="link" aria-expanded="true">Tutup pengaturan</button>
+                  <div class="adv">
+                    <div class="field"><label>Wajib di langkah</label><select class="select"><option>Serah terima (langkah 3)</option></select><span class="hint">Tidak ditanyakan saat mencatat; diisi oleh penanggung jawab serah terima.</span></div>
+                    <div class="field"><label>Batasi ke role</label><select class="select"><option>Semua anggota</option></select></div>
+                  </div>
+                </div>
+                <div class="fx"><span class="drag"><svg class="i sm"><use href="#i-grip"/></svg></span><b>No. BAST</b><span class="badge slate">Teks singkat</span><label class="ck"><input type="checkbox"> Wajib</label><span class="used">Dipakai: Isi data serah terima</span><button class="link">Pengaturan lanjutan</button></div>
+                <div class="fx"><span class="drag"><svg class="i sm"><use href="#i-grip"/></svg></span><b>Foto serah terima</b><span class="badge slate">Lampiran</span><label class="ck"><input type="checkbox"> Wajib</label><span class="used warn"><svg class="i sm"><use href="#i-alert"/></svg>Belum dipakai di alur</span><button class="link">Pengaturan lanjutan</button></div>
+              </div>
+              <div class="empty" data-state-show="empty">
+                <div class="ic"><svg class="i"><use href="#i-file"/></svg></div>
+                <h3>Belum ada isian</h3>
+                <p>Transaksi tetap dapat dicatat dengan aset, tanggal, dan catatan. Tambahkan field bila perlu data lain, mis. nomor PO.</p>
+                <button class="btn secondary"><svg class="i sm"><use href="#i-plus"/></svg>Tambah field</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- 3. ATURAN (mode sederhana) -->
+          <section data-screen="rules">
+            <div class="modebar">
+              <div class="seg" role="group" aria-label="Mode"><button aria-pressed="true">Mode sederhana</button><button aria-pressed="false" data-open="advanced">Mode lanjutan</button></div>
+              <span class="xs muted">Mode lanjutan membuka kanvas alur untuk percabangan bebas.</span>
+            </div>
+
+            <div class="q">
+              <div class="q-h"><span class="qn">1</span><h3>Siapa yang boleh mencatat?</h3></div>
+              <div class="q-b"><div class="picked"><span class="chip">Admin <button aria-label="Hapus Admin"><svg class="i sm"><use href="#i-x"/></svg></button></span><span class="chip">Supervisor <button aria-label="Hapus Supervisor"><svg class="i sm"><use href="#i-x"/></svg></button></span><button class="link">+ Tambah role</button></div></div>
+              <p class="say"><svg class="i sm"><use href="#i-book"/></svg>Dapat dicatat oleh Admin dan Supervisor.</p>
+            </div>
+
+            <div class="q">
+              <div class="q-h"><span class="qn">2</span><h3>Syarat sebelum mencatat</h3><span class="badge slate">opsional</span></div>
+              <div class="q-b">
+                <div class="sentence">Tolak bila <select class="select inl"><option>status aset</option></select> <select class="select inl"><option>salah satu dari</option></select> <span class="chip">Dipinjamkan</span> <span class="chip">Di Luar Organisasi</span></div>
+                <div class="field" style="margin-top:8px"><label>Pesan untuk pencatat</label><input class="input" value="Aset sedang dipinjam atau di luar organisasi. Kembalikan terlebih dahulu."></div>
+                <button class="link" style="margin-top:6px">+ Tambah syarat</button>
+              </div>
+              <p class="say"><svg class="i sm"><use href="#i-book"/></svg>Transaksi tidak dapat dicatat bila status aset adalah Dipinjamkan atau Di Luar Organisasi.</p>
+            </div>
+
+            <div class="q">
+              <div class="q-h"><span class="qn">3</span><h3>Perlu persetujuan?</h3></div>
+              <div class="q-b">
+                <div class="seg"><button aria-pressed="false">Tidak</button><button aria-pressed="true">Ya</button></div>
+                <div class="grid2" style="margin-top:10px">
+                  <div class="field"><label>Penyetuju</label><select class="select"><option>Supervisor yang cakupannya meliputi lokasi aset</option></select></div>
+                  <div class="field"><label>Jumlah penyetuju</label><select class="select"><option>1 orang</option></select></div>
+                </div>
+                <div class="extra">
+                  <label class="ck"><input type="checkbox" checked> Tambah persetujuan <b>Super Admin</b> bila</label>
+                  <div class="sentence"><select class="select inl"><option>total nilai perolehan</option></select> <select class="select inl"><option>lebih dari</option></select> <span class="money"><span>Rp</span><input class="input inl" value="5.000.000" aria-label="Batas nilai"></span></div>
+                </div>
+              </div>
+              <p class="say"><svg class="i sm"><use href="#i-book"/></svg>Perlu disetujui 1 Supervisor yang cakupannya meliputi lokasi aset. Bila total nilai perolehan lebih dari <mark>Rp 5.000.000</mark>, Super Admin juga harus menyetujui. Bila ditolak, transaksi selesai sebagai Ditolak.</p>
+            </div>
+
+            <div class="q" data-state-class="invalid:bad">
+              <div class="q-h"><span class="qn">4</span><h3>Apa yang terjadi pada aset?</h3></div>
+              <div class="q-b">
+                <div class="act"><span class="badge purple">Setelah disetujui</span> Ubah status menjadi <select class="select inl"><option>Dalam Pengiriman</option></select></div>
+                <div class="act"><span class="badge purple">Setelah serah terima</span> Pindah ke lokasi pada field
+                  <select class="select inl" data-state-hide="invalid"><option>Lokasi tujuan</option></select>
+                  <select class="select inl err" data-state-show="invalid" aria-invalid="true"><option>— pilih field Lokasi —</option></select>
+                  dan ubah status menjadi <select class="select inl"><option>Aktif</option></select></div>
+                <div class="field" data-state-show="invalid"><span class="msg"><svg class="i sm"><use href="#i-alert"/></svg>Aksi <b>Pindah lokasi</b> butuh field bertipe Lokasi, tetapi field <i>Lokasi tujuan</i> sudah dihapus.</span><button class="link" style="align-self:flex-start">+ Tambah field Lokasi di sini</button></div>
+                <div class="act muted"><span class="badge slate">Setelah selesai</span> Kirim email ke <select class="select inl"><option>pencatat</option></select></div>
+              </div>
+              <p class="say"><svg class="i sm"><use href="#i-book"/></svg>Setelah disetujui, status aset menjadi Dalam Pengiriman. Setelah serah terima, aset pindah ke lokasi pada <i>Lokasi tujuan</i> dan statusnya menjadi Aktif. Email dikirim ke pencatat.</p>
+            </div>
+
+            <div class="q">
+              <div class="q-h"><span class="qn">5</span><h3>Perlu langkah lanjutan?</h3><span class="badge slate">opsional</span></div>
+              <div class="q-b">
+                <div class="seg"><button aria-pressed="false">Tidak</button><button aria-pressed="true">Isi data</button><button aria-pressed="false">Tunggu</button></div>
+                <div class="grid2" style="margin-top:10px">
+                  <div class="field"><label>Nama langkah</label><input class="input" value="Serah terima"></div>
+                  <div class="field"><label>Dikerjakan oleh</label><select class="select"><option>Pengguna pada field Penerima</option></select></div>
+                  <div class="field" style="grid-column:1/-1"><label>Field yang diisi</label><div class="picked"><span class="chip">No. BAST · wajib</span><span class="chip">Foto serah terima</span><button class="link">+ Field</button></div></div>
+                </div>
+              </div>
+              <p class="say"><svg class="i sm"><use href="#i-book"/></svg>Penerima mengisi <i>No. BAST</i> (wajib) dan <i>Foto serah terima</i> dalam 2 hari.</p>
+            </div>
+          </section>
+
+          <div class="wfoot">
+            <button class="btn secondary">Kembali</button>
+            <div class="row"><span class="xs muted" data-state-show="invalid" data-screen="rules" style="color:var(--r700)">1 isian perlu diperbaiki di pertanyaan 4</span>
+              <button class="btn primary" data-state-disable="invalid">Lanjut</button></div>
+          </div>
+        </div>
+
+        <!-- PRATINJAU -->
+        <aside class="preview" aria-label="Pratinjau">
+          <div class="pv-tabs" role="tablist"><button class="pill" role="tab" aria-selected="true">Formulir pencatat</button><button class="pill" role="tab" aria-selected="false">Cara kerja</button></div>
+          <div class="pv-form">
+            <p class="xs muted" style="margin:0 0 8px">Yang dilihat Admin saat mencatat <b>Mutasi antar lokasi</b>:</p>
+            <div class="mini-alert">Transaksi ini perlu disetujui Supervisor (dan Super Admin bila nilai &gt; Rp 5 jt) sebelum aset dipindah.</div>
+            <div class="pf"><label>Aset <span class="req">*</span></label><div class="fake">Pindai atau cari aset…</div></div>
+            <div class="pf hl"><label>Lokasi tujuan <span class="req">*</span></label><div class="fake">Pilih lokasi</div></div>
+            <div class="pf"><label>Alasan <span class="req">*</span></label><div class="fake tall"></div></div>
+            <div class="pf"><label>Penerima</label><div class="fake">Pilih pengguna</div></div>
+            <p class="xs muted">Diisi nanti oleh penerima: No. BAST, Foto serah terima.</p>
+          </div>
+          <div class="pv-flow" data-screen="rules">
+            <p class="xs muted" style="margin:8px 0 6px">Alur yang terbentuk</p>
+            <ol class="mflow">
+              <li class="s">Mulai · Admin, Supervisor</li>
+              <li class="a">Persetujuan Supervisor</li>
+              <li class="c">Nilai &gt; Rp 5 jt? → Persetujuan Super Admin</li>
+              <li class="x">Status: Dalam Pengiriman</li>
+              <li class="i">Serah terima · Penerima</li>
+              <li class="x" data-state-class="invalid:bad">Pindah lokasi, status Aktif</li>
+              <li class="e">Selesai</li>
+            </ol>
+          </div>
+        </aside>
+      </div>
+
+      <!-- 3b. ALUR LANJUTAN (simple mode cannot express it) -->
+      <section data-screen="advanced" class="desk-only">
+        <div class="modebar">
+          <div class="seg" role="group" aria-label="Mode"><button aria-pressed="false" data-open="rules">Mode sederhana</button><button aria-pressed="true">Mode lanjutan</button></div>
+          <span class="xs muted">Kanvas alur (editor F-07e) untuk alur yang sama.</span>
+        </div>
+        <div class="alert amber" style="margin-bottom:12px"><svg class="i"><use href="#i-alert"/></svg><div><b>Alur ini hanya dapat diubah di mode lanjutan</b><p>Langkah <i>Cek kondisi aset</i> bercabang tiga (Baik / Rusak Ringan / Rusak Berat); mode sederhana hanya mendukung satu syarat persetujuan tambahan. Mode sederhana menampilkan cara kerjanya saja, tanpa mengubah alur.</p></div></div>
+        <div class="card">
+          <div class="ftool"><div class="row"><button class="btn ghost sm">Urungkan</button><button class="btn ghost sm">Ulangi</button><span class="xs muted">Palet: Mulai · Isi data · Persetujuan · Kondisi · Aksi · Tunggu · Selesai</span></div><div class="row"><button class="btn secondary sm">Validasi</button><button class="btn primary sm">Lanjut ke uji</button></div></div>
+          <div class="flowcanvas" style="height:300px"><div class="inner" style="height:300px;width:1000px">
+            <svg class="edges" style="width:1000px;height:300px"><path d="M150 140 H200"/><path d="M370 140 H420"/><path d="M570 140 C600 140 600 60 640 60"/><path d="M570 140 H640"/><path d="M570 140 C600 140 600 220 640 220"/>
+              <text x="590" y="70">Baik</text><text x="596" y="134">Rusak Ringan</text><text x="590" y="214">Rusak Berat</text></svg>
+            <div class="node start" style="left:0;top:118px"><div class="kind">Mulai</div><b>Admin, Supervisor</b></div>
+            <div class="node approve" style="left:200px;top:110px"><div class="kind">Persetujuan</div><b>Supervisor lokasi</b></div>
+            <div class="node cond" style="left:420px;top:92px"><div class="kind">Kondisi</div><b>Cek kondisi aset</b></div>
+            <div class="node action" style="left:640px;top:36px"><div class="kind">Aksi</div><b>Pindah lokasi</b></div>
+            <div class="node nd-input" style="left:640px;top:116px"><div class="kind">Isi data</div><b>Catat kerusakan</b></div>
+            <div class="node approve" style="left:640px;top:196px"><div class="kind">Persetujuan</div><b>Super Admin</b></div>
+          </div></div>
+        </div>
+      </section>
+
+      <!-- ============ 4. UJI & TERBITKAN ============ -->
+      <section data-screen="test" class="desk-only">
+        <div class="grid-test">
+          <div class="card">
+            <div class="card-h"><h3>Skenario</h3><button class="btn secondary sm"><svg class="i sm"><use href="#i-play"/></svg>Jalankan semua</button></div>
+            <p class="xs muted pad" style="padding-bottom:0;margin:0">Dibuat otomatis dari alur: satu skenario per jalur yang berbeda. Tidak ada transaksi yang disimpan.</p>
+            <ul class="scen pad">
+              <li class="ok"><span class="st"><svg class="i sm"><use href="#i-check"/></svg></span><div><b>Aset dipinjam, ditolak sebelum dicatat</b><small>Aset contoh: Proyektor Epson (Dipinjamkan) → pesan "Aset sedang dipinjam atau di luar organisasi…"</small></div></li>
+              <li class="ok"><span class="st"><svg class="i sm"><use href="#i-check"/></svg></span><div><b>Nilai ≤ Rp 5 jt, disetujui Supervisor</b><small>Laptop Dell (Rp 4,2 jt) · Gudang 1 → Kantor Pusat · status Aktif → Dalam Pengiriman → Aktif · Selesai</small></div></li>
+              <li class="ok open"><span class="st"><svg class="i sm"><use href="#i-check"/></svg></span><div><b>Nilai &gt; Rp 5 jt, disetujui Supervisor dan Super Admin</b><small>Server HP (Rp 50 jt) · 6 langkah · Selesai</small>
+                <ol class="trace">
+                  <li>Dicatat oleh Admin.</li>
+                  <li>Disetujui Supervisor Gudang 1.</li>
+                  <li>Total nilai Rp 50.000.000 lebih dari Rp 5.000.000 → perlu Super Admin. Disetujui.</li>
+                  <li>Status Server HP: Aktif → <b>Dalam Pengiriman</b>.</li>
+                  <li>Penerima mengisi No. BAST.</li>
+                  <li>Lokasi: Gudang 1 → <b>Kantor Pusat</b>; status → <b>Aktif</b>. Selesai.</li>
+                </ol></div></li>
+              <li class="ok"><span class="st"><svg class="i sm"><use href="#i-check"/></svg></span><div><b>Ditolak Supervisor</b><small>Selesai sebagai Ditolak · aset tidak berubah</small></div></li>
+              <li data-state-hide="invalid" class="ok"><span class="st"><svg class="i sm"><use href="#i-check"/></svg></span><div><b>Nilai &gt; Rp 5 jt, ditolak Super Admin</b><small>Selesai sebagai Ditolak · aset tidak berubah</small></div></li>
+              <li data-state-show="invalid" class="bad"><span class="st"><svg class="i sm"><use href="#i-x"/></svg></span><div><b>Nilai &gt; Rp 5 jt, ditolak Super Admin</b><small style="color:var(--r700)">Berhenti di "Persetujuan Super Admin": garis <i>Ditolak</i> belum terhubung ke langkah mana pun.</small><button class="link">Perbaiki di langkah 3</button></div></li>
+              <li class="own"><span class="st"><svg class="i sm"><use href="#i-plus"/></svg></span><div><b>Skenario sendiri</b><small>Pilih aset contoh, isi nilai field, dan keputusan setiap persetujuan.</small></div></li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Tinjau sebelum terbit</h3></div>
+            <div class="pad" style="display:flex;flex-direction:column;gap:12px">
+              <div><p class="xs muted" style="margin:0 0 4px">Perubahan dari template</p>
+                <ul class="diff"><li class="chg">Batas persetujuan Super Admin: Rp 10.000.000 → <b>Rp 5.000.000</b></li><li class="add">Email ke pencatat setelah selesai</li></ul></div>
+              <div class="field"><label>Catatan perubahan</label><textarea class="input">Batas persetujuan Super Admin diturunkan ke Rp 5 jt; email ke pencatat setelah selesai.</textarea><span class="hint">Diisi otomatis dari perubahan; boleh disunting.</span></div>
+              <button class="link" style="align-self:flex-start" data-open="doc">Baca cara kerja lengkap</button>
+              <div class="alert blue"><svg class="i"><use href="#i-shield"/></svg><div><b>Aturan inti tetap berlaku</b><p>Mis. aset nonaktif tidak dapat ditransaksikan, tanggal tidak boleh di masa depan.</p></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="wfoot">
+          <button class="btn secondary">Kembali</button>
+          <div class="row"><span class="xs" data-state-show="invalid" style="color:var(--r700)">1 skenario gagal: perbaiki sebelum terbit</span><span class="xs muted" data-state-hide="invalid">5 dari 5 skenario lulus</span><button class="btn primary" data-state-disable="invalid">Terbitkan versi 1</button></div>
+        </div>
+      </section>
+
+      <!-- ============ CARA KERJA (desktop tab + phone) ============ -->
+      <section data-screen="doc">
+        <div class="ph">
+          <div><p class="xs muted" style="margin:0 0 2px">Jenis Transaksi / Mutasi antar lokasi</p><h1>Mutasi antar lokasi <span class="badge green">Aktif · versi 1</span></h1></div>
+          <div class="row desk-only"><button class="btn ghost"><svg class="i sm"><use href="#i-print"/></svg>Cetak</button><button class="btn secondary">Ubah</button></div>
+        </div>
+        <div class="pills desk-only" style="padding:0 0 12px" role="tablist"><button class="pill" role="tab" aria-selected="true">Cara kerja</button><button class="pill" role="tab" aria-selected="false">Formulir</button><button class="pill" role="tab" aria-selected="false">Aturan &amp; alur</button><button class="pill" role="tab" aria-selected="false">Versi</button></div>
+        <div class="alert blue mob-only" style="margin-bottom:12px"><svg class="i"><use href="#i-alert"/></svg><div><b>Hanya dapat dilihat di ponsel</b><p>Mengubah jenis dilakukan di web pada layar lebar.</p></div></div>
+        <article class="card doc pad" data-state-hide="loading">
+          <h2>Cara kerja transaksi ini</h2>
+          <p class="lead">Memindah aset ke lokasi lain dengan persetujuan.</p>
+          <dl class="kv"><dt>Dicatat oleh</dt><dd>Admin, Supervisor</dd><dt>Jumlah aset</dt><dd>Satu atau lebih</dd><dt>Nomor</dt><dd class="mono">MUT-2026-000001</dd></dl>
+          <h3>Tidak dapat dicatat bila</h3>
+          <p>Status aset adalah Dipinjamkan atau Di Luar Organisasi. Pencatat melihat pesan: <q>Aset sedang dipinjam atau di luar organisasi. Kembalikan terlebih dahulu.</q></p>
+          <h3>Isian</h3>
+          <p>Saat mencatat: <b>Lokasi tujuan</b> (wajib), <b>Alasan</b> (wajib), Penerima. Saat serah terima: <b>No. BAST</b> (wajib), Foto serah terima.</p>
+          <h3>Langkah</h3>
+          <ol class="steps">
+            <li>Perlu disetujui 1 Supervisor yang cakupannya meliputi lokasi aset. Bila ditolak, transaksi selesai sebagai Ditolak.</li>
+            <li>Bila total nilai perolehan lebih dari Rp 5.000.000, Super Admin juga harus menyetujui.</li>
+            <li>Status aset menjadi <b>Dalam Pengiriman</b>. Aset terkunci dari transaksi lain sampai selesai.</li>
+            <li>Penerima mengisi No. BAST dan Foto serah terima dalam 2 hari. Tugas tampil di Beranda penerima.</li>
+            <li>Aset pindah ke <b>Lokasi tujuan</b> dan statusnya menjadi <b>Aktif</b>. Email dikirim ke pencatat.</li>
+          </ol>
+          <p class="xs muted">Dibuat otomatis dari alur versi 1, diterbitkan Supervisor 20 Nov 2026 · dari template Mutasi antar lokasi.</p>
+        </article>
+        <div class="card pad" data-state-show="loading" role="status" aria-label="Memuat cara kerja"><div class="sk" style="width:40%;height:16px"></div><div class="sk" style="margin-top:12px"></div><div class="sk" style="margin-top:8px;width:85%"></div><div class="sk" style="margin-top:8px;width:70%"></div></div>
+      </section>
+
+      <!-- phone: editor screens are not available -->
+      <section class="mob-only" data-screen="start form rules advanced test" style="flex-direction:column;gap:12px">
+        <div class="alert blue"><svg class="i"><use href="#i-alert"/></svg><div><b>Editor hanya di web layar lebar</b><p>Membuat dan mengubah jenis transaksi dilakukan di web pada layar ≥ 768px (D-34). Di ponsel Anda dapat membaca cara kerjanya.</p></div></div>
+        <button class="btn secondary" data-open="doc">Lihat cara kerja Mutasi antar lokasi</button>
+      </section>
+
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+(function(){
+  var view='start', state='filled', frame=document.getElementById('frame');
+  function press(sel,attr,val){document.querySelectorAll(sel).forEach(function(b){b.setAttribute('aria-pressed',String(b.getAttribute(attr)===val))})}
+  function has(list,v){return list.split(' ').indexOf(v)>=0}
+  function render(){
+    document.querySelectorAll('[data-screen]').forEach(function(el){el.classList.toggle('hidden',!has(el.getAttribute('data-screen'),view))});
+    document.querySelectorAll('[data-screen-show]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-screen-show')!==view)});
+    // Which states a screen has: invalid on rules/test, empty on start/form, loading on start/doc.
+    var eff=state;
+    if(state==='invalid'&&!has('rules test',view))eff='filled';
+    if(state==='empty'&&!has('start form',view))eff='filled';
+    if(state==='loading'&&!has('start doc',view))eff='filled';
+    document.querySelectorAll('[data-state-show]').forEach(function(el){el.classList.toggle('hidden',!has(el.getAttribute('data-state-show'),eff))});
+    document.querySelectorAll('[data-state-hide]').forEach(function(el){el.classList.toggle('hidden',el.getAttribute('data-state-hide')===eff)});
+    document.querySelectorAll('[data-state-disable]').forEach(function(el){el.disabled=el.getAttribute('data-state-disable')===eff});
+    document.querySelectorAll('[data-state-class]').forEach(function(el){var p=el.getAttribute('data-state-class').split(':');el.classList.toggle(p[1],eff===p[0])});
+    var order=['start','form','rules','test'], cur=order.indexOf(view==='advanced'?'rules':view);
+    document.querySelectorAll('[data-wz]').forEach(function(li){var i=order.indexOf(li.getAttribute('data-wz').split(' ')[0]);li.className=i<cur?'done':(i===cur?'now':'')});
+    press('[data-view]','data-view',view); press('[data-state]','data-state',state);
+  }
+  document.querySelectorAll('[data-view]').forEach(function(b){b.onclick=function(){view=b.dataset.view;render()}});
+  document.querySelectorAll('[data-state]').forEach(function(b){b.onclick=function(){state=b.dataset.state;render()}});
+  document.querySelectorAll('[data-open]').forEach(function(b){b.onclick=function(e){e.preventDefault();view=b.dataset.open;render()}});
+  document.querySelectorAll('[data-w]').forEach(function(b){b.onclick=function(){frame.classList.toggle('narrow',b.dataset.w==='narrow');press('[data-w]','data-w',b.dataset.w)}});
+  render();
+})();
+</script>
+</body>
+</html>

@@ -22,6 +22,11 @@ export interface Asset {
   barcode_enabled: boolean
   location_id: string | null
   location?: Ref | null
+  /** F-09: the member who answers for the asset; one who has since left stays, marked inactive. */
+  custodian_user_id?: string | null
+  custodian?: { id: string; name: string | null; is_active: boolean } | null
+  department_id?: string | null
+  department?: Ref | null
   status: AssetStatus
   acquisition_date: string | null
   acquisition_cost: string | null
@@ -150,7 +155,7 @@ export interface Profile {
 
 export const assetStatusLabel: Record<AssetStatus, string> = {
   in_use: 'Aktif',
-  available: 'Tidak Aktif',
+  available: 'Tersedia',
   under_maintenance: 'Dalam Perbaikan',
   on_loan: 'Dipinjamkan',
   off_site: 'Di Luar Organisasi',

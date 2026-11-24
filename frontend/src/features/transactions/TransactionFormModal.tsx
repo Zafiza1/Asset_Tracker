@@ -12,6 +12,7 @@ import { ColumnToggle } from '../../components/ui/ColumnToggle'
 import { ApiError, api, qs } from '../../lib/api/client'
 import type { Paginated } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
+import { useDebounced } from '../../lib/useDebounced'
 import { errorMessage } from '../../lib/forms'
 import { toOptions, useOptions } from '../master/options'
 import { assetStatusLabel, type Asset, type AssetStatus } from '../assets/api'
@@ -38,6 +39,8 @@ interface Props {
   /** Pre-selected asset (from the asset detail page); otherwise the user picks one or more. */
   asset?: Asset
   initialType?: ManualTransactionType
+  /** An organization type chosen beforehand (Transaction Center, "Serah terima" on the asset, F-08j). */
+  initialCustomTypeId?: string
   onClose: () => void
 }
 
@@ -45,7 +48,7 @@ interface Props {
  * Record one manual transaction: choose the type first, fill in what it needs, then pick the
  * assets it covers. Every picked asset gets its own history row under one transaction number.
  */
-export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }: Props) {
+export function TransactionFormModal({ asset: fixedAsset, initialType, initialCustomTypeId, onClose }: Props) {
   const { can } = useAuth()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
@@ -59,14 +62,38 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
   const [filters, setFilters] = useState({ location_id: '', status: initialType === 'incoming' ? 'off_site' : '', category_ids: '' })
   const [visibleColumns, setVisibleColumns] = useState(DEFAULT_COLUMNS)
   // The organization's own types (F-07): their fields shape the form; a published flow takes over after saving.
-  const [customId, setCustomId] = useState('')
+  const [customId, setCustomId] = useState(initialCustomTypeId ?? '')
   const [customValues, setCustomValues] = useState<FieldValues>({})
   const activeTypes = useQuery({ queryKey: ['/transaction-types', 'active'], queryFn: () => typesApi.list({ status: 'active' }), staleTime: 30_000 })
   const customType = (activeTypes.data?.data ?? []).find((t) => t.id === customId)
-  const flow = useQuery({ queryKey: ['/transaction-types', customId, 'flow'], queryFn: () => flowApi.get(customId), enabled: !!customId })
+  // A built-in type is its system type (F-07f): the fields and the flow the organization added to it apply.
+  const systemTypes = useQuery({ queryKey: ['/transaction-types', 'system'], queryFn: () => typesApi.list({ include_system: '1', status: 'active' }), staleTime: 30_000 })
+  const systemType = type ? (systemTypes.data?.data ?? []).find((t) => t.system_type === type) : undefined
+  const definition = customType ?? systemType
+  const flow = useQuery({ queryKey: ['/transaction-types', definition?.id, 'flow'], queryFn: () => flowApi.get(definition!.id), enabled: !!definition })
   const activeGraph = flow.data?.data.active?.graph
+  const activeNumber = flow.data?.data.active?.version_number
+  // F08-42: the rules that will apply to the chosen assets, asked once the input settles.
+  const previewInput = useDebounced(JSON.stringify([assets.map((a) => a.id).sort(), toPayload(definition?.fields ?? [], customValues)]))
+  const rulesPreview = useQuery({
+    queryKey: ['/transaction-types', definition?.id, 'flow', 'preview', previewInput],
+    queryFn: () => {
+      const [asset_ids, field_values] = JSON.parse(previewInput) as [string[], Record<string, unknown>]
+      return flowApi.preview(definition!.id, { asset_ids, field_values })
+    },
+    enabled: !!definition && !!activeNumber && assets.length > 0 && can('transaction.create'),
+    staleTime: 30_000,
+  })
+  const applying = rulesPreview.data?.data
+  // "Cara kerja" in short (F08-24): what happens after sending, for the published version.
+  const howItWorks = useQuery({
+    queryKey: ['/transaction-types', definition?.id, 'flow', 'describe', activeNumber],
+    queryFn: () => flowApi.describe(definition!.id, activeNumber),
+    enabled: !!definition && !!activeNumber,
+    staleTime: 60_000,
+  })
   const later = laterFields(activeGraph)
-  const startFields = (customType?.fields ?? []).filter((f) => !later.has(f.key))
+  const startFields = (definition?.fields ?? []).filter((f) => !later.has(f.key))
   const chosen = type !== '' || !!customType
   const tooMany = !!customType && !customType.multi_asset && assets.length > 1
 
@@ -161,14 +188,17 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
       }
       const payload: Record<string, unknown> = { asset_ids: assets.map((a) => a.id), type }
       for (const [k, v] of Object.entries(values)) payload[k] = v.trim() === '' ? null : v.trim()
+      if (startFields.length > 0) payload.field_values = toPayload(startFields, customValues)
       return api.post('/transactions', payload)
     },
     onSuccess: async (response) => {
-      await Promise.all(['/transactions', '/transaction-runs', '/assets', '/dashboard', '/home'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
+      await Promise.all(['/transactions', '/transaction-runs', '/assets', '/dashboards', '/home'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
       const what = assets.length === 1 ? assets[0].name : `${assets.length} aset`
+      // A type with a published flow answers with the run it started, not with transactions.
       const run = (response as { data?: TransactionRun }).data
-      if (customType && run && 'state' in run) {
-        toast.show({ tone: 'success', title: 'Transaksi dimulai', description: `${customType.name} ${run.transaction_number} · ${what}`, action: { label: 'Lihat transaksi', to: `/transaksi/berjalan/${run.id}` } })
+      if (run && !Array.isArray(run) && 'state' in run) {
+        const name = definition?.name ?? (type ? transactionTypeLabel[type] : '')
+        toast.show({ tone: 'success', title: 'Transaksi dimulai', description: `${name} ${run.transaction_number} · ${what}`, action: { label: 'Lihat transaksi', to: `/transaksi/berjalan/${run.id}` } })
       } else if (customType) {
         toast.success('Transaksi dicatat', `${customType.name} · ${what}`)
       } else if (type) {
@@ -191,7 +221,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
             Batal
           </Button>
           <Button type="submit" form="transaction-form" loading={save.isPending} disabled={!chosen || assets.length === 0 || blocked.length > 0 || tooMany}>
-            {type === 'outgoing' ? 'Catat keluar' : type === 'incoming' ? 'Catat masuk' : customType && activeGraph ? 'Mulai transaksi' : 'Simpan transaksi'}
+            {activeGraph ? 'Mulai transaksi' : type === 'outgoing' ? 'Catat keluar' : type === 'incoming' ? 'Catat masuk' : 'Simpan transaksi'}
             {!fixedAsset && assets.length > 0 ? ` (${assets.length} aset)` : ''}
           </Button>
         </>
@@ -228,6 +258,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
                   return
                 }
                 setCustomId('')
+                setCustomValues({})
                 const next = e.target.value as ManualTransactionType | ''
                 setType(next)
                 // Fields of the previous type must not be sent with the new one.
@@ -279,11 +310,34 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
             )}
             {activeGraph ? (
               <Alert tone="info" title="Setelah disimpan">
+                {howItWorks.data?.data.summary ? `${howItWorks.data.data.summary} ` : ''}
                 Transaksi berjalan mengikuti alur {customType.name} (v{flow.data?.data.active?.version_number}).
                 {customType.locks_assets ? ' Aset dikunci sampai transaksi selesai, ditolak, atau dibatalkan.' : ''}
               </Alert>
             ) : null}
+            <RulesThatApply preview={applying} />
             {tooMany && <Alert tone="error">Jenis {customType.name} hanya untuk satu aset per transaksi.</Alert>}
+          </>
+        )}
+
+        {systemType && (
+          <>
+            {startFields.length > 0 && !flow.isPending && (
+              <CustomFieldInputs
+                typeId={systemType.id}
+                fields={startFields}
+                values={customValues}
+                onChange={(key, value) => setCustomValues((v) => ({ ...v, [key]: value }))}
+                errors={fieldErrors}
+                required={startFields.filter((f) => f.is_required).map((f) => f.key)}
+              />
+            )}
+            {activeGraph && (
+              <Alert tone="info" title="Setelah disimpan">
+                Transaksi berjalan mengikuti alur {systemType.name} (v{flow.data?.data.active?.version_number}); aset baru berubah di langkah Aksi inti.
+                {systemType.locks_assets ? ' Aset dikunci sampai transaksi selesai, ditolak, atau dibatalkan.' : ''}
+              </Alert>
+            )}
           </>
         )}
 
@@ -446,104 +500,130 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, onClose }
             </p>
           </div>
         )}
+      </form>
 
-        {chosen && !fixedAsset && (
-          <div className="space-y-2">
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-              Aset <span className="text-red-600">*</span>
-              <span className="ml-2 font-normal text-slate-500">{picked.length} dipilih</span>
-            </label>
-            {err('asset_ids') && <p className="mt-1.5 text-sm text-red-700">{err('asset_ids')}</p>}
+      {/* Outside the form: searching and filtering for assets are forms of their own, and forms cannot nest. */}
+      {chosen && !fixedAsset && (
+        <div className="space-y-2">
+          <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+            Aset <span className="text-red-600">*</span>
+            <span className="ml-2 font-normal text-slate-500">{picked.length} dipilih</span>
+          </label>
+          {err('asset_ids') && <p className="mt-1.5 text-sm text-red-700">{err('asset_ids')}</p>}
 
-            {picked.length > 0 && (
-              <ul className="flex flex-wrap gap-2" aria-label="Aset dipilih">
-                {picked.map((a) => (
-                  <li key={a.id} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ring-1 ${reason(a) ? 'bg-red-50 text-red-800 ring-red-200' : 'bg-brand-50 text-brand-800 ring-brand-200'}`}>
-                    <span>{a.name}</span>
-                    {reason(a) && <span>· {reason(a)}</span>}
-                    <button type="button" className="rounded-full p-0.5 hover:bg-black/10" onClick={() => toggle(a)} aria-label={`Hapus ${a.name}`}>
-                      <X className="size-3" aria-hidden />
-                    </button>
-                  </li>
-                ))}
-                <li>
-                  <button type="button" className="px-1 py-1 text-xs font-medium text-brand-700 hover:underline" onClick={() => setPicked([])}>
-                    Hapus semua
+          {picked.length > 0 && (
+            <ul className="flex flex-wrap gap-2" aria-label="Aset dipilih">
+              {picked.map((a) => (
+                <li key={a.id} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ring-1 ${reason(a) ? 'bg-red-50 text-red-800 ring-red-200' : 'bg-brand-50 text-brand-800 ring-brand-200'}`}>
+                  <span>{a.name}</span>
+                  {reason(a) && <span>· {reason(a)}</span>}
+                  <button type="button" className="rounded-full p-0.5 hover:bg-black/10" onClick={() => toggle(a)} aria-label={`Hapus ${a.name}`}>
+                    <X className="size-3" aria-hidden />
                   </button>
                 </li>
-              </ul>
-            )}
-            {blocked.length > 0 && <Alert tone="error">Hapus aset yang ditandai merah, aset tersebut tidak dapat ikut transaksi ini.</Alert>}
+              ))}
+              <li>
+                <button type="button" className="px-1 py-1 text-xs font-medium text-brand-700 hover:underline" onClick={() => setPicked([])}>
+                  Hapus semua
+                </button>
+              </li>
+            </ul>
+          )}
+          {blocked.length > 0 && <Alert tone="error">Hapus aset yang ditandai merah, aset tersebut tidak dapat ikut transaksi ini.</Alert>}
 
-            <p className="mt-1.5 text-xs text-slate-500">Cari berdasarkan nama atau nomor seri. Centang semua aset yang ikut dalam transaksi ini.</p>
-            <FilterPanel>
-              <SearchForm
-                value={search}
-                onChange={handleSearchChange}
-                onSubmit={() => setCurrentPage(1)}
-                placeholder="Ketik untuk mencari aset"
-                label="Cari aset"
-                aside={
-                  <ColumnToggle
-                    columns={columns.filter((c) => c.key !== 'pick')}
-                    visibleColumns={visibleColumns}
-                    onToggle={toggleColumn}
-                    onReset={resetColumns}
-                  />
-                }
-              />
-              <AdvancedFilters
-                activeCount={Object.values(filters).filter(Boolean).length}
-                dirty={false}
-                onApply={() => setCurrentPage(1)}
-                onClear={resetFilters}
-              >
-                <CategoryFilter
-                  options={categories}
-                  selected={filters.category_ids.split(',').filter(Boolean)}
-                  onChange={(ids) => handleFilterChange({ category_ids: ids.join(',') })}
-                />
-                <Select value={filters.location_id} onChange={(e) => handleFilterChange({ location_id: e.target.value })} aria-label="Filter lokasi">
-                  <option value="">Lokasi: semua</option>
-                  {locations.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-                <Select value={filters.status} onChange={(e) => handleFilterChange({ status: e.target.value })} aria-label="Filter status">
-                  <option value="">Status: semua</option>
-                  {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
-                    <option key={s} value={s}>
-                      {assetStatusLabel[s]}
-                    </option>
-                  ))}
-                </Select>
-              </AdvancedFilters>
-            </FilterPanel>
-            {candidates.data?.data.length === 0 ? (
-              <p className="text-sm text-slate-500">Aset tidak ditemukan.</p>
-            ) : (
-              <>
-                {pickable.length > 0 && (
-                  <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setPicked((prev) => [...prev, ...pickable])}>
-                    Pilih semua yang bisa dipilih di halaman ini ({pickable.length})
-                  </button>
-                )}
-                <DataTable
-                  columns={columns}
-                  rows={candidates.data?.data ?? []}
+          <p className="mt-1.5 text-xs text-slate-500">Cari berdasarkan nama atau nomor seri. Centang semua aset yang ikut dalam transaksi ini.</p>
+          <FilterPanel>
+            <SearchForm
+              value={search}
+              onChange={handleSearchChange}
+              onSubmit={() => setCurrentPage(1)}
+              placeholder="Ketik untuk mencari aset"
+              label="Cari aset"
+              aside={
+                <ColumnToggle
+                  columns={columns.filter((c) => c.key !== 'pick')}
                   visibleColumns={visibleColumns}
-                  onRowClick={toggle}
-                  sort={sort}
-                  onSort={(next) => (setSort(next), setCurrentPage(1))}
+                  onToggle={toggleColumn}
+                  onReset={resetColumns}
                 />
-                {candidates.data?.meta && <Pagination meta={candidates.data.meta} onPage={setCurrentPage} />}
-              </>
-            )}
-          </div>
-        )}
-      </form>
+              }
+            />
+            <AdvancedFilters
+              activeCount={Object.values(filters).filter(Boolean).length}
+              dirty={false}
+              onApply={() => setCurrentPage(1)}
+              onClear={resetFilters}
+            >
+              <CategoryFilter
+                options={categories}
+                selected={filters.category_ids.split(',').filter(Boolean)}
+                onChange={(ids) => handleFilterChange({ category_ids: ids.join(',') })}
+              />
+              <Select value={filters.location_id} onChange={(e) => handleFilterChange({ location_id: e.target.value })} aria-label="Filter lokasi">
+                <option value="">Lokasi: semua</option>
+                {locations.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+              <Select value={filters.status} onChange={(e) => handleFilterChange({ status: e.target.value })} aria-label="Filter status">
+                <option value="">Status: semua</option>
+                {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
+                  <option key={s} value={s}>
+                    {assetStatusLabel[s]}
+                  </option>
+                ))}
+              </Select>
+            </AdvancedFilters>
+          </FilterPanel>
+          {candidates.data?.data.length === 0 ? (
+            <p className="text-sm text-slate-500">Aset tidak ditemukan.</p>
+          ) : (
+            <>
+              {pickable.length > 0 && (
+                <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setPicked((prev) => [...prev, ...pickable])}>
+                  Pilih semua yang bisa dipilih di halaman ini ({pickable.length})
+                </button>
+              )}
+              <DataTable
+                columns={columns}
+                rows={candidates.data?.data ?? []}
+                visibleColumns={visibleColumns}
+                onRowClick={toggle}
+                sort={sort}
+                onSort={(next) => (setSort(next), setCurrentPage(1))}
+              />
+              {candidates.data?.meta && <Pagination meta={candidates.data.meta} onPage={setCurrentPage} />}
+            </>
+          )}
+        </div>
+      )}
     </Modal>
+  )
+}
+
+/** "Rule yang berlaku" (F08-42): a refusal before sending, or the rules that add steps. */
+function RulesThatApply({ preview }: { preview?: { rules: { rule_id: string; name: string; kind: string; sentence: string }[]; blocked: { message: string | null; name: string | null } | null } }) {
+  if (!preview) return null
+  if (preview.blocked) {
+    return (
+      <Alert tone="error" title="Transaksi ini akan ditolak">
+        {preview.blocked.message}
+        {preview.blocked.name ? ` Rule: ${preview.blocked.name}.` : ''}
+      </Alert>
+    )
+  }
+  if (preview.rules.length === 0) return null
+  return (
+    <Alert tone="warning" title={preview.rules.length === 1 ? 'Rule yang berlaku' : `${preview.rules.length} rule berlaku`}>
+      <ul className="list-disc pl-5">
+        {preview.rules.map((r) => (
+          <li key={r.rule_id}>
+            <span className="font-semibold">{r.name}:</span> {r.sentence}
+          </li>
+        ))}
+      </ul>
+    </Alert>
   )
 }

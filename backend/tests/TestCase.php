@@ -10,6 +10,8 @@ use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\Models\UserDataScope;
 use App\Domain\Authorization\PermissionCatalog;
 use App\Domain\Authorization\RoleTemplates;
+use App\Domain\Dashboards\Models\Dashboard;
+use App\Domain\Dashboards\Models\WidgetCatalog;
 use App\Domain\GenericMaster\Models\GenericAssetCategory;
 use App\Domain\GenericMaster\Models\GenericAssetDefinition;
 use App\Domain\GenericMaster\Models\GenericDefinitionVersion;
@@ -327,5 +329,27 @@ abstract class TestCase extends BaseTestCase
     protected function assertErrorCode(TestResponse $response, int $status, string $code): void
     {
         $response->assertStatus($status)->assertJsonPath('error.code', $code);
+    }
+
+    /**
+     * The data of one catalog widget as the signed-in $member sees it (F-06 §4.4): the widget is
+     * added through the API to a personal dashboard of theirs, so its configuration is validated
+     * against the catalog schema, and its data honours the widget permission and data scope.
+     *
+     * @param  array<string, mixed>  $configuration
+     * @return array<string, mixed>
+     */
+    protected function widgetData(Organization $organization, User $member, string $widgetKey, array $configuration = []): array
+    {
+        $dashboard = Dashboard::query()->where('created_by', $member->id)->where('name', 'Dashboard Uji Widget')->first();
+        if ($dashboard === null) {
+            $dashboard = new Dashboard(['name' => 'Dashboard Uji Widget', 'visibility' => 'personal', 'status' => Dashboard::STATUS_ACTIVE]);
+            $dashboard->forceFill(['organization_id' => $organization->id, 'dashboard_type' => 'custom', 'created_by' => $member->id])->save();
+        }
+        $catalogId = WidgetCatalog::query()->where('widget_key', $widgetKey)->value('id') ?? $this->fail("Unknown widget {$widgetKey}.");
+        $widget = $this->postJson("/api/dashboards/{$dashboard->id}/widgets", ['widget_catalog_id' => $catalogId, 'configuration' => (object) $configuration])
+            ->assertCreated()->json('data.id');
+
+        return $this->getJson("/api/dashboards/{$dashboard->id}/widgets/{$widget}/data")->assertOk()->json('data');
     }
 }

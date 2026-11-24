@@ -6,6 +6,7 @@ use App\Domain\Approvals\Models\ApprovalRequest;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\TransactionType;
+use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
@@ -37,6 +38,8 @@ final class ApprovalDetails
         'serial_number' => 'No seri',
         'category_id' => 'Kategori',
         'location_id' => 'Lokasi',
+        'custodian_user_id' => 'Penanggung jawab',
+        'department_id' => 'Departemen',
         'parent_id' => 'Induk',
         'status' => 'Status',
         'address' => 'Alamat',
@@ -93,8 +96,9 @@ final class ApprovalDetails
             return;
         }
         // An asset's category attribute values are a long list of mostly empty fields; the
-        // approver decides on the asset's main data. Category attribute changes still show them.
-        if ($key === 'attributes' && ApprovalActions::entity($approval->action) === 'asset') {
+        // approver decides on the asset's main data (also without the fields it leaves out or
+        // has on its own). Category attribute changes still show them.
+        if (in_array($key, ['attributes', 'hidden_attributes', 'extra_attributes'], true) && ApprovalActions::entity($approval->action) === 'asset') {
             return;
         }
         $row = ['label' => self::LABELS[$key] ?? $key, 'value' => self::value($approval, $key, $value)];
@@ -143,6 +147,8 @@ final class ApprovalDetails
             'asset_id', 'asset_ids' => self::assets((array) $value),
             'category_id' => self::name(TenantAssetCategory::class, $value),
             'location_id', 'to_location_id' => self::name(Location::class, $value),
+            'department_id' => self::name(Department::class, $value),
+            'custodian_user_id' => self::person($value),
             'parent_id' => self::name(ApprovalActions::entity($approval->action) === 'location' ? Location::class : TenantAssetCategory::class, $value),
             'type' => TransactionType::LABELS[$value] ?? (string) $value,
             'to_status' => AssetStatus::LABELS[$value] ?? (string) $value,
@@ -162,6 +168,17 @@ final class ApprovalDetails
         $record = $model::query()->whereKey($id)->first(['id', 'code', 'name']);
 
         return $record === null ? '(tidak ditemukan)' : "{$record->name} ({$record->code})";
+    }
+
+    /** A member of this organization by user id: "Name (email)". */
+    private static function person(mixed $userId): string
+    {
+        if (! is_string($userId)) {
+            return self::scalar($userId);
+        }
+        $user = OrganizationMember::query()->where('user_id', $userId)->with('user:id,name,email')->first()?->user;
+
+        return $user === null ? '(tidak ditemukan)' : "{$user->name} ({$user->email})";
     }
 
     /** @param array<mixed> $ids */

@@ -17,7 +17,7 @@ class AssetTransactionTest extends TestCase
     /** approval.manage: transactions apply directly (approval is covered by ApprovalTest). */
     private const OPERATOR = ['organization.view', 'master.tenant.view', 'asset.view', 'asset.status_change', 'transaction.view', 'transaction.create', 'approval.manage'];
 
-    private const MANAGER = [...self::OPERATOR, 'asset.create', 'asset.transfer', 'asset.dispose', 'report.view'];
+    private const MANAGER = [...self::OPERATOR, 'asset.create', 'asset.transfer', 'asset.dispose', 'dashboard.view'];
 
     private Organization $org;
 
@@ -187,7 +187,7 @@ class AssetTransactionTest extends TestCase
 
         $visible = collect($this->getJson('/api/transactions')->json('data'))->pluck('asset.id')->unique()->values()->all();
         $this->assertSame([$inside], $visible);
-        $this->assertSame(1, $this->getJson('/api/dashboard')->json('data.summary.total'));
+        $this->assertSame(1, $this->widgetData($this->org, $scoped, 'total_assets')['value']);
     }
 
     public function test_inspector_confirms_history_matches_state_and_detects_drift(): void
@@ -218,7 +218,7 @@ class AssetTransactionTest extends TestCase
         $this->assertErrorCode($this->getJson('/api/transactions'), 503, 'MODULE_UNAVAILABLE');
         $this->assertErrorCode($this->record($asset, 'note', ['notes' => 'x']), 503, 'MODULE_UNAVAILABLE');
         $this->getJson('/api/assets')->assertOk();
-        $this->getJson('/api/dashboard')->assertOk();
+        $this->getJson('/api/dashboards/asset-board')->assertOk();
     }
 
     private function asset(string $name = 'Laptop', ?string $locationId = null): string

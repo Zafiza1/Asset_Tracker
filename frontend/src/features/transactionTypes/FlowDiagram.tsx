@@ -14,8 +14,9 @@ import {
   type NodeProps,
 } from '@xyflow/react'
 import clsx from 'clsx'
+import { Lock } from 'lucide-react'
 import { useMemo } from 'react'
-import { nodeTypeLabel, outcomeLabel, type FlowAction, type FlowGraph, type FlowNode, type NodeType } from './api'
+import { isCoreNode, nodeTypeLabel, outcomeLabel, type FlowAction, type FlowGraph, type FlowNode, type NodeType } from './api'
 
 /** Colors per step type (F-07 mockup): start green, approval blue, action purple, condition/wait amber, end slate/red. */
 const NODE_STYLE: Record<NodeType, string> = {
@@ -44,6 +45,8 @@ const ACTION_TEXT: Record<FlowAction['kind'], string> = {
   loan_to_field_user: 'pinjamkan',
   return: 'kembalikan',
   notify: 'notifikasi',
+  set_custodian: 'ganti penanggung jawab',
+  core: 'aturan inti',
 }
 
 /** One-line summary of a step's settings shown under its name. */
@@ -91,7 +94,16 @@ function StepNode({ data, selected }: NodeProps<Node<StepData>>) {
       )}
     >
       {n.type !== 'start' && <Handle type="target" position={Position.Left} className="!size-2.5 !border-2 !border-slate-400 !bg-white" />}
-      <div className={clsx('text-[10px] font-bold uppercase tracking-wide', rejected ? 'text-red-700' : KIND_COLOR[n.type])}>{nodeTypeLabel[n.type]}</div>
+      <div className={clsx('flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide', rejected ? 'text-red-700' : KIND_COLOR[n.type])}>
+        {isCoreNode(n) ? (
+          <>
+            <Lock className="size-3" aria-hidden />
+            Aksi inti
+          </>
+        ) : (
+          nodeTypeLabel[n.type]
+        )}
+      </div>
       <div className="truncate text-[13px] font-semibold text-slate-900">{n.label || nodeTypeLabel[n.type]}</div>
       <div className="truncate text-slate-500">{nodeSummary(n)}</div>
       {n.type !== 'end' && <Handle type="source" position={Position.Right} className="!size-2.5 !border-2 !border-slate-400 !bg-white" />}
@@ -102,7 +114,8 @@ function StepNode({ data, selected }: NodeProps<Node<StepData>>) {
 const nodeTypes = { step: StepNode }
 
 function toFlowNodes(graph: FlowGraph, state: (n: FlowNode) => StepData['state'] = () => undefined): Node<StepData>[] {
-  return graph.nodes.map((n) => ({ id: n.id, type: 'step', position: n.position ?? { x: 0, y: 0 }, data: { node: n, state: state(n) } }))
+  // A system type's core step stays in its flow (F-07f-3): Delete does not remove it.
+  return graph.nodes.map((n) => ({ id: n.id, type: 'step', position: n.position ?? { x: 0, y: 0 }, deletable: !isCoreNode(n), data: { node: n, state: state(n) } }))
 }
 
 function toFlowEdges(graph: FlowGraph, onPath?: Set<string>): Edge[] {

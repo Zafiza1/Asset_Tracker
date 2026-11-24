@@ -181,10 +181,9 @@ class OutgoingIncomingTransactionTest extends TestCase
         $this->assertCount(1, $this->getJson('/api/transactions?search=Servis')->json('data'));
         $this->assertCount(1, $this->getJson('/api/transactions?search=SJ-777')->json('data'));
 
-        $utilization = $this->getJson('/api/dashboard')->assertOk()->json('data.utilization');
-        $this->assertSame(1, $utilization['off_site']);
-        $this->assertSame(1, $utilization['in_service']);   // off_site counts as in service, like on_loan
-        $this->assertSame(2, $utilization['operable']);
+        $this->assertSame(1, $this->widgetData($this->org, $this->admin, 'assets_off_site')['value']);
+        $this->assertSame(1, $this->widgetData($this->org, $this->admin, 'active_assets')['value']);   // off_site counts as in service, like on_loan
+        $this->assertSame(2, $this->widgetData($this->org, $this->admin, 'total_assets')['value']);
     }
 
     public function test_list_tabs_counts_and_return_status(): void
@@ -233,13 +232,17 @@ class OutgoingIncomingTransactionTest extends TestCase
         ]))->assertCreated();
         $this->record($back, 'incoming')->assertCreated();
 
-        $data = $this->getJson('/api/dashboard')->assertOk()->json('data');
-        $this->assertSame(['active' => 2, 'overdue' => 1, 'due_soon' => 1, 'due_soon_days' => 7, 'days' => 30, 'outgoing' => 3, 'incoming' => 1], $data['external']);
-        $this->assertSame(1, $data['attention']['counts']['overdue_return']);
-        $item = collect($data['attention']['items'])->firstWhere('reason', 'overdue_return');
-        $this->assertSame($late, $item['asset']['id']);
-        $this->assertSame('Dinas Pendidikan', $item['counterparty_name']);
-        $this->assertSame(now()->subDays(3)->toDateString(), $item['return_due_date']);
+        $widget = fn (string $key) => $this->widgetData($this->org, $this->admin, $key);
+        $this->assertSame(2, $widget('assets_off_site')['value']);
+        $this->assertSame(1, $widget('due_soon_list')['count']);
+        $this->assertSame([3, 1], $widget('outgoing_vs_incoming')['series'][0]['data']); // keluar, masuk
+
+        $overdue = $widget('overdue_outgoing_list');
+        $this->assertSame(1, $overdue['count']);
+        $this->assertSame($late, $overdue['rows'][0]['asset']['id']);
+        $this->assertSame('Dinas Pendidikan', $overdue['rows'][0]['counterparty']);
+        $this->assertSame(now()->subDays(3)->toDateString(), $overdue['rows'][0]['due_date']);
+        $this->assertSame(3, $overdue['rows'][0]['days_late']);
     }
 
     public function test_counterparty_contact_needs_contact_permission(): void

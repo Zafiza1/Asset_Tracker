@@ -4,7 +4,9 @@ namespace App\Domain\Assets\Models;
 
 use App\Domain\Assets\AssetScope;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
 use App\Domain\Shared\Tenancy\Tenancy;
@@ -31,6 +33,8 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string $category_id
  * @property string|null $location_id
+ * @property string|null $custodian_user_id member who answers for the asset (F-09)
+ * @property string|null $department_id department that owns/uses the asset (F-09)
  * @property array<string, mixed> $attribute_values custom field values (category attributes), keyed by attribute key
  * @property string $status
  * @property string|null $image_path photo on AssetService::IMAGE_DISK
@@ -46,7 +50,8 @@ class Asset extends Model
     use BelongsToOrganization, HasUuids;
 
     /** Columns users edit directly (descriptive data). */
-    public const EDITABLE = ['name', 'serial_number', 'category_id', 'acquisition_date', 'acquisition_cost', 'description'];
+    public const EDITABLE = ['name', 'serial_number', 'category_id', 'acquisition_date', 'acquisition_cost', 'description',
+        'custodian_user_id', 'department_id'];
 
     protected $fillable = self::EDITABLE;
 
@@ -58,6 +63,10 @@ class Asset extends Model
             'loan_due_date' => 'date',
             'lock_version' => 'integer',
             'archived_at' => 'datetime',
+            // Keys of optional category fields that do not apply to this asset.
+            'hidden_attributes' => 'array',
+            // Fields only this asset has: [{label, data_type, value}].
+            'extra_attributes' => 'array',
         ];
     }
 
@@ -94,6 +103,17 @@ class Asset extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    /** The custodian's membership in this organization (status, job title), with `user` for the name. */
+    public function custodianMember(): BelongsTo
+    {
+        return $this->belongsTo(OrganizationMember::class, 'custodian_user_id', 'user_id');
     }
 
     public function creator(): BelongsTo

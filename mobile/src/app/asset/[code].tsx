@@ -81,7 +81,22 @@ export default function AssetDetailScreen() {
         <Row label="Nilai perolehan">{formatMoney(a.acquisition_cost)}</Row>
       </>
     ),
-    location_ownership: <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>,
+    location_ownership: (
+      <>
+        <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>
+        <Row label="Penanggung jawab">
+          {a.custodian ? (
+            <View style={styles.inline}>
+              <Text style={styles.value}>{a.custodian.name ?? '—'}</Text>
+              {!a.custodian.is_active && <Badge colors={[colors.warningSoft, colors.warning]}>nonaktif</Badge>}
+            </View>
+          ) : (
+            'Belum ada'
+          )}
+        </Row>
+        <Row label="Departemen">{a.department?.name ?? 'Tanpa departemen'}</Row>
+      </>
+    ),
     status_condition: (
       <>
         <Row label="Status">
@@ -100,7 +115,19 @@ export default function AssetDetailScreen() {
       <View style={{ gap: 2 }}>
         <Text style={styles.name}>{a.name}</Text>
         {a.serial_number && <Text style={styles.code}>{`No Seri ${a.serial_number}`}</Text>}
+        {/* F-09: "who holds it?" is the first question after a scan. */}
+        <Text style={styles.holder}>
+          {a.custodian
+            ? `Dipegang oleh ${a.custodian.name ?? '—'}${a.department ? ` · ${a.department.name}` : ''}`
+            : `Belum ada penanggung jawab${a.department ? ` · ${a.department.name}` : ''}`}
+        </Text>
       </View>
+
+      {a.custodian && !a.custodian.is_active && (
+        <Alert tone="warning" title="Penanggung jawab nonaktif">
+          {`${a.custodian.name ?? 'Penanggung jawab'} sudah tidak aktif di organisasi. Minta administrator menunjuk penanggung jawab baru.`}
+        </Alert>
+      )}
 
       {a.is_archived && (
         <Alert tone="warning" title="Aset nonaktif">
@@ -219,6 +246,9 @@ const styles = StyleSheet.create({
   muted: { color: colors.muted, textAlign: 'center' },
   name: { fontSize: 22, fontWeight: '800', color: colors.text },
   code: { fontFamily: mono, color: colors.muted, fontSize: 13 },
+  holder: { color: colors.text, fontSize: 14, fontWeight: '600', marginTop: 4 },
+  inline: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  value: { fontSize: 14, color: colors.text },
   imageBox: { backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border },
   image: { width: '100%', height: 240 },
   empty: { padding: 16, color: colors.muted },

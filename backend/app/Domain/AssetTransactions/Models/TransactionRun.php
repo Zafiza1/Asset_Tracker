@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $state
  * @property string|null $current_node_id
  * @property array<string, mixed> $field_values
+ * @property array<string, mixed>|null $system_values what the built-in form asked, for a system type's core action (F-07f-2)
  * @property string|null $notes
  * @property string $created_by
  */
@@ -54,6 +55,7 @@ class TransactionRun extends Model
         return [
             'transaction_date' => 'date',
             'ended_at' => 'datetime',
+            'system_values' => 'array',
         ];
     }
 

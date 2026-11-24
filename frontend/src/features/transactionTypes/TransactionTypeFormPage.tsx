@@ -29,6 +29,7 @@ import {
   type TransactionTypeDefinition,
   type TypeStatus,
 } from './api'
+import { DesignerNav } from './DesignerNav'
 
 interface DraftField {
   /** Local row id; existing fields keep their key, which cannot change. */
@@ -82,12 +83,16 @@ export function TransactionTypeFormPage() {
   const queryClient = useQueryClient()
   const { can } = useAuth()
   const canUseEditor = useCanUseEditor()
-  const editable = can('transaction_type.manage') && canUseEditor
   const [draft, setDraft] = useState<Draft>(() => toDraft(undefined))
   const [errors, setErrors] = useState<Record<string, string[]>>({})
   const [deleting, setDeleting] = useState(false)
 
   const type = useQuery({ queryKey: ['/transaction-types', id], queryFn: () => typesApi.get(id!), enabled: !isNew })
+  const canManage = can('transaction_type.manage') && canUseEditor
+  // A system type (F-07f) keeps its name and core rules; only the fields it asks can be added.
+  const system = !!type.data?.data.system_type
+  const editable = canManage && !system
+  const fieldsEditable = canManage
   const others = useQuery({ queryKey: ['/transaction-types', 'all'], queryFn: () => typesApi.list() })
   const categories = toOptions(useOptions('/tenant-masters/categories').data)
 
@@ -113,6 +118,9 @@ export function TransactionTypeFormPage() {
 
   const save = useMutation({
     mutationFn: () => {
+      const fields = draft.fields.map((f) => ({ key: f.key, label: f.label.trim(), data_type: f.data_type, is_required: f.is_required, settings: cleanSettings(f) }))
+      // The API takes nothing but the fields of a system type.
+      if (system) return typesApi.update(id!, { fields })
       const input = {
         ...(isNew ? { code: draft.code.trim() } : {}),
         name: draft.name.trim(),
@@ -122,7 +130,7 @@ export function TransactionTypeFormPage() {
         locks_assets: draft.locks_assets,
         closes_type_id: draft.closes_type_id || null,
         category_ids: draft.category_ids,
-        fields: draft.fields.map((f) => ({ key: f.key, label: f.label.trim(), data_type: f.data_type, is_required: f.is_required, settings: cleanSettings(f) })),
+        fields,
       }
       return isNew ? typesApi.create(input) : typesApi.update(id!, input)
     },
@@ -146,7 +154,7 @@ export function TransactionTypeFormPage() {
 
   if (!isNew && type.isPending) return <FormSkeleton fields={6} />
   if (!isNew && type.isError) return <ErrorState error={type.error} onRetry={() => type.refetch()} />
-  if (isNew && !editable) return <Alert tone="info" title="Tidak dapat membuat jenis di sini">Membuat jenis transaksi dilakukan oleh Super Admin atau Supervisor di web pada layar lebar.</Alert>
+  if (isNew && !canManage) return <Alert tone="info" title="Tidak dapat membuat jenis di sini">Membuat jenis transaksi dilakukan oleh Super Admin atau Supervisor di web pada layar lebar.</Alert>
 
   const t = type.data?.data
   const used = (t?.transactions_count ?? 0) > 0
@@ -156,7 +164,19 @@ export function TransactionTypeFormPage() {
     <>
       <PageHeader
         title={isNew ? 'Jenis transaksi baru' : (t?.name ?? '')}
-        badges={t && <Badge tone={typeStatusTone[t.status]}>{typeStatusLabel[t.status]}</Badge>}
+        badges={
+          t && (
+            <>
+              {system && (
+                <Badge tone="slate">
+                  <Lock className="size-3" aria-hidden />
+                  Sistem
+                </Badge>
+              )}
+              <Badge tone={typeStatusTone[t.status]}>{typeStatusLabel[t.status]}</Badge>
+            </>
+          )
+        }
         description={
           <>
             Pengaturan jenis dan field formulir. Langkah dan aturan diatur di editor alur{isNew ? ' setelah jenis disimpan' : ''}.
@@ -167,10 +187,10 @@ export function TransactionTypeFormPage() {
             {!isNew && (
               <ButtonLink to={`/transaksi/jenis/${id}/alur`} variant="secondary">
                 <Workflow className="size-4" aria-hidden />
-                {editable ? 'Editor alur' : 'Lihat alur'}
+                {canManage ? 'Editor alur' : 'Lihat alur'}
               </ButtonLink>
             )}
-            {editable && (
+            {fieldsEditable && (
               <Button type="submit" form="type-form" loading={save.isPending}>
                 <Save className="size-4" aria-hidden />
                 Simpan
@@ -179,8 +199,15 @@ export function TransactionTypeFormPage() {
           </>
         }
       />
+      {!isNew && id && <DesignerNav typeId={id} />}
 
-      {!editable && (
+      {system ? (
+        <div className="mb-4">
+          <Alert tone="info" title="Jenis sistem">
+            Jenis ini bawaan aplikasi dan memakai aturan inti (mis. aset yang dipinjam tidak dapat dipindah); nama dan pengaturannya tetap. Organisasi dapat menambah field formulir dan alur, mis. persetujuan sebelum aset dipinjamkan. Tanpa alur terbit, transaksinya langsung tercatat.
+          </Alert>
+        </div>
+      ) : !canManage && (
         <div className="mb-4">
           <Alert tone="info" title={canUseEditor ? 'Hanya dapat dilihat' : 'Hanya dapat dilihat di ponsel'}>
             {canUseEditor ? 'Mengubah jenis dan field dilakukan oleh Super Admin atau Supervisor.' : 'Ubah jenis dan field di web pada layar lebar.'}
@@ -201,72 +228,74 @@ export function TransactionTypeFormPage() {
         {save.isError && !Object.keys(errors).length && <Alert tone="error">{errorMessage(save.error)}</Alert>}
         {Object.keys(errors).length > 0 && <Alert tone="error">Periksa isian yang ditandai merah.</Alert>}
 
-        <fieldset disabled={!editable} className="space-y-4">
-          <Card title="Jenis">
-            <div className="grid gap-4 p-5 sm:grid-cols-2">
-              <Field label="Nama" required error={err('name')}>
-                {(p) => <Input {...p} value={draft.name} maxLength={100} onChange={(e) => set('name', e.target.value)} placeholder="mis. Mutasi Cabang" />}
-              </Field>
-              <Field label="Kode / prefix nomor" required error={err('code')} hint={isNew ? '2–6 huruf; dipakai di nomor transaksi, mis. MUT-2026-000001.' : used ? 'Tidak dapat diubah: jenis sudah dipakai.' : 'Kode tidak dapat diubah setelah dibuat.'}>
-                {(p) => <Input {...p} value={draft.code} maxLength={6} disabled={!isNew} className={`${p.className} uppercase`} onChange={(e) => set('code', e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} />}
-              </Field>
-              <div className="sm:col-span-2">
-                <Field label="Keterangan" error={err('description')}>
-                  {(p) => <Textarea {...p} rows={2} maxLength={1000} value={draft.description} onChange={(e) => set('description', e.target.value)} />}
+        <fieldset disabled={!fieldsEditable} className="space-y-4">
+          <fieldset disabled={!editable}>
+            <Card title="Jenis">
+              <div className="grid gap-4 p-5 sm:grid-cols-2">
+                <Field label="Nama" required error={err('name')}>
+                  {(p) => <Input {...p} value={draft.name} maxLength={100} onChange={(e) => set('name', e.target.value)} placeholder="mis. Mutasi Cabang" />}
                 </Field>
+                <Field label="Kode / prefix nomor" required error={err('code')} hint={isNew ? '2–6 huruf; dipakai di nomor transaksi, mis. MUT-2026-000001.' : used ? 'Tidak dapat diubah: jenis sudah dipakai.' : 'Kode tidak dapat diubah setelah dibuat.'}>
+                  {(p) => <Input {...p} value={draft.code} maxLength={6} disabled={!isNew} className={`${p.className} uppercase`} onChange={(e) => set('code', e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} />}
+                </Field>
+                <div className="sm:col-span-2">
+                  <Field label="Keterangan" error={err('description')}>
+                    {(p) => <Textarea {...p} rows={2} maxLength={1000} value={draft.description} onChange={(e) => set('description', e.target.value)} />}
+                  </Field>
+                </div>
+                <div>
+                  <p className="mb-1.5 text-sm font-semibold text-slate-700">Berlaku untuk kategori</p>
+                  <CategoryFilter options={categories} selected={draft.category_ids} onChange={(ids) => set('category_ids', ids)} />
+                  <p className="mt-1.5 text-xs text-slate-500">{draft.category_ids.length ? 'Termasuk subkategorinya.' : 'Kosong: semua kategori.'}</p>
+                  {err('category_ids') && <p className="mt-1.5 text-sm text-red-700">{err('category_ids')}</p>}
+                </div>
+                <div>
+                  <p className="mb-1.5 text-sm font-semibold text-slate-700">Jumlah aset per transaksi</p>
+                  <SegmentedControl
+                    label="Jumlah aset per transaksi"
+                    value={draft.multi_asset ? 'many' : 'one'}
+                    onChange={(v) => set('multi_asset', v === 'many')}
+                    options={[{ value: 'one', label: 'Satu aset' }, { value: 'many', label: 'Banyak aset' }]}
+                  />
+                </div>
+                <Field label="Menutup jenis lain" error={err('closes_type_id')} hint={'Mis. "Kembali dari kalibrasi" menutup "Kalibrasi"; alur jenis yang ditutup dapat menunggu transaksi ini.'}>
+                  {(p) => (
+                    <Select {...p} value={draft.closes_type_id} onChange={(e) => set('closes_type_id', e.target.value)}>
+                      <option value="">Tidak berpasangan</option>
+                      {closable.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name} ({o.code})
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </Field>
+                <Field label="Status" error={err('status')} hint="Hanya jenis Aktif yang dapat dipakai mencatat transaksi.">
+                  {(p) => (
+                    <Select {...p} value={draft.status} onChange={(e) => set('status', e.target.value as TypeStatus)}>
+                      {(Object.keys(typeStatusLabel) as TypeStatus[]).map((s) => (
+                        <option key={s} value={s}>
+                          {typeStatusLabel[s]}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </Field>
+                <label className="flex items-start gap-2 text-sm text-slate-700 sm:col-span-2">
+                  <input type="checkbox" className="mt-0.5 size-4 rounded border-slate-300 accent-brand-700" checked={draft.locks_assets} onChange={(e) => set('locks_assets', e.target.checked)} />
+                  <span>
+                    <span className="font-semibold">Kunci aset selama transaksi berjalan</span>
+                    <span className="block text-xs text-slate-500">Aset tidak dapat ikut transaksi lain sampai transaksi ini selesai, ditolak, atau dibatalkan.</span>
+                  </span>
+                </label>
               </div>
-              <div>
-                <p className="mb-1.5 text-sm font-semibold text-slate-700">Berlaku untuk kategori</p>
-                <CategoryFilter options={categories} selected={draft.category_ids} onChange={(ids) => set('category_ids', ids)} />
-                <p className="mt-1.5 text-xs text-slate-500">{draft.category_ids.length ? 'Termasuk subkategorinya.' : 'Kosong: semua kategori.'}</p>
-                {err('category_ids') && <p className="mt-1.5 text-sm text-red-700">{err('category_ids')}</p>}
-              </div>
-              <div>
-                <p className="mb-1.5 text-sm font-semibold text-slate-700">Jumlah aset per transaksi</p>
-                <SegmentedControl
-                  label="Jumlah aset per transaksi"
-                  value={draft.multi_asset ? 'many' : 'one'}
-                  onChange={(v) => set('multi_asset', v === 'many')}
-                  options={[{ value: 'one', label: 'Satu aset' }, { value: 'many', label: 'Banyak aset' }]}
-                />
-              </div>
-              <Field label="Menutup jenis lain" error={err('closes_type_id')} hint={'Mis. "Kembali dari kalibrasi" menutup "Kalibrasi"; alur jenis yang ditutup dapat menunggu transaksi ini.'}>
-                {(p) => (
-                  <Select {...p} value={draft.closes_type_id} onChange={(e) => set('closes_type_id', e.target.value)}>
-                    <option value="">Tidak berpasangan</option>
-                    {closable.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name} ({o.code})
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-              <Field label="Status" error={err('status')} hint="Hanya jenis Aktif yang dapat dipakai mencatat transaksi.">
-                {(p) => (
-                  <Select {...p} value={draft.status} onChange={(e) => set('status', e.target.value as TypeStatus)}>
-                    {(Object.keys(typeStatusLabel) as TypeStatus[]).map((s) => (
-                      <option key={s} value={s}>
-                        {typeStatusLabel[s]}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-              <label className="flex items-start gap-2 text-sm text-slate-700 sm:col-span-2">
-                <input type="checkbox" className="mt-0.5 size-4 rounded border-slate-300 accent-brand-700" checked={draft.locks_assets} onChange={(e) => set('locks_assets', e.target.checked)} />
-                <span>
-                  <span className="font-semibold">Kunci aset selama transaksi berjalan</span>
-                  <span className="block text-xs text-slate-500">Aset tidak dapat ikut transaksi lain sampai transaksi ini selesai, ditolak, atau dibatalkan.</span>
-                </span>
-              </label>
-            </div>
-          </Card>
+            </Card>
+          </fieldset>
 
           <Card
             title="Field formulir"
             actions={
-              editable && (
+              fieldsEditable && (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -292,7 +321,7 @@ export function TransactionTypeFormPage() {
                     field={f}
                     index={i}
                     count={draft.fields.length}
-                    editable={editable}
+                    editable={fieldsEditable}
                     errors={errors}
                     onChange={(patch) => {
                       // A new field's key follows its label until it is saved.
@@ -339,6 +368,12 @@ export function TransactionTypeFormPage() {
 
 /** Only the settings the field type uses. */
 function cleanSettings(f: DraftField): FieldSettings {
+  // The hint (F-08j) goes with every field type.
+  const help = f.settings.help?.trim()
+  return { ...typeSettings(f), ...(help ? { help } : {}) }
+}
+
+function typeSettings(f: DraftField): FieldSettings {
   const s = f.settings
   const num = (v: unknown) => (v === '' || v === undefined || v === null || Number.isNaN(Number(v)) ? undefined : Number(v))
   switch (f.data_type) {
@@ -395,6 +430,11 @@ function FieldRow({ field: f, index, count, editable, errors, onChange, onMove, 
             </Select>
           )}
         </Field>
+        <div className="sm:col-span-3">
+          <Field label="Petunjuk untuk pengisi" error={err('settings.help')} hint="Tampil di bawah isian formulir, mis. Anggota tim yang memakai aset.">
+            {(p) => <Input {...p} value={s.help ?? ''} maxLength={200} onChange={(e) => setS({ help: e.target.value })} />}
+          </Field>
+        </div>
         <div className="flex items-center gap-1 sm:pt-7">
           <label className="mr-2 inline-flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" className="size-4 rounded border-slate-300 accent-brand-700" checked={f.is_required} onChange={(e) => onChange({ is_required: e.target.checked })} />

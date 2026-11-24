@@ -39,7 +39,7 @@ class TransactionRunController extends Controller
             'type_definition_id' => ['nullable', 'uuid'],
         ]);
         $userId = $this->tenancy->tenant()->userId();
-        $query = $this->access->visible()->with(['definition:id,code,name', 'flowVersion', 'assets:id,name', 'creator:id,name', 'tasks'])
+        $query = $this->access->visible()->with(['definition:id,code,name,system_type', 'flowVersion', 'assets:id,name', 'creator:id,name', 'tasks'])
             ->when($request->query('state'), fn ($q, $state) => $q->where('state', $state))
             ->when($request->boolean('mine'), fn ($q) => $q->where('created_by', $userId))
             ->when($request->boolean('assigned_to_me'), fn ($q) => $q->whereIn('id', $this->access->openTasks()->select('run_id')))

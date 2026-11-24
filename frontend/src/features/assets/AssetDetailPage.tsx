@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, FolderTree, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, FolderTree, Handshake, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRound, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -14,12 +14,13 @@ import { SegmentedControl } from '../../components/ui/Tabs'
 import { api, qs } from '../../lib/api/client'
 import { MODULE_NAMES, type CategoryAttribute, type Paginated, type Resource } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
-import { formatDate, formatDateTime } from '../../lib/format'
+import { formatAttributeValue, formatDate, formatDateTime } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
 import { attributeRowsBySection, SECTION_LABELS } from '../master/categoryAttributeData'
 import { allowedTypes, daysLate, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
 import { LocationChange, StatusChange } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
+import { typesApi } from '../transactionTypes/api'
 import { assetStatusLabel, formatMoney, type Asset } from './api'
 import { AssetStatusBadge } from './AssetStatusBadge'
 import { AssetBarcodeModal } from './AssetBarcodeModal'
@@ -32,6 +33,10 @@ export function AssetDetailPage() {
   const { can } = useAuth()
   const [editing, setEditing] = useState(false)
   const [recording, setRecording] = useState<ManualTransactionType | 'any' | null>(null)
+  // "Serah terima" (F08-54): one way for a lasting handover, the type made from that template.
+  const [handingOver, setHandingOver] = useState<string | null>(null)
+  const activeTypes = useQuery({ queryKey: ['/transaction-types', 'active'], queryFn: () => typesApi.list({ status: 'active' }), staleTime: 30_000, enabled: can('transaction.create') })
+  const handover = (activeTypes.data?.data ?? []).find((t) => t.source_template_key === 'serah_terima_penanggung_jawab')
   const [archiving, setArchiving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
@@ -101,6 +106,11 @@ export function AssetDetailPage() {
                 <Undo2 className="size-4" aria-hidden /> Catat pengembalian
               </Button>
             )}
+            {canRecord && handover && (
+              <Button variant="secondary" onClick={() => setHandingOver(handover.id)}>
+                <Handshake className="size-4" aria-hidden /> Serah terima
+              </Button>
+            )}
             {canRecord && (
               <Button onClick={() => setRecording('any')}>
                 <Plus className="size-4" aria-hidden /> Catat transaksi
@@ -128,8 +138,25 @@ export function AssetDetailPage() {
 
       {/* The facts people look for first, before reading the full data sheet. */}
       <dl className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Fact icon={CalendarDays} label="Tanggal perolehan">
-          {a.acquisition_date ? formatDate(a.acquisition_date) : '—'}
+        {/* F-09: "who holds it?" is the first question about an asset. */}
+        <Fact icon={UserRound} label="Dipegang oleh">
+          {a.custodian ? (
+            <span className="block">
+              <span className="flex flex-wrap items-center gap-1">
+                {a.custodian.name}
+                {!a.custodian.is_active && <Badge tone="amber">nonaktif</Badge>}
+              </span>
+              {(a.department || !a.custodian.is_active) && (
+                <span className="block text-xs font-normal text-slate-500">{a.custodian.is_active ? a.department?.name : 'Perlu penanggung jawab baru'}</span>
+              )}
+            </span>
+          ) : can('asset.update') && !a.is_archived ? (
+            <button type="button" className="text-left font-semibold text-brand-700 hover:underline" onClick={() => setEditing(true)}>
+              Tunjuk penanggung jawab
+            </button>
+          ) : (
+            <span className="text-slate-400">Belum ada</span>
+          )}
         </Fact>
         <Fact icon={MapPin} label="Lokasi">
           {a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span>}
@@ -171,7 +198,14 @@ export function AssetDetailPage() {
           <dl className="divide-y divide-slate-100 text-sm">
             {/* Built-in fields lead their section; the category's attributes follow. */}
             {(() => {
-              const groupedAttrs = attributeRowsBySection(attributeFields, a.attributes ?? {})
+              // Fields the asset does not use are left out; its own fields join the category-specific ones.
+              const groupedAttrs = attributeRowsBySection(attributeFields.filter((f) => !(a.hidden_attributes ?? []).includes(f.key)), a.attributes ?? {})
+              if ((a.extra_attributes ?? []).length > 0) {
+                groupedAttrs.specific_attributes = [
+                  ...(groupedAttrs.specific_attributes ?? []),
+                  ...a.extra_attributes.map((e, i) => ({ key: `extra-${i}`, label: e.label, value: e.data_type === 'date' && typeof e.value === 'string' ? formatDate(e.value) : formatAttributeValue(e.value) })),
+                ]
+              }
               const builtIn: Record<string, ReactNode> = {
                 basic_information: (
                   <>
@@ -203,7 +237,15 @@ export function AssetDetailPage() {
                     </Row>
                   </>
                 ),
-                location_ownership: <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>,
+                location_ownership: (
+                  <>
+                    <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>
+                    <Row label="Penanggung jawab">
+                      {a.custodian ? `${a.custodian.name ?? '—'}${a.custodian.is_active ? '' : ' (nonaktif)'}` : '—'}
+                    </Row>
+                    <Row label="Departemen">{a.department?.name ?? '—'}</Row>
+                  </>
+                ),
                 status_condition: (
                   <>
                     <Row label="Status">
@@ -286,12 +328,13 @@ export function AssetDetailPage() {
       {editing && <AssetFormModal asset={a} onClose={() => setEditing(false)} />}
       {printing && <AssetBarcodeModal asset={a} onClose={() => setPrinting(false)} />}
       {recording && <TransactionFormModal asset={a} initialType={recording === 'any' ? undefined : recording} onClose={() => setRecording(null)} />}
+      {handingOver && <TransactionFormModal asset={a} initialCustomTypeId={handingOver} onClose={() => setHandingOver(null)} />}
       {archiving && <ArchiveModal asset={a} onClose={() => setArchiving(false)} />}
     </>
   )
 }
 
-// The asset's own history: the Transaksi Aset table without the asset column.
+// The asset's own history: the Riwayat Transaksi table without the asset column.
 const historyColumns: Column<TransactionWithState>[] = [
   // Number, date and recorder share one cell so the before → after columns get the room.
   {
@@ -340,7 +383,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 function useRefreshAsset() {
   const queryClient = useQueryClient()
-  return () => Promise.all(['/assets', '/dashboard', '/transactions'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
+  return () => Promise.all(['/assets', '/dashboards', '/transactions'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
 }
 
 function RestoreButton({ asset }: { asset: Asset }) {

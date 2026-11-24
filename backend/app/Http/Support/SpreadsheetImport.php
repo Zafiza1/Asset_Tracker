@@ -678,7 +678,7 @@ final class SpreadsheetImport
                 $positions[$column->key] = $index;
             }
         }
-        $missing = array_filter($columns, fn (ImportColumn $c) => ($c->required || ! $c->hidden) && ! isset($positions[$c->key]));
+        $missing = array_filter($columns, fn (ImportColumn $c) => ($c->required || (! $c->hidden && ! $c->optional)) && ! isset($positions[$c->key]));
         if ($missing !== []) {
             throw ApiException::unprocessable('INVALID_TEMPLATE', 'Format file tidak sesuai template. Kolom tidak ditemukan: '
                 .implode(', ', array_map(fn (ImportColumn $c) => $c->label, $missing)).'. Gunakan template terbaru.');

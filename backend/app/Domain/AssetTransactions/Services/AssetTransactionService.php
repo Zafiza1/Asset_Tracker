@@ -59,6 +59,16 @@ final class AssetTransactionService
         TransactionType::INCOMING => 'asset.incoming',
     ];
 
+    /** The permission recording this built-in transaction needs (none for a note). */
+    public static function permissionFor(string $type): ?string
+    {
+        return self::PERMISSIONS[$type] ?? null;
+    }
+
+    /** What the built-in form asks besides assets, date and notes; a system type's run keeps it (F-07f-2). */
+    public const SYSTEM_INPUT = ['to_location_id', 'to_status', 'borrower_name', 'due_date', 'outgoing_nature', 'reason_code',
+        'counterparty_name', 'counterparty_org', 'counterparty_contact', 'document_number'];
+
     /** Set while a flow action applies (applyForRun): permission and scope were checked at the start. */
     private bool $flowAction = false;
 
@@ -86,45 +96,85 @@ final class AssetTransactionService
         $type = $data['type'];
         $this->authorize($type, $data);
         $definition = $type === TransactionType::CUSTOM ? $this->customType($data) : null;
-        if ($definition !== null) {
-            $data['field_values'] = $this->fieldTypes->values($definition->fields, $data['field_values'] ?? [], $this->log->today());
+        // A built-in type is its system type's row (F-07f): the fields the organization added to it
+        // are asked too; without such fields nothing changes.
+        $system = $definition === null ? TransactionTypeDefinition::system($type)?->load('fields') : null;
+        $fields = ($definition ?? $system)?->fields;
+        if ($definition !== null || $fields?->isNotEmpty()) {
+            $data['field_values'] = $this->fieldTypes->values($fields, $data['field_values'] ?? [], $this->log->today());
+        } else {
+            unset($data['field_values']);
         }
 
-        return DB::transaction(function () use ($type, $data, $definition) {
+        return DB::transaction(function () use ($type, $data, $definition, $system, $fields) {
             $assets = $this->lockAssets($data['asset_ids']);
-            self::assertNotHeldByRun($assets, $definition);
+            self::assertNotHeldByRun($assets, $definition ?? $system);
             $number = $this->log->nextNumber($type, $definition?->code);
 
             $rows = array_map(fn (Asset $asset) => $this->withAssetContext($asset, count($assets) > 1,
                 fn () => $this->apply($asset, $type, $data, $number, $definition)), $assets);
-            if ($definition !== null) {
-                $this->fieldTypes->claimAttachments($definition->fields, $data['field_values'], null, $number);
+            if (isset($data['field_values'])) {
+                $this->fieldTypes->claimAttachments($fields, $data['field_values'], null, $number);
             }
 
             return $rows;
         });
     }
 
+    /**
+     * Before a system type's run starts (F-07f-2): the user may record this built-in type, and its
+     * core rules hold for every asset now. Nothing is saved; the core action applies them later.
+     *
+     * @param  list<Asset>  $assets  locked
+     * @param  array<string, mixed>  $data  the built-in input, transaction_date and notes
+     */
+    public function assertApplicable(string $type, array $assets, array $data): void
+    {
+        $this->authorize($type, $data);
+        foreach ($assets as $asset) {
+            $this->withAssetContext($asset, count($assets) > 1, fn () => $this->changes($asset, $type, $data));
+        }
+    }
+
+    /**
+     * The core action of a system type's run (F-07f-2): the built-in transaction with what the
+     * form asked at the start, for every asset of the run, under the run's number. Permission and
+     * scope were checked when the run started (assertApplicable); the core rules apply again now.
+     *
+     * @param  array<string, mixed>  $data  the run's system_values; field_values go on the rows
+     * @return int number of assets recorded
+     */
+    public function applyCoreForRun(TransactionRun $run, string $type, array $data): int
+    {
+        if (! in_array($type, TransactionType::MANUAL, true)) {
+            throw new \LogicException("{$type} is not a system transaction type.");
+        }
+        $this->flowAction = true;
+        try {
+            $assets = Asset::query()->whereIn('id', $run->assets()->select('assets.id'))->orderBy('id')->lockForUpdate()->get();
+            foreach ($assets as $asset) {
+                $this->withAssetContext($asset, $assets->count() > 1, fn () => $this->apply($asset, $type, [
+                    ...$data, 'run_id' => $run->id, 'transaction_date' => $run->transaction_date->toDateString(), 'notes' => $run->notes,
+                ], $run->transaction_number));
+            }
+
+            return $assets->count();
+        } finally {
+            $this->flowAction = false;
+        }
+    }
+
     /** @param array<string, mixed> $data */
     private function apply(Asset $asset, string $type, array $data, string $number, ?TransactionTypeDefinition $definition = null): AssetTransaction
     {
-        if ($asset->isArchived()) {
-            throw ApiException::conflict('ASSET_ARCHIVED', 'Aset nonaktif tidak dapat ditransaksikan. Aktifkan kembali terlebih dahulu.');
-        }
-
-        [$assetChanges, $logChanges] = match ($type) {
-            TransactionType::TRANSFER => $this->transfer($asset, $data),
-            TransactionType::STATUS_CHANGE => $this->statusChange($asset, $data),
-            TransactionType::LOAN => $this->loan($asset, $data),
-            TransactionType::RETURN => $this->return($asset, $data),
-            TransactionType::NOTE => [[], []],
-            TransactionType::OUTGOING => $this->outgoing($asset, $data),
-            TransactionType::INCOMING => $this->incoming($asset, $data),
-            TransactionType::CUSTOM => $this->custom($asset, $definition, $data),
-        };
+        [$assetChanges, $logChanges] = $this->changes($asset, $type, $data, $definition);
 
         if (isset($data['run_id'])) {
             $logChanges['run_id'] = $data['run_id'];
+        }
+        // Values of the fields an organization added to a system type (F-07f-2).
+        if ($type !== TransactionType::CUSTOM && ($data['field_values'] ?? []) !== []) {
+            $logChanges['field_values'] = $data['field_values'];
         }
         if ($assetChanges !== []) {
             $asset->forceFill([...$assetChanges, 'lock_version' => $asset->lock_version + 1, 'updated_by' => $this->tenancy->tenant()->userId()])->save();
@@ -139,6 +189,31 @@ final class AssetTransactionService
         ]);
 
         return $transaction;
+    }
+
+    /**
+     * The core rules of one type for one asset: what would change on the asset and what the
+     * history row records. Nothing is saved; a rule that is broken throws.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+     */
+    private function changes(Asset $asset, string $type, array $data, ?TransactionTypeDefinition $definition = null): array
+    {
+        if ($asset->isArchived()) {
+            throw ApiException::conflict('ASSET_ARCHIVED', 'Aset nonaktif tidak dapat ditransaksikan. Aktifkan kembali terlebih dahulu.');
+        }
+
+        return match ($type) {
+            TransactionType::TRANSFER => $this->transfer($asset, $data),
+            TransactionType::STATUS_CHANGE => $this->statusChange($asset, $data),
+            TransactionType::LOAN => $this->loan($asset, $data),
+            TransactionType::RETURN => $this->return($asset, $data),
+            TransactionType::NOTE => [[], []],
+            TransactionType::OUTGOING => $this->outgoing($asset, $data),
+            TransactionType::INCOMING => $this->incoming($asset, $data),
+            TransactionType::CUSTOM => $this->custom($asset, $definition, $data),
+        };
     }
 
     /**
@@ -178,7 +253,7 @@ final class AssetTransactionService
         if ($to === $asset->location_id) {
             throw $this->fieldError('to_location_id', 'Lokasi tujuan sama dengan lokasi saat ini.');
         }
-        $this->assertTargetLocation($to);
+        $this->assertTargetLocation($to, $asset);
 
         return [['location_id' => $to], ['from_location_id' => $asset->location_id, 'to_location_id' => $to]];
     }
@@ -199,7 +274,7 @@ final class AssetTransactionService
     private function loan(Asset $asset, array $data): array
     {
         if (! in_array($asset->status, [AssetStatus::AVAILABLE, AssetStatus::IN_USE], true)) {
-            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Aktif atau Tidak Aktif yang dapat dipinjamkan (status saat ini: '.AssetStatus::LABELS[$asset->status].').');
+            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Aktif atau Tersedia yang dapat dipinjamkan (status saat ini: '.AssetStatus::LABELS[$asset->status].').');
         }
         $borrower = trim((string) ($data['borrower_name'] ?? ''));
         if ($borrower === '') {
@@ -227,7 +302,7 @@ final class AssetTransactionService
 
         $location = $data['to_location_id'] ?? null;
         if ($location !== null && $location !== $asset->location_id) {
-            $this->assertTargetLocation($location);
+            $this->assertTargetLocation($location, $asset);
             $assetChanges['location_id'] = $location;
             $logChanges += ['from_location_id' => $asset->location_id, 'to_location_id' => $location];
         }
@@ -239,7 +314,7 @@ final class AssetTransactionService
     private function outgoing(Asset $asset, array $data): array
     {
         if (! in_array($asset->status, [AssetStatus::AVAILABLE, AssetStatus::IN_USE], true)) {
-            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Aktif atau Tidak Aktif yang dapat dikeluarkan (status saat ini: '.AssetStatus::LABELS[$asset->status].').');
+            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Aktif atau Tersedia yang dapat dikeluarkan (status saat ini: '.AssetStatus::LABELS[$asset->status].').');
         }
         $nature = $data['outgoing_nature'] ?? null;
         if (! in_array($nature, OutgoingReason::NATURES, true)) {
@@ -300,7 +375,7 @@ final class AssetTransactionService
         }
         $status = $data['to_status'] ?? AssetStatus::AVAILABLE;
         if (! in_array($status, self::INCOMING_STATUSES, true)) {
-            throw $this->fieldError('to_status', 'Status saat kembali hanya Tidak Aktif atau Dalam Perbaikan.');
+            throw $this->fieldError('to_status', 'Status saat kembali hanya Tersedia atau Dalam Perbaikan.');
         }
 
         $assetChanges = ['status' => $status];
@@ -315,7 +390,7 @@ final class AssetTransactionService
 
         $location = $data['to_location_id'] ?? null;
         if ($location !== null && $location !== $asset->location_id) {
-            $this->assertTargetLocation($location);
+            $this->assertTargetLocation($location, $asset);
             $assetChanges['location_id'] = $location;
             $logChanges += ['from_location_id' => $asset->location_id, 'to_location_id' => $location];
         }
@@ -402,12 +477,18 @@ final class AssetTransactionService
      */
     private function customType(array $data): TransactionTypeDefinition
     {
-        $definition = TransactionTypeDefinition::query()->with(['fields', 'categories:id'])->find($data['type_definition_id'] ?? null);
+        // A system type is recorded as its built-in type, never as 'custom' (its core rules would be skipped).
+        $definition = TransactionTypeDefinition::query()->organizationOwn()->with(['fields', 'categories:id'])->find($data['type_definition_id'] ?? null);
         if ($definition === null) {
             throw ValidationException::withMessages(['type_definition_id' => 'Jenis transaksi tidak ditemukan.']);
         }
         if (! $definition->isActive()) {
             throw ApiException::unprocessable('TYPE_INACTIVE', "Jenis \"{$definition->name}\" tidak aktif sehingga tidak dapat dipakai mencatat transaksi.");
+        }
+        // A copy of a system type (F-08) records only through its flow's core action: recorded at
+        // once it would be information only and skip the core rules.
+        if ($definition->core_type !== null) {
+            throw ApiException::unprocessable('FLOW_REQUIRED', "Jenis \"{$definition->name}\" disalin dari jenis sistem; terbitkan alurnya terlebih dahulu.");
         }
         if (! $definition->multi_asset && count($data['asset_ids']) > 1) {
             throw ValidationException::withMessages(['asset_ids' => "Jenis \"{$definition->name}\" hanya untuk satu aset per transaksi."]);
@@ -487,12 +568,13 @@ final class AssetTransactionService
         }
     }
 
-    private function assertTargetLocation(string $id): void
+    /** An active location that keeps the asset within the user's scope (by location or by its department). */
+    private function assertTargetLocation(string $id, Asset $asset): void
     {
         if (! Location::query()->whereKey($id)->where('status', MasterStatus::ACTIVE)->exists()) {
             throw $this->fieldError('to_location_id', 'Lokasi tidak ditemukan atau tidak aktif.');
         }
-        if (! $this->flowAction && ! $this->scope->allowsLocation($id)) {
+        if (! $this->flowAction && ! $this->scope->allowsAsset($id, $asset->department_id)) {
             throw $this->fieldError('to_location_id', 'Lokasi berada di luar cakupan data Anda.');
         }
     }

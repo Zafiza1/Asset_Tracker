@@ -6,7 +6,8 @@ import { tenantNavigation } from '../app/navigation'
 import { AssetCategoryPicker } from '../features/assets/AssetCategoryPicker'
 import { AssetImagePicker } from '../features/assets/AssetImagePicker'
 import { CategoryFilter } from '../features/assets/CategoryFilter'
-import { BarList, ColumnChart, DonutChart, Gauge, MeterList, StackedBar, TrendChart } from '../features/dashboard/charts'
+import { ExtraAttributeFields } from '../features/assets/ExtraAttributeFields'
+import { BarList, ColumnChart, DonutChart, Gauge, MeterList, StackedBar, TrendChart } from '../components/charts/charts'
 import { AttributeFields } from '../features/master/CategoryAttributes'
 import { attributeRows } from '../features/master/categoryAttributeData'
 import { allowedTypes, ineligibleReason } from '../features/transactions/api'
@@ -180,6 +181,35 @@ describe('category attributes', () => {
     expect(screen.getByLabelText('Bahan Bakar')).toHaveValue('SOLAR')
     fireEvent.change(screen.getByLabelText(/Nomor Polisi/), { target: { value: 'B 1234 XY' } })
     expect(onChange).toHaveBeenLastCalledWith('nomor_polisi', 'B 1234 XY')
+  })
+
+  it('lets an asset leave out an optional field and use it again, never a required one', () => {
+    const onHidden = vi.fn()
+    const { rerender } = render(<AttributeFields fields={fields} values={{}} errors={{}} onChange={vi.fn()} hidden={[]} onHiddenChange={onHidden} />)
+    expect(screen.queryByRole('button', { name: 'Hapus atribut Nomor Polisi dari aset ini' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Hapus atribut Ber-AC dari aset ini' }))
+    expect(onHidden).toHaveBeenLastCalledWith(['ber_ac'])
+
+    rerender(<AttributeFields fields={fields} values={{}} errors={{}} onChange={vi.fn()} hidden={['ber_ac']} onHiddenChange={onHidden} />)
+    expect(screen.queryByLabelText('Ber-AC')).not.toBeInTheDocument()
+    expect(screen.getByText('Tidak dipakai aset ini:')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Pakai lagi atribut Ber-AC' }))
+    expect(onHidden).toHaveBeenLastCalledWith([])
+  })
+
+  it('adds a field only the asset has, with a name, a type and a value, and removes it', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(<ExtraAttributeFields values={[]} errors={{}} onChange={onChange} />)
+    fireEvent.click(screen.getByRole('button', { name: /Tambah atribut/ }))
+    expect(onChange).toHaveBeenLastCalledWith([{ label: '', data_type: 'string', value: null }])
+
+    rerender(<ExtraAttributeFields values={[{ label: 'Jumlah Tombol', data_type: 'string', value: '104' }]} errors={{ '0.value': 'Harus berupa angka.' }} onChange={onChange} />)
+    expect(screen.getByText('Harus berupa angka.')).toBeInTheDocument()
+    // Another type starts the value afresh.
+    fireEvent.change(screen.getByLabelText('Tipe'), { target: { value: 'integer' } })
+    expect(onChange).toHaveBeenLastCalledWith([{ label: 'Jumlah Tombol', data_type: 'integer', value: null }])
+    fireEvent.click(screen.getByRole('button', { name: 'Hapus atribut Jumlah Tombol' }))
+    expect(onChange).toHaveBeenLastCalledWith([])
   })
 
   it('renders nothing for a category without fields', () => {

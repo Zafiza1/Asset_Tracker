@@ -88,10 +88,16 @@ class Dashboard extends Model
         return $this->dashboard_type === DashboardType::CUSTOM;
     }
 
-    /** Overview and category dashboards: created by the system, one per organization / category, never deleted by users. */
+    /** The member's personal asset board, copied from their role's template on first open. */
+    public function isAssetBoard(): bool
+    {
+        return $this->dashboard_type === DashboardType::ASSET_BOARD;
+    }
+
+    /** Overview, category and asset-board dashboards are provisioned by the system, never deleted by users. */
     public function isSystemManaged(): bool
     {
-        return ! $this->isCustom();
+        return ! $this->isCustom() && ! $this->isAssetBoard();
     }
 
     /** The template it was copied from has a newer version (applying it is an explicit action). */

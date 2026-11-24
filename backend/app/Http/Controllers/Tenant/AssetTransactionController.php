@@ -80,7 +80,8 @@ class AssetTransactionController extends Controller
             'type' => ['required', Rule::in([...TransactionType::MANUAL, TransactionType::CUSTOM])],
             // Organization's own types (F-07a): the definition and the values of its fields.
             'type_definition_id' => ['required_if:type,'.TransactionType::CUSTOM, 'prohibited_unless:type,'.TransactionType::CUSTOM, 'nullable', 'uuid'],
-            'field_values' => ['prohibited_unless:type,'.TransactionType::CUSTOM, 'nullable', 'array'],
+            // Values of the type's fields: an organization type's, or those added to a system type (F-07f-2).
+            'field_values' => ['nullable', 'array'],
             'transaction_date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after:1999-12-31'],
             'to_location_id' => ['nullable', 'uuid'],
             'to_status' => ['nullable', Rule::in(AssetStatus::SELECTABLE)],
@@ -99,15 +100,16 @@ class AssetTransactionController extends Controller
         $single = isset($data['asset_id']);
         $data['asset_ids'] = array_map('strtolower', $single ? [$data['asset_id']] : $data['asset_ids']);
 
-        // A type with a published flow starts a run (F-07b) instead of recording at once.
-        if ($data['type'] === TransactionType::CUSTOM && ($run = $this->startRun($data)) !== null) {
+        // A type with a published flow starts a run (F-07b) instead of recording at once; a
+        // built-in type does when its system type got a flow (F-07f-2).
+        if (($run = $this->startRun($data)) !== null) {
             return (new TransactionRunResource($run))->withDetail()->response()->setStatusCode(201);
         }
 
         // Recorded at once; for a closing type, the runs waiting for this pair move on (F-07b).
         $transactions = DB::transaction(function () use ($data) {
             $rows = $this->transactions->create($data);
-            if ($data['type'] === TransactionType::CUSTOM && ($definition = TransactionTypeDefinition::query()->find($data['type_definition_id'])) !== null) {
+            if (($definition = $this->definition($data)) !== null) {
                 $this->engine->resumePaired($definition, $data['asset_ids']);
             }
 
@@ -139,14 +141,27 @@ class AssetTransactionController extends Controller
     }
 
     /**
-     * The run a 'custom' transaction starts when its type has a published flow; null when the
-     * type has none and the transaction is recorded at once (F-07a).
+     * The type definition a transaction uses: the organization type a 'custom' one names, or the
+     * system type row of a built-in one (F-07f).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function definition(array $data): ?TransactionTypeDefinition
+    {
+        return $data['type'] === TransactionType::CUSTOM
+            ? TransactionTypeDefinition::query()->organizationOwn()->find($data['type_definition_id'])
+            : TransactionTypeDefinition::system($data['type']);
+    }
+
+    /**
+     * The run a transaction starts when its type has a published flow; null when the type has
+     * none and the transaction is recorded at once (F-07a), exactly as before for built-in types.
      *
      * @param  array<string, mixed>  $data
      */
     private function startRun(array $data): ?TransactionRun
     {
-        $definition = TransactionTypeDefinition::query()->find($data['type_definition_id']);
+        $definition = $this->definition($data);
         $flow = $definition === null ? null : $this->engine->activeFlow($definition);
         if ($definition === null || $flow === null) {
             return null;

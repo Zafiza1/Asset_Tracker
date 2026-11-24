@@ -42,6 +42,9 @@ final class TransactionFieldTypes
 
     public const MAX_OPTIONS = 50;
 
+    /** Longest hint of a field (petunjuk pengisian, F-08j). */
+    public const MAX_HELP = 200;
+
     private const TEXT_MAX = ['text' => 255, 'textarea' => 2000];
 
     public function __construct(
@@ -66,7 +69,9 @@ final class TransactionFieldTypes
             'fields.*.label' => ['required', 'string', 'max:100'],
             'fields.*.data_type' => ['required', Rule::in($types)],
             'fields.*.is_required' => ['sometimes', 'boolean'],
-            'fields.*.settings' => ['sometimes', 'array:max_length,min,max,decimals,options,not_before_today,not_after_today,default,accept,max_mb'],
+            'fields.*.settings' => ['sometimes', 'array:max_length,min,max,decimals,options,not_before_today,not_after_today,default,accept,max_mb,help'],
+            // A hint for whoever fills the field in (F-08 §5 "Petunjuk field"), shown as text.
+            'fields.*.settings.help' => ['sometimes', 'nullable', 'string', 'max:'.self::MAX_HELP],
             'fields.*.settings.accept' => ['sometimes', 'array'],
             'fields.*.settings.accept.*' => ['string', 'distinct', Rule::in(array_keys(TransactionAttachments::KINDS))],
             'fields.*.settings.max_mb' => ['sometimes', 'integer', 'min:1', 'max:100'],
@@ -95,7 +100,18 @@ final class TransactionFieldTypes
     {
         $settings = $field['settings'] ?? [];
         $fail = fn (string $key, string $message) => throw ValidationException::withMessages(["fields.{$index}.settings.{$key}" => $message]);
+        $help = trim((string) ($settings['help'] ?? ''));
 
+        return [...self::typeSettings($field, $settings, $fail), ...($help === '' ? [] : ['help' => mb_substr($help, 0, self::MAX_HELP)])];
+    }
+
+    /**
+     * @param  array<string, mixed>  $field
+     * @param  array<string, mixed>  $settings
+     * @return array<string, mixed>
+     */
+    private static function typeSettings(array $field, array $settings, Closure $fail): array
+    {
         return match ($field['data_type']) {
             'text', 'textarea' => (function () use ($settings, $field, $fail) {
                 $limit = self::TEXT_MAX[$field['data_type']];
@@ -284,9 +300,10 @@ final class TransactionFieldTypes
     {
         $fields = collect($fields);
         $ids = fn (string $type) => $fields->where('data_type', $type)->map(fn ($f) => $values[$f->key] ?? null)->filter(fn ($v) => is_string($v))->values()->all();
-        $users = ($u = $ids('user')) === [] ? [] : User::query()->whereKey($u)->pluck('name', 'id')->all();
-        $locations = ($l = $ids('location')) === [] ? [] : Location::query()->whereKey($l)->pluck('name', 'id')->all();
-        $files = TransactionAttachments::summaries($ids('attachment'));
+        // Reports resolve many rows: the id→name lookups are memoized per id set.
+        $users = ($u = $ids('user')) === [] ? [] : self::memo('user', $u, fn () => User::query()->whereKey($u)->pluck('name', 'id')->all());
+        $locations = ($l = $ids('location')) === [] ? [] : self::memo('location', $l, fn () => Location::query()->whereKey($l)->pluck('name', 'id')->all());
+        $files = ($a = $ids('attachment')) === [] ? [] : self::memo('attachment', $a, fn () => TransactionAttachments::summaries($a));
 
         $out = [];
         foreach ($fields as $field) {
@@ -309,11 +326,30 @@ final class TransactionFieldTypes
         return $out;
     }
 
-    /** An active location the user may record into. */
+    /** @var array<string, array<string, mixed>> */
+    private static array $displayMemo = [];
+
+    /**
+     * @param  list<string>  $ids
+     * @param  Closure(): array<string, mixed>  $loader
+     * @return array<string, mixed>
+     */
+    private static function memo(string $kind, array $ids, Closure $loader): array
+    {
+        $key = $kind.'|'.implode(',', $ids);
+
+        return self::$displayMemo[$key] ??= $loader();
+    }
+
+    /**
+     * An active location the user may record into. A user with department entries may pick
+     * any location: their department's assets stay within reach wherever they are (F-09 §3.3).
+     */
     private function locationInScope(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail) {
-            $ok = is_string($value) && Location::query()->whereKey($value)->exists() && $this->scope->allowsLocation($value);
+            $ok = is_string($value) && Location::query()->whereKey($value)->exists()
+                && ($this->scope->hasDepartments() || $this->scope->allowsLocation($value));
             if (! $ok) {
                 $fail(':attribute tidak ditemukan atau di luar cakupan data Anda.');
             }
