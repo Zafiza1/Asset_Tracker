@@ -2,7 +2,7 @@ import type { User } from '../../lib/api/types'
 
 export const statusActions = {
   activate: { label: 'Aktifkan', confirm: 'Pengguna dapat login kembali.', variant: 'secondary' as const },
-  deactivate: { label: 'Nonaktifkan', confirm: 'Akun dinonaktifkan dan kode lisensi akan terlepas. Pengguna dapat didaftarkan kembali dengan email yang sama.', variant: 'danger' as const },
+  deactivate: { label: 'Nonaktifkan', confirm: 'Akun dinonaktifkan di organisasi ini. Pengguna dapat didaftarkan kembali dengan email yang sama.', variant: 'danger' as const },
 }
 export type UserStatusAction = keyof typeof statusActions
 

@@ -137,7 +137,7 @@ export function AddWidgetModal({ open, onClose, dashboardId, catalog, categoryId
         <div className="min-w-0">
           <div className="relative mb-3">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
-            <Input aria-label="Cari widget" placeholder="Cari widget, mis. jatuh tempo, nilai, lokasi" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input aria-label="Cari widget" placeholder="Cari widget, mis. jatuh tempo, nilai, status" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <ul className="grid max-h-72 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
             {shown.map((c) => (

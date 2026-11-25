@@ -6,9 +6,6 @@ import { Badge } from '../../components/ui/Badge'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert } from '../../components/ui/Feedback'
 import { useAuth } from '../../lib/auth/context'
-import { assetStatusLabel, type AssetStatus } from '../assets/api'
-import { allowedTypes, manualTypes, transactionTypeLabel } from '../transactions/api'
-import { AssetStatusBadge } from '../assets/AssetStatusBadge'
 
 /** The numbered steps of the main flow; the flow diagram and the step sections both read from here. */
 const STEPS = [
@@ -18,7 +15,7 @@ const STEPS = [
   { title: 'Daftarkan aset', who: 'Pengelola aset' },
   { title: 'Persetujuan', who: 'Super Admin, Supervisor' },
   { title: 'Pasang label barcode', who: 'Opsional' },
-  { title: 'Catat transaksi aset', who: 'Pengelola aset' },
+  { title: 'Kirim & jemput tabung', who: 'Admin, supir, kernet' },
   { title: 'Pantau & buat laporan', who: 'Pimpinan, pengelola aset' },
 ] as const
 
@@ -95,7 +92,7 @@ function PersonalNote() {
     </Alert>
   ) : (
     <Alert tone="info" title="Perubahan Anda perlu disetujui">
-      Perubahan data aset dan Master Data (kategori, lokasi) baru berlaku setelah disetujui Super Admin atau Supervisor. Lihat hasilnya (disetujui atau ditolak) di menu <MenuLink to="/notifikasi">Pengajuan Saya</MenuLink>.
+      Perubahan data aset dan Master Data baru berlaku setelah disetujui Super Admin atau Supervisor. Lihat hasilnya (disetujui atau ditolak) di menu <MenuLink to="/notifikasi">Pengajuan Saya</MenuLink>.
     </Alert>
   )
 }
@@ -139,7 +136,7 @@ function MainFlow() {
           <div className="flex gap-3 rounded-lg bg-brand-50 p-3 text-sm text-brand-900 ring-1 ring-brand-100">
             <Repeat className="mt-0.5 size-4 shrink-0" aria-hidden />
             <p>
-              <strong>Sesudah langkah 8, alurnya berputar.</strong> Ada aktivitas pada aset: kembali ke langkah 7. Ada aset baru: kembali ke langkah 4. Ada kategori atau lokasi baru: kembali ke langkah 3. Bila perubahan Anda perlu persetujuan, langkah 5 selalu mengikuti.
+              <strong>Sesudah langkah 8, alurnya berputar.</strong> Ada tabung yang dikirim atau dijemput: kembali ke langkah 7. Ada aset baru: kembali ke langkah 4. Ada karyawan atau customer baru: kembali ke langkah 3. Bila perubahan Anda perlu persetujuan, langkah 5 selalu mengikuti.
             </p>
           </div>
         </div>
@@ -150,14 +147,13 @@ function MainFlow() {
 
 function RolesSection() {
   const rows: { task: string; superAdmin: boolean; supervisor: boolean; admin: boolean }[] = [
-    { task: 'Mengelola aset, transaksi, dan Master Data', superAdmin: true, supervisor: true, admin: true },
+    { task: 'Mengelola aset, transaksi masuk/keluar, dan Master Data', superAdmin: true, supervisor: true, admin: true },
     { task: 'Melihat Dashboard dan Laporan Aset', superAdmin: true, supervisor: true, admin: true },
     { task: 'Menyetujui atau menolak pengajuan', superAdmin: true, supervisor: true, admin: false },
     { task: 'Perubahan sendiri langsung berlaku', superAdmin: true, supervisor: true, admin: false },
     { task: 'Mengatur role dan cakupan data pengguna', superAdmin: true, supervisor: true, admin: false },
     { task: 'Mengundang pengguna', superAdmin: true, supervisor: false, admin: false },
     { task: 'Mengaktifkan Modul Barcode, melihat Audit Trail', superAdmin: true, supervisor: true, admin: false },
-    { task: 'Mengelola lisensi', superAdmin: true, supervisor: false, admin: false },
   ]
   return (
     <section id="peran" className="scroll-mt-24">
@@ -187,7 +183,7 @@ function RolesSection() {
             </table>
           </div>
           <p className="text-sm text-slate-600">
-            <strong className="font-semibold text-slate-800">Super Admin</strong> adalah orang yang pertama kali mendaftarkan organisasi. Role buatan sendiri tidak dapat menyetujui pengajuan, sehingga perubahannya selalu melewati persetujuan.
+            Supir dan kernet memakai role <strong className="font-semibold text-slate-800">Supir / Kernet</strong>: hanya scan muat/bongkar dan lapor perjalanan di mobile. <strong className="font-semibold text-slate-800">Super Admin</strong> adalah orang yang pertama kali mendaftarkan organisasi. Role buatan sendiri tidak dapat menyetujui pengajuan, sehingga perubahannya selalu melewati persetujuan.
           </p>
         </div>
       </Card>
@@ -212,7 +208,7 @@ function Step1() {
         <PathCard title="Diundang lewat email">
           <NumberedList items={[
             'Buka tautan undangan di email.',
-            'Belum punya akun: isi nama dan password. Kode lisensi terisi otomatis sesuai email undangan.',
+            'Belum punya akun: isi nama dan password.',
             <>Sudah punya akun: masuk, lalu pilih <Label>Terima undangan</Label>.</>,
           ]} />
         </PathCard>
@@ -224,7 +220,7 @@ function Step1() {
           ]} />
         </PathCard>
       </div>
-      <Tip>Nama organisasi yang aktif tampil di bagian atas halaman. Klik nama itu untuk berpindah organisasi. Password dapat diganti lewat menu pengguna di pojok kanan atas, pilih <MenuLink to="/ubah-password">Ubah password</MenuLink>.</Tip>
+      <Tip>Nama organisasi yang aktif tampil di bagian atas halaman. Klik nama itu untuk berpindah antara PT SIG dan PT CDO; datanya terpisah, dan Anda hanya melihat organisasi yang memberi Anda akses. Password dapat diganti lewat menu pengguna di pojok kanan atas, pilih <MenuLink to="/ubah-password">Ubah password</MenuLink>.</Tip>
     </StepSection>
   )
 }
@@ -234,13 +230,13 @@ function Step2() {
     <StepSection n={2} goal="Setiap anggota tim mendapat akun dengan hak akses yang sesuai tugasnya." next={[{ n: 3 }]}>
       <NumberedList items={[
         <>Super Admin membuka <MenuLink to="/pengguna/baru" permission="user.create">Pengguna → Undang pengguna</MenuLink>. Hanya Super Admin yang dapat mengundang.</>,
-        'Isi email, pilih kode lisensi, lalu pilih role. Satu pengguna memakai satu kode lisensi.',
-        <>Klik <Label>Kirim undangan</Label>. Kode lisensi ikut terkirim di email, dan pengguna baru mendapat akses setelah menerima undangan itu.</>,
+        'Isi email, lalu pilih organisasi dan role-nya. Satu pengguna bisa diberi akses ke PT SIG, PT CDO, atau keduanya.',
+        <>Klik <Label>Kirim undangan</Label>. Pengguna baru mendapat akses setelah menerima undangan itu.</>,
         <>Pantau statusnya di tab <MenuLink to="/pengguna/undangan" permission="user.view">Undangan</MenuLink>. Bila kedaluwarsa, Super Admin memilih <Label>Kirim ulang</Label>; bila keliru, memilih <Label>Cabut</Label>.</>,
         <>Setelah pengguna bergabung, Super Admin atau Supervisor membuka <MenuLink to="/pengguna" permission="user.view">detail penggunanya</MenuLink> untuk mengubah role atau mempersempit <Label>Cakupan data</Label>.</>,
       ]} />
       <Tip>
-        <strong className="font-semibold">Cakupan data</strong> menentukan aset mana yang terlihat. Pengguna yang diundang awalnya mencakup seluruh organisasi. Bila dibatasi ke satu lokasi, pengguna melihat aset di lokasi itu dan sub-lokasinya.
+        <strong className="font-semibold">Cakupan data</strong> menentukan aset mana yang terlihat. Pengguna yang diundang awalnya mencakup seluruh organisasi. Bila dibatasi ke satu departemen, pengguna hanya melihat aset departemen itu.
       </Tip>
     </StepSection>
   )
@@ -248,15 +244,12 @@ function Step2() {
 
 function Step3() {
   return (
-    <StepSection n={3} goal="Pilihan kategori dan lokasi sudah tersedia saat aset didaftarkan." next={[{ n: 4 }]}>
+    <StepSection n={3} goal="Kategori, karyawan, dan customer sudah siap dipilih." next={[{ n: 4 }]}>
       <NumberedList items={[
-        <>Buka <MenuLink to="/master/kategori" permission="master.tenant.view">Kategori Aset</MenuLink> dan buat kategori utama, misalnya Perangkat IT atau Kendaraan. Isi <Label>Kategori induk</Label> untuk membuat subkategori.</>,
-        <>Klik kolom <Label>Atribut</Label> pada kategori untuk mengatur isian tambahan. Atribut bawaan seperti Merek, Model, dan Kondisi sudah tersedia; tambahkan yang lain dengan <Label>Tambah atribut kustom</Label>, misalnya Nomor Polisi.</>,
-        <>Buka <MenuLink to="/master/lokasi" permission="master.tenant.view">Lokasi</MenuLink> dan buat tempat penyimpanan aset. Isi <Label>Lokasi induk</Label> untuk membuat susunan seperti Gedung → Lantai → Ruang.</>,
+        <>Buka <MenuLink to="/master/kategori" permission="master.tenant.view">Kategori Aset</MenuLink>. Ada dua kategori: <Label>Aset Tabung</Label> dan <Label>Aset Kendaraan</Label>. Klik kolom <Label>Atribut</Label> untuk mengubah isian atau pilihan dropdown-nya.</>,
+        <>Buka <MenuLink to="/master/karyawan" permission="master.tenant.view">Karyawan</MenuLink> dan daftarkan supir dan kernet. Jabatan menentukan siapa yang bisa dipilih sebagai supir atau kernet di mobile.</>,
+        <>Buka <MenuLink to="/master/customer" permission="master.tenant.view">Customer</MenuLink> dan daftarkan tujuan pengiriman tabung.</>,
       ]} />
-      <Tip>
-        Kategori wajib ada sebelum aset didaftarkan. Lokasi boleh menyusul, tetapi aset tanpa lokasi hanya terlihat oleh pengguna dengan cakupan seluruh organisasi. Bila datanya banyak, gunakan <Label>Tambah aset</Label> → <Label>Import dari Excel</Label> dengan template Excel.
-      </Tip>
     </StepSection>
   )
 }
@@ -270,9 +263,9 @@ function Step4() {
     ]}>
       <NumberedList items={[
         <>Buka <MenuLink to="/aset" permission="asset.view">Data Aset</MenuLink>, lalu klik <Label>Tambah aset</Label> → <Label>Isi formulir</Label>.</>,
-        <>Isi <Label>Nama aset</Label> dan <Label>Kategori</Label>. <Label>No Seri</Label> boleh dikosongkan, tetapi harus unik bila diisi. Isian atribut tampil sesuai kategori yang dipilih.</>,
-        <>Pilih <Label>Lokasi</Label>, <Label>Status</Label> awal, dan <Label>Kondisi Aset</Label>, lalu lengkapi tanggal dan harga perolehan bila ada.</>,
-        <>Klik <Label>Simpan</Label>. Riwayat <Label>Penambahan aset</Label> tercatat dengan sendirinya.</>,
+        <>Pilih kategori. Untuk <Label>Aset Tabung</Label>, isi <Label>Nama Produk</Label>, <Label>No Manufaktur</Label> (harus unik), Business Unit, jenis dan grade gas, volume, dan isian lain bertanda bintang.</>,
+        <>Untuk <Label>Aset Kendaraan</Label>, isi <Label>Nomor Polisi</Label>; itu yang tampil saat memilih kendaraan pengiriman.</>,
+        <>Klik <Label>Simpan</Label>. <Label>No Reference</Label> dibuat oleh sistem, dan riwayat <Label>Penambahan aset</Label> tercatat dengan sendirinya.</>,
       ]} />
       <div className="grid gap-3 md:grid-cols-2">
         <PathCard title="Mendaftarkan banyak aset">
@@ -293,7 +286,7 @@ function Step5() {
       { when: 'Pengajuan aset baru disetujui dan aset perlu label', n: 6 },
       { when: 'Pengajuan lain disetujui', n: 7 },
     ]}>
-      <p className="text-sm text-slate-700">Langkah ini berlaku untuk semua perubahan pada data aset dan Master Data, bukan hanya aset baru. Transaksi tidak memerlukan persetujuan.</p>
+      <p className="text-sm text-slate-700">Langkah ini berlaku untuk semua perubahan pada data aset dan Master Data, bukan hanya aset baru. Transaksi masuk dan keluar tidak memerlukan persetujuan.</p>
       <ApprovalFlow />
       <div className="grid gap-3 md:grid-cols-2">
         <PathCard title="Bila Anda mengajukan">
@@ -312,7 +305,7 @@ function Step5() {
           ]} />
         </PathCard>
       </div>
-      <Tip>Muncul pesan &ldquo;Pengajuan tidak dapat diterapkan&rdquo;? Artinya data sudah berubah sejak diajukan, misalnya aset yang sama sudah dipindahkan. Pengajuan tetap menunggu dan dapat ditolak, lalu diajukan ulang.</Tip>
+      <Tip>Muncul pesan &ldquo;Pengajuan tidak dapat diterapkan&rdquo;? Artinya data sudah berubah sejak diajukan, misalnya aset yang sama sudah diubah orang lain. Pengajuan tetap menunggu dan dapat ditolak, lalu diajukan ulang.</Tip>
     </StepSection>
   )
 }
@@ -368,7 +361,7 @@ function FlowBox({ icon: Icon, title, text, tone = 'slate' }: { icon: LucideIcon
 
 function Step6() {
   return (
-    <StepSection n={6} goal="Aset dapat dikenali cepat dengan memindai label. Lewati langkah ini bila organisasi tidak memakai barcode." next={[{ n: 7 }]}>
+    <StepSection n={6} goal="Tabung dapat di-scan saat muat dan bongkar." next={[{ n: 7 }]}>
       <NumberedList items={[
         <>Super Admin atau Supervisor mengaktifkan <MenuLink to="/modul/barcode" permission="settings.manage">Modul Barcode</MenuLink>. Cukup sekali.</>,
         <>Di halaman yang sama, centang kategori aset yang perlu label pada daftar <Label>Kategori aset yang memakai Modul Barcode</Label>; subkategorinya ikut. Modul yang dipakai aset tampil sebagai <Label>Modul</Label> di bagian Informasi Dasar detail aset.</>,
@@ -376,88 +369,39 @@ function Step6() {
         'Tempel label pada aset fisik.',
       ]} />
       <PathCard title="Memindai dengan aplikasi mobile">
-        <p>Masuk ke aplikasi Asset Tracker Scanner dengan email dan password yang sama, lalu tekan <Label>Scan Aset</Label> dan arahkan kamera ke label. Detail dan riwayat aset langsung tampil. Aplikasi ini hanya untuk melihat data; pencatatan tetap dilakukan di web.</p>
+        <p>Masuk ke aplikasi Asset Tracker Scanner dengan email dan password yang sama, lalu tekan <Label>Scan Aset</Label> dan arahkan kamera ke label. Detail dan riwayat aset langsung tampil. Label yang sama dipakai untuk scan muat dan bongkar. Bila label rusak, ketik No Manufaktur-nya.</p>
       </PathCard>
     </StepSection>
   )
 }
 
-const TRANSACTION_GUIDE = [
-  { type: 'transfer', when: 'Aset pindah tempat', fill: 'Lokasi tujuan', effect: 'Lokasi aset berubah' },
-  { type: 'status_change', when: 'Kondisi pemakaian berubah, misalnya masuk perbaikan', fill: 'Status baru', effect: 'Status aset berubah' },
-  { type: 'loan', when: 'Aset dipinjamkan', fill: 'Nama peminjam, rencana tanggal kembali', effect: 'Status menjadi Dipinjamkan' },
-  { type: 'return', when: 'Aset pinjaman kembali', fill: 'Lokasi pengembalian bila berbeda', effect: 'Status menjadi Tersedia' },
-  { type: 'note', when: 'Kegiatan lain, misalnya servis rutin', fill: 'Keterangan aktivitas', effect: 'Hanya menambah riwayat' },
-] as const
-
 function Step7() {
-  const statuses = Object.keys(assetStatusLabel) as AssetStatus[]
   return (
-    <StepSection n={7} goal="Setiap perpindahan, peminjaman, dan perubahan aset punya riwayat yang lengkap." next={[
-      { when: 'Transaksi tersimpan', n: 8 },
+    <StepSection n={7} goal="Setiap tabung terlacak dari muat, perjalanan, sampai bongkar." next={[
+      { when: 'Transaksi selesai', n: 8 },
     ]}>
-      <NumberedList items={[
-        <>Buka <MenuLink to="/transaksi" permission="transaction.view">Transaksi</MenuLink>, lalu pilih transaksinya di <Label>Buat transaksi</Label> (atau klik <Label>Catat transaksi</Label>). Untuk satu aset, Anda juga dapat memulai dari halaman detail asetnya. Riwayat lengkap ada di <Label>Riwayat transaksi</Label>.</>,
-        'Pilih jenis transaksi, lalu isi data yang diminta.',
-        'Isi tanggal transaksi. Tanggal boleh mundur, tetapi tidak boleh di masa depan.',
-        'Centang aset yang terlibat. Satu transaksi dapat mencakup banyak aset.',
-        <>Klik <Label>Simpan transaksi</Label>.</>,
-      ]} />
-
-      <h3 className="pt-1 text-sm font-semibold text-slate-900">Jenis transaksi yang dipilih</h3>
-      <div className="relative overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
-        <table className="w-full min-w-[40rem] text-sm">
-          <thead className="bg-slate-50 text-left text-slate-700">
-            <tr>
-              <th scope="col" className="px-3 py-2 font-semibold">Jenis</th>
-              <th scope="col" className="px-3 py-2 font-semibold">Gunakan saat</th>
-              <th scope="col" className="px-3 py-2 font-semibold">Yang diisi</th>
-              <th scope="col" className="px-3 py-2 font-semibold">Hasilnya</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-slate-700">
-            {TRANSACTION_GUIDE.map((t) => (
-              <tr key={t.type}>
-                <th scope="row" className="whitespace-nowrap px-3 py-2 text-left font-medium text-slate-900">{transactionTypeLabel[t.type]}</th>
-                <td className="px-3 py-2">{t.when}</td>
-                <td className="px-3 py-2">{t.fill}</td>
-                <td className="px-3 py-2">{t.effect}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="grid gap-3 md:grid-cols-2">
+        <PathCard title="Transaksi keluar (gudang ke customer)">
+          <NumberedList items={[
+            <>Web: buka <MenuLink to="/transaksi" permission="delivery.view">Transaksi</MenuLink> → <Label>Transaksi keluar</Label>. Pilih customer, tabung, dan kendaraan. Satu perjalanan bisa ke beberapa customer.</>,
+            <>Mobile: buka transaksinya, scan <Label>Muat</Label> tiap tabung di gudang.</>,
+            <>Mobile: isi <Label>Supir & kernet</Label>, lalu tekan <Label>Berangkat</Label>.</>,
+            <>Mobile: selama di jalan tekan <Label>Lapor posisi</Label> atau <Label>Kendala</Label>. Posisi juga terkirim sendiri selama aplikasi terbuka.</>,
+            <>Mobile: di customer tekan <Label>Tiba</Label>, scan <Label>Bongkar</Label>, lalu <Label>Selesai di customer</Label> dan isi nama penerima.</>,
+            <>Mobile: setelah semua customer, tekan <Label>Selesaikan</Label>. Tabung yang tidak jadi diterima tercatat kembali ke gudang.</>,
+          ]} />
+        </PathCard>
+        <PathCard title="Transaksi masuk (customer ke gudang)">
+          <NumberedList items={[
+            <>Web: <Label>Transaksi masuk</Label>. Pilih customer. Tabung yang tercatat di sana bisa dipilih, atau di-scan saat dijemput.</>,
+            <>Mobile: isi <Label>Supir & kernet</Label>, lalu tekan <Label>Berangkat</Label>.</>,
+            <>Mobile: di customer scan <Label>Muat</Label> tiap tabung, lalu <Label>Selesai di customer</Label>.</>,
+            <>Mobile: di gudang tekan <Label>Tiba di gudang</Label>, scan <Label>Bongkar</Label>, lalu <Label>Selesaikan</Label>.</>,
+            'Tabung yang dimuat tetapi tidak dibongkar ditandai Selisih dan wajib diberi keterangan.',
+          ]} />
+        </PathCard>
       </div>
-
-      <h3 className="pt-1 text-sm font-semibold text-slate-900">Transaksi yang dapat dipilih menurut status aset</h3>
-      {/* Read from the same rules as the transaction form, so this table cannot drift from it. */}
-      <div className="relative overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
-        <table className="w-full min-w-[40rem] text-sm">
-          <thead className="bg-slate-50 text-slate-700">
-            <tr>
-              <th scope="col" className="px-3 py-2 text-left font-semibold">Status aset</th>
-              {manualTypes.map((t) => (
-                <th key={t} scope="col" className="px-3 py-2 text-center font-semibold">{transactionTypeLabel[t]}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {statuses.map((s) => (
-              <tr key={s}>
-                <th scope="row" className="px-3 py-2 text-left font-normal">
-                  <AssetStatusBadge status={s} />
-                </th>
-                {manualTypes.map((t) => (
-                  <YesNo key={t} value={allowedTypes(s).includes(t)} />
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <Tip>
-        <strong className="font-semibold">Lokasi dan status hanya berubah lewat transaksi</strong>, tidak lewat tombol Ubah, agar riwayatnya tercatat. Transaksi yang sudah berlaku tidak dapat diubah atau dihapus; bila keliru, perbaiki dengan transaksi baru.
-      </Tip>
+      <Tip>Supir, kernet, kendaraan, posisi terakhir, dan tahap perjalanan tampil di <MenuLink to="/tracking" permission="delivery.view">Tracking</MenuLink>, diperbarui otomatis.</Tip>
     </StepSection>
   )
 }
@@ -465,13 +409,13 @@ function Step7() {
 function Step8() {
   return (
     <StepSection n={8} goal="Kondisi aset terbaca sekilas, dan laporan siap dibagikan." next={[
-      { when: 'Ada aktivitas baru pada aset', n: 7 },
+      { when: 'Ada tabung yang dikirim atau dijemput', n: 7 },
       { when: 'Ada aset baru', n: 4 },
-      { when: 'Ada kategori atau lokasi baru', n: 3 },
+      { when: 'Ada karyawan atau customer baru', n: 3 },
     ]}>
       <div className="grid gap-3 md:grid-cols-3">
-        <PathCard title={<MenuLink to="/" permission="report.view">Dashboard</MenuLink>}>
-          <p>Ringkasan jumlah, nilai, status, dan lokasi aset. Gunakan <Label>Atur tata letak</Label> untuk menyusun analisis yang ingin ditampilkan: seret widget ke posisi yang diinginkan. Kartu Beranda disusun dengan cara yang sama lewat <Label>Atur kartu</Label>. Isi widget menyesuaikan lebarnya: makin lebar, makin lengkap analisisnya.</p>
+        <PathCard title={<MenuLink to="/dashboard-aset" permission="dashboard.view">Dashboard Aset</MenuLink>}>
+          <p>Ringkasan jumlah, status, dan posisi tabung. Gunakan <Label>Atur tata letak</Label> untuk menyusun analisis yang ingin ditampilkan: seret widget ke posisi yang diinginkan. Kartu Beranda disusun dengan cara yang sama lewat <Label>Atur kartu</Label>. Isi widget menyesuaikan lebarnya: makin lebar, makin lengkap analisisnya.</p>
         </PathCard>
         <PathCard title={<MenuLink to="/laporan/template" permission="report.view">Template Laporan</MenuLink>}>
           <p>Susun sendiri format laporan dan data yang ingin dilaporkan: seret elemen ke kertas, pilih field, lalu <Label>Terbitkan</Label>. Template yang sudah terbit dapat dijalankan dan diunduh sebagai PDF atau Excel.</p>
@@ -489,14 +433,16 @@ const PROBLEMS: { q: string; a: ReactNode }[] = [
   { q: 'Menu yang saya cari tidak ada, atau muncul "Akses ditolak".', a: 'Role Anda belum memiliki izin untuk menu itu. Hubungi Super Admin atau Supervisor organisasi Anda.' },
   { q: 'Perubahan yang saya simpan belum terlihat.', a: <>Kemungkinan masih menunggu persetujuan. Periksa statusnya di menu <MenuLink to="/notifikasi">Pengajuan Saya</MenuLink>.</> },
   { q: 'Saya tidak menemukan aset tertentu.', a: 'Aset itu mungkin berada di luar cakupan data Anda, atau sudah nonaktif. Untuk melihat aset nonaktif, ubah filter di Data Aset menjadi "Aset nonaktif".' },
-  { q: 'Aset tidak dapat dicentang saat mencatat transaksi.', a: 'Status aset tidak mengizinkan jenis transaksi itu, misalnya aset yang sedang dipinjam tidak dapat dipindahkan. Lihat tabel status pada langkah 7.' },
-  { q: 'Saya salah mencatat transaksi.', a: 'Transaksi tidak dapat diubah atau dihapus. Catat transaksi baru untuk mengembalikan data ke keadaan yang benar.' },
+  { q: 'Tabung tidak muncul saat membuat transaksi.', a: 'Untuk transaksi keluar, tabung harus berstatus Aktif atau Tersedia dan tidak sedang dipakai transaksi lain. Untuk transaksi masuk, tabung harus tercatat berada di customer itu.' },
+  { q: 'Saya salah scan muat.', a: 'Di mobile, pilih Batal muat pada tabungnya selama kendaraan belum berangkat (transaksi keluar) atau customer belum diselesaikan (transaksi masuk).' },
+  { q: 'Tidak bisa menekan Berangkat.', a: 'Pastikan kendaraan dan supir sudah diisi, minimal satu tabung sudah dimuat (transaksi keluar), dan kendaraan maupun krunya tidak sedang dalam perjalanan lain.' },
+  { q: 'Posisi kendaraan tidak bergerak di Tracking.', a: 'Posisi terkirim selama aplikasi mobile terbuka dan izin lokasi aktif. Minta supir membuka transaksinya di aplikasi.' },
   { q: 'Tombol cetak barcode tidak muncul.', a: 'Pastikan Modul Barcode sudah aktif dan kategori aset itu (atau kategori induknya) sudah dicentang pada halaman Modul Barcode.' },
-  { q: 'Kategori atau lokasi tidak dapat diarsipkan.', a: 'Kategori atau lokasi itu masih dipakai aset aktif. Pindahkan atau ubah asetnya terlebih dahulu.' },
+  { q: 'Kategori, karyawan, atau customer tidak dapat diarsipkan.', a: 'Data itu masih dipakai aset aktif atau transaksi yang belum selesai.' },
   { q: 'Import Excel gagal.', a: 'Baca daftar baris yang salah pada pesan error, perbaiki file, lalu unggah ulang. Selama masih ada baris yang salah, tidak ada data yang disimpan.' },
   { q: 'Saya lupa password.', a: 'Minta Super Admin atau Supervisor mengatur password sementara dari halaman detail pengguna. Anda akan diminta menggantinya saat masuk.' },
   { q: 'Tautan undangan tidak berlaku.', a: 'Undangan punya batas waktu dan hanya dapat dipakai sekali. Minta Super Admin memilih Kirim ulang. Bila diminta verifikasi email, selesaikan dahulu lalu buka kembali tautannya.' },
-  { q: 'Saya tidak dapat mengundang pengguna.', a: 'Hanya Super Admin yang dapat mengundang, jadi mintalah Super Admin mengirim undangannya. Bila pilihan kode lisensi kosong, Super Admin dapat memeriksa sisa lisensi di menu Lisensi, lalu mencabut undangan yang tidak diperlukan atau menghubungi pengelola aplikasi untuk menambah lisensi.' },
+  { q: 'Saya tidak dapat mengundang pengguna.', a: 'Hanya Super Admin yang dapat mengundang, jadi mintalah Super Admin mengirim undangannya.' },
 ]
 
 function Troubleshooting() {

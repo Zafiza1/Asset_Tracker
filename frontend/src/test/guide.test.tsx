@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { GuidePage } from '../features/guide/GuidePage'
@@ -54,12 +54,9 @@ describe('GuidePage', () => {
     expect(screen.getByRole('link', { name: 'Modul Barcode' })).toHaveAttribute('href', '/modul/barcode')
   })
 
-  it('shows which transactions each asset status allows', () => {
+  it('explains how cylinders are sent and picked up', () => {
     renderGuide([])
-    const row = screen.getByRole('rowheader', { name: 'Dipinjamkan' }).closest('tr')!
-    // Columns: Pemindahan lokasi, Perubahan status, Peminjaman, Pengembalian, Transaksi keluar, Transaksi masuk, Aktivitas lain.
-    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['Tidak', 'Tidak', 'Tidak', 'Ya', 'Tidak', 'Tidak', 'Ya'])
-    const offSite = screen.getByRole('rowheader', { name: 'Di Luar Organisasi' }).closest('tr')!
-    expect(within(offSite).getAllByRole('cell').map((c) => c.textContent)).toEqual(['Tidak', 'Tidak', 'Tidak', 'Tidak', 'Tidak', 'Ya', 'Ya'])
+    expect(screen.getByRole('heading', { name: /Kirim & jemput tabung/ })).toBeInTheDocument()
+    expect(screen.queryByText(/lisensi/i)).not.toBeInTheDocument()
   })
 })

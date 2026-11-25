@@ -313,16 +313,15 @@ function RolesCard({ user, editable }: { user: User; editable: boolean }) {
   )
 }
 
-/** Data scope entries (union); a location scope includes its sub-locations. */
+/** Data scope entries (union). */
 function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
   const mutation = useUserMutation<{ scopes: DataScopeEntry[] }>(user, 'put', '/scopes')
   const scopes = user.data_scopes ?? []
-  const [type, setType] = useState<ScopeType>('location')
+  const [type, setType] = useState<ScopeType>('department')
   const [refId, setRefId] = useState('')
-  const sources: Record<Exclude<ScopeType, 'organization'>, string> = { department: '/departments', location: '/locations' }
   const departments = useOptions('/departments', { status: undefined })
-  const locations = useOptions('/locations', { status: undefined })
-  const lists = { department: departments.data, location: locations.data }
+  // Location scopes set before the Lokasi menu was removed are still listed, without a name.
+  const lists = { department: departments.data, location: undefined as typeof departments.data }
   const nameOf = (s: DataScopeEntry) => {
     if (s.scope_type === 'organization' || !s.ref_id) return null
     const row = lists[s.scope_type]?.find((r) => r.id === s.ref_id)
@@ -358,11 +357,11 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
             ))}
           </ul>
         )}
-        <p className="text-xs text-slate-500">Cakupan digabungkan. Cakupan lokasi mencakup seluruh sub-lokasinya; cakupan departemen mencakup aset departemen itu di lokasi mana pun.</p>
+        <p className="text-xs text-slate-500">Cakupan digabungkan. Cakupan departemen mencakup semua aset departemen itu.</p>
         {editable && (
           <div className="flex flex-wrap items-end gap-2">
             <Select value={type} onChange={(e) => (setType(e.target.value as ScopeType), setRefId(''))} className="w-auto" aria-label="Jenis cakupan">
-              {Object.entries(scopeTypeLabel).map(([value, label]) => (
+              {Object.entries(scopeTypeLabel).filter(([value]) => value !== 'location').map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -382,7 +381,7 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
               variant="secondary"
               loading={mutation.isPending && !removing}
               disabled={type !== 'organization' && !refId}
-              title={type !== 'organization' && choices.length === 0 ? `Belum ada data di ${sources[type]}` : undefined}
+              title={type !== 'organization' && choices.length === 0 ? 'Belum ada departemen' : undefined}
               onClick={() => {
                 const added: DataScopeEntry = { scope_type: type, ref_id: type === 'organization' ? null : refId }
                 save([...scopes, added], 'Cakupan data ditambahkan', scopeLabel(added))

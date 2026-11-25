@@ -1,6 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import clsx from 'clsx'
 import { MailX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -178,7 +177,6 @@ function SignInOrSignUp({ token, preview, onJoined }: { token: string; preview: 
 const signUpSchema = z
   .object({
     name: z.string().trim().min(1, 'Nama wajib diisi.').max(150),
-    license_code: z.string().min(1, 'Kode lisensi wajib diisi.').max(19),
     password: z.string().refine(passwordRule.test, passwordRule.message),
     password_confirmation: z.string(),
   })
@@ -189,13 +187,12 @@ type SignUpValues = z.infer<typeof signUpSchema>
 function SignUpForm({ token, preview, onJoined }: { token: string; preview: InvitationPreview; onJoined: (o: OrganizationSummary) => void }) {
   const { setProfile } = useAuth()
   const [formError, setFormError] = useState<string | null>(null)
-  const fixedCode = preview.license_code
-  const { register, handleSubmit, setError, formState } = useForm<SignUpValues>({ resolver: zodResolver(signUpSchema), defaultValues: { license_code: fixedCode ?? '' } })
+  const { register, handleSubmit, setError, formState } = useForm<SignUpValues>({ resolver: zodResolver(signUpSchema) })
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null)
     try {
-      const res = await api.post<{ data: { organization: OrganizationSummary } }>('/auth/invitation/register', { ...values, token })
+      const res = await api.post<{ data: { organization: OrganizationSummary } }>('/auth/invitation/register', { ...values, license_code: preview.license_code ?? undefined, token })
       setProfile((await api.get<Resource<Profile>>('/auth/me')).data)
       onJoined(res.data.organization)
     } catch (e) {
@@ -209,14 +206,6 @@ function SignUpForm({ token, preview, onJoined }: { token: string; preview: Invi
       <Field label="Email">{(p) => <Input {...p} type="email" value={preview.email} readOnly disabled />}</Field>
       <Field label="Nama lengkap" error={formState.errors.name?.message} required>
         {(p) => <Input {...p} autoComplete="name" {...register('name')} />}
-      </Field>
-      <Field
-        label="Kode Lisensi"
-        error={formState.errors.license_code?.message}
-        hint={fixedCode ? 'Terisi otomatis sesuai kode lisensi pada email undangan Anda.' : 'Masukkan kode lisensi yang Anda terima dari administrator. Format: LIC-XXXX-XXXX-XXXX'}
-        required
-      >
-        {(p) => <Input {...p} placeholder="LIC-XXXX-XXXX-XXXX" readOnly={!!fixedCode} className={clsx(p.className, fixedCode && 'bg-slate-50 text-slate-700')} {...register('license_code')} />}
       </Field>
       <Field label="Password" error={formState.errors.password?.message} hint={passwordRule.message} required>
         {(p) => <Input {...p} type="password" autoComplete="new-password" {...register('password')} />}

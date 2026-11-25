@@ -4,6 +4,7 @@ import { api } from '../../lib/api/client'
 export const HOME_CARD_KEYS = [
   'decisions',
   'my_requests',
+  'deliveries',
   'my_assets',
   'overdue_outgoing',
   'overdue_loans',
@@ -42,6 +43,7 @@ export interface HomeCardData {
     counts: Record<'pending' | 'approved' | 'rejected' | 'cancelled', number> & Record<string, number>
     items: { id: string; summary: string; status: string; decision_note: string | null; decided_by: string | null; created_at: string | null }[]
   }
+  deliveries: { draft: number; loading: number; in_transit: number; issues: number }
   my_assets: { count: number; items: AssetRef[] }
   overdue_outgoing: { count: number; items: { transaction_number: string; asset: AssetRef; counterparty_name: string | null; due_date: string | null; days_late: number }[] }
   overdue_loans: { count: number; items: { asset: AssetRef; borrower_name: string | null; due_date: string | null; days_late: number }[] }

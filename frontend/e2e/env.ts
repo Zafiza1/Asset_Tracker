@@ -26,6 +26,8 @@ export function writeEnv(): void {
     DEMO_PASSWORD: E2E_PASSWORD,
     MAIL_MAILER: 'log',
     QUEUE_CONNECTION: 'sync',
+    // The general categories DemoSeeder uses, plus the cylinders of the PT SIG / PT CDO edition.
+    EDITION_CATEGORIES: 'AST_TABUNG,AST_KENDARAAN,AST_IT,AST_FURNITURE',
   }
   const original = readFileSync(source, 'utf8')
   // A successful E2E login then proves the servers use the E2E database, not the development one.

@@ -312,6 +312,22 @@ export interface MasterRecord {
   updated_at: string
 }
 
+/** Master Data › Karyawan: drivers, helpers and other staff (not accounts). */
+export interface Employee extends MasterRecord {
+  position: string
+  position_label: string
+  phone: string | null
+  license_number: string | null
+  license_expires_on: string | null
+}
+
+/** Master Data › Customer: where cylinders go to and come back from. */
+export interface Customer extends MasterRecord {
+  address: string | null
+  contact_name: string | null
+  phone: string | null
+}
+
 export type Department = MasterRecord
 
 export interface Location extends MasterRecord {

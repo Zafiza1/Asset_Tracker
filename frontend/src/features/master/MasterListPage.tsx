@@ -26,7 +26,7 @@ import type { SelectOption } from './options'
 export interface MasterField {
   name: string
   label: string
-  type?: 'text' | 'textarea' | 'number' | 'select'
+  type?: 'text' | 'textarea' | 'number' | 'date' | 'select'
   required?: boolean
   /** Only settable at creation (e.g. codes, which are immutable). */
   createOnly?: boolean
@@ -539,7 +539,7 @@ function MasterFormModal<T extends MasterRecord>({ config, record, onClose, onSa
                 ) : f.type === 'textarea' ? (
                   <Textarea {...p} rows={3} disabled={disabled} placeholder={f.placeholder} {...register(f.name, rules)} />
                 ) : (
-                  <Input {...p} type={f.type === 'number' ? 'number' : 'text'} disabled={disabled} placeholder={f.placeholder} {...register(f.name, rules)} />
+                  <Input {...p} type={f.type === 'number' || f.type === 'date' ? f.type : 'text'} disabled={disabled} placeholder={f.placeholder} {...register(f.name, rules)} />
                 )
               }
             </Field>

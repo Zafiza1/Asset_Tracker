@@ -15,4 +15,4 @@ npm run e2e
 |---|---|
 | `home.spec.ts` | F-06d: Beranda after login → hide a card, still hidden after reload → "Dashboard Aset" menu |
 | `asset-board.spec.ts` | F-06e: Dashboard Aset from the role template → every widget loads its data → a category tab → add a widget from the catalog. F-06f: Super Admin, Supervisor and Admin each get their own template, every widget loads |
-| `outgoing-incoming.spec.ts` | F-QA: temporary outgoing → listed under "Belum kembali" → incoming from the asset detail → the outgoing report sample shows it as returned |
+| `deliveries.spec.ts` | PT SIG / PT CDO: plan an outgoing transaction on the web, then crew, load scan, depart, position, problem and unload scan with the API and token of the mobile app; Tracking and the detail follow it; incoming back to the warehouse |

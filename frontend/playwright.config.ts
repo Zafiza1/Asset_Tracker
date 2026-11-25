@@ -44,8 +44,7 @@ export default defineConfig({
     {
       command: `npx vite --port ${FRONTEND_PORT} --strictPort`,
       url: `http://localhost:${FRONTEND_PORT}`,
-      // Jenis Transaksi is closed for users for now (features/transactionTypes/availability.ts); its tests stay.
-      env: { VITE_BACKEND_URL: `http://localhost:${BACKEND_PORT}`, VITE_TRANSACTION_TYPES: '1' },
+      env: { VITE_BACKEND_URL: `http://localhost:${BACKEND_PORT}` },
       reuseExistingServer: false,
       timeout: 60_000,
     },

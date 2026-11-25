@@ -42,6 +42,7 @@ export const permissionGroupLabel: Record<string, string> = {
   asset: 'Aset',
   document: 'Dokumen',
   transaction: 'Transaksi',
+  delivery: 'Pengiriman Tabung',
   transaction_setup: 'Jenis & Alur Transaksi',
   report: 'Laporan',
   report_designer: 'Desainer Laporan',
@@ -158,6 +159,35 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
       'department.updated': 'Mengubah departemen',
       'department.archived': 'Mengarsipkan departemen',
       'department.restored': 'Memulihkan departemen',
+    },
+  },
+  {
+    label: 'Karyawan',
+    actions: {
+      'employee.created': 'Menambah karyawan',
+      'employee.updated': 'Mengubah karyawan',
+      'employee.archived': 'Mengarsipkan karyawan',
+      'employee.restored': 'Memulihkan karyawan',
+    },
+  },
+  {
+    label: 'Customer',
+    actions: {
+      'customer.created': 'Menambah customer',
+      'customer.updated': 'Mengubah customer',
+      'customer.archived': 'Mengarsipkan customer',
+      'customer.restored': 'Memulihkan customer',
+    },
+  },
+  {
+    label: 'Pengiriman Tabung',
+    actions: {
+      'delivery.created': 'Membuat transaksi tabung',
+      'delivery.updated': 'Mengubah transaksi tabung',
+      'delivery.crew_set': 'Mengisi kendaraan & kru',
+      'delivery.departed': 'Berangkat',
+      'delivery.completed': 'Menyelesaikan transaksi tabung',
+      'delivery.cancelled': 'Membatalkan transaksi tabung',
     },
   },
   {

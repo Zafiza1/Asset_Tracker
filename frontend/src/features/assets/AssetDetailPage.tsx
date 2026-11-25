@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, FolderTree, Handshake, MapPin, Pencil, Plus, Power, Printer, RotateCcw, Undo2, UserRound, UserRoundPlus, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, FolderTree, MapPin, Pencil, Power, Printer, RotateCcw, UserRound, Wallet, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Button } from '../../components/ui/Button'
@@ -18,10 +18,9 @@ import { formatAttributeValue, formatDate, formatDateTime } from '../../lib/form
 import { errorMessage } from '../../lib/forms'
 import { attributeRowsBySection, SECTION_LABELS } from '../master/categoryAttributeData'
 import { allowedTypes, daysLate, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
-import { LocationChange, StatusChange } from '../transactions/TransactionChanges'
+import { StatusChange } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
-import { typesApi } from '../transactionTypes/api'
-import { assetStatusLabel, formatMoney, type Asset } from './api'
+import { assetStatusLabel, CYLINDER_CATEGORY, formatMoney, type Asset } from './api'
 import { AssetStatusBadge } from './AssetStatusBadge'
 import { AssetBarcodeModal } from './AssetBarcodeModal'
 import { AssetFormModal } from './AssetFormModal'
@@ -32,11 +31,7 @@ export function AssetDetailPage() {
   const { id } = useParams()
   const { can } = useAuth()
   const [editing, setEditing] = useState(false)
-  const [recording, setRecording] = useState<ManualTransactionType | 'any' | null>(null)
-  // "Serah terima" (F08-54): one way for a lasting handover, the type made from that template.
-  const [handingOver, setHandingOver] = useState<string | null>(null)
-  const activeTypes = useQuery({ queryKey: ['/transaction-types', 'active'], queryFn: () => typesApi.list({ status: 'active' }), staleTime: 30_000, enabled: can('transaction.create') })
-  const handover = (activeTypes.data?.data ?? []).find((t) => t.source_template_key === 'serah_terima_penanggung_jawab')
+  const [recording, setRecording] = useState<ManualTransactionType | null>(null)
   const [archiving, setArchiving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
@@ -64,6 +59,7 @@ export function AssetDetailPage() {
   if (asset.isLoading) return <DetailSkeleton label="Memuat data aset…" />
   if (asset.isError) return <ErrorState error={asset.error} onRetry={() => void asset.refetch()} />
   const a = asset.data!.data
+  const isCylinder = a.category?.code === CYLINDER_CATEGORY
   const types = allowedTypes(a.status)
   const canRecord = can('transaction.create') && !a.is_archived
   const overdue = a.status === 'on_loan' && a.loan_due_date !== null && a.loan_due_date < today
@@ -73,7 +69,7 @@ export function AssetDetailPage() {
       <PageHeader
         title={a.name}
         badges={<AssetStatusBadge status={a.status} archived={a.is_archived} />}
-        description={a.serial_number ? <span className="text-sm text-slate-500">No Seri {a.serial_number}</span> : undefined}
+        description={<span className="text-sm text-slate-500">{[a.serial_number && `${isCylinder ? 'No Manufaktur' : 'No Seri'} ${a.serial_number}`, `No Reference ${a.reference_number}`].filter(Boolean).join(' · ')}</span>}
         actions={
           <>
             {a.barcode_enabled && (
@@ -81,39 +77,10 @@ export function AssetDetailPage() {
                 <Printer className="size-4" aria-hidden /> Print barcode
               </Button>
             )}
-            {canRecord && types.includes('transfer') && can('asset.transfer') && (
-              <Button variant="secondary" onClick={() => setRecording('transfer')}>
-                <ArrowLeftRight className="size-4" aria-hidden /> Pindahkan
-              </Button>
-            )}
-            {canRecord && types.includes('loan') && can('asset.assign') && (
-              <Button variant="secondary" onClick={() => setRecording('loan')}>
-                <UserRoundPlus className="size-4" aria-hidden /> Pinjamkan
-              </Button>
-            )}
-            {canRecord && types.includes('outgoing') && can('asset.outgoing') && (
-              <Button variant="secondary" onClick={() => setRecording('outgoing')}>
-                <ArrowUpRight className="size-4" aria-hidden /> Catat keluar
-              </Button>
-            )}
-            {canRecord && types.includes('incoming') && can('asset.incoming') && (
-              <Button variant="secondary" onClick={() => setRecording('incoming')}>
-                <ArrowDownLeft className="size-4" aria-hidden /> Catat masuk
-              </Button>
-            )}
-            {canRecord && types.includes('return') && can('asset.assign') && (
-              <Button variant="secondary" onClick={() => setRecording('return')}>
-                <Undo2 className="size-4" aria-hidden /> Catat pengembalian
-              </Button>
-            )}
-            {canRecord && handover && (
-              <Button variant="secondary" onClick={() => setHandingOver(handover.id)}>
-                <Handshake className="size-4" aria-hidden /> Serah terima
-              </Button>
-            )}
-            {canRecord && (
-              <Button onClick={() => setRecording('any')}>
-                <Plus className="size-4" aria-hidden /> Catat transaksi
+            {/* Going out and coming back are recorded by deliveries; only the status changes here. */}
+            {canRecord && types.includes('status_change') && can('asset.status_change') && (
+              <Button variant="secondary" onClick={() => setRecording('status_change')}>
+                <ArrowLeftRight className="size-4" aria-hidden /> Ubah status
               </Button>
             )}
           </>
@@ -158,8 +125,19 @@ export function AssetDetailPage() {
             <span className="text-slate-400">Belum ada</span>
           )}
         </Fact>
-        <Fact icon={MapPin} label="Lokasi">
-          {a.location?.name ?? <span className="text-slate-400">Tanpa lokasi</span>}
+        <Fact icon={MapPin} label="Posisi">
+          {a.position ? (
+            <span className="block">
+              {a.position.label}
+              <Link to={`/transaksi/${a.position.delivery_id}`} className="block text-xs font-normal text-brand-700 hover:underline">
+                {a.position.delivery_number}
+              </Link>
+            </span>
+          ) : isCylinder ? (
+            'Di gudang'
+          ) : (
+            <span className="text-slate-400">—</span>
+          )}
         </Fact>
         <Fact icon={FolderTree} label="Kategori">
           {a.category?.name ?? '—'}
@@ -209,6 +187,9 @@ export function AssetDetailPage() {
               const builtIn: Record<string, ReactNode> = {
                 basic_information: (
                   <>
+                    <Row label={isCylinder ? 'Nama Produk' : 'Nama aset'}>{a.name}</Row>
+                    <Row label={isCylinder ? 'No Manufaktur' : 'No Seri'}>{a.serial_number ?? '—'}</Row>
+                    <Row label="No Reference">{a.reference_number}</Row>
                     <Row label="Kategori">{a.category?.name}</Row>
                     <Row label="Tanggal perolehan">{formatDate(a.acquisition_date)}</Row>
                     <Row label="Harga perolehan">{formatMoney(a.acquisition_cost)}</Row>
@@ -239,7 +220,6 @@ export function AssetDetailPage() {
                 ),
                 location_ownership: (
                   <>
-                    <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>
                     <Row label="Penanggung jawab">
                       {a.custodian ? `${a.custodian.name ?? '—'}${a.custodian.is_active ? '' : ' (nonaktif)'}` : '—'}
                     </Row>
@@ -310,14 +290,7 @@ export function AssetDetailPage() {
             <EmptyState
               icon={ArrowLeftRight}
               title="Belum ada riwayat"
-              description="Perpindahan, peminjaman, dan perubahan status aset ini akan tercatat di sini."
-              action={
-                canRecord && (
-                  <Button variant="secondary" onClick={() => setRecording('any')}>
-                    <Plus className="size-4" aria-hidden /> Catat transaksi
-                  </Button>
-                )
-              }
+              description="Keluar, masuk, dan perubahan status aset ini akan tercatat di sini."
             />
           ) : (
             <DataTable columns={historyColumns} rows={withStateAfter(history.data!.data, a)} className="md:min-w-[36rem]" />
@@ -327,8 +300,7 @@ export function AssetDetailPage() {
 
       {editing && <AssetFormModal asset={a} onClose={() => setEditing(false)} />}
       {printing && <AssetBarcodeModal asset={a} onClose={() => setPrinting(false)} />}
-      {recording && <TransactionFormModal asset={a} initialType={recording === 'any' ? undefined : recording} onClose={() => setRecording(null)} />}
-      {handingOver && <TransactionFormModal asset={a} initialCustomTypeId={handingOver} onClose={() => setHandingOver(null)} />}
+      {recording && <TransactionFormModal asset={a} initialType={recording} onClose={() => setRecording(null)} />}
       {archiving && <ArchiveModal asset={a} onClose={() => setArchiving(false)} />}
     </>
   )
@@ -354,7 +326,6 @@ const historyColumns: Column<TransactionWithState>[] = [
     ),
   },
   { key: 'type', header: 'Jenis', sortValue: (t) => t.type_label, cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge>, className: 'w-40' },
-  { key: 'location', header: 'Lokasi', sortValue: (t) => t.location_after, cell: (t) => <LocationChange trx={t} />, className: 'whitespace-normal', hideOnMobile: true },
   { key: 'status', header: 'Status', sortValue: (t) => assetStatusLabel[t.status_after], cell: (t) => <StatusChange trx={t} />, className: 'whitespace-normal', hideOnMobile: true },
 ]
 

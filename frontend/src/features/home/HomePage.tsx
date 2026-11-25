@@ -15,6 +15,7 @@ import {
   ListChecks,
   Mail,
   SlidersHorizontal,
+  Truck,
   UserRound,
   Users,
   UserX,
@@ -39,6 +40,7 @@ import { ago, arrangeCards, HOME_CARDS_QUERY_KEY, homeApi, type HomeCard, type H
 const cardTitle: Record<HomeCardKey, string> = {
   decisions: 'Perlu keputusan saya',
   my_requests: 'Pengajuan saya',
+  deliveries: 'Transaksi tabung berjalan',
   overdue_outgoing: 'Keluar sementara lewat batas',
   overdue_loans: 'Peminjaman lewat batas',
   due_soon: 'Jatuh tempo 7 hari',
@@ -56,6 +58,7 @@ const cardTitle: Record<HomeCardKey, string> = {
 const cardIcon: Record<HomeCardKey, LucideIcon> = {
   decisions: ListChecks,
   my_requests: ClipboardList,
+  deliveries: Truck,
   overdue_outgoing: AlertTriangle,
   overdue_loans: CalendarX,
   due_soon: Clock,
@@ -410,6 +413,20 @@ function cardContent(card: HomeCard): CardContent {
         ),
         link: { to: '/aset', label: 'Tunjuk penanggung jawab baru' },
       }
+    case 'deliveries':
+      return {
+        badge: card.issues > 0 ? <Badge tone="red">{card.issues} kendala</Badge> : count(card.in_transit, 'blue'),
+        tone: card.issues > 0 ? 'red' : undefined,
+        empty: card.draft + card.loading + card.in_transit === 0 ? 'Tidak ada transaksi tabung yang berjalan.' : undefined,
+        body: (
+          <Rows>
+            <Figure label="Disiapkan" value={card.draft} />
+            <Figure label="Sedang muat" value={card.loading} />
+            <Figure label="Dalam perjalanan" value={card.in_transit} />
+          </Rows>
+        ),
+        link: { to: '/tracking', label: 'Buka tracking' },
+      }
     case 'incomplete_assets':
       return {
         badge: count(card.count, 'slate'),
@@ -418,7 +435,6 @@ function cardContent(card: HomeCard): CardContent {
           <Rows>
             <Figure label="Tanpa nomor seri" value={card.counts.no_serial_number} />
             <Figure label="Atribut wajib kategori kosong" value={card.counts.missing_required_attribute} />
-            <Figure label="Tanpa lokasi" value={card.counts.no_location} />
           </Rows>
         ),
         link: { to: '/aset', label: 'Perbaiki di Data Aset' },
@@ -445,7 +461,7 @@ function cardContent(card: HomeCard): CardContent {
             </Rows>
           </>
         ),
-        link: { to: '/pengaturan', label: 'Kelola lisensi' },
+        link: { to: '/organisasi', label: 'Lihat organisasi' },
       }
     }
     case 'invitations':

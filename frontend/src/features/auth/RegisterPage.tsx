@@ -19,7 +19,6 @@ const schema = z
     email: z.email('Masukkan email yang valid.'),
     password: z.string().refine(passwordRule.test, passwordRule.message),
     password_confirmation: z.string(),
-    license_quantity: z.number().int().min(0, 'Jumlah lisensi tidak boleh negatif').max(100, 'Maksimal 100 lisensi').optional(),
   })
   .refine((v) => v.password === v.password_confirmation, { path: ['password_confirmation'], message: 'Konfirmasi password tidak sama.' })
 type FormValues = z.infer<typeof schema>
@@ -30,7 +29,6 @@ export function RegisterPage() {
   const navigate = useNavigate()
   const [formError, setFormError] = useState<string | null>(null)
   const [codeEdited, setCodeEdited] = useState(false)
-  const [showLicenseConfirm, setShowLicenseConfirm] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [pendingData, setPendingData] = useState<FormValues | null>(null)
   const { register, handleSubmit, setError, setValue, formState } = useForm<FormValues>({ resolver: zodResolver(schema) })
@@ -41,30 +39,13 @@ export function RegisterPage() {
     setFormError(null)
     setPendingData(values)
 
-    // Show confirmation dialog if user wants to purchase licenses
-    if (values.license_quantity && values.license_quantity > 0) {
-      setShowLicenseConfirm(true)
-    } else {
-      // No licenses to purchase, proceed directly
-      try {
-        await signUp(values)
-        setShowSuccessModal(true)
-      } catch (e) {
-        setFormError(applyApiErrors(e, setError))
-      }
-    }
-  })
-
-  const handleConfirmLicensePurchase = async () => {
-    if (!pendingData) return
-    setShowLicenseConfirm(false)
     try {
-      await signUp(pendingData)
+      await signUp(values)
       setShowSuccessModal(true)
     } catch (e) {
       setFormError(applyApiErrors(e, setError))
     }
-  }
+  })
 
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false)
@@ -104,9 +85,6 @@ export function RegisterPage() {
           <Field label="Kode organisasi" error={err.organization_code?.message} hint="Singkatan unik, dipakai sebagai identitas organisasi. Tidak dapat diubah." required>
             {(p) => <Input {...p} className={`${p.className} uppercase`} placeholder="mis. MAJU" {...register('organization_code', { onChange: () => setCodeEdited(true) })} />}
           </Field>
-          <Field label="Jumlah lisensi tambahan" error={err.license_quantity?.message} hint="Masukkan jumlah lisensi yang ingin dibeli untuk organisasi Anda. Biarkan kosong jika tidak ingin membeli.">
-            {(p) => <Input {...p} type="number" min="0" max="100" placeholder="0" {...register('license_quantity', { setValueAs: (v: string) => (v === '' ? undefined : Number(v)) })} />}
-          </Field>
         </section>
         <section className="space-y-4 border-t border-slate-200 pt-4" aria-labelledby="reg-account">
           <h2 id="reg-account" className="text-sm font-semibold text-slate-900">Akun Anda</h2>
@@ -129,29 +107,6 @@ export function RegisterPage() {
       </form>
 
       <Modal
-        open={showLicenseConfirm}
-        title="Konfirmasi Pembelian Lisensi"
-        onClose={() => setShowLicenseConfirm(false)}
-        footer={
-          <>
-            <Button type="button" variant="secondary" onClick={() => setShowLicenseConfirm(false)}>
-              Batal
-            </Button>
-            <Button type="button" onClick={handleConfirmLicensePurchase}>
-              Ya, Beli {pendingData?.license_quantity} Lisensi
-            </Button>
-          </>
-        }
-      >
-        <p className="text-slate-700">
-          Apakah Anda ingin membeli <strong>{pendingData?.license_quantity}</strong> lisensi untuk organisasi "{pendingData?.organization_name}"?
-        </p>
-        <p className="mt-2 text-sm text-slate-600">
-          Pembayaran akan dibypass dan lisensi akan langsung ditambahkan ke organisasi Anda.
-        </p>
-      </Modal>
-
-      <Modal
         open={showSuccessModal}
         title="Registrasi Berhasil"
         onClose={handleSuccessModalClose}
@@ -163,26 +118,8 @@ export function RegisterPage() {
       >
         <div className="space-y-3">
           <p className="text-slate-700">
-            Organisasi "{pendingData?.organization_name}" berhasil didaftarkan{pendingData?.license_quantity && pendingData.license_quantity > 0 ? ` dan ${pendingData.license_quantity} lisensi telah ditambahkan.` : '.'}
+            Organisasi "{pendingData?.organization_name}" berhasil didaftarkan.
           </p>
-          {pendingData?.license_quantity && pendingData.license_quantity > 0 && (
-            <div className="rounded-md bg-green-50 p-3">
-              <p className="text-sm font-medium text-green-900">
-                Kode lisensi Anda telah dibuat!
-              </p>
-              <p className="mt-1 text-sm text-green-800">
-                Anda dapat melihat kode lisensi di menu <strong>Lisensi</strong>.
-              </p>
-              <p className="mt-2 text-xs text-green-700">
-                Kode lisensi dapat digunakan untuk mengundang anggota baru ke organisasi Anda.
-              </p>
-            </div>
-          )}
-          <div className="rounded-md bg-brand-50 p-3">
-            <p className="text-sm text-brand-900">
-              Tips: Kunjungi menu <strong>Administrasi → Lisensi</strong> untuk melihat dan mengelola kode lisensi Anda.
-            </p>
-          </div>
         </div>
       </Modal>
     </AuthShell>

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, Home, KeyRound, LayoutDashboard, MapPin, Network, QrCode, Users, Workflow, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, Home, IdCard, LayoutDashboard, MapPinned, Network, QrCode, Store, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -36,8 +36,9 @@ export const tenantNavigation: NavSection[] = [
     title: 'Manajemen Aset',
     items: [
       { to: '/aset', label: 'Data Aset', icon: Boxes, permission: 'asset.view' },
-      // The Transaction Center (D-50): recording, and every running transaction.
-      { to: '/transaksi', label: 'Transaksi', icon: ArrowLeftRight, permission: 'transaction.view' },
+      // Cylinders going out to customers and coming back, and where their vehicles are now.
+      { to: '/transaksi', label: 'Transaksi', icon: ArrowLeftRight, permission: 'delivery.view' },
+      { to: '/tracking', label: 'Tracking', icon: MapPinned, permission: 'delivery.view' },
       // One approval list: approvers (Super Admin, Supervisor) decide data change requests and
       // the steps of transactions under "Persetujuan"; their own changes need no approval. Everyone
       // else follows the outcome of their submissions under "Pengajuan Saya".
@@ -57,9 +58,9 @@ export const tenantNavigation: NavSection[] = [
     title: 'Master Data',
     items: [
       { to: '/master/kategori', label: 'Kategori Aset', icon: FolderTree, permission: 'master.tenant.view' },
-      { to: '/master/lokasi', label: 'Lokasi', icon: MapPin, permission: 'master.tenant.view' },
+      { to: '/master/karyawan', label: 'Karyawan', icon: IdCard, permission: 'master.tenant.view' },
+      { to: '/master/customer', label: 'Customer', icon: Store, permission: 'master.tenant.view' },
       { to: '/master/departemen', label: 'Departemen', icon: Network, permission: 'master.tenant.view' },
-      { to: '/transaksi/jenis', label: 'Jenis Transaksi', icon: Workflow, permission: 'transaction_type.manage' },
     ],
   },
   {
@@ -74,7 +75,6 @@ export const tenantNavigation: NavSection[] = [
     items: [
       { to: '/organisasi', label: 'Organisasi', icon: Building2, permission: 'organization.view' },
       { to: '/pengguna', label: 'Pengguna', icon: Users, permission: 'user.view' },
-      { to: '/pengaturan', label: 'Lisensi', icon: KeyRound, permission: 'license.manage' },
       { to: '/audit', label: 'Audit Trail', icon: FileClock, permission: 'audit.view' },
     ],
   },
@@ -83,7 +83,7 @@ export const tenantNavigation: NavSection[] = [
 
 /**
  * The menu entry of the current page: the one whose address matches the most of the path, so
- * on /transaksi/jenis only "Jenis Transaksi" is current, not also "Transaksi" (/transaksi).
+ * of nested addresses only the closest entry is current.
  * Pages without an entry of their own fall under the closest one (/transaksi/riwayat → Transaksi).
  */
 export function currentNavTarget(sections: NavSection[], pathname: string): string | null {
@@ -104,7 +104,7 @@ export const breadcrumbLabels: Record<string, string> = {
   'kode-lisensi': 'Kode Lisensi',
   modul: 'Modul',
   barcode: 'Barcode',
-  pengaturan: 'Lisensi',
+  tracking: 'Tracking',
   audit: 'Audit Trail',
   notifikasi: 'Persetujuan',
   panduan: 'Panduan',
@@ -113,11 +113,6 @@ export const breadcrumbLabels: Record<string, string> = {
   aset: 'Data Aset',
   transaksi: 'Transaksi',
   riwayat: 'Riwayat',
-  kosong: 'Kosong',
-  rules: 'Rules',
-  'cara-kerja': 'Cara kerja',
-  jenis: 'Jenis Transaksi',
-  alur: 'Alur',
   berjalan: 'Transaksi Berjalan',
   laporan: 'Laporan',
   template: 'Template Laporan',
@@ -126,7 +121,8 @@ export const breadcrumbLabels: Record<string, string> = {
   kategori: 'Kategori',
   definisi: 'Definisi',
   versi: 'Versi',
-  lokasi: 'Lokasi',
+  karyawan: 'Karyawan',
+  customer: 'Customer',
   departemen: 'Departemen',
   referensi: 'Referensi',
 }

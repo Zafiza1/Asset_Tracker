@@ -97,7 +97,7 @@ describe('UserDetailPage: rejected access changes', () => {
 
     expect(await screen.findByText(SCOPE_ESCALATION.message)).toBeInTheDocument()
     expect(api.post).toHaveBeenCalledWith('/users/u-1/deactivate')
-    expect(screen.getByText(/kode lisensi akan terlepas/)).toBeInTheDocument()
+    expect(screen.getByText(/Akun dinonaktifkan di organisasi ini/)).toBeInTheDocument()
   })
 
   it('keeps the profile form open with the error when job data of a broader member is refused', async () => {

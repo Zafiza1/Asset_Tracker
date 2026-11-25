@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { UserCreatePage } from '../features/users/UserCreatePage'
@@ -17,21 +17,8 @@ const organizations: UserOrganizationOption[] = [
   { id: 'org-b', code: 'BETA', name: 'PT Beta', is_current: false, roles: [role('op-b', 'Operator'), role('au-b', 'Auditor')] },
 ]
 
-const licenseCodeId = '01a18ab7-0000-7000-8000-000000000001'
-const secondCodeId = '01a18ab7-0000-7000-8000-000000000002'
-const reservedCodeId = '01a18ab7-0000-7000-8000-000000000003'
-
-function renderPage(options: UserOrganizationOption[], url = '/pengguna/baru') {
+function renderPage(options: UserOrganizationOption[]) {
   vi.mocked(api.get).mockImplementation(async (path: string) => {
-    if (path.startsWith('/license-codes'))
-      return {
-        data: [
-          { id: licenseCodeId, code: 'LIC-AAAA-BBBB-CCCC', notes: null },
-          { id: secondCodeId, code: 'LIC-DDDD-EEEE-FFFF', notes: null },
-          // Already on another open invitation, so not offered.
-          { id: reservedCodeId, code: 'LIC-RRRR-RRRR-RRRR', notes: null, pending_invitation: { id: 'inv-x', email: 'x@grup.test', expires_at: '2026-11-20T00:00:00Z' } },
-        ],
-      }
     if (path === '/permissions') return { data: [] }
     return { data: options }
   })
@@ -39,7 +26,7 @@ function renderPage(options: UserOrganizationOption[], url = '/pengguna/baru') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[url]}>
+      <MemoryRouter initialEntries={['/pengguna/baru']}>
         <Routes>
           <Route path="/pengguna/baru" element={<UserCreatePage />} />
           <Route path="/pengguna/undangan" element={<p>daftar undangan</p>} />
@@ -53,15 +40,6 @@ const type = (label: RegExp, value: string) => fireEvent.change(screen.getByLabe
 
 describe('UserCreatePage (invite)', () => {
   beforeEach(() => vi.clearAllMocks())
-
-  it('picks the license code given by the license page and hides reserved codes', async () => {
-    renderPage([organizations[0]], `/pengguna/baru?license_code=${secondCodeId}`)
-    const licenseCode = (await screen.findByLabelText(/^Kode Lisensi/)) as HTMLSelectElement
-    await within(licenseCode).findByRole('option', { name: /LIC-DDDD-EEEE-FFFF/ })
-    await waitFor(() => expect(licenseCode.value).toBe(secondCodeId))
-    expect(within(licenseCode).queryByRole('option', { name: /LIC-RRRR/ })).not.toBeInTheDocument()
-    expect(screen.getByText(/Kode LIC-DDDD-EEEE-FFFF dari halaman Lisensi/)).toBeInTheDocument()
-  })
 
   it('keeps the single-organization form when only one organization is manageable', async () => {
     renderPage([organizations[0]])
@@ -80,9 +58,7 @@ describe('UserCreatePage (invite)', () => {
     renderPage(organizations)
     await screen.findByText(/Akses Organisasi & Role/)
     type(/^Email/, 'sari@grup.test')
-    const licenseCode = screen.getByLabelText(/^Kode Lisensi/)
-    await within(licenseCode).findByRole('option', { name: /LIC-AAAA-BBBB-CCCC/ })
-    fireEvent.change(licenseCode, { target: { value: licenseCodeId } })
+    expect(screen.queryByLabelText(/Kode Lisensi/)).not.toBeInTheDocument()
 
     // One role per organization, in the order of the organization list.
     fireEvent.change(screen.getAllByLabelText(/^Role/)[0], { target: { value: 'op-a' } })
@@ -95,7 +71,6 @@ describe('UserCreatePage (invite)', () => {
         email: 'sari@grup.test',
         employee_number: '',
         job_title: '',
-        license_code_id: licenseCodeId,
         memberships: [
           { organization_id: 'org-a', role_ids: ['op-a'] },
           { organization_id: 'org-b', role_ids: ['au-b'] },

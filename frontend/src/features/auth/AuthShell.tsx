@@ -2,7 +2,7 @@ import { Boxes, History, MapPin, ShieldCheck } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 const highlights = [
-  { icon: MapPin, text: 'Lokasi & pemegang setiap aset selalu tercatat' },
+  { icon: MapPin, text: 'Posisi setiap tabung selalu tercatat' },
   { icon: History, text: 'Riwayat transaksi dan audit trail lengkap' },
   { icon: ShieldCheck, text: 'Akses berbasis role per organisasi' },
 ]

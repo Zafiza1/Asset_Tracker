@@ -13,7 +13,7 @@ import { applyApiErrors, errorMessage } from '../../lib/forms'
 import { AttributeFields } from '../master/CategoryAttributes'
 import { useCategoryAttributes } from '../master/categoryAttributeData'
 import { toOptions, useOptions } from '../master/options'
-import { assetStatusLabel, initialStatuses, type Asset, type AssetCustodian, type CustodianOption, type ExtraAttribute, type Ref } from './api'
+import { assetStatusLabel, CYLINDER_CATEGORY, initialStatuses, type Asset, type AssetCustodian, type CustodianOption, type ExtraAttribute, type Ref } from './api'
 import { AssetCategoryPicker } from './AssetCategoryPicker'
 import { AssetDocumentPicker, type DocumentChange } from './AssetDocumentPicker'
 import { AssetImagePicker, type ImageChange } from './AssetImagePicker'
@@ -48,7 +48,6 @@ type Values = {
   name: string
   serial_number: string
   category_id: string
-  location_id: string
   status: string
   acquisition_date: string
   acquisition_cost: string
@@ -57,7 +56,7 @@ type Values = {
   department_id: string
 }
 
-/** Fields editable after registration; location/status change through transactions. */
+/** Fields editable after registration; the status changes through transactions. */
 const EDITABLE: (keyof Values)[] = ['name', 'serial_number', 'category_id', 'acquisition_date', 'acquisition_cost', 'description', 'custodian_user_id', 'department_id']
 
 /**
@@ -69,7 +68,6 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
   const [formError, setFormError] = useState<string | null>(null)
   const categoryQuery = useOptions('/tenant-masters/categories')
   const categories = toOptions(categoryQuery.data)
-  const locations = toOptions(useOptions('/locations').data)
 
   const [attributes, setAttributes] = useState<Record<string, AttributeValue>>(asset?.attributes ?? {})
   const [attributeErrors, setAttributeErrors] = useState<Record<string, string>>({})
@@ -88,7 +86,6 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
       name: asset?.name ?? '',
       serial_number: asset?.serial_number ?? '',
       category_id: asset?.category_id ?? '',
-      location_id: '',
       status: 'in_use',
       acquisition_date: asset?.acquisition_date ?? '',
       acquisition_cost: asset?.acquisition_cost ?? '',
@@ -120,6 +117,9 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
   // The category decides which extra fields the asset has.
   const categoryId = useWatch({ control, name: 'category_id' })
   const fields = useCategoryAttributes(categoryId).data ?? []
+  // A cylinder's name is its product and its serial number the No Manufaktur (required).
+  const isCylinder = (categoryQuery.data?.find((c) => c.id === categoryId)?.code ?? asset?.category?.code) === CYLINDER_CATEGORY
+  const nameLabel = isCylinder ? 'Nama Produk' : 'Nama aset'
   const categoryLabel = categories.find((o) => o.value === categoryId)?.label.trim() ?? asset?.category?.name ?? ''
 
   const [image, setImage] = useState<ImageChange>(undefined)
@@ -260,18 +260,18 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
       {/* Kept mounted (only hidden) while the category is chosen, so nothing entered is lost. */}
       <form id="asset-form" noValidate hidden={step !== 'details'} className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), setAttributeErrors({}), setImageError(null), setDocumentError(null), save.mutate(v)))}>
         {formError && <Alert tone="error">{formError}</Alert>}
-        {asset && <p className="text-sm text-slate-600">Lokasi dan status diubah lewat transaksi agar riwayatnya tercatat.</p>}
+        {asset && <p className="text-sm text-slate-600">Status diubah lewat transaksi agar riwayatnya tercatat.</p>}
         {/* Hidden inputs keep react-hook-form aware of the picker values; the API rechecks both. */}
         <input type="hidden" {...register('custodian_user_id')} />
 
         <AssetImagePicker currentUrl={saved?.image_url ?? null} value={image} onChange={(v) => (setImageError(null), setImage(v))} error={imageError} />
 
-        <Field label="Nama aset" required error={err('name')}>
-          {(p) => <Input {...p} {...register('name', { required: 'Nama aset wajib diisi.' })} />}
+        <Field label={nameLabel} required error={err('name')}>
+          {(p) => <Input {...p} {...register('name', { required: `${nameLabel} wajib diisi.` })} />}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="No Seri" error={err('serial_number')} hint="Nomor seri aset yang dipakai sebagai nomor alias, misalnya nomor seri pabrik atau kode lama organisasi (harus unik bila diisi).">
-            {(p) => <Input {...p} {...register('serial_number')} />}
+          <Field label={isCylinder ? 'No Manufaktur' : 'No Seri'} required={isCylinder} error={err('serial_number')} hint={isCylinder ? 'Nomor yang tercetak di tabung, harus unik. Bisa diketik saat scan bila labelnya rusak.' : 'Nomor seri atau nomor rangka, harus unik bila diisi.'}>
+            {(p) => <Input {...p} {...register('serial_number', { validate: (v) => !isCylinder || v.trim() !== '' || 'No Manufaktur wajib diisi.' })} />}
           </Field>
           <Field label="Kategori" required error={err('category_id')}>
             {(p) => (
@@ -290,17 +290,8 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
 
         {!saved && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Lokasi" required error={err('location_id')}>
-              {(p) => (
-                <Select {...p} {...register('location_id', { required: 'Lokasi wajib dipilih.' })}>
-                  <option value="">— Pilih —</option>
-                  {locations.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-              )}
+            <Field label="No Reference" hint="Dibuat oleh sistem saat aset disimpan.">
+              {(p) => <Input {...p} value="Otomatis" readOnly disabled />}
             </Field>
             <Field label="Status" error={err('status')}>
               {(p) => (

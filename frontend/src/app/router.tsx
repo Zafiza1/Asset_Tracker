@@ -7,28 +7,20 @@ import { LoginPage } from '../features/auth/LoginPage'
 import { RegisterPage } from '../features/auth/RegisterPage'
 import { AssetDetailPage } from '../features/assets/AssetDetailPage'
 import { AssetsPage } from '../features/assets/AssetsPage'
-import { DepartmentsPage, LocationsPage, TenantCategoriesPage } from '../features/master/StructurePages'
+import { DeliveriesPage } from '../features/deliveries/DeliveriesPage'
+import { DeliveryDetailPage } from '../features/deliveries/DeliveryDetailPage'
+import { TrackingPage } from '../features/deliveries/TrackingPage'
+import { CustomersPage, DepartmentsPage, EmployeesPage, TenantCategoriesPage } from '../features/master/StructurePages'
 import { OrganizationPage } from '../features/organization/OrganizationPage'
 import { CreateOrganizationPage, SelectOrganizationPage } from '../features/organizations/OrganizationPages'
 import { ModulesPage } from '../features/organization/ModulesPage'
-import { SettingsPage } from '../features/organization/SettingsPage'
 import { ReportRunPage } from '../features/reportDesigner/ReportRunPage'
 import { ReportDesignerPage } from '../features/reportDesigner/ReportDesignerPage'
 import { ReportTemplateDetailPage } from '../features/reportDesigner/ReportTemplateDetailPage'
 import { ReportTemplatesPage } from '../features/reportDesigner/ReportTemplatesPage'
 import { RoleFormPage } from '../features/roles/RoleFormPage'
-import { TransactionCenterPage } from '../features/transactions/TransactionCenterPage'
 import { TransactionsPage } from '../features/transactions/TransactionsPage'
-import { FlowEditorPage } from '../features/transactionTypes/FlowEditorPage'
 import { TransactionRunPage } from '../features/transactionTypes/TransactionRunPage'
-import { TransactionHowItWorksPage } from '../features/transactionTypes/TransactionHowItWorksPage'
-import { TransactionRulesPage } from '../features/transactionTypes/TransactionRulesPage'
-import { TransactionTypeFormPage } from '../features/transactionTypes/TransactionTypeFormPage'
-import { TransactionTypeStartPage } from '../features/transactionTypes/TransactionTypeStartPage'
-import { TransactionWizardPage } from '../features/transactionTypes/TransactionWizardPage'
-import { TransactionTypesPage } from '../features/transactionTypes/TransactionTypesPage'
-import { TransactionTypesSoonPage } from '../features/transactionTypes/TransactionTypesSoonPage'
-import { transactionTypesOpen } from '../features/transactionTypes/availability'
 import { NotificationsPage } from '../features/approvals/NotificationsPage'
 import { AssetBoardPage } from '../features/assetBoard/AssetBoardPage'
 import { HomePage } from '../features/home/HomePage'
@@ -45,9 +37,6 @@ import { NotFound, RequireAuth, RequirePermission, RequireTenantUser, RouteError
 const tenant = (permission: string | null, element: React.ReactNode) => (
   <RequireTenantUser>{permission ? <RequirePermission permission={permission}>{element}</RequirePermission> : element}</RequireTenantUser>
 )
-
-/** A page of Jenis Transaksi: "Segera hadir" while the menu is closed. */
-const typesPage = (permission: string, element: React.ReactNode) => tenant(permission, transactionTypesOpen ? element : <TransactionTypesSoonPage />)
 
 export const router = createBrowserRouter([
   {
@@ -79,19 +68,11 @@ export const router = createBrowserRouter([
                   { path: '/dashboard-aset', element: tenant('dashboard.view', <AssetBoardPage />) },
                   { path: '/aset', element: tenant('asset.view', <AssetsPage />) },
                   { path: '/aset/:id', element: tenant('asset.view', <AssetDetailPage />) },
-                  // D-50: the Transaksi menu is the Transaction Center; the full history is Riwayat.
-                  { path: '/transaksi', element: tenant('transaction.view', <TransactionCenterPage />) },
+                  // Cylinders out to customers and back; the history of single assets is Riwayat.
+                  { path: '/transaksi', element: tenant('delivery.view', <DeliveriesPage />) },
                   { path: '/transaksi/riwayat', element: tenant('transaction.view', <TransactionsPage />) },
-                  // Organization transaction types, flows and running transactions (F-07).
-                  { path: '/transaksi/jenis', element: typesPage('transaction.view', <TransactionTypesPage />) },
-                  // F-08 "Jenis baru": template first (F08-01); an empty form is one of the choices.
-                  { path: '/transaksi/jenis/baru', element: typesPage('transaction_type.manage', <TransactionTypeStartPage />) },
-                  { path: '/transaksi/jenis/baru/kosong', element: typesPage('transaction_type.manage', <TransactionTypeFormPage />) },
-                  { path: '/transaksi/jenis/:id', element: typesPage('transaction.view', <TransactionTypeFormPage />) },
-                  { path: '/transaksi/jenis/:id/alur', element: typesPage('transaction.view', <FlowEditorPage />) },
-                  { path: '/transaksi/jenis/:id/rules', element: typesPage('transaction.view', <TransactionRulesPage />) },
-                  { path: '/transaksi/jenis/:id/panduan', element: typesPage('transaction.view', <TransactionWizardPage />) },
-                  { path: '/transaksi/jenis/:id/cara-kerja', element: typesPage('transaction.view', <TransactionHowItWorksPage />) },
+                  { path: '/transaksi/:id', element: tenant('delivery.view', <DeliveryDetailPage />) },
+                  { path: '/tracking', element: tenant('delivery.view', <TrackingPage />) },
                   // The former list of running transactions is the Riwayat tab "Sedang diproses" now; the detail stays (emails link to it).
                   { path: '/transaksi/berjalan', element: <Navigate to="/transaksi/riwayat?proses=1" replace /> },
                   { path: '/transaksi/berjalan/:id', element: tenant('transaction.view', <TransactionRunPage />) },
@@ -105,7 +86,6 @@ export const router = createBrowserRouter([
                   { path: '/ubah-password', element: <ChangePasswordPage /> },
                   { path: '/organisasi', element: tenant('organization.view', <OrganizationPage />) },
                   { path: '/modul/barcode', element: tenant('settings.manage', <ModulesPage module="barcode" />) },
-                  { path: '/pengaturan', element: tenant('settings.manage', <SettingsPage />) },
                   { path: '/pengguna', element: tenant('user.view', <UsersPage />) },
                   { path: '/pengguna/baru', element: tenant('user.create', <UserCreatePage />) },
                   { path: '/pengguna/undangan', element: tenant('user.view', <InvitationsPage />) },
@@ -118,7 +98,8 @@ export const router = createBrowserRouter([
                   { path: '/role/:id', element: <LegacyRoleRedirect /> },
                   { path: '/audit', element: tenant('audit.view', <AuditLogPage endpoint="/audit-logs" title="Audit Trail" />) },
                   { path: '/master/kategori', element: tenant('master.tenant.view', <TenantCategoriesPage />) },
-                  { path: '/master/lokasi', element: tenant('master.tenant.view', <LocationsPage />) },
+                  { path: '/master/karyawan', element: tenant('master.tenant.view', <EmployeesPage />) },
+                  { path: '/master/customer', element: tenant('master.tenant.view', <CustomersPage />) },
                   { path: '/master/departemen', element: tenant('master.tenant.view', <DepartmentsPage />) },
                   { path: '*', element: <NotFound /> },
                 ],

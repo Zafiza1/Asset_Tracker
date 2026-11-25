@@ -54,7 +54,7 @@ const departments = [{ id: 'd-keu', code: 'KEU', name: 'Keuangan' }, { id: 'd-it
 
 type Route = (url: string, init?: RequestInit) => unknown
 
-function setup(ui: React.ReactNode, route: Route, permissions = ['asset.view', 'asset.create', 'asset.update']) {
+function setup(ui: React.ReactNode, route: Route, permissions = ['asset.view', 'asset.create', 'asset.update'], path = '/aset') {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => new Response(JSON.stringify(route(String(url), init) ?? { data: [] }), { status: 200 }))
   vi.stubGlobal('fetch', fetchMock)
   const can = (p: string) => permissions.includes(p)
@@ -62,7 +62,7 @@ function setup(ui: React.ReactNode, route: Route, permissions = ['asset.view', '
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <AuthContext.Provider value={auth}>
-        <MemoryRouter initialEntries={['/aset']}>{ui}</MemoryRouter>
+        <MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>
       </AuthContext.Provider>
     </QueryClientProvider>,
   )
@@ -75,8 +75,8 @@ describe('Data Aset: penanggung jawab', () => {
   const laptop = asset('a1', 'Laptop Keuangan', { custodian_user_id: 'u-sari', custodian: { id: 'u-sari', name: 'Sari Dewi', is_active: true }, department: { id: 'd-keu', code: 'KEU', name: 'Keuangan' } })
   const printer = asset('a2', 'Printer Lama', { custodian_user_id: 'u-budi', custodian: { id: 'u-budi', name: 'Budi Santoso', is_active: false } })
 
-  it('shows the custodian column with an inactive marker', async () => {
-    setup(<AssetsPage />, (url) => (url.startsWith('/api/assets?') || url === '/api/assets' ? page([laptop, printer]) : { data: [] }))
+  it('shows the custodian column with an inactive marker when it is chosen', async () => {
+    setup(<AssetsPage />, (url) => (url.startsWith('/api/assets?') || url === '/api/assets' ? page([laptop, printer]) : { data: [] }), undefined, '/aset?columns=name,custodian')
     expect(await screen.findByRole('columnheader', { name: 'Penanggung jawab' })).toBeInTheDocument()
     expect(screen.getAllByText('Sari Dewi').length).toBeGreaterThan(0)
     const row = screen.getByText('Budi Santoso').closest('tr')!

@@ -3,10 +3,11 @@ import { currentNavTarget, tenantNavigation } from '../app/navigation'
 
 describe('current menu entry', () => {
   it.each([
-    // An entry under another entry's address: only the closer one is current.
-    ['/transaksi/jenis', '/transaksi/jenis'],
-    ['/transaksi/jenis/abc/alur', '/transaksi/jenis'],
     ['/transaksi', '/transaksi'],
+    ['/transaksi/d1', '/transaksi'],
+    ['/tracking', '/tracking'],
+    ['/master/karyawan', '/master/karyawan'],
+    ['/master/customer', '/master/customer'],
     // Pages without an entry of their own fall under the closest one.
     ['/transaksi/riwayat', '/transaksi'],
     ['/transaksi/berjalan/r1', '/transaksi'],
@@ -17,5 +18,10 @@ describe('current menu entry', () => {
     ['/asetku', null],
   ])('%s → %s', (path, entry) => {
     expect(currentNavTarget(tenantNavigation, path)).toBe(entry)
+  })
+
+  it('has no menu for what the PT SIG / PT CDO edition does not use', () => {
+    const targets = tenantNavigation.flatMap((s) => s.items).map((i) => i.to)
+    for (const removed of ['/pengaturan', '/transaksi/jenis', '/master/lokasi']) expect(targets).not.toContain(removed)
   })
 })

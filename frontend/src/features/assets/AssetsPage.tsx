@@ -40,7 +40,6 @@ const FILTERS = [
   "page",
   "search",
   "category_ids",
-  "location_id",
   "department_id",
   "custodian_id",
   "mine",
@@ -58,15 +57,13 @@ const FILTERS = [
 const VIEW_KEYS = new Set<string>(["page", "sort", "per_page", "columns"]);
 /** Labels for the "missing" filter, set from the dashboard's "Kelengkapan data" links. */
 const MISSING_LABEL: Record<string, string> = {
-  location_id: "Lokasi",
   acquisition_date: "Tanggal perolehan",
   acquisition_cost: "Nilai perolehan",
-  serial_number: "No seri",
+  serial_number: "No Manufaktur",
   image_path: "Foto aset",
 };
 const ADVANCED = [
   "category_ids",
-  "location_id",
   "department_id",
   "status",
   "archived",
@@ -86,12 +83,10 @@ const SORT_LABEL: Record<string, string> = {
   "-acquisition_date": "tanggal perolehan terbaru",
   acquisition_date: "tanggal perolehan terlama",
   status: "status (A–Z)",
-  serial_number: "no seri (A–Z)",
-  "-serial_number": "no seri (Z–A)",
+  serial_number: "No Manufaktur (A–Z)",
+  "-serial_number": "No Manufaktur (Z–A)",
   category: "kategori (A–Z)",
   "-category": "kategori (Z–A)",
-  location: "lokasi (A–Z)",
-  "-location": "lokasi (Z–A)",
   "-status": "status (Z–A)",
 };
 const dateLabel = (d: string) =>
@@ -132,8 +127,7 @@ const DEFAULT_COLUMNS = [
   "name",
   "serial_number",
   "category",
-  "location",
-  "custodian",
+  "position",
   "status",
   "barcode",
 ];
@@ -190,8 +184,6 @@ export function AssetsPage() {
 
   const categoryRows = useOptions("/tenant-masters/categories").data;
   const categories = toOptions(categoryRows);
-  const locationRows = useOptions("/locations").data;
-  const locations = toOptions(locationRows);
   const departmentRows = useOptions("/departments").data;
   const departments = toOptions(departmentRows);
   // "Aset saya" (F-09): the assets the current user answers for.
@@ -238,7 +230,7 @@ export function AssetsPage() {
   };
   const pageIds = new Set(query.data?.data.map((a) => a.id) ?? []);
   const offPage = [...selected.keys()].filter((id) => !pageIds.has(id)).length;
-  // Multiple Edit (Excel, same flow as Kategori/Lokasi): the checked rows when there are any,
+  // Multiple Edit (Excel, same flow as Kategori): the checked rows when there are any,
   // otherwise every active asset matching the applied filters. Archived assets are never in the sheet.
   const editAssets = [...selected.values()].filter((a) => !a.is_archived);
   const editIds = editAssets.map((a) => a.id);
@@ -271,15 +263,6 @@ export function AssetsPage() {
           category_ids: selectedCategories.filter((c) => c !== id).join(","),
         }),
     })),
-    ...(params.get("location_id")
-      ? [
-          {
-            key: "location",
-            label: `Lokasi: ${nameOf(locationRows, params.get("location_id"))}`,
-            clear: () => update({ location_id: "" }),
-          },
-        ]
-      : []),
     ...(params.get("department_id")
       ? [
           {
@@ -361,7 +344,7 @@ export function AssetsPage() {
             {/* Long names stop after two lines; the full name is the cell's tooltip. */}
             <span className="line-clamp-2 whitespace-normal break-words">{a.name}</span>
             <span className="block truncate text-xs font-normal text-slate-500 md:hidden">
-              {[a.category?.name, a.location?.name ?? "Tanpa lokasi", a.custodian?.name].filter(Boolean).join(" · ")}
+              {[a.serial_number, a.category?.name, a.position?.label].filter(Boolean).join(" · ")}
             </span>
           </span>
         </Link>
@@ -369,7 +352,7 @@ export function AssetsPage() {
     },
     {
       key: "serial_number",
-      header: "No Seri",
+      header: "No Manufaktur",
       sortKey: "serial_number",
       className: "w-36",
       title: (a) => a.serial_number,
@@ -391,14 +374,25 @@ export function AssetsPage() {
       hideOnMobile: true,
     },
     {
-      key: "location",
-      header: "Lokasi",
-      sortKey: "location",
+      key: "reference_number",
+      header: "No Reference",
       className: "w-40",
-      title: (a) => a.location?.name ?? "Tanpa lokasi",
+      cell: (a) => <span className="font-mono text-xs">{a.reference_number}</span>,
+      hideOnMobile: true,
+    },
+    {
+      // Where a cylinder is according to its transactions: warehouse, on the way, or a customer.
+      key: "position",
+      header: "Posisi",
+      className: "w-52",
+      title: (a) => a.position?.label,
       cell: (a) =>
-        a.location?.name ?? (
-          <span className="text-slate-400">Tanpa lokasi</span>
+        a.position ? (
+          <Link to={`/transaksi/${a.position.delivery_id}`} className="line-clamp-2 whitespace-normal hover:text-brand-700">
+            {a.position.label}
+          </Link>
+        ) : (
+          <span className="text-slate-400">{a.status === "available" || a.status === "in_use" ? "Di gudang" : "—"}</span>
         ),
       hideOnMobile: true,
     },
@@ -514,7 +508,7 @@ export function AssetsPage() {
             value={search}
             onChange={setSearch}
             onSubmit={() => update({ search })}
-            placeholder="Cari nama atau no seri"
+            placeholder="Cari nama produk, No Manufaktur, atau No Reference"
             label="Cari aset"
             aside={
               <div className="flex gap-2">
@@ -550,18 +544,6 @@ export function AssetsPage() {
               selected={draft.category_ids.split(",").filter(Boolean)}
               onChange={(ids) => advanced.set({ category_ids: ids.join(",") })}
             />
-            <Select
-              value={draft.location_id}
-              onChange={(e) => advanced.set({ location_id: e.target.value })}
-              aria-label="Filter lokasi"
-            >
-              <option value="">Lokasi: semua</option>
-              {locations.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
             <Select
               value={draft.department_id}
               onChange={(e) => advanced.set({ department_id: e.target.value })}
@@ -640,7 +622,7 @@ export function AssetsPage() {
             description={
               hasFilters
                 ? "Ubah kata kunci atau filter pencarian."
-                : "Tambahkan aset pertama Anda. Pastikan kategori dan lokasi sudah dibuat di Master Data."
+                : "Tambahkan aset pertama Anda. Pilih kategori Tabung atau Kendaraan."
             }
             action={
               hasFilters ? (

@@ -40,7 +40,7 @@ export function WidgetBody({ payload, currency }: { payload: WidgetPayload; curr
     return <Bars data={rows.map((r) => ({ key: r.status, label: r.label, value: r.count, to: `/aset?status=${r.status}` }))} />
   }
   const rows = payload.items as { id: string | null; name: string; count: number }[]
-  return <Bars data={rows.map((r) => ({ key: r.id ?? 'none', label: r.name, value: r.count, to: r.id ? `/aset?location_id=${r.id}` : undefined }))} />
+  return <Bars data={rows.map((r) => ({ key: r.id ?? 'none', label: r.name, value: r.count }))} />
 }
 
 function Statistic({ payload }: { payload: Extract<WidgetPayload, { value: unknown }> }) {

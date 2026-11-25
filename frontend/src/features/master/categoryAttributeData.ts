@@ -21,7 +21,7 @@ export function attributeRows(fields: CategoryAttribute[], values: Record<string
 /** Section labels for category attributes */
 export const SECTION_LABELS: Record<string, string> = {
   basic_information: 'Informasi Dasar',
-  location_ownership: 'Lokasi & Kepemilikan',
+  location_ownership: 'Kepemilikan',
   status_condition: 'Status & Kondisi',
   specific_attributes: 'Atribut Khusus',
   other: 'Lainnya',

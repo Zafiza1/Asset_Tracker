@@ -13,6 +13,8 @@ export interface Ref {
 
 export interface Asset {
   id: string
+  /** "No Reference": given by the system. */
+  reference_number: string
   serial_number: string | null
   name: string
   category_id: string
@@ -29,6 +31,8 @@ export interface Asset {
   department_id: string | null
   department?: Ref | null
   status: AssetStatus
+  /** Where a cylinder is according to its transactions; null when it never was on one. */
+  position?: AssetPosition | null
   acquisition_date: string | null
   acquisition_cost: string | null
   description: string | null
@@ -52,6 +56,17 @@ export interface Asset {
   created_at: string
   updated_at: string
 }
+
+export interface AssetPosition {
+  state: 'warehouse' | 'planned' | 'in_transit' | 'at_customer' | 'missing'
+  label: string
+  customer: string
+  delivery_id: string
+  delivery_number: string
+}
+
+/** Code of the standard category of cylinders (StandardCategories::CYLINDER). */
+export const CYLINDER_CATEGORY = 'AST_TABUNG'
 
 export interface AssetCustodian {
   id: string

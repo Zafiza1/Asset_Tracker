@@ -3,8 +3,9 @@ import { useState } from 'react'
 import { AddMenu } from '../../components/ui/AddMenu'
 import { ImportModal } from '../../components/ui/ImportModal'
 import type { Column } from '../../components/ui/Table'
-import type { Department, Location, TenantCategory } from '../../lib/api/types'
+import type { Customer, Department, Employee, TenantCategory } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
+import { formatDate } from '../../lib/format'
 import { CategoryAttributesModal } from './CategoryAttributes'
 import { MasterListPage, type MasterImpact } from './MasterListPage'
 import { toOptions, useOptions } from './options'
@@ -63,96 +64,82 @@ function treeNameCell(row: { name: string; code: string; depth: number; parent?:
   )
 }
 
-/** Active assets and sub-locations of a location, as compact counts ("—" when nothing depends on it). */
-function LocationUsage({ row }: { row: Location }) {
-  const assets = row.assets_count ?? 0
-  const children = row.children_count ?? 0
-  if (assets === 0 && children === 0) return <span className="text-slate-400">—</span>
+const today = () => new Date().toISOString().slice(0, 10)
+
+const POSITION_OPTIONS = [
+  { value: 'driver', label: 'Supir' },
+  { value: 'helper', label: 'Kernet' },
+  { value: 'warehouse', label: 'Petugas Gudang' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'other', label: 'Lainnya' },
+]
+
+export function EmployeesPage() {
   return (
-    <div className="flex flex-wrap gap-1">
-      {assets > 0 && <span className="rounded bg-sky-50 px-1.5 py-0.5 text-xs font-medium text-sky-800 ring-1 ring-inset ring-sky-200">{assets} aset</span>}
-      {children > 0 && (
-        <span className="rounded bg-slate-50 px-1.5 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">{children} sub-lokasi</span>
-      )}
-    </div>
+    <MasterListPage<Employee>
+      title="Karyawan"
+      description="Supir, kernet, dan karyawan lain. Supir dan kernet dipilih di mobile saat tabung dikirim atau dijemput."
+      endpoint="/employees"
+      searchPlaceholder="Cari NIK, nama, atau No HP"
+      emptyHint="Tambahkan supir dan kernet agar bisa dipilih di aplikasi mobile."
+      {...useMasterPermissions()}
+      filters={[{ name: 'position', label: 'Jabatan', options: POSITION_OPTIONS }]}
+      columns={[
+        { ...code<Employee>(), header: 'NIK' },
+        { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
+        { key: 'position', header: 'Jabatan', sortKey: 'position', className: 'w-36', cell: (r) => r.position_label },
+        { key: 'phone', header: 'No HP', className: 'w-40', hideOnMobile: true, cell: (r) => r.phone ?? '—' },
+        {
+          key: 'license',
+          header: 'SIM',
+          className: 'w-48',
+          hideOnMobile: true,
+          cell: (r) =>
+            r.license_number ? (
+              <div>
+                <div>{r.license_number}</div>
+                {r.license_expires_on && <div className={r.license_expires_on < today() ? 'text-xs font-semibold text-red-700' : 'text-xs text-slate-500'}>{r.license_expires_on < today() ? 'Habis' : 'Berlaku s.d.'} {formatDate(r.license_expires_on)}</div>}
+              </div>
+            ) : (
+              '—'
+            ),
+        },
+      ]}
+      fields={[
+        { name: 'name', label: 'Nama', required: true },
+        { name: 'code', label: 'NIK', createOnly: true, hint: 'Boleh dikosongkan: dibuat otomatis dari nama. Huruf besar, angka, - _ . (maks. 30).' },
+        { name: 'position', label: 'Jabatan', type: 'select', required: true, options: POSITION_OPTIONS, emptyOption: '— Pilih —' },
+        { name: 'phone', label: 'No HP' },
+        { name: 'license_number', label: 'No SIM', hint: 'Untuk supir.' },
+        { name: 'license_expires_on', label: 'SIM berlaku sampai', type: 'date' },
+      ]}
+    />
   )
 }
 
-/** What depends on a location, for the deactivate and archive confirmations (mirrors the API's refusals). */
-function locationImpact(row: Location): MasterImpact {
-  const assets = row.assets_count ?? 0
-  const children = row.children_count ?? 0
-  return {
-    deactivate: [
-      assets > 0 ? `${assets} aset yang berada di lokasi ini tidak berpindah.` : 'Belum ada aset aktif di lokasi ini.',
-      ...(children > 0 ? [`Lokasi ini masih memiliki ${children} sub-lokasi aktif; sistem akan menolak sampai sub-lokasinya dinonaktifkan atau diarsipkan.`] : []),
-    ],
-    archiveBlocked:
-      children > 0
-        ? `Lokasi ini masih memiliki ${children} sub-lokasi yang belum diarsipkan. Arsipkan atau pindahkan sub-lokasinya terlebih dahulu.`
-        : assets > 0
-          ? `Lokasi ini masih dipakai oleh ${assets} aset aktif. Pindahkan asetnya ke lokasi lain terlebih dahulu.`
-          : null,
-  }
-}
-
-const LOCATION_LEVEL_OPTIONS = [
-  { value: 'root', label: 'Lokasi utama' },
-  { value: 'sub', label: 'Sub-lokasi' },
-]
-
-export function LocationsPage() {
-  const locations = useOptions<Location>('/locations').data
-  const permissions = useMasterPermissions()
-  const [editing, setEditing] = useState<Location | 'new' | null>(null)
-  const [importing, setImporting] = useState(false)
-  const locationOptions = toOptions(locations)
+export function CustomersPage() {
   return (
-    <>
-      <MasterListPage<Location>
-        title="Lokasi"
-        description="Tempat aset berada, tersusun bertingkat (mis. Gedung → Lantai → Ruang)."
-        endpoint="/locations"
-        {...permissions}
-        // Adding goes through the AddMenu in headerActions (form or Excel import).
-        canCreate={false}
-        editing={editing}
-        onEditChange={setEditing}
-        searchPlaceholder="Cari kode, nama, atau alamat"
-        bulkEdit={{ title: 'Multiple Edit Lokasi', endpoint: '/locations/edit-sheet', filename: 'edit_lokasi.xlsx', noun: 'lokasi', selectable: true }}
-        impact={locationImpact}
-        headerActions={permissions.canCreate && <AddMenu label="Tambah lokasi" noun="lokasi" onForm={() => setEditing('new')} onImport={() => setImporting(true)} />}
-        filters={[
-          { name: 'parent_id', label: 'Di bawah lokasi', options: locationOptions },
-          { name: 'level', label: 'Tingkat', options: LOCATION_LEVEL_OPTIONS },
-        ]}
-        columns={({ filtered }) => [
-          { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => treeNameCell(r, filtered, r.address) },
-          code<Location>(),
-          { key: 'address', header: 'Alamat', sortKey: 'address', hideOnMobile: true, className: 'max-w-xs truncate', cell: (r) => r.address ?? <span className="text-slate-400">—</span>, title: (r) => r.address },
-          { key: 'usage', header: 'Pemakaian', className: 'w-36', sortKey: 'usage', hideOnMobile: true, cell: (r) => <LocationUsage row={r} /> },
-        ]}
-        fields={[
-          { name: 'name', label: 'Nama', required: true, placeholder: 'mis. Gudang Utama' },
-          { name: 'code', label: 'Kode', createOnly: true, placeholder: 'mis. GDG-UTAMA', hint: 'Boleh dikosongkan: kode dibuat otomatis dari nama. Huruf besar, angka, - _ . (maks. 30).' },
-          { name: 'parent_id', label: 'Lokasi induk', type: 'select', emptyOption: '— Lokasi utama —', options: locationOptions, hint: 'Kosongkan untuk lokasi tingkat teratas, mis. gedung atau kantor cabang.' },
-          { name: 'address', label: 'Alamat', type: 'textarea', placeholder: 'Alamat lengkap (opsional)' },
-        ]}
-        emptyHint="Tambahkan lokasi pertama, misalnya gudang atau kantor."
-        showColumnToggle
-        defaultColumns={['name', 'code', 'address', 'usage']}
-      />
-      {importing && (
-        <ImportModal
-          open={importing}
-          onClose={() => setImporting(false)}
-          title="Tambah Lokasi dari Excel (Import)"
-          endpoint="/locations/import"
-          templateEndpoint="/locations/template"
-          templateFilename="template_lokasi.xlsx"
-        />
-      )}
-    </>
+    <MasterListPage<Customer>
+      title="Customer"
+      description="Tujuan tabung dikirim dan tempat tabung dijemput."
+      endpoint="/customers"
+      searchPlaceholder="Cari kode, nama, alamat, atau kontak"
+      emptyHint="Tambahkan customer agar bisa dipilih di transaksi masuk dan keluar."
+      {...useMasterPermissions()}
+      columns={[
+        code<Customer>(),
+        { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
+        { key: 'address', header: 'Alamat', sortKey: 'address', hideOnMobile: true, className: 'max-w-xs truncate', cell: (r) => r.address ?? '—', title: (r) => r.address },
+        { key: 'contact', header: 'Kontak', hideOnMobile: true, cell: (r) => [r.contact_name, r.phone].filter(Boolean).join(' · ') || '—' },
+      ]}
+      fields={[
+        { name: 'name', label: 'Nama', required: true },
+        { name: 'code', label: 'Kode', createOnly: true, hint: 'Boleh dikosongkan: dibuat otomatis dari nama. Huruf besar, angka, - _ . (maks. 30).' },
+        { name: 'address', label: 'Alamat', type: 'textarea' },
+        { name: 'contact_name', label: 'Nama kontak' },
+        { name: 'phone', label: 'No HP' },
+      ]}
+    />
   )
 }
 
@@ -241,12 +228,12 @@ export function TenantCategoriesPage() {
           { key: 'description', header: 'Deskripsi', sortKey: 'description', cell: (r) => r.description ?? '—', title: (r) => r.description, hideOnMobile: true },
         ]}
         fields={[
-          { name: 'name', label: 'Nama', required: true, placeholder: 'mis. Laptop Kantor' },
-          { name: 'code', label: 'Kode', createOnly: true, placeholder: 'mis. LAPTOP', hint: 'Boleh dikosongkan: kode dibuat otomatis dari nama. Huruf besar, angka, - _ . (maks. 30).' },
+          { name: 'name', label: 'Nama', required: true, placeholder: 'mis. Tabung Oksigen' },
+          { name: 'code', label: 'Kode', createOnly: true, placeholder: 'mis. TABUNG-O2', hint: 'Boleh dikosongkan: kode dibuat otomatis dari nama. Huruf besar, angka, - _ . (maks. 30).' },
           { name: 'parent_id', label: 'Kategori induk', type: 'select', options: categories, emptyOption: '— Kategori utama —', hint: 'Subkategori mewarisi atribut kategori induknya.' },
           { name: 'description', label: 'Deskripsi', type: 'textarea' },
         ]}
-        emptyHint="Tambahkan kategori pertama, misalnya Perangkat IT, Kendaraan, atau Furnitur."
+        emptyHint="Tambahkan kategori pertama, misalnya Tabung atau Kendaraan."
         showColumnToggle
         defaultColumns={['name', 'code', 'attributes']}
       />

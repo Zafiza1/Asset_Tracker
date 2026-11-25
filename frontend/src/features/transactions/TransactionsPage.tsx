@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Plus, SearchX } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, SearchX } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { ActiveFilters, AdvancedFilters, DateRangeFilter, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
@@ -14,12 +14,10 @@ import { PillTabs } from '../../components/ui/Tabs'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { api, qs } from '../../lib/api/client'
 import type { Paginated } from '../../lib/api/types'
-import { useAuth } from '../../lib/auth/context'
 import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { formatDate } from '../../lib/format'
 import { outgoingNatureLabel, transactionTypeLabel, type AssetTransaction, type OutgoingNature, type TransactionType } from './api'
 import { TransactionChanges } from './TransactionChanges'
-import { TransactionFormModal } from './TransactionFormModal'
 import { RunList } from './RunList'
 import { runsApi } from '../transactionTypes/api'
 
@@ -56,10 +54,8 @@ const DEFAULT_COLUMNS = ['number', 'asset', 'type', 'changes', 'by']
 
 /** Asset Transactions module: every recorded activity, searchable and filterable. */
 export function TransactionsPage() {
-  const { can } = useAuth()
   const [params, setParams] = usePersistedSearchParams('/transactions')
   const [search, setSearch] = useState(params.get('search') ?? '')
-  const [creating, setCreating] = useState(false)
 
   // Persisted filters from localStorage
   const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters('/transactions')
@@ -166,14 +162,7 @@ export function TransactionsPage() {
     <>
       <PageHeader
         title="Riwayat Transaksi"
-        description="Riwayat perpindahan, peminjaman, aset keluar dan masuk organisasi, serta perubahan status aset."
-        actions={
-          can('transaction.create') && (
-            <Button onClick={() => setCreating(true)}>
-              <Plus className="size-4" aria-hidden /> Catat transaksi
-            </Button>
-          )
-        }
+        description="Riwayat tiap aset: keluar, masuk, perubahan status, dan penambahan. Transaksi baru dibuat di menu Transaksi."
       />
       <Card>
         <div className="border-b border-slate-100 px-3 pt-3">
@@ -251,13 +240,7 @@ export function TransactionsPage() {
                 <Button variant="secondary" onClick={resetAll}>
                   Hapus pencarian dan filter
                 </Button>
-              ) : (
-                can('transaction.create') && (
-                  <Button onClick={() => setCreating(true)}>
-                    <Plus className="size-4" aria-hidden /> Catat transaksi
-                  </Button>
-                )
-              )
+              ) : undefined
             }
           />
         ) : (
@@ -276,7 +259,6 @@ export function TransactionsPage() {
         </>
         )}
       </Card>
-      {creating && <TransactionFormModal onClose={() => setCreating(false)} />}
     </>
   )
 }
