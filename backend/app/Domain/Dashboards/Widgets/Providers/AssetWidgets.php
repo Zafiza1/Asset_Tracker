@@ -12,8 +12,11 @@ use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Domain\Dashboards\Widgets\WidgetContext;
+use App\Domain\Deliveries\Fleet;
 use App\Domain\Shared\Tenancy\Tenancy;
+use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Services\CategoryAttributeService;
+use App\Domain\TenantMaster\StandardCategories;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -106,7 +109,7 @@ final class AssetWidgets
      */
     public function dataCompleteness(WidgetContext $ctx): array
     {
-        $fields = array_keys(AssetDataQuality::FIELDS);
+        $fields = AssetDataQuality::columns();
         $select = ['count(*) AS total'];
         foreach ($fields as $column) {
             $select[] = 'count(*) FILTER (WHERE '.AssetDataQuality::filledCondition($column).") AS {$column}";
@@ -389,7 +392,7 @@ final class AssetWidgets
         $query = fn () => $ctx->assets()->where(fn ($q) => $q
             ->where(fn ($w) => $w->whereNull('serial_number')->orWhere('serial_number', ''))
             ->orWhereExists($missing)
-            ->orWhere(fn ($w) => $w->whereNull('location_id')->where('status', '!=', AssetStatus::DISPOSED)));
+            ->when(config('edition.locations'), fn ($w) => $w->orWhere(fn ($l) => $l->whereNull('location_id')->where('status', '!=', AssetStatus::DISPOSED))));
 
         $assets = $query()->with(['category:id,name', 'location:id,name'])->orderBy('asset_number')->limit($limit)->get();
 
@@ -403,7 +406,7 @@ final class AssetWidgets
                 if ($a->serial_number === null || trim((string) $a->serial_number) === '') {
                     $missingFields[] = 'No seri';
                 }
-                if ($a->location_id === null && $a->status !== AssetStatus::DISPOSED) {
+                if (config('edition.locations') && $a->location_id === null && $a->status !== AssetStatus::DISPOSED) {
                     $missingFields[] = 'Lokasi';
                 }
                 $values = $a->attribute_values ?? [];
@@ -471,6 +474,10 @@ final class AssetWidgets
     /** @return list<array{id: string|null, name: string, count: int}> */
     private function byLocation(WidgetContext $ctx, int $limit): array
     {
+        if (! config('edition.locations')) {
+            return $this->byPosition($ctx, $limit);
+        }
+
         return $ctx->assets()->toBase()
             ->leftJoin('locations as l', 'l.id', '=', 'assets.location_id')
             ->groupBy('l.id', 'l.name')
@@ -478,6 +485,31 @@ final class AssetWidgets
             ->limit($limit)
             ->get(['l.id', 'l.name', DB::raw('count(*) AS count')])
             ->map(fn ($r) => ['id' => $r->id, 'name' => $r->name ?? 'Tanpa lokasi', 'count' => (int) $r->count])->all();
+    }
+
+    /**
+     * Without storage locations: cylinders by where their deliveries left them (warehouse, on the
+     * way, or a customer).
+     *
+     * @return list<array{id: null, name: string, count: int}>
+     */
+    private function byPosition(WidgetContext $ctx, int $limit): array
+    {
+        $cylinders = TenantAssetCategory::query()->where('code', StandardCategories::CYLINDER)->value('path');
+        if ($cylinders === null) {
+            return [];
+        }
+        $assets = $ctx->assets()->whereIn('assets.category_id', TenantAssetCategory::query()->select('id')->where('path', 'like', $cylinders.'%'))
+            ->pluck('assets.status', 'assets.id');
+        $positions = Fleet::positions($assets->keys()->all());
+
+        return $assets->map(fn (string $status, string $id) => match ($positions[$id]['state'] ?? null) {
+            'in_transit' => 'Dalam perjalanan',
+            'at_customer' => $positions[$id]['customer'],
+            'missing' => 'Selisih',
+            default => in_array($status, [AssetStatus::AVAILABLE, AssetStatus::IN_USE], true) ? 'Gudang' : AssetStatus::LABELS[$status],
+        })->countBy()->sortDesc()->take($limit)
+            ->map(fn (int $count, string $name) => ['id' => null, 'name' => $name, 'count' => $count])->values()->all();
     }
 
     /**

@@ -24,7 +24,7 @@ final class EnsureLicensed
 
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->isMethodSafe()) {
+        if ($request->isMethodSafe() || ! config('edition.licensing')) {
             return $next($request);
         }
 

@@ -15,8 +15,10 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Tenant\ApprovalController;
 use App\Http\Controllers\Tenant\AuditLogController;
 use App\Http\Controllers\Tenant\CategoryAttributeController;
+use App\Http\Controllers\Tenant\CustomerController;
 use App\Http\Controllers\Tenant\Dashboards\HomeController;
 use App\Http\Controllers\Tenant\DepartmentController;
+use App\Http\Controllers\Tenant\EmployeeController;
 use App\Http\Controllers\Tenant\GenericCatalogController;
 use App\Http\Controllers\Tenant\InvitationController;
 use App\Http\Controllers\Tenant\LicenseCodeController;
@@ -148,6 +150,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     $masters = [
         'departments' => [DepartmentController::class, 'department', 'department'],
         'locations' => [LocationController::class, 'location', 'location'],
+        'employees' => [EmployeeController::class, 'employee', 'employee'],
+        'customers' => [CustomerController::class, 'customer', 'customer'],
         'tenant-masters/categories' => [TenantCategoryController::class, 'tenantCategory', 'category'],
         'asset-definitions' => [TenantDefinitionController::class, 'tenantDefinition', null],
     ];
@@ -210,6 +214,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     // Operational modules, one route file each; see config/modules.php for maintenance switches.
     require __DIR__.'/modules/assets.php';
     require __DIR__.'/modules/transactions.php';
+    require __DIR__.'/modules/deliveries.php';
     require __DIR__.'/modules/analytics.php';
     require __DIR__.'/modules/reports.php';
 });

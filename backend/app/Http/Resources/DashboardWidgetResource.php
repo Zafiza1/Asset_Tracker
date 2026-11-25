@@ -16,7 +16,7 @@ class DashboardWidgetResource extends JsonResource
             'widget_key' => $this->whenLoaded('catalog', fn () => $this->catalog->widget_key),
             'component_type' => $this->whenLoaded('catalog', fn () => $this->catalog->component_type),
             // The custom title, else the catalog name.
-            'title' => $this->title ?? $this->whenLoaded('catalog', fn () => $this->catalog->name),
+            'title' => $this->title ?? $this->whenLoaded('catalog', fn () => WidgetCatalogResource::nameOf($this->catalog)),
             'custom_title' => $this->title,
             'configuration' => (object) $this->configuration,
             'layout' => (object) $this->layout,

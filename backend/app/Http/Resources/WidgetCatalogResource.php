@@ -14,7 +14,7 @@ class WidgetCatalogResource extends JsonResource
         return [
             'id' => $this->id,
             'widget_key' => $this->widget_key,
-            'name' => $this->name,
+            'name' => self::nameOf($this->resource),
             'description' => $this->description,
             'component_type' => $this->component_type,
             'required_permission' => $this->required_permission,
@@ -23,5 +23,11 @@ class WidgetCatalogResource extends JsonResource
             'supported_data_sources' => $this->supported_data_sources,
             'default_layout' => (object) $this->default_layout,
         ];
+    }
+
+    /** Without storage locations the location widget shows where the cylinders are (AssetWidgets::byPosition). */
+    public static function nameOf(WidgetCatalog $widget): string
+    {
+        return $widget->widget_key === 'assets_by_location' && ! config('edition.locations') ? 'Posisi Tabung' : $widget->name;
     }
 }

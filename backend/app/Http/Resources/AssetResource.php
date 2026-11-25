@@ -17,6 +17,8 @@ class AssetResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            // "No Reference (dari sistem)": the number the system gave the asset.
+            'reference_number' => $this->asset_number,
             'serial_number' => $this->serial_number,
             'name' => $this->name,
             'category_id' => $this->category_id,
@@ -37,6 +39,8 @@ class AssetResource extends JsonResource
             'department_id' => $this->department_id,
             'department' => $this->whenLoaded('department', fn () => Ref::of($this->department)),
             'status' => $this->status,
+            // Where a cylinder is according to its deliveries (AssetController fills it for lists and the detail).
+            'position' => $request->attributes->get('asset_positions', [])[$this->id] ?? null,
             'acquisition_date' => $this->acquisition_date?->toDateString(),
             'acquisition_cost' => $this->acquisition_cost,
             'description' => $this->description,

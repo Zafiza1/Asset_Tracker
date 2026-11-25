@@ -7,7 +7,9 @@ use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Identity\Models\OrganizationMember;
+use App\Domain\Organization\Models\Customer;
 use App\Domain\Organization\Models\Department;
+use App\Domain\Organization\Models\Employee;
 use App\Domain\Organization\Models\Location;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use Carbon\CarbonInterface;
@@ -43,6 +45,11 @@ final class ApprovalDetails
         'parent_id' => 'Induk',
         'status' => 'Status',
         'address' => 'Alamat',
+        'position' => 'Jabatan',
+        'phone' => 'No HP',
+        'license_number' => 'No SIM',
+        'license_expires_on' => 'Masa berlaku SIM',
+        'contact_name' => 'Nama kontak',
         'description' => 'Deskripsi',
         'acquisition_date' => 'Tanggal perolehan',
         'acquisition_cost' => 'Biaya perolehan',
@@ -64,6 +71,8 @@ final class ApprovalDetails
         'location' => Location::class,
         'category' => TenantAssetCategory::class,
         'department' => Department::class,
+        'employee' => Employee::class,
+        'customer' => Customer::class,
     ];
 
     /** @return list<array{label: string, value: string, current?: string}> */
@@ -151,6 +160,7 @@ final class ApprovalDetails
             'custodian_user_id' => self::person($value),
             'parent_id' => self::name(ApprovalActions::entity($approval->action) === 'location' ? Location::class : TenantAssetCategory::class, $value),
             'type' => TransactionType::LABELS[$value] ?? (string) $value,
+            'position' => Employee::POSITIONS[$value] ?? (string) $value,
             'to_status' => AssetStatus::LABELS[$value] ?? (string) $value,
             'status' => AssetStatus::LABELS[$value] ?? self::MASTER_STATUS[$value] ?? (string) $value,
             'acquisition_cost' => is_numeric($value) ? 'Rp '.number_format((float) $value, 0, ',', '.') : (string) $value,

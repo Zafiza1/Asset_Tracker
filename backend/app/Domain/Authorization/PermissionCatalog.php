@@ -69,6 +69,10 @@ final class PermissionCatalog
         // template (codesInGroups 'transaction') does not hold them; only Super Admin and Supervisor may.
         'transaction_type.manage' => ['tenant', 'transaction_setup', 'Mengelola jenis transaksi dan field-nya'],
         'transaction_flow.manage' => ['tenant', 'transaction_setup', 'Mengelola dan menerbitkan alur transaksi'],
+        // Deliveries of cylinders: who plans them, and who scans and reports on the way (driver, helper).
+        'delivery.view' => ['tenant', 'delivery', 'Melihat pengiriman tabung dan tracking'],
+        'delivery.manage' => ['tenant', 'delivery', 'Membuat, mengubah, dan membatalkan transaksi masuk/keluar tabung'],
+        'delivery.operate' => ['tenant', 'delivery', 'Scan muat/bongkar, isi supir & kernet, dan lapor perjalanan'],
         'report.view' => ['tenant', 'report', 'Melihat dashboard dan laporan'],
         'report.export' => ['tenant', 'report', 'Mengekspor laporan'],
         // Custom Report Designer: its own group so the Admin template (codesInGroups 'report')

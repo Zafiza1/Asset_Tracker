@@ -12,8 +12,11 @@ use App\Domain\Dashboards\Models\Dashboard;
 use App\Domain\Dashboards\Models\DashboardTemplate;
 use App\Domain\Dashboards\Models\DashboardWidget;
 use App\Domain\Dashboards\Models\WidgetCatalog;
+use App\Domain\Deliveries\Models\Delivery;
 use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\User;
+use App\Domain\Organization\Models\Customer;
+use App\Domain\Organization\Models\Employee;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\ReportDesigner\Models\ReportExport;
 use App\Domain\ReportDesigner\Models\ReportTemplate;
@@ -166,8 +169,18 @@ class RouteSecurityTest extends TestCase
         $dashboardTemplate = (new DashboardTemplate)->forceFill(['organization_id' => $orgB->id, 'template_key' => 'beta', 'name' => 'Beta',
             'dashboard_type' => 'custom', 'scope' => 'organization']);
         $dashboardTemplate->save();
+        $employee = (new Employee)->forceFill(['organization_id' => $orgB->id, 'code' => 'E1', 'name' => 'Supir', 'position' => 'driver']);
+        $employee->save();
+        $customer = (new Customer)->forceFill(['organization_id' => $orgB->id, 'code' => 'C1', 'name' => 'Customer']);
+        $customer->save();
+        $delivery = (new Delivery)->forceFill(['organization_id' => $orgB->id, 'number' => 'OUT-2026-000001', 'direction' => 'outgoing',
+            'planned_date' => now()->toDateString(), 'created_by' => $adminB->id]);
+        $delivery->save();
 
         return [
+            'employee' => $employee->id,
+            'customer' => $customer->id,
+            'delivery' => $delivery->id,
             'dashboard' => $dashboard->id,
             'widget' => $widget->id,
             'dashboardTemplate' => $dashboardTemplate->id,

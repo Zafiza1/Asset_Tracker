@@ -8,6 +8,8 @@ use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\AssetTimeline;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Assets\Services\AssetService;
+use App\Domain\Deliveries\Fleet;
+use App\Domain\GenericMaster\Attributes\AttributeType;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Department;
@@ -17,7 +19,9 @@ use App\Domain\Reports\AssetReport;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use App\Domain\TenantMaster\Services\CategoryAttributeService;
+use App\Domain\TenantMaster\StandardCategories;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AssetResource;
 use App\Http\Resources\AssetTransactionResource;
@@ -32,6 +36,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -68,7 +73,10 @@ class AssetController extends Controller
         // Ties (same status, same date) are broken by id, so no asset repeats or vanishes between pages.
         ListQuery::sort($query, $request, AssetReport::sorts(), '-created_at');
 
-        return AssetResource::collection($query->paginate(ListQuery::perPage($request))->withQueryString());
+        $page = $query->paginate(ListQuery::perPage($request))->withQueryString();
+        $request->attributes->set('asset_positions', Fleet::positions($page->pluck('id')->all()));
+
+        return AssetResource::collection($page);
     }
 
     /**
@@ -102,7 +110,8 @@ class AssetController extends Controller
         $query = $this->scope->apply(Asset::query())->with(self::RELATIONS)
             ->when($request->query('search'), fn ($q, $term) => $q->where(fn ($w) => $w
                 ->where('name', 'ilike', ListQuery::like($term))
-                ->orWhere('serial_number', 'ilike', ListQuery::like($term))))
+                ->orWhere('serial_number', 'ilike', ListQuery::like($term))
+                ->orWhere('asset_number', 'ilike', ListQuery::like($term))))
             ->when($categoryIds, fn ($q) => $q->whereIn('category_id', $this->subtree(TenantAssetCategory::query(), $categoryIds)))
             ->when($request->query('location_id'), fn ($q, $id) => $q->whereIn('location_id', $this->subtree(Location::query(), [$id])))
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
@@ -125,8 +134,10 @@ class AssetController extends Controller
     }
 
     /** Includes the category's fields, so the values can be shown with their labels. */
-    public function show(Asset $asset): AssetResource
+    public function show(Request $request, Asset $asset): AssetResource
     {
+        $request->attributes->set('asset_positions', Fleet::positions([$asset->id]));
+
         return (new AssetResource($asset->load([...self::RELATIONS, 'creator'])))
             ->additional(['attribute_fields' => CategoryAttributeResource::collection($this->attributes->effective($asset->category_id))]);
     }
@@ -144,14 +155,14 @@ class AssetController extends Controller
             ?? $query->whereRaw('lower(serial_number) = ?', [mb_strtolower($code)])->first()
             ?? throw new ApiException('ASSET_NOT_FOUND', 'Aset dengan kode tersebut tidak ditemukan atau di luar cakupan data Anda.', 404);
 
-        return $this->show($asset);
+        return $this->show($request, $asset);
     }
 
     public function store(Request $request): AssetResource
     {
         $data = $request->validate([
             ...$this->descriptiveRules(creating: true),
-            'location_id' => ['required', 'uuid'],
+            'location_id' => [config('edition.locations') ? 'required' : 'nullable', 'uuid'],
             'status' => ['nullable', Rule::in(AssetStatus::INITIAL)],
             'registered_on' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after:1999-12-31'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -256,15 +267,15 @@ class AssetController extends Controller
             $data = Validator::make($row, [
                 ...Arr::only($rules, ['name', 'serial_number', 'acquisition_date', 'acquisition_cost', 'description']),
                 'category_code' => ['required', 'string'],
-                'location_code' => ['required', 'string'],
+                'location_code' => [config('edition.locations') ? 'required' : 'nullable', 'string'],
                 'status' => ['nullable', Rule::in(AssetStatus::INITIAL)],
                 'condition' => ['nullable', 'string'],
                 ...self::RESPONSIBILITY_RULES,
             ], SpreadsheetImport::messages(), SpreadsheetImport::attributes($columns))->validate();
 
             $data['category_id'] = SpreadsheetImport::idByCode(TenantAssetCategory::query(), $data['category_code'], 'Kategori');
-            $data['location_id'] = SpreadsheetImport::idByCode(Location::query(), $data['location_code'], 'Lokasi');
-            $data['attributes'] = $this->importConditionValue($data['category_id'], $data['condition'] ?? null);
+            $data['location_id'] = SpreadsheetImport::idByCode(Location::query(), $data['location_code'] ?? null, 'Lokasi');
+            $data['attributes'] = [...$this->importFieldValues($data['category_id'], $row), ...$this->importConditionValue($data['category_id'], $data['condition'] ?? null)];
             $data += $this->importResponsibility($data);
             $this->assets->create(Arr::except($data, ['category_code', 'location_code', 'condition', 'department_code', 'custodian_email']));
         });
@@ -280,8 +291,11 @@ class AssetController extends Controller
             'Status' => array_map(fn ($s) => AssetStatus::LABELS[$s], AssetStatus::INITIAL),
             'Kondisi' => array_column(self::conditionOptions(), 'label'),
             'Departemen' => SpreadsheetImport::codeList(Department::query()),
+            ...$this->importFields()->filter(fn (array $f) => $f['options'] !== [])->mapWithKeys(fn (array $f) => [$f['label'] => array_values($f['options'])])->all(),
         ], [
-            'Kategori dan lokasi harus sudah dibuat sebelum mengimpor aset. Nomor aset dibuat otomatis oleh sistem.',
+            config('edition.locations')
+                ? 'Kategori dan lokasi harus sudah dibuat sebelum mengimpor aset. Nomor aset dibuat otomatis oleh sistem.'
+                : 'Untuk kategori Tabung isi semua kolom bertanda (Tabung); untuk Kendaraan cukup Nomor Polisi dan Kondisi. No Reference dibuat otomatis oleh sistem.',
             'Penanggung jawab diisi dengan email anggota aktif organisasi. Departemen dan penanggung jawab boleh dikosongkan.',
         ]);
     }
@@ -397,15 +411,70 @@ class AssetController extends Controller
         return [
             new ImportColumn('name', 'Nama Aset', required: true, hint: 'Nama aset, maksimal 150 karakter. Contoh: Laptop Dell Latitude 5440', width: 32),
             new ImportColumn('category_code', 'Kategori', required: true, hint: 'Pilih kategori aset dari daftar.', list: 'Kategori', width: 34),
-            new ImportColumn('location_code', 'Lokasi', required: true, hint: 'Pilih lokasi aset dari daftar.', list: 'Lokasi', width: 34),
+            ...(config('edition.locations') ? [new ImportColumn('location_code', 'Lokasi', required: true, hint: 'Pilih lokasi aset dari daftar.', list: 'Lokasi', width: 34)] : []),
             new ImportColumn('status', 'Status', hint: 'Pilih status awal. Jika kosong: Aktif.', list: 'Status', width: 18),
-            new ImportColumn('condition', 'Kondisi', required: true, hint: 'Pilih kondisi aset dari daftar.', list: 'Kondisi', width: 18),
-            new ImportColumn('serial_number', 'No Seri', hint: 'Nomor seri aset yang dipakai sebagai nomor alias (misalnya nomor seri pabrik), harus unik bila diisi. Contoh: SN-2024-0001', width: 22),
+            new ImportColumn('condition', 'Kondisi', required: config('edition.locations'), hint: 'Pilih kondisi aset dari daftar.', list: 'Kondisi', width: 18),
+            new ImportColumn('serial_number', config('edition.locations') ? 'No Seri' : 'No Manufaktur / No Seri', hint: 'Nomor seri aset yang dipakai sebagai nomor alias (misalnya nomor seri pabrik), harus unik bila diisi. Contoh: SN-2024-0001', width: 22),
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Tanggal pembelian/perolehan, format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
             new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
             new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Boleh dikosongkan.', width: 40),
             ...self::responsibilityColumns(),
+            ...$this->importFields()->map(fn (array $f, string $column) => new ImportColumn($column, $f['label'], hint: $f['hint'],
+                list: $f['options'] === [] ? null : $f['label'],
+                type: match ($f['type']) {
+                    AttributeType::DATE => ImportColumn::DATE,
+                    AttributeType::INTEGER, AttributeType::DECIMAL => ImportColumn::NUMBER,
+                    default => ImportColumn::TEXT,
+                }, optional: true))->values()->all(),
         ];
+    }
+
+    /**
+     * Edition without storage locations (PT SIG / PT CDO): the template also asks for the fields of
+     * a cylinder and the plate of a vehicle, so either can be imported with its required fields.
+     *
+     * @return Collection<string, array{label: string, key: string, type: string, hint: string, options: array<string, string>}> by column
+     */
+    private function importFields(): Collection
+    {
+        if (config('edition.locations')) {
+            return collect();
+        }
+        $fieldsOf = fn (string $code) => ($id = TenantAssetCategory::query()->where('code', $code)->value('id')) === null ? collect() : $this->attributes->effective($id);
+        $column = fn (TenantCategoryAttribute $a, string $of) => ['field_'.$a->key => [
+            'label' => "{$a->label} ({$of})", 'key' => $a->key, 'type' => $a->data_type,
+            'hint' => $a->is_required ? "Wajib untuk {$of}." : "Untuk {$of}, boleh dikosongkan.",
+            'options' => array_column($a->options ?? [], 'label', 'value'),
+        ]];
+
+        return $fieldsOf(StandardCategories::CYLINDER)->mapWithKeys(fn ($a) => $column($a, 'Tabung'))
+            ->union($fieldsOf(StandardCategories::VEHICLE)->where('label', Fleet::PLATE_LABEL)->mapWithKeys(fn ($a) => $column($a, 'Kendaraan')));
+    }
+
+    /**
+     * Values of the importFields() columns that belong to the row's category, by field key. A value
+     * of the wrong kind is passed on as is, so the field's own validation reports it.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function importFieldValues(string $categoryId, array $row): array
+    {
+        $own = $this->attributes->effective($categoryId)->pluck('key')->flip();
+        $values = [];
+        foreach ($this->importFields() as $column => $field) {
+            $value = $row[$column] ?? null;
+            if ($value === null || ! $own->has($field['key'])) {
+                continue;
+            }
+            $values[$field['key']] = match (true) {
+                $field['options'] !== [] => array_search(mb_strtolower(trim((string) $value)), array_map('mb_strtolower', $field['options']), true) ?: $value,
+                $field['type'] === AttributeType::INTEGER && is_numeric($value) && (float) $value === floor((float) $value) => (int) $value,
+                default => (string) $value,
+            };
+        }
+
+        return $values;
     }
 
     /** Spreadsheet validation of the F-09 columns; the references are resolved by importResponsibility(). */

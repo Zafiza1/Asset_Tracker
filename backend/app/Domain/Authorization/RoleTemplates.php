@@ -30,7 +30,7 @@ final class RoleTemplates
         // Supervisor: every group except license, no inviting and no profile editing.
         // Admin: the operational groups, plus reading the organization profile.
         $supervisorPermissions = array_diff($allTenantPermissions, PermissionCatalog::codesInGroups(['license']), [self::INVITE_PERMISSION, self::ORGANIZATION_MANAGE_PERMISSION]);
-        $adminPermissions = [...PermissionCatalog::codesInGroups(['asset', 'dashboard', 'document', 'master', 'report', 'transaction']), self::ORGANIZATION_VIEW_PERMISSION];
+        $adminPermissions = [...PermissionCatalog::codesInGroups(['asset', 'dashboard', 'delivery', 'document', 'master', 'report', 'transaction']), self::ORGANIZATION_VIEW_PERMISSION];
 
         return [
             self::SUPER_ADMIN => [
@@ -47,7 +47,7 @@ final class RoleTemplates
             ],
             self::ADMIN => [
                 'name' => 'Admin',
-                'description' => 'Akses aset, dokumen, master data, laporan, dashboard, dan transaksi.',
+                'description' => 'Akses aset, dokumen, master data, laporan, dashboard, transaksi, dan pengiriman.',
                 'locked' => false,
                 'permissions' => array_values($adminPermissions),
             ],

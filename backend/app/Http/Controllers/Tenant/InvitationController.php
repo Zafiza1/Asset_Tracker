@@ -66,7 +66,7 @@ class InvitationController extends Controller
             'employee_number' => ['nullable', 'string', 'max:50'],
             'job_title' => ['nullable', 'string', 'max:100'],
             'home_department_id' => ['nullable', 'uuid'],
-            'license_code_id' => ['required', 'uuid'],
+            'license_code_id' => [config('edition.licensing') ? 'required' : 'nullable', 'uuid'],
             'role_ids' => ['required_without:memberships', 'array', 'min:1'],
             'role_ids.*' => ['uuid'],
             'memberships' => ['sometimes', 'array', 'min:1'],

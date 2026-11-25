@@ -13,6 +13,7 @@ use App\Domain\AssetTransactions\Models\TransactionTask;
 use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Audit\Models\AuditLog;
+use App\Domain\Deliveries\Models\Delivery;
 use App\Domain\Identity\Models\OrganizationInvitation;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
@@ -52,6 +53,7 @@ final class HomeCards
         // One inbox (as the Persetujuan page): steps of transactions and data change requests.
         'decisions' => ['approval.manage', 'transaction.view'],
         'my_requests' => null,
+        'deliveries' => 'delivery.view',
         'my_assets' => 'asset.view',
         'overdue_outgoing' => 'transaction.view',
         'overdue_loans' => 'transaction.view',
@@ -94,7 +96,7 @@ final class HomeCards
             $today = CarbonImmutable::now($tenant->organization->timezone ?: 'UTC')->startOfDay();
             $cards = [];
             foreach (self::CARDS as $key => $permission) {
-                if (isset(self::HIDDEN_WITH[$key]) && $tenant->can(self::HIDDEN_WITH[$key])) {
+                if ((isset(self::HIDDEN_WITH[$key]) && $tenant->can(self::HIDDEN_WITH[$key])) || ($key === 'license' && ! config('edition.licensing'))) {
                     continue;
                 }
                 if ($permission === null || array_filter((array) $permission, fn (string $p) => $tenant->can($p)) !== []) {
@@ -124,6 +126,7 @@ final class HomeCards
         return match ($key) {
             'decisions' => $this->decisions($today),
             'my_requests' => $this->myRequests($today),
+            'deliveries' => $this->deliveries(),
             'my_assets' => $this->myAssets(),
             'overdue_outgoing' => $this->overdueOutgoing($today),
             'overdue_loans' => $this->overdueLoans($today),
@@ -307,14 +310,33 @@ final class HomeCards
         $counts = [
             'no_serial_number' => $this->assets()->where(fn ($q) => $q->whereNull('serial_number')->orWhere('serial_number', ''))->count(),
             'missing_required_attribute' => $this->assets()->whereExists($required)->count(),
-            'no_location' => $this->assets()->whereNull('location_id')->where('status', '!=', AssetStatus::DISPOSED)->count(),
+            'no_location' => config('edition.locations') ? $this->assets()->whereNull('location_id')->where('status', '!=', AssetStatus::DISPOSED)->count() : 0,
         ];
 
         return ['count' => $this->assets()->where(fn ($q) => $q
             ->whereNull('serial_number')->orWhere('serial_number', '')
             ->orWhereExists($required)
-            ->orWhere(fn ($w) => $w->whereNull('location_id')->where('status', '!=', AssetStatus::DISPOSED)))->count(),
+            ->when(config('edition.locations'), fn ($w) => $w->orWhere(fn ($l) => $l->whereNull('location_id')->where('status', '!=', AssetStatus::DISPOSED))))->count(),
             'counts' => $counts];
+    }
+
+    /** Deliveries of cylinders that have not ended; issues = on the way and last reported a problem. */
+    private function deliveries(): array
+    {
+        $open = Delivery::visible(Delivery::query())->whereIn('status', Delivery::OPEN)->pluck('status', 'id');
+        $moving = $open->filter(fn (string $status) => $status === Delivery::IN_TRANSIT)->keys();
+        $issues = DB::query()->fromSub(
+            DB::table('delivery_events')->selectRaw('DISTINCT ON (delivery_id) delivery_id, type')->whereIn('delivery_id', $moving)
+                ->where('type', '!=', 'position')->orderBy('delivery_id')->orderByDesc('recorded_at')->orderByDesc('id'), 'last')
+            ->where('type', 'issue')->count();
+        $counts = $open->countBy();
+
+        return [
+            'draft' => $counts[Delivery::DRAFT] ?? 0,
+            'loading' => $counts[Delivery::LOADING] ?? 0,
+            'in_transit' => $counts[Delivery::IN_TRANSIT] ?? 0,
+            'issues' => $issues,
+        ];
     }
 
     /** F-09: active assets the user answers for (same list as "Aset saya"). */

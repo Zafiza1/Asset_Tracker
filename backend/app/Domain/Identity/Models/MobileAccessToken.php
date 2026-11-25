@@ -78,8 +78,17 @@ class MobileAccessToken extends PersonalAccessToken
      */
     public const TRANSACTION_WRITE = 'transaction:write';
 
+    /** Deliveries (crew, scans, reports on the way): issued to accounts with delivery.operate. */
+    public const DELIVERY_WRITE = 'delivery:write';
+
     /** Writes that need an ability on the token ("METHOD uri" => ability). */
-    public const ABILITY_ROUTES = ['POST api/transactions' => self::TRANSACTION_WRITE];
+    public const ABILITY_ROUTES = [
+        'POST api/transactions' => self::TRANSACTION_WRITE,
+        'PUT api/deliveries/{delivery}/crew' => self::DELIVERY_WRITE,
+        'POST api/deliveries/{delivery}/scan' => self::DELIVERY_WRITE,
+        'POST api/deliveries/{delivery}/unscan' => self::DELIVERY_WRITE,
+        'POST api/deliveries/{delivery}/events' => self::DELIVERY_WRITE,
+    ];
 
     /** Transaction types the app records; the others stay on the web. */
     public const TRANSACTION_TYPES = ['outgoing', 'incoming'];
@@ -103,7 +112,7 @@ class MobileAccessToken extends PersonalAccessToken
         $ability = self::ABILITY_ROUTES[$key] ?? null;
 
         return $ability !== null && $this->can($ability)
-            && in_array($request->input('type'), self::TRANSACTION_TYPES, true);
+            && ($ability !== self::TRANSACTION_WRITE || in_array($request->input('type'), self::TRANSACTION_TYPES, true));
     }
 
     /** Abilities a new token of this account gets in the organization (context of that organization). */
@@ -112,6 +121,9 @@ class MobileAccessToken extends PersonalAccessToken
         $abilities = ['read'];
         if ($can('transaction.create') && ($can('asset.outgoing') || $can('asset.incoming'))) {
             $abilities[] = self::TRANSACTION_WRITE;
+        }
+        if ($can('delivery.operate')) {
+            $abilities[] = self::DELIVERY_WRITE;
         }
 
         return $abilities;

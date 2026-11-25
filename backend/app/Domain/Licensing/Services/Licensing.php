@@ -57,6 +57,9 @@ final class Licensing
      */
     public function assertSeats(string $organizationId, int $additional = 1): void
     {
+        if (! config('edition.licensing')) {
+            return;
+        }
         Organization::query()->whereKey($organizationId)->lockForUpdate()->first();
         $status = $this->status($organizationId);
 

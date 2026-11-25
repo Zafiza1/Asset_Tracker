@@ -164,6 +164,26 @@ final class AssetTransactionService
         }
     }
 
+    /**
+     * The outgoing or incoming row of every cylinder of a delivery, under the delivery's number
+     * (null: a new one). The delivery was authorized when it was planned and holds its cylinders,
+     * so only the core rules of the type apply.
+     *
+     * @param  list<string>  $assetIds
+     * @param  array<string, mixed>  $data
+     */
+    public function recordForDelivery(string $type, array $assetIds, ?string $number, array $data): void
+    {
+        if (! in_array($type, [TransactionType::OUTGOING, TransactionType::INCOMING], true)) {
+            throw new \LogicException("Deliveries do not record {$type} transactions.");
+        }
+        $assets = Asset::query()->whereKey($assetIds)->orderBy('id')->lockForUpdate()->get();
+        $number ??= $this->log->nextNumber($type);
+        foreach ($assets as $asset) {
+            $this->withAssetContext($asset, $assets->count() > 1, fn () => $this->apply($asset, $type, $data, $number));
+        }
+    }
+
     /** @param array<string, mixed> $data */
     private function apply(Asset $asset, string $type, array $data, string $number, ?TransactionTypeDefinition $definition = null): AssetTransaction
     {
@@ -444,13 +464,20 @@ final class AssetTransactionService
     /**
      * Assets held by a running transaction take no other transaction (D-29). One exception: a
      * transaction of the type that closes the run's type (closes_type_id), while the run waits
-     * for it at a "wait for the paired transaction" step.
+     * for it at a "wait for the paired transaction" step. A cylinder on an open delivery is held too.
      *
      * @param  list<Asset>  $assets
      * @return list<string> ids of the runs the transaction closes (their assets stay theirs)
      */
     public static function assertNotHeldByRun(array $assets, ?TransactionTypeDefinition $closing = null): array
     {
+        $delivery = DB::table('delivery_items as di')->join('deliveries as d', 'd.id', '=', 'di.delivery_id')
+            ->whereIn('di.asset_id', array_map(fn (Asset $a) => $a->id, $assets))->where('di.active', true)
+            ->orderBy('di.asset_id')->first(['di.asset_id', 'd.number']);
+        if ($delivery !== null) {
+            $asset = collect($assets)->firstWhere('id', $delivery->asset_id);
+            throw ApiException::conflict('ASSET_LOCKED', trim("{$asset?->name} {$asset?->serial_number}")." sedang dalam transaksi {$delivery->number} yang belum selesai.", ['asset_id' => $delivery->asset_id, 'transaction_number' => $delivery->number]);
+        }
         $held = DB::table('transaction_run_assets as ra')->join('transaction_runs as r', 'r.id', '=', 'ra.run_id')
             ->whereIn('ra.asset_id', array_map(fn (Asset $a) => $a->id, $assets))->where('ra.locked', true)
             ->orderBy('ra.asset_id')->get(['ra.asset_id', 'r.id as run_id', 'r.transaction_number', 'r.type_definition_id']);

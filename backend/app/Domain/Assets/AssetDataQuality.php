@@ -17,6 +17,12 @@ final class AssetDataQuality
         'image_path' => 'Foto aset',
     ];
 
+    /** @return list<string> the columns this edition asks for (config/edition.php) */
+    public static function columns(): array
+    {
+        return array_values(array_filter(array_keys(self::FIELDS), fn (string $c) => $c !== 'location_id' || config('edition.locations')));
+    }
+
     /** SQL condition: the column is filled in (a blank serial number counts as empty). */
     public static function filledCondition(string $column): string
     {

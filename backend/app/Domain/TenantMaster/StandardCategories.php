@@ -16,7 +16,65 @@ final class StandardCategories
 {
     private const LOCATION = 'location_ownership';
 
+    private const BASIC = 'basic_information';
+
+    /** Cylinders, the assets deliveries move (Deliveries\Fleet). */
+    public const CYLINDER = 'AST_TABUNG';
+
+    /** Vehicles, what deliveries are made with. */
+    public const VEHICLE = 'AST_KENDARAAN';
+
     private const WATT = ['Watt', 'kW', 'HP'];
+
+    /**
+     * The categories a new organization of this edition starts with (config/edition.php).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public static function forEdition(): array
+    {
+        $codes = config('edition.categories');
+        if ($codes === []) {
+            return self::all();
+        }
+
+        return array_intersect_key([self::CYLINDER => self::cylinder(), ...self::all()], array_flip($codes));
+    }
+
+    /**
+     * Gas cylinders: exactly the fields PT SIG / PT CDO register, without the general defaults.
+     * Nama Produk is the asset's name, No Manufaktur its serial number, and No Reference its asset
+     * number (given by the system).
+     *
+     * @return array<string, mixed>
+     */
+    public static function cylinder(): array
+    {
+        $units = ['PCS', 'TBG'];
+
+        return [
+            'name' => 'Aset Tabung',
+            'description' => 'Tabung gas yang dikirim ke dan diambil dari customer.',
+            'generic' => 'UMUM',
+            'defaults' => false,
+            'attributes' => [
+                self::required(self::select('Business Unit', ['PT SIG', 'PT CDO'], self::BASIC)),
+                self::required(self::field('Warna', AttributeType::STRING, self::BASIC)),
+                self::required(self::field('Bahan', AttributeType::STRING, self::BASIC)),
+                self::required(self::field('Volume Tabung', AttributeType::DECIMAL, self::BASIC)),
+                self::required(self::select('Satuan Volume', ['Liter', 'm3'], self::BASIC)),
+                self::field('Usia Tabung (Bulan)', AttributeType::INTEGER, self::BASIC),
+                self::required(self::field('Jenis Gas', AttributeType::STRING, self::BASIC)),
+                self::required(self::field('Grade Gas', AttributeType::STRING, self::BASIC)),
+                self::required(self::field('Jenis Tabung', AttributeType::STRING, self::BASIC)),
+                self::required(self::select('UOM', $units, self::BASIC)),
+                self::field('Tgl Reference', AttributeType::DATE, self::BASIC),
+                self::required(self::select('Satuan Ukuran', $units, self::BASIC)),
+                self::field('Qty', AttributeType::INTEGER, self::BASIC),
+                self::field('Catatan', AttributeType::TEXT, self::BASIC),
+            ],
+        ];
+    }
 
     /**
      * @return array<string, array{name: string, description: string, generic: string, attributes: list<array{label: string, data_type: string, section: string, is_required: bool, options?: list<array{value: string, label: string}>}>}>
@@ -184,6 +242,11 @@ final class StandardCategories
                 ],
             ],
         ];
+    }
+
+    private static function required(array $field): array
+    {
+        return [...$field, 'is_required' => true];
     }
 
     /** @param list<string> $labels */

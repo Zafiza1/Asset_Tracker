@@ -11,6 +11,7 @@ use App\Domain\Shared\Masters\MaterializedPath;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantAssetDefinition;
 use App\Domain\TenantMaster\StandardCategories;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Organization categories. Every category is anchored to one generic category (internal
@@ -31,8 +32,11 @@ final class TenantCategoryService
         private readonly CategoryAttributeService $attributes,
     ) {}
 
-    /** @param array<string, mixed> $data */
-    public function create(array $data): TenantAssetCategory
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  bool  $defaults  give a top-level category the general default fields
+     */
+    public function create(array $data, bool $defaults = true): TenantAssetCategory
     {
         if (! empty($data['parent_id'])) {
             $parent = $this->activeCategory($data['parent_id']);
@@ -51,7 +55,9 @@ final class TenantCategoryService
         $category = $this->writer->create(new TenantAssetCategory, $data, 'tenant_category.created', self::AUDIT);
 
         // Create default attributes for the new category (top-level only; subcategories inherit them)
-        $this->attributes->createDefaultAttributes($category);
+        if ($defaults) {
+            $this->attributes->createDefaultAttributes($category);
+        }
 
         return $category;
     }
@@ -64,21 +70,31 @@ final class TenantCategoryService
      */
     public function installStandard(string $organizationId): array
     {
-        $generic = GenericAssetCategory::query()->pluck('id', 'code');
         $installed = [];
-        foreach (StandardCategories::all() as $code => $spec) {
-            $category = $this->create([
-                'organization_id' => $organizationId,
-                'generic_category_id' => $generic[$spec['generic']] ?? null,
-                'code' => $code,
-                'name' => $spec['name'],
-                'description' => $spec['description'],
-            ]);
-            $this->attributes->createSpecificAttributes($category, $spec['attributes']);
-            $installed[$code] = $category;
+        foreach (StandardCategories::forEdition() as $code => $spec) {
+            $installed[$code] = $this->installOne($organizationId, $code, $spec);
         }
 
         return $installed;
+    }
+
+    /** @param array<string, mixed> $spec an entry of StandardCategories */
+    public function installOne(string $organizationId, string $code, array $spec): TenantAssetCategory
+    {
+        $generic = GenericAssetCategory::query()->where('code', $spec['generic'])->value('id');
+
+        return DB::transaction(function () use ($organizationId, $code, $spec, $generic) {
+            $category = $this->create([
+                'organization_id' => $organizationId,
+                'generic_category_id' => $generic,
+                'code' => $code,
+                'name' => $spec['name'],
+                'description' => $spec['description'],
+            ], $spec['defaults'] ?? true);
+            $this->attributes->createSpecificAttributes($category, $spec['attributes']);
+
+            return $category;
+        });
     }
 
     /** @param array<string, mixed> $data */

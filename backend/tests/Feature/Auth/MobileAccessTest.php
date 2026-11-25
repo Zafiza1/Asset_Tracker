@@ -203,9 +203,9 @@ class MobileAccessTest extends TestCase
 
     public function test_transaction_write_ability_records_outgoing_and_incoming_only(): void
     {
-        $login = $this->login()->assertOk()->assertJsonPath('data.abilities', ['read', 'transaction:write']);
+        $login = $this->login()->assertOk()->assertJsonPath('data.abilities', ['read', 'transaction:write', 'delivery:write']);
         $token = $login->json('data.token');
-        $this->bearer($token)->getJson('/api/auth/mobile/me')->assertJsonPath('data.abilities', ['read', 'transaction:write']);
+        $this->bearer($token)->getJson('/api/auth/mobile/me')->assertJsonPath('data.abilities', ['read', 'transaction:write', 'delivery:write']);
         $asset = $this->asset->id;
 
         $out = $this->bearer($token)->postJson('/api/transactions', [
