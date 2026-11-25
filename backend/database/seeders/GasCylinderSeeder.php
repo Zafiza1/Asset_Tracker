@@ -10,7 +10,9 @@ use App\Domain\Authorization\Models\Role;
 use App\Domain\Authorization\RoleTemplates;
 use App\Domain\Deliveries\Models\Delivery;
 use App\Domain\Deliveries\Services\DeliveryService;
+use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
+use App\Domain\Identity\Services\UserManagement;
 use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Customer;
 use App\Domain\Organization\Models\Employee;
@@ -31,9 +33,9 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * Dummy data of the PT SIG / PT CDO edition: two separate organizations that share their Super
- * Admin, each with the categories Tabung and Kendaraan, employees, customers, cylinders and
- * deliveries in several stages. Everything goes through the services the API uses.
+ * Dummy data of the PT SIG / PT CDO edition: two separate organizations that share the Super Admin
+ * of PT SIG (registered on the web with code PTSIGCDO), each with the categories Tabung and
+ * Kendaraan, employees, customers, cylinders and deliveries in several stages. Everything goes through the services the API uses.
  *
  *     php artisan db:seed --database=pgsql_owner --class=GasCylinderSeeder
  *
@@ -47,7 +49,7 @@ class GasCylinderSeeder extends Seeder
     private const MARK = 'Data dummy';
 
     private const ORGANIZATIONS = [
-        'PTSIG' => ['name' => 'PT SIG', 'unit' => 'PT_SIG', 'prefix' => 'SIG', 'plate' => 'L', 'base' => [-7.2575, 112.7521],
+        'PTSIGCDO' => ['name' => 'PT SIG', 'unit' => 'PT_SIG', 'prefix' => 'SIG', 'plate' => 'L', 'base' => [-7.2575, 112.7521],
             'customers' => ['RS Husada Utama', 'RSUD Dr. Soetomo', 'Bengkel Las Jaya Teknik', 'PT Baja Perkasa', 'Klinik Medika Sejahtera', 'CV Karya Logam'],
             'drivers' => ['Budi Santoso', 'Agus Wijaya', 'Slamet Riyadi', 'Hendra Kurniawan'],
             'helpers' => ['Andi Pratama', 'Rizky Maulana', 'Dedi Saputra', 'Fajar Nugroho']],
@@ -76,6 +78,7 @@ class GasCylinderSeeder extends Seeder
         }
         foreach (self::ORGANIZATIONS as $code => $spec) {
             [$organization, $admin] = $tenancy->runAsSystem(fn () => $this->organization($code, $spec));
+            $this->join($tenancy, $organization, $admin);
             $tenancy->runAsTenant(new TenantContext($organization, $admin), fn () => DB::transaction(fn () => $this->seed($organization, $spec)));
         }
     }
@@ -84,7 +87,7 @@ class GasCylinderSeeder extends Seeder
     private function organization(string $code, array $spec): array
     {
         $main = Organization::query()->where('code', array_key_first(self::ORGANIZATIONS))->first()
-            ?? throw new RuntimeException('Organisasi PTSIG belum ada. Daftarkan PT SIG terlebih dahulu.');
+            ?? throw new RuntimeException('Organisasi PTSIGCDO belum ada. Daftarkan PT SIG di web dengan kode itu terlebih dahulu.');
         $admin = User::query()->whereHas('roles', fn ($q) => $q->where('roles.organization_id', $main->id)->where('roles.code', RoleTemplates::SUPER_ADMIN))->firstOrFail();
 
         $organization = Organization::query()->where('code', $code)->first();
@@ -95,6 +98,23 @@ class GasCylinderSeeder extends Seeder
         }
 
         return [$organization->refresh(), $admin];
+    }
+
+    /** An organization made earlier by another Super Admin takes the one of PT SIG in, as Super Admin. */
+    private function join(Tenancy $tenancy, Organization $organization, User $admin): void
+    {
+        $host = $tenancy->runAsSystem(function () use ($organization, $admin) {
+            $member = OrganizationMember::query()->where('organization_id', $organization->id)->where('user_id', $admin->id)->exists();
+
+            return $member ? null : User::query()->whereHas('roles', fn ($q) => $q->where('roles.organization_id', $organization->id)->where('roles.code', RoleTemplates::SUPER_ADMIN))->firstOrFail();
+        });
+        if ($host === null) {
+            return;
+        }
+        $tenancy->runAsTenant(new TenantContext($organization, $host), fn () => app(UserManagement::class)->addMember(
+            $admin, [], [Role::query()->where('code', RoleTemplates::SUPER_ADMIN)->value('id')], [['scope_type' => 'organization']], ['seeder' => self::class],
+        ));
+        $this->command?->info("{$admin->email} menjadi Super Admin {$organization->name}.");
     }
 
     private function seed(Organization $organization, array $spec): void
