@@ -4,6 +4,7 @@ import { ActivityIndicator, View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { colors } from '@/components/ui'
 import { SessionProvider, useSession } from '@/lib/session'
+import { TripProvider } from '@/lib/trip'
 
 // Last-resort boundary: an error outside a screen (providers, navigator) shows a message instead of a crash.
 export { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -12,8 +13,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SessionProvider>
-        <StatusBar style="dark" />
-        <Screens />
+        <TripProvider>
+          <StatusBar style="dark" />
+          <Screens />
+        </TripProvider>
       </SessionProvider>
     </SafeAreaProvider>
   )
@@ -39,12 +42,12 @@ function Screens() {
         <Stack.Screen name="index" options={{ title: 'Asset Tracker' }} />
         <Stack.Screen name="scan" options={{ title: 'Pindai Barcode' }} />
         <Stack.Screen name="asset/[code]" options={{ title: 'Detail Aset' }} />
-        <Stack.Screen name="transaction/[type]" options={{ title: 'Transaksi' }} />
         <Stack.Screen name="new/asset" options={{ title: 'Tambah Aset' }} />
-        <Stack.Screen name="new/category" options={{ title: 'Tambah Kategori' }} />
-        <Stack.Screen name="new/location" options={{ title: 'Tambah Lokasi' }} />
         <Stack.Screen name="approvals" options={{ title: 'Pengajuan' }} />
         <Stack.Screen name="approvals/[id]" options={{ title: 'Detail Pengajuan' }} />
+        <Stack.Screen name="deliveries" options={{ title: 'Pengiriman Tabung' }} />
+        <Stack.Screen name="delivery/[id]" options={{ title: 'Detail Pengiriman' }} />
+        <Stack.Screen name="delivery-scan" options={{ title: 'Pindai Tabung', presentation: 'fullScreenModal' }} />
       </Stack.Protected>
     </Stack>
   )

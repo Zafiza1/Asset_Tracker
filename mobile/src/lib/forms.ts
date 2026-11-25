@@ -10,7 +10,7 @@ import type { MasterOption } from './types'
  * Active records of a master list for a picker (`all=1`, capped by the server), indented by
  * tree depth as on the web. Picking is UX only: the API re-validates every reference.
  */
-export function useMasterOptions(endpoint: '/locations' | '/tenant-masters/categories', enabled = true) {
+export function useMasterOptions(endpoint: '/tenant-masters/categories', enabled = true) {
   const { get } = useSession()
   const [options, setOptions] = useState<Option[]>([])
   const [loading, setLoading] = useState(enabled)

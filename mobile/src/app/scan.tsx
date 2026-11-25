@@ -88,7 +88,7 @@ export default function ScanScreen() {
           style={styles.input}
           value={manual}
           onChangeText={setManual}
-          placeholder="Atau ketik nomor seri"
+          placeholder="Atau ketik No Manufaktur"
           placeholderTextColor={colors.muted}
           autoCapitalize="characters"
           autoCorrect={false}

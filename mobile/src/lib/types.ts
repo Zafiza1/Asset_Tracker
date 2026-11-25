@@ -12,6 +12,8 @@ export interface Ref {
 
 export interface Asset {
   id: string
+  /** "No Reference (dari sistem)". */
+  reference_number: string
   serial_number: string | null
   name: string
   category_id: string
@@ -20,13 +22,13 @@ export interface Asset {
   modules: string[]
   /** Uses the Barcode module: it has printable 1D/2D barcodes. */
   barcode_enabled: boolean
-  location_id: string | null
-  location?: Ref | null
   /** F-09: the member who answers for the asset; one who has since left stays, marked inactive. */
   custodian_user_id?: string | null
   custodian?: { id: string; name: string | null; is_active: boolean } | null
   department_id?: string | null
   department?: Ref | null
+  /** Where a cylinder is according to its deliveries; null in the warehouse. */
+  position?: { label: string; delivery_id: string; delivery_number: string } | null
   status: AssetStatus
   acquisition_date: string | null
   acquisition_cost: string | null
@@ -132,6 +134,95 @@ export interface AssetTransaction {
   days_out?: number | null
 }
 
+// ------------------------------------------------------------------ deliveries (tabung)
+
+export type DeliveryDirection = 'outgoing' | 'incoming'
+export type DeliveryStatus = 'draft' | 'loading' | 'in_transit' | 'completed' | 'cancelled'
+export type DeliveryStopStatus = 'pending' | 'arrived' | 'done' | 'skipped'
+export type DeliveryItemState = 'planned' | 'loaded' | 'unloaded' | 'not_loaded' | 'returned' | 'missing' | 'cancelled'
+export type DeliveryReportType = 'depart' | 'position' | 'issue' | 'resume' | 'arrive' | 'stop_done' | 'return' | 'completed'
+
+export interface DeliveryPerson {
+  id: string
+  name: string
+  phone?: string | null
+}
+
+export interface DeliveryStop {
+  id: string
+  sequence: number
+  customer: { id: string; name: string; address?: string | null; phone?: string | null }
+  status: DeliveryStopStatus
+  status_label: string
+  arrived_at: string | null
+  done_at: string | null
+  receiver_name: string | null
+  note: string | null
+}
+
+export interface DeliveryItem {
+  id: string
+  stop_id: string | null
+  asset_id: string
+  name: string
+  serial_number: string | null
+  details?: Record<string, unknown>
+  planned: boolean
+  state: DeliveryItemState
+  state_label: string
+  loaded_at: string | null
+  loaded_by: string | null
+  unloaded_at: string | null
+  unloaded_by: string | null
+}
+
+export interface DeliveryEvent {
+  id: string
+  type: string
+  type_label: string
+  note: string | null
+  stop_id: string | null
+  customer: string | null
+  asset: string | null
+  actor: string | null
+  position: { latitude: number; longitude: number; accuracy: number | null; type: string; recorded_at: string } | null
+  recorded_at: string
+}
+
+export interface Delivery {
+  id: string
+  number: string
+  direction: DeliveryDirection
+  direction_label: string
+  status: DeliveryStatus
+  status_label: string
+  planned_date: string
+  expected_return_date: string | null
+  notes: string | null
+  vehicle?: { id: string; name: string; plate: string | null } | null
+  driver?: DeliveryPerson | null
+  helper?: DeliveryPerson | null
+  created_by?: string | null
+  departed_at: string | null
+  returned_at: string | null
+  ended_at: string | null
+  end_note: string | null
+  stops?: DeliveryStop[]
+  counts?: { total: number; loaded: number; unloaded: number }
+  last_event?: DeliveryEvent | null
+  last_position?: { latitude: number; longitude: number; accuracy: number | null; type: string; recorded_at: string } | null
+  items?: DeliveryItem[]
+  events?: DeliveryEvent[]
+}
+
+export interface DeliveryOptions {
+  vehicles: { id: string; name: string; plate: string | null; on_trip: boolean }[]
+  drivers: { id: string; name: string; phone?: string | null; position?: string; on_trip: boolean }[]
+  helpers: { id: string; name: string; phone?: string | null; position?: string; on_trip: boolean }[]
+  customers: { id: string; code: string; name: string; address?: string | null }[]
+  return_days: number
+}
+
 export interface Paginated<T> {
   data: T[]
   meta?: { current_page: number; last_page: number; total: number }
@@ -152,6 +243,9 @@ export interface Profile {
   /** Token abilities beyond reading (e.g. 'transaction:write'); missing on logins before F-03. */
   abilities?: string[]
 }
+
+/** Code of the category Aset Tabung (StandardCategories::CYLINDER). */
+export const CYLINDER_CATEGORY = 'AST_TABUNG'
 
 export const assetStatusLabel: Record<AssetStatus, string> = {
   in_use: 'Aktif',
@@ -176,7 +270,7 @@ export const assetStatusColors: Record<AssetStatus, [string, string]> = {
 
 export const SECTION_LABELS: Record<string, string> = {
   basic_information: 'Informasi Dasar',
-  location_ownership: 'Lokasi & Kepemilikan',
+  location_ownership: 'Posisi & Kepemilikan',
   status_condition: 'Status & Kondisi',
   specific_attributes: 'Atribut Khusus',
   other: 'Lainnya',

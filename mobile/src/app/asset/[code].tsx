@@ -4,10 +4,9 @@ import { ActivityIndicator, Image, Platform, RefreshControl, ScrollView, StyleSh
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Alert, Badge, Button, Card, colors, Row, SectionHeader } from '@/components/ui'
 import { ApiError, errorMessage } from '@/lib/api'
-import { attributeRowsBySection, formatDate, formatDateTime, formatMoney } from '@/lib/format'
+import { attributeRowsBySection, daysBetween, formatDate, formatDateTime, formatMoney, localToday } from '@/lib/format'
 import { useSession } from '@/lib/session'
-import { canRecord, daysBetween, localToday, rejectReason } from '@/lib/transactions'
-import { assetStatusColors, assetStatusLabel, SECTION_LABELS, type AssetDetail, type AssetTransaction, type Paginated } from '@/lib/types'
+import { assetStatusColors, assetStatusLabel, CYLINDER_CATEGORY, SECTION_LABELS, type AssetDetail, type AssetTransaction, type Paginated } from '@/lib/types'
 
 // A screen that throws keeps the header and back button; only the content shows the error.
 export { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -15,7 +14,7 @@ export { ErrorBoundary } from '@/components/ErrorBoundary'
 /** The asset a scanned code encodes, laid out as the web app's asset detail (Pendataan Aset). */
 export default function AssetDetailScreen() {
   const { code } = useLocalSearchParams<{ code: string }>()
-  const { get, can, server, token, profile } = useSession()
+  const { get, can, server, token } = useSession()
   const [detail, setDetail] = useState<AssetDetail | null>(null)
   const [history, setHistory] = useState<AssetTransaction[] | null>(null)
   const [error, setError] = useState<unknown>(null)
@@ -38,7 +37,7 @@ export default function AssetDetailScreen() {
     }
   }, [code, get, canViewHistory])
 
-  // Also on return from recording a transaction, so the status is current.
+  // Also on return from a delivery, so the status and position are current.
   useFocusEffect(
     useCallback(() => {
       load()
@@ -59,7 +58,7 @@ export default function AssetDetailScreen() {
       <SafeAreaView style={styles.center} edges={['bottom']}>
         <Text style={styles.title}>{notFound ? 'Aset tidak ditemukan' : 'Gagal memuat aset'}</Text>
         <Text style={styles.code}>{code}</Text>
-        <Text style={styles.muted}>{notFound ? 'Kode yang dipindai atau nomor seri yang diketik tidak cocok dengan aset mana pun di organisasi atau cakupan data Anda.' : errorMessage(error)}</Text>
+        <Text style={styles.muted}>{notFound ? 'Kode yang dipindai atau No Manufaktur / No Seri yang diketik tidak cocok dengan aset mana pun di organisasi atau cakupan data Anda.' : errorMessage(error)}</Text>
         <View style={{ gap: 8, alignSelf: 'stretch' }}>
           <Button title="Pindai lagi" onPress={() => router.replace('/scan')} />
           {!notFound && <Button title="Coba lagi" variant="secondary" onPress={load} />}
@@ -69,6 +68,7 @@ export default function AssetDetailScreen() {
   }
 
   const a = detail!.data
+  const isCylinder = a.category?.code === CYLINDER_CATEGORY
   const today = new Date().toISOString().slice(0, 10)
   const overdue = a.status === 'on_loan' && a.loan_due_date !== null && a.loan_due_date < today
   const groupedAttrs = attributeRowsBySection(detail!.attribute_fields ?? [], a.attributes ?? {})
@@ -76,6 +76,7 @@ export default function AssetDetailScreen() {
   const builtIn: Record<string, ReactNode> = {
     basic_information: (
       <>
+        <Row label="No Reference">{a.reference_number}</Row>
         <Row label="Kategori">{a.category?.name ?? '—'}</Row>
         <Row label="Tanggal perolehan">{formatDate(a.acquisition_date)}</Row>
         <Row label="Nilai perolehan">{formatMoney(a.acquisition_cost)}</Row>
@@ -83,7 +84,7 @@ export default function AssetDetailScreen() {
     ),
     location_ownership: (
       <>
-        <Row label="Lokasi">{a.location?.name ?? 'Tanpa lokasi'}</Row>
+        <Row label="Posisi">{a.position?.label ?? (isCylinder ? 'Di gudang' : '—')}</Row>
         <Row label="Penanggung jawab">
           {a.custodian ? (
             <View style={styles.inline}>
@@ -114,13 +115,20 @@ export default function AssetDetailScreen() {
 
       <View style={{ gap: 2 }}>
         <Text style={styles.name}>{a.name}</Text>
-        {a.serial_number && <Text style={styles.code}>{`No Seri ${a.serial_number}`}</Text>}
-        {/* F-09: "who holds it?" is the first question after a scan. */}
+        {a.serial_number && <Text style={styles.code}>{`${isCylinder ? 'No Manufaktur' : 'No Seri'} ${a.serial_number}`}</Text>}
+        {/* "Where is it?" is the first question about a cylinder, "who holds it?" about the rest. */}
         <Text style={styles.holder}>
-          {a.custodian
-            ? `Dipegang oleh ${a.custodian.name ?? '—'}${a.department ? ` · ${a.department.name}` : ''}`
-            : `Belum ada penanggung jawab${a.department ? ` · ${a.department.name}` : ''}`}
+          {isCylinder
+            ? (a.position?.label ?? 'Di gudang')
+            : a.custodian
+              ? `Dipegang oleh ${a.custodian.name ?? '—'}${a.department ? ` · ${a.department.name}` : ''}`
+              : `Belum ada penanggung jawab${a.department ? ` · ${a.department.name}` : ''}`}
         </Text>
+        {a.position && can('delivery.view') && (
+          <Text style={styles.link} onPress={() => router.push({ pathname: '/delivery/[id]', params: { id: a.position!.delivery_id } })} accessibilityRole="link">
+            {`Buka transaksi ${a.position.delivery_number}`}
+          </Text>
+        )}
       </View>
 
       {a.custodian && !a.custodian.is_active && (
@@ -198,13 +206,7 @@ export default function AssetDetailScreen() {
         )}
       </Card>
 
-      {canRecord(profile, can, 'outgoing') && !rejectReason(a, 'outgoing') && (
-        <Button title="Catat keluar" variant="secondary" onPress={() => router.push({ pathname: '/transaction/[type]', params: { type: 'outgoing', code: a.id } })} />
-      )}
-      {canRecord(profile, can, 'incoming') && !rejectReason(a, 'incoming') && (
-        <Button title="Catat masuk" onPress={() => router.push({ pathname: '/transaction/[type]', params: { type: 'incoming', code: a.id } })} />
-      )}
-      <Button title="Pindai aset lain" variant={a.status === 'off_site' && canRecord(profile, can, 'incoming') ? 'secondary' : 'primary'} onPress={() => router.replace('/scan')} />
+      <Button title="Pindai aset lain" onPress={() => router.replace('/scan')} />
     </ScrollView>
   )
 }
@@ -215,7 +217,7 @@ function OffSite({ history }: { history: AssetTransaction[] | null }) {
   if (!out) {
     return (
       <Alert tone="warning" title="Di luar organisasi">
-        Aset ini sedang berada di pihak luar. Catat transaksi masuk saat aset kembali.
+        Aset ini sedang berada di pihak luar.
       </Alert>
     )
   }
@@ -247,6 +249,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 22, fontWeight: '800', color: colors.text },
   code: { fontFamily: mono, color: colors.muted, fontSize: 13 },
   holder: { color: colors.text, fontSize: 14, fontWeight: '600', marginTop: 4 },
+  link: { color: colors.brand, fontSize: 14, fontWeight: '600', paddingVertical: 4 },
   inline: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
   value: { fontSize: 14, color: colors.text },
   imageBox: { backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border },

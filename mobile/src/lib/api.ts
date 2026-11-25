@@ -35,7 +35,7 @@ export function normalizeServer(input: string): string {
 }
 
 interface Options {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PUT'
   token?: string | null
   body?: unknown
 }

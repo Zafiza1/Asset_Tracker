@@ -2,61 +2,62 @@ import { router, useFocusEffect, type Href } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Alert, Button, Card, colors } from '@/components/ui'
+import { Button, Card, colors } from '@/components/ui'
 import { useSession } from '@/lib/session'
-import { canRecord } from '@/lib/transactions'
+import { useTrip } from '@/lib/trip'
 
 // A screen that throws keeps the header; only the content shows the error.
 export { ErrorBoundary } from '@/components/ErrorBoundary'
 
 /**
- * Home after login: the account, the scanner, a manual lookup, and the actions the account's
- * role allows (register assets, categories and locations; follow or decide approval requests).
+ * Home after login: the trips of cylinders, the asset scanner and lookup, and the actions the
+ * account's role allows. A driver (delivery.* only) sees just the trips.
  */
 export default function HomeScreen() {
   const { profile, logout, can, get } = useSession()
+  const { stop: stopTrip } = useTrip()
   const [manual, setManual] = useState('')
   const [leaving, setLeaving] = useState(false)
   const [pending, setPending] = useState<number | null>(null)
-  const [notReturned, setNotReturned] = useState<number | null>(null)
+  const [openTrips, setOpenTrips] = useState<number | null>(null)
   const canDecide = can('approval.manage')
-  const canOut = canRecord(profile, can, 'outgoing')
-  const canIn = canRecord(profile, can, 'incoming')
-  const canViewTransactions = can('transaction.view')
+  const canDeliveries = can('delivery.view')
+  const canAssets = can('asset.view')
+  // Requests come from whoever registers or changes data; a driver makes none.
+  const canRequest = canDecide || can('asset.create') || can('asset.update')
 
   // Pending requests: every one for approvers, the user's own otherwise; refreshed on return.
   useFocusEffect(
     useCallback(() => {
       let live = true
-      get<{ data: { pending: number } }>('/approvals/summary')
-        .then((r) => live && setPending(r.data.pending))
-        .catch(() => undefined)
-      // Assets still outside the organization, for the reminder to record them coming back.
-      if (canViewTransactions && canIn) {
-        get<{ data: { not_returned: number } }>('/transactions/counts')
-          .then((r) => live && setNotReturned(r.data.not_returned))
+      if (canRequest) {
+        get<{ data: { pending: number } }>('/approvals/summary')
+          .then((r) => live && setPending(r.data.pending))
+          .catch(() => undefined)
+      }
+      if (canDeliveries) {
+        get<{ meta?: { total: number } }>('/deliveries?status=open&per_page=1')
+          .then((r) => live && setOpenTrips(r.meta?.total ?? null))
           .catch(() => undefined)
       }
       return () => {
         live = false
       }
-    }, [get, canViewTransactions, canIn]),
+    }, [get, canDeliveries, canRequest]),
   )
 
   const actions: { title: string; text: string; href: Href; badge?: number | null }[] = [
-    ...(can('asset.create') ? [{ title: 'Tambah Aset', text: 'Daftarkan aset baru beserta atribut kategorinya.', href: '/new/asset' as const }] : []),
-    ...(can('master.tenant.create')
+    ...(can('asset.create') ? [{ title: 'Tambah Aset', text: 'Daftarkan tabung atau kendaraan baru.', href: '/new/asset' as const }] : []),
+    ...(canRequest
       ? [
-          { title: 'Tambah Kategori', text: 'Kategori atau subkategori aset baru.', href: '/new/category' as const },
-          { title: 'Tambah Lokasi', text: 'Gedung, ruangan, atau gudang baru.', href: '/new/location' as const },
+          {
+            title: canDecide ? 'Persetujuan' : 'Pengajuan Saya',
+            text: canDecide ? 'Setujui atau tolak pengajuan aset dan master data.' : 'Pantau status pengajuan yang menunggu persetujuan.',
+            href: '/approvals' as const,
+            badge: pending,
+          },
         ]
       : []),
-    {
-      title: canDecide ? 'Persetujuan' : 'Pengajuan Saya',
-      text: canDecide ? 'Setujui atau tolak pengajuan aset, transaksi, dan master data.' : 'Pantau status pengajuan yang menunggu persetujuan.',
-      href: '/approvals',
-      badge: pending,
-    },
   ]
 
   const search = () => {
@@ -67,6 +68,7 @@ export default function HomeScreen() {
 
   const signOut = async () => {
     setLeaving(true)
+    stopTrip()
     await logout()
   }
 
@@ -78,102 +80,70 @@ export default function HomeScreen() {
           <Text style={styles.muted}>{profile?.user.job_title ? `${profile.user.job_title} · ` : ''}{profile?.organization.name}</Text>
         </View>
 
-        <Pressable
-          style={({ pressed }) => [styles.scan, pressed && { backgroundColor: colors.brandDark }]}
-          onPress={() => router.push('/scan')}
-          accessibilityRole="button"
-          accessibilityLabel="Scan aset"
-        >
-          <View style={styles.scanIcon}>
-            <ScanIcon />
-          </View>
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={styles.scanTitle}>Scan Aset</Text>
-            <Text style={styles.scanText}>Pindai barcode atau QR code pada label aset dengan kamera.</Text>
-          </View>
-        </Pressable>
-
-        {(canOut || canIn) && (
-          <View style={styles.tiles}>
-            {canOut && (
-              <Pressable
-                style={({ pressed }) => [styles.tile, pressed && { backgroundColor: colors.background }]}
-                onPress={() => router.push({ pathname: '/transaction/[type]', params: { type: 'outgoing' } })}
-                accessibilityRole="button"
-                accessibilityLabel="Catat aset keluar"
-              >
-                <View style={[styles.tileIcon, { backgroundColor: colors.warningSoft }]}>
-                  <Text style={{ color: colors.warning, fontSize: 20, fontWeight: '800' }}>↗</Text>
-                </View>
-                <Text style={styles.actionTitle}>Aset Keluar</Text>
-                <Text style={styles.muted}>Aset ke pihak luar</Text>
-              </Pressable>
-            )}
-            {canIn && (
-              <Pressable
-                style={({ pressed }) => [styles.tile, pressed && { backgroundColor: colors.background }]}
-                onPress={() => router.push({ pathname: '/transaction/[type]', params: { type: 'incoming' } })}
-                accessibilityRole="button"
-                accessibilityLabel="Catat aset masuk"
-              >
-                <View style={[styles.tileIcon, { backgroundColor: colors.okSoft }]}>
-                  <Text style={{ color: colors.ok, fontSize: 20, fontWeight: '800' }}>↙</Text>
-                </View>
-                <Text style={styles.actionTitle}>Aset Masuk</Text>
-                <Text style={styles.muted}>Aset kembali dari luar</Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-
-        {!!notReturned && (
-          <Pressable onPress={() => router.push({ pathname: '/transaction/[type]', params: { type: 'incoming' } })} accessibilityRole="button">
-            <Alert tone="warning" title={`${notReturned} aset belum kembali`}>
-              Aset yang keluar sementara masih di pihak luar. Ketuk untuk mencatat yang sudah kembali.
-            </Alert>
+        {canDeliveries && (
+          <Pressable
+            style={({ pressed }) => [styles.scan, pressed && { backgroundColor: colors.brandDark }]}
+            onPress={() => router.push('/deliveries')}
+            accessibilityRole="button"
+            accessibilityLabel={openTrips ? `Pengiriman Tabung, ${openTrips} berjalan` : 'Pengiriman Tabung'}
+          >
+            <View style={styles.scanIcon}>
+              <ScanIcon />
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={styles.scanTitle}>Pengiriman Tabung</Text>
+              <Text style={styles.scanText}>
+                {openTrips ? `${openTrips} transaksi berjalan. Scan muat/bongkar dan lapor perjalanan.` : 'Scan muat/bongkar tabung dan lapor perjalanan.'}
+              </Text>
+            </View>
           </Pressable>
         )}
 
-        <Card title="Cari nomor seri">
-          <View style={styles.search}>
-            <Text style={styles.muted}>Ketik nomor seri aset bila label rusak atau tidak terbaca.</Text>
-            <TextInput
-              style={styles.input}
-              value={manual}
-              onChangeText={setManual}
-              placeholder="mis. SN-2024-0001"
-              placeholderTextColor={colors.muted}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              returnKeyType="search"
-              onSubmitEditing={search}
-            />
-            <Button title="Cari" onPress={search} disabled={!manual.trim()} />
-          </View>
-        </Card>
+        {canAssets && (
+          <Card title="Cari aset">
+            <View style={styles.search}>
+              <Button title="Scan label aset" variant="secondary" onPress={() => router.push('/scan')} />
+              <Text style={styles.muted}>Atau ketik No Manufaktur / No Seri bila label rusak.</Text>
+              <TextInput
+                style={styles.input}
+                value={manual}
+                onChangeText={setManual}
+                placeholder="mis. SIG-TBG-0001"
+                placeholderTextColor={colors.muted}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                returnKeyType="search"
+                onSubmitEditing={search}
+              />
+              <Button title="Cari" onPress={search} disabled={!manual.trim()} />
+            </View>
+          </Card>
+        )}
 
-        <Card title="Menu">
-          {actions.map((a, i) => (
-            <Pressable
-              key={a.title}
-              onPress={() => router.push(a.href)}
-              style={({ pressed }) => [styles.action, i > 0 && styles.actionDivider, pressed && { backgroundColor: colors.background }]}
-              accessibilityRole="button"
-              accessibilityLabel={a.badge ? `${a.title}, ${a.badge} menunggu` : a.title}
-            >
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.actionTitle}>{a.title}</Text>
-                <Text style={styles.muted}>{a.text}</Text>
-              </View>
-              {!!a.badge && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{a.badge > 99 ? '99+' : a.badge}</Text>
+        {actions.length > 0 && (
+          <Card title="Menu">
+            {actions.map((a, i) => (
+              <Pressable
+                key={a.title}
+                onPress={() => router.push(a.href)}
+                style={({ pressed }) => [styles.action, i > 0 && styles.actionDivider, pressed && { backgroundColor: colors.background }]}
+                accessibilityRole="button"
+                accessibilityLabel={a.badge ? `${a.title}, ${a.badge} menunggu` : a.title}
+              >
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.actionTitle}>{a.title}</Text>
+                  <Text style={styles.muted}>{a.text}</Text>
                 </View>
-              )}
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          ))}
-        </Card>
+                {!!a.badge && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{a.badge > 99 ? '99+' : a.badge}</Text>
+                  </View>
+                )}
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            ))}
+          </Card>
+        )}
 
         <Button title="Keluar" variant="secondary" onPress={signOut} loading={leaving} />
       </ScrollView>
@@ -211,8 +181,5 @@ const styles = StyleSheet.create({
   badge: { minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger },
   badgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   chevron: { fontSize: 24, color: colors.muted },
-  tiles: { flexDirection: 'row', gap: 12 },
-  tile: { flex: 1, gap: 6, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, minHeight: 104 },
-  tileIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, fontSize: 16, color: colors.text },
 })

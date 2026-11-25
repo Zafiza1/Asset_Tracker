@@ -1,6 +1,6 @@
-import { router, useFocusEffect } from 'expo-router'
+import { router } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { AttributeFields, Chips, DateInput, Field, Input, Select } from '@/components/form'
 import { Alert, Button, colors } from '@/components/ui'
@@ -18,15 +18,12 @@ export { ErrorBoundary } from '@/components/ErrorBoundary'
  */
 export default function NewAssetScreen() {
   const { get, post, can, hasModule } = useSession()
-  const categories = useMasterOptions('/tenant-masters/categories', false)
-  const locations = useMasterOptions('/locations', false)
-  const canAddMasters = can('master.tenant.create')
+  const categories = useMasterOptions('/tenant-masters/categories')
 
   const [name, setName] = useState('')
   const [serial, setSerial] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
-  const [locationId, setLocationId] = useState<string | null>(null)
-  const [status, setStatus] = useState<AssetStatus>('in_use')
+  const [status, setStatus] = useState<AssetStatus>('available')
   const [acquisitionDate, setAcquisitionDate] = useState('')
   const [acquisitionCost, setAcquisitionCost] = useState('')
   const [description, setDescription] = useState('')
@@ -37,16 +34,6 @@ export default function NewAssetScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-
-  // Coming back from "Tambah lokasi/kategori" shows the new record (when it was applied directly).
-  const { reload: reloadCategories } = categories
-  const { reload: reloadLocations } = locations
-  useFocusEffect(
-    useCallback(() => {
-      reloadCategories()
-      reloadLocations()
-    }, [reloadCategories, reloadLocations]),
-  )
 
   // The category decides which extra fields the asset has.
   const loadFields = useCallback(async () => {
@@ -68,9 +55,8 @@ export default function NewAssetScreen() {
 
   const validate = () => {
     const local: Record<string, string> = {}
-    if (!name.trim()) local.name = 'Nama aset wajib diisi.'
+    if (!name.trim()) local.name = 'Nama Produk / Nama aset wajib diisi.'
     if (!categoryId) local.category_id = 'Kategori wajib dipilih.'
-    if (!locationId) local.location_id = 'Lokasi wajib dipilih.'
     if (acquisitionDate && !/^\d{4}-\d{2}-\d{2}$/.test(acquisitionDate)) local.acquisition_date = 'Format tanggal TTTT-BB-HH, mis. 2026-01-31.'
     if (acquisitionCost && !/^\d+(\.\d+)?$/.test(acquisitionCost)) local.acquisition_cost = 'Isi dengan angka tanpa titik pemisah ribuan.'
     for (const f of fields) {
@@ -92,7 +78,6 @@ export default function NewAssetScreen() {
         name: name.trim(),
         serial_number: serial.trim() || null,
         category_id: categoryId,
-        location_id: locationId,
         status,
         acquisition_date: acquisitionDate || null,
         acquisition_cost: acquisitionCost || null,
@@ -126,10 +111,10 @@ export default function NewAssetScreen() {
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           {error && <Alert>{error}</Alert>}
 
-          <Field label="Nama aset" required error={errors.name}>
+          <Field label="Nama Produk / Nama aset" required error={errors.name}>
             <Input value={name} onChangeText={setName} invalid={!!errors.name} maxLength={150} />
           </Field>
-          <Field label="No Seri" error={errors.serial_number} hint="Nomor seri pabrik atau kode lama (harus unik bila diisi).">
+          <Field label="No Manufaktur / No Seri" error={errors.serial_number} hint="Harus unik. Dipakai untuk mencari dan scan tabung bila label rusak.">
             <Input value={serial} onChangeText={setSerial} autoCorrect={false} invalid={!!errors.serial_number} maxLength={100} />
           </Field>
 
@@ -142,19 +127,6 @@ export default function NewAssetScreen() {
               loading={categories.loading && categories.options.length === 0}
               invalid={!!errors.category_id}
             />
-            {canAddMasters && <AddLink label="Tambah kategori baru" onPress={() => router.push('/new/category')} />}
-          </Field>
-
-          <Field label="Lokasi" required error={errors.location_id ?? locations.error ?? undefined}>
-            <Select
-              title="Pilih lokasi"
-              value={locationId}
-              options={locations.options}
-              onChange={setLocationId}
-              loading={locations.loading && locations.options.length === 0}
-              invalid={!!errors.location_id}
-            />
-            {canAddMasters && <AddLink label="Tambah lokasi baru" onPress={() => router.push('/new/location')} />}
           </Field>
 
           <Field label="Status" error={errors.status}>
@@ -187,14 +159,6 @@ export default function NewAssetScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
-  )
-}
-
-function AddLink({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="link" hitSlop={8} style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
-      <Text style={{ color: colors.brand, fontWeight: '600' }}>+ {label}</Text>
-    </Pressable>
   )
 }
 

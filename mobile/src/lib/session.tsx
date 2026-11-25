@@ -22,6 +22,8 @@ interface Session {
   get: <T>(path: string) => Promise<T>
   /** POST {server}/api{path} with a JSON body; same session handling as get. */
   post: <T>(path: string, body?: unknown) => Promise<T>
+  /** PUT {server}/api{path} with a JSON body; same session handling as get. */
+  put: <T>(path: string, body?: unknown) => Promise<T>
   can: (permission: string) => boolean
   /** Optional module (e.g. 'barcode') switched on for the organization. */
   hasModule: (module: string) => boolean
@@ -125,7 +127,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [server, token, clear])
 
   const call = useCallback(
-    async <T,>(path: string, options: { method?: 'GET' | 'POST'; body?: unknown } = {}) => {
+    async <T,>(path: string, options: { method?: 'GET' | 'POST' | 'PUT'; body?: unknown } = {}) => {
       try {
         return await request<T>(server, path, { ...options, token })
       } catch (e) {
@@ -137,6 +139,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   )
   const get = useCallback(<T,>(path: string) => call<T>(path), [call])
   const post = useCallback(<T,>(path: string, body: unknown = {}) => call<T>(path, { method: 'POST', body }), [call])
+  const put = useCallback(<T,>(path: string, body: unknown = {}) => call<T>(path, { method: 'PUT', body }), [call])
 
   const value = useMemo<Session>(
     () => ({
@@ -149,10 +152,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       logout,
       get,
       post,
+      put,
       can: (p) => profile?.permissions.includes(p) ?? false,
       hasModule: (m) => profile?.modules?.includes(m) ?? false,
     }),
-    [ready, server, token, profile, notice, login, logout, get, post],
+    [ready, server, token, profile, notice, login, logout, get, post, put],
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

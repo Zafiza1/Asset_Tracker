@@ -18,6 +18,17 @@ export function formatMoney(value: string | number | null | undefined): string {
   return money.format(Number(value))
 }
 
+/** Today in the device's time zone as YYYY-MM-DD. */
+export function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Whole days from `from` to `to` (both YYYY-MM-DD). */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000)
+}
+
 export function formatAttributeValue(value: unknown, options?: { value: string; label: string }[] | null): string {
   if (value === null || value === undefined || value === '') return '—'
   if (typeof value === 'boolean') return value ? 'Ya' : 'Tidak'
