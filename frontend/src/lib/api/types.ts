@@ -351,6 +351,10 @@ export interface Vehicle extends MasterRecord {
   capacity: number | null
   stnk_expires_on: string | null
   kir_expires_on: string | null
+  /** Set by the system: in_use while a transaction with the vehicle is not finished. */
+  usage: 'available' | 'in_use'
+  usage_label: string
+  usage_delivery_number: string | null
 }
 
 export interface Location extends MasterRecord {

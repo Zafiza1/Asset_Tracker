@@ -93,7 +93,7 @@ class DeliveryController extends Controller
 
         return response()->json(['data' => [
             'vehicles' => $this->fleet->vehicles()->orderBy('name')->get()->map(fn (Vehicle $v) => [
-                'id' => $v->id, 'name' => $v->name, 'plate' => $v->plate_number, 'type' => Vehicle::TYPES[$v->type] ?? $v->type,
+                'id' => $v->id, 'name' => $v->name, 'plate' => $v->plate_number, 'type' => Vehicle::typeLabel($v->type),
                 'on_trip' => $busy->contains('vehicle_id', $v->id),
             ])->values(),
             'drivers' => $employees(Department::DRIVER),

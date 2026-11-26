@@ -5,6 +5,7 @@ namespace Tests\Feature\Deliveries;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
+use App\Domain\Deliveries\Models\Delivery;
 use App\Domain\Identity\Models\User;
 use App\Domain\Licensing\Models\OrganizationLicense;
 use App\Domain\Licensing\Services\Licensing;
@@ -383,8 +384,26 @@ class DeliveryTest extends TestCase
         $this->assertErrorCode($this->postJson('/api/vehicles', ['name' => 'Lain', 'plate_number' => 'l 1234 ab', 'type' => 'truk']), 422, 'VALIDATION_FAILED');
         $this->getJson('/api/vehicles?type=pickup')->assertJsonCount(1, 'data');
         $this->getJson('/api/vehicles?search=8789')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $id);
-        $this->patchJson("/api/vehicles/{$id}", ['status' => 'inactive'])->assertOk();
-        $this->assertSame([$this->truck->id], array_column($this->getJson('/api/deliveries/options')->json('data.vehicles'), 'id'));
+        // Only trucks and pick ups; the status is not set by hand.
+        $this->assertErrorCode($this->postJson('/api/vehicles', ['name' => 'Avanza', 'plate_number' => 'L 1 A', 'type' => 'mobil']), 422, 'VALIDATION_FAILED');
+        $this->patchJson("/api/vehicles/{$id}", ['status' => 'inactive', 'name' => 'Pick Up Traga 2'])->assertOk()
+            ->assertJsonPath('data.status', 'active')->assertJsonPath('data.name', 'Pick Up Traga 2');
+        $this->assertEqualsCanonicalizing([$this->truck->id, $id], array_column($this->getJson('/api/deliveries/options')->json('data.vehicles'), 'id'));
+    }
+
+    public function test_a_vehicle_is_in_use_while_a_transaction_with_it_is_not_finished(): void
+    {
+        $this->getJson("/api/vehicles/{$this->truck->id}")->assertOk()->assertJsonPath('data.usage', 'available')->assertJsonPath('data.usage_label', 'Tersedia');
+        $id = $this->plan('outgoing', [[$this->rs, [$this->tabung('T-1')]]])->json('data.id');
+        $this->crew($id)->assertOk();
+        $number = Delivery::query()->whereKey($id)->value('number');
+
+        $this->getJson('/api/vehicles?usage=in_use')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $this->truck->id)->assertJsonPath('data.0.usage_label', 'Sedang Digunakan')->assertJsonPath('data.0.usage_delivery_number', $number);
+        $this->getJson('/api/vehicles?usage=available')->assertOk()->assertJsonCount(0, 'data');
+
+        $this->postJson("/api/deliveries/{$id}/cancel", ['reason' => 'Batal kirim'])->assertOk();
+        $this->getJson("/api/vehicles/{$this->truck->id}")->assertJsonPath('data.usage', 'available')->assertJsonPath('data.usage_delivery_number', null);
     }
 
     public function test_an_edition_without_custodians_or_other_categories_keeps_assets_to_cylinders(): void

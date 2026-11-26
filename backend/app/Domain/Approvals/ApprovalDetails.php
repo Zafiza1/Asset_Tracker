@@ -169,7 +169,7 @@ final class ApprovalDetails
             'department_id' => self::name(Department::class, $value),
             'custodian_user_id' => self::person($value),
             'parent_id' => self::name(ApprovalActions::entity($approval->action) === 'location' ? Location::class : TenantAssetCategory::class, $value),
-            'type' => ApprovalActions::entity($approval->action) === 'vehicle' ? Vehicle::TYPES[$value] ?? (string) $value : TransactionType::LABELS[$value] ?? (string) $value,
+            'type' => ApprovalActions::entity($approval->action) === 'vehicle' ? Vehicle::typeLabel((string) $value) : TransactionType::LABELS[$value] ?? (string) $value,
             'fuel' => Vehicle::FUELS[$value] ?? (string) $value,
             'delivery_role' => Department::DELIVERY_ROLES[$value] ?? (string) $value,
             'to_status' => AssetStatus::labels()[$value] ?? (string) $value,

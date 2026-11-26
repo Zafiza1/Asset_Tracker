@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, FileSpreadsheet, Pencil, Plus, Power, PowerOff, RotateCcw, SearchX, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -97,6 +98,12 @@ export interface MasterListConfig<T extends MasterRecord> {
   onEditChange?: (value: T | 'new' | null) => void
   impact?: (row: T) => MasterImpact
   bulkEdit?: MasterBulkEdit
+  /**
+   * A status the system sets (e.g. a vehicle in use), shown in place of Aktif/Nonaktif. The records
+   * are then not switched on and off by hand: no Nonaktifkan/Aktifkan and no status filter here
+   * (filter on it through `filters`).
+   */
+  systemStatusColumn?: Column<T>
 }
 
 type Values = Record<string, string>
@@ -130,11 +137,12 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const { updateFilter: persistFilter, removeFilter: unPersistFilter, resetFilters } = usePersistedFilters(config.endpoint)
 
   const filterValues = Object.fromEntries((config.filters ?? []).map((f) => [f.name, params.get(f.name) ?? '']))
-  const advanced = useFilterDraft(params, [...(config.filters ?? []).map((f) => f.name), 'status'])
+  const manualStatus = !config.systemStatusColumn
+  const advanced = useFilterDraft(params, [...(config.filters ?? []).map((f) => f.name), ...(manualStatus ? ['status'] : [])])
   const draft = advanced.draft
   const sort = params.get('sort') ?? ''
-  const listParams = { page: params.get('page'), per_page: params.get('per_page'), search: params.get('search'), status: params.get('status'), sort, ...filterValues }
-  const status = params.get('status')
+  const status = manualStatus ? params.get('status') : null
+  const listParams = { page: params.get('page'), per_page: params.get('per_page'), search: params.get('search'), status, sort, ...filterValues }
   // A tree list sorted by a column no longer shows parents above their children, so it is shown flat too.
   const filtered = !!params.get('search') || !!status || !!sort || Object.values(filterValues).some(Boolean)
 
@@ -211,7 +219,8 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
   const actionsColumn: Column<T> = {
     key: 'actions',
     header: 'Aksi',
-    className: 'w-40 text-right! whitespace-nowrap',
+    // Only "Ubah" when the status is the system's and nothing is archived: one button's width.
+    className: clsx(!manualStatus && !config.canArchive && !config.canDelete ? 'w-20' : 'w-40', 'text-right! whitespace-nowrap'),
     cell: (row) =>
       config.isReadOnly?.(row) ? null : (
         <div className="flex justify-end gap-0.5">
@@ -220,7 +229,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
               <IconButton label={`Ubah ${row.name}`} tooltip="Ubah" onClick={() => setEditing(row)}>
                 <Pencil className="size-4" aria-hidden />
               </IconButton>
-              {row.status === 'active' ? (
+              {!manualStatus ? null : row.status === 'active' ? (
                 <IconButton label={`Nonaktifkan ${row.name}`} tooltip="Nonaktifkan" className="hover:text-amber-700" onClick={() => setDeactivating(row)}>
                   <PowerOff className="size-4" aria-hidden />
                 </IconButton>
@@ -255,7 +264,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
         </div>
       ),
   }
-  const statusColumn: Column<T> = {
+  const statusColumn: Column<T> = config.systemStatusColumn ?? {
     key: 'status',
     header: 'Status',
     className: 'w-28',
@@ -330,6 +339,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
               ))}
             </Select>
           ))}
+          {manualStatus && (
           <Select value={draft.status} onChange={(e) => advanced.set({ status: e.target.value })} aria-label="Filter status">
             <option value="">{config.canArchive ? 'Status: semua (tanpa arsip)' : 'Status: semua'}</option>
             {/* Without archiving on this page there is no Diarsipkan to look for. */}
@@ -341,6 +351,7 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
               </option>
             ))}
           </Select>
+          )}
         </AdvancedFilters>
         <ActiveFilters chips={chips} onReset={resetAll} />
       </FilterPanel>

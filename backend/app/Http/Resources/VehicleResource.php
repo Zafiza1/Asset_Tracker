@@ -17,7 +17,7 @@ class VehicleResource extends JsonResource
             'name' => $this->name,
             'plate_number' => $this->plate_number,
             'type' => $this->type,
-            'type_label' => Vehicle::TYPES[$this->type] ?? $this->type,
+            'type_label' => Vehicle::typeLabel($this->type),
             'year' => $this->year,
             'chassis_number' => $this->chassis_number,
             'engine_number' => $this->engine_number,
@@ -27,6 +27,10 @@ class VehicleResource extends JsonResource
             'stnk_expires_on' => $this->stnk_expires_on?->toDateString(),
             'kir_expires_on' => $this->kir_expires_on?->toDateString(),
             'status' => $this->status,
+            // Tersedia / Sedang Digunakan, from the transactions not yet finished.
+            'usage' => ($number = $this->resource->openDeliveryNumber()) === null ? Vehicle::AVAILABLE : Vehicle::IN_USE,
+            'usage_label' => Vehicle::USAGES[$number === null ? Vehicle::AVAILABLE : Vehicle::IN_USE],
+            'usage_delivery_number' => $number,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

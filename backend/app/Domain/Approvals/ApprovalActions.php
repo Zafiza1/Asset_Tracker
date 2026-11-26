@@ -58,6 +58,8 @@ final class ApprovalActions
         'vehicle.update' => [self::CATEGORY_MASTER, 'Perubahan kendaraan'],
         'vehicle.archive' => [self::CATEGORY_MASTER, 'Pengarsipan kendaraan'],
         'vehicle.restore' => [self::CATEGORY_MASTER, 'Pemulihan kendaraan'],
+        'vehicle.import' => [self::CATEGORY_MASTER, 'Impor kendaraan dari Excel'],
+        'vehicle.import_edits' => [self::CATEGORY_MASTER, 'Multiple Edit kendaraan dari Excel'],
         'category.create' => [self::CATEGORY_MASTER, 'Penambahan kategori aset'],
         'category.update' => [self::CATEGORY_MASTER, 'Perubahan kategori aset'],
         'category.archive' => [self::CATEGORY_MASTER, 'Pengarsipan kategori aset'],

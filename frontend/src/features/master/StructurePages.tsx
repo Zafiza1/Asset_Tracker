@@ -1,6 +1,7 @@
 import { Plus, SlidersHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import { AddMenu } from '../../components/ui/AddMenu'
+import { Badge } from '../../components/ui/Badge'
 import { ImportModal } from '../../components/ui/ImportModal'
 import type { Column } from '../../components/ui/Table'
 import type { Customer, Department, Employee, TenantCategory, Vehicle } from '../../lib/api/types'
@@ -156,15 +157,15 @@ export function CustomersPage() {
   )
 }
 
+/** Cylinders are delivered by truck or pick up (mirrors Vehicle::TYPES). */
 const VEHICLE_TYPE_OPTIONS = [
   { value: 'truk', label: 'Truk' },
   { value: 'pickup', label: 'Pick Up' },
-  { value: 'mobil', label: 'Mobil' },
-  { value: 'motor', label: 'Motor' },
-  { value: 'bus', label: 'Bus' },
-  { value: 'forklift', label: 'Forklift' },
-  { value: 'alat_berat', label: 'Alat Berat' },
-  { value: 'lainnya', label: 'Lainnya' },
+]
+
+const VEHICLE_USAGE_OPTIONS = [
+  { value: 'available', label: 'Tersedia' },
+  { value: 'in_use', label: 'Sedang Digunakan' },
 ]
 
 const FUEL_OPTIONS = [
@@ -185,29 +186,74 @@ function ValidUntil({ date }: { date: string | null }) {
 
 /** Master Data › Kendaraan: what cylinders are delivered with. Not assets: Data Aset only holds cylinders. */
 export function VehiclesPage() {
+  const permissions = useMasterPermissions()
+  const [editing, setEditing] = useState<Vehicle | 'new' | null>(null)
+  const [importing, setImporting] = useState(false)
   return (
+    <>
     <MasterListPage<Vehicle>
       title="Kendaraan"
-      description="Kendaraan untuk mengirim dan menjemput tabung. Kendaraan aktif bisa dipilih di transaksi dan di mobile."
+      description="Kendaraan untuk mengirim dan menjemput tabung. Status Tersedia / Sedang Digunakan diatur sistem dari transaksi yang belum selesai."
       endpoint="/vehicles"
       searchPlaceholder="Cari kode, nama, nomor polisi, rangka, atau mesin"
       emptyHint="Tambahkan kendaraan agar bisa dipilih saat tabung dikirim atau dijemput."
-      {...useMasterPermissions()}
-      filters={[{ name: 'type', label: 'Jenis', options: VEHICLE_TYPE_OPTIONS }]}
+      {...permissions}
+      // Only editing: the status follows the transactions, and vehicles are not archived here.
+      canArchive={false}
+      // Adding goes through the AddMenu (form or Excel import), as in Data Aset.
+      canCreate={false}
+      editing={editing}
+      onEditChange={setEditing}
+      headerActions={permissions.canCreate && <AddMenu label="Tambah kendaraan" noun="kendaraan" onForm={() => setEditing('new')} onImport={() => setImporting(true)} />}
+      bulkEdit={{ title: 'Multiple Edit Kendaraan', endpoint: '/vehicles/edit-sheet', filename: 'edit_kendaraan.xlsx', noun: 'kendaraan', selectable: true }}
+      systemStatusColumn={{
+        key: 'status',
+        header: 'Status',
+        className: 'w-44',
+        title: (r) => (r.usage_delivery_number ? `Dipakai di transaksi ${r.usage_delivery_number}` : undefined),
+        cell: (r) => (
+          <div>
+            <Badge tone={r.usage === 'in_use' ? 'amber' : 'green'}>{r.usage_label}</Badge>
+            {r.usage_delivery_number && <div className="mt-0.5 truncate font-mono text-xs text-slate-500">{r.usage_delivery_number}</div>}
+          </div>
+        ),
+      }}
+      filters={[
+        { name: 'type', label: 'Jenis', options: VEHICLE_TYPE_OPTIONS },
+        { name: 'usage', label: 'Status', options: VEHICLE_USAGE_OPTIONS },
+      ]}
       columns={[
         code<Vehicle>(),
         {
           key: 'plate_number',
           header: 'Nomor Polisi',
           sortKey: 'plate_number',
-          className: 'w-36',
+          className: 'w-32',
           cell: (r) => <span className="font-mono text-sm font-medium text-slate-900">{r.plate_number}</span>,
         },
-        { key: 'name', header: 'Nama / Merk', sortKey: 'name', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
-        { key: 'type', header: 'Jenis', sortKey: 'type', className: 'w-28', cell: (r) => r.type_label },
+        { key: 'name', header: 'Nama / Merk', sortKey: 'name', title: (r) => r.name, cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
+        { key: 'type', header: 'Jenis', sortKey: 'type', className: 'w-24', cell: (r) => r.type_label },
         { key: 'year', header: 'Tahun', sortKey: 'year', className: 'w-20', hideOnMobile: true, cell: (r) => r.year ?? '—' },
-        { key: 'stnk', header: 'STNK s.d.', sortKey: 'stnk_expires_on', className: 'w-36', hideOnMobile: true, cell: (r) => <ValidUntil date={r.stnk_expires_on} /> },
-        { key: 'kir', header: 'KIR s.d.', sortKey: 'kir_expires_on', className: 'w-36', hideOnMobile: true, cell: (r) => <ValidUntil date={r.kir_expires_on} /> },
+        // STNK and KIR in one column, so the name keeps its room.
+        {
+          key: 'documents',
+          header: 'STNK / KIR s.d.',
+          sortKey: 'stnk_expires_on',
+          className: 'w-40',
+          hideOnMobile: true,
+          cell: (r) => (
+            <div className="text-xs leading-5">
+              <div>
+                <span className="text-slate-500">STNK </span>
+                <ValidUntil date={r.stnk_expires_on} />
+              </div>
+              <div>
+                <span className="text-slate-500">KIR </span>
+                <ValidUntil date={r.kir_expires_on} />
+              </div>
+            </div>
+          ),
+        },
       ]}
       fields={[
         { name: 'name', label: 'Nama / Merk', required: true, placeholder: 'mis. Truk Hino Dutro' },
@@ -223,6 +269,17 @@ export function VehiclesPage() {
         { name: 'kir_expires_on', label: 'KIR berlaku sampai', type: 'date' },
       ]}
     />
+    {importing && (
+      <ImportModal
+        open={importing}
+        onClose={() => setImporting(false)}
+        title="Tambah Kendaraan dari Excel (Import)"
+        endpoint="/vehicles/import"
+        templateEndpoint="/vehicles/template"
+        templateFilename="template_kendaraan.xlsx"
+      />
+    )}
+    </>
   )
 }
 
