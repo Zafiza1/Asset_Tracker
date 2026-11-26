@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftRight, FolderTree, MapPin, Pencil, Power, Printer, RotateCcw, Wallet, type LucideIcon } from 'lucide-react'
+import { FolderTree, MapPin, Pencil, Power, Printer, RotateCcw, Wallet, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -17,11 +17,10 @@ import { useAuth } from '../../lib/auth/context'
 import { formatAttributeValue, formatDate, formatDateTime } from '../../lib/format'
 import { errorMessage } from '../../lib/forms'
 import { attributeRowsBySection, SECTION_LABELS } from '../master/categoryAttributeData'
-import { allowedTypes, daysLate, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
+import { daysLate, withStateAfter, type AssetTransaction, type TransactionWithState } from '../transactions/api'
 import { StatusChange } from '../transactions/TransactionChanges'
-import { TransactionFormModal } from '../transactions/TransactionFormModal'
 import { formatMoney, isCylinder as isCylinderAsset, statusLabel, type Asset } from './api'
-import { AssetStatusBadge } from './AssetStatusBadge'
+import { LocationStatusBadge } from './LocationStatusBadge'
 import { AssetBarcodeModal } from './AssetBarcodeModal'
 import { AssetFormModal } from './AssetFormModal'
 import { AssetTimeline, type TimelineEvent } from './AssetTimeline'
@@ -31,7 +30,6 @@ export function AssetDetailPage() {
   const { id } = useParams()
   const { can } = useAuth()
   const [editing, setEditing] = useState(false)
-  const [recording, setRecording] = useState<ManualTransactionType | null>(null)
   const [archiving, setArchiving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
@@ -60,27 +58,19 @@ export function AssetDetailPage() {
   if (asset.isError) return <ErrorState error={asset.error} onRetry={() => void asset.refetch()} />
   const a = asset.data!.data
   const isCylinder = isCylinderAsset(a)
-  const types = allowedTypes(a.status)
-  const canRecord = can('transaction.create') && !a.is_archived
   const overdue = a.status === 'on_loan' && a.loan_due_date !== null && a.loan_due_date < today
 
   return (
     <>
       <PageHeader
         title={a.name}
-        badges={<AssetStatusBadge status={a.status} archived={a.is_archived} cylinder={isCylinder} />}
+        badges={<LocationStatusBadge asset={a} compact />}
         description={<span className="text-sm text-slate-500">{[a.serial_number && `${isCylinder ? 'No Manufaktur' : 'No Seri'} ${a.serial_number}`, `No Reference ${a.reference_number}`].filter(Boolean).join(' · ')}</span>}
         actions={
           <>
             {a.barcode_enabled && (
               <Button variant="secondary" onClick={() => setPrinting(true)}>
                 <Printer className="size-4" aria-hidden /> Print barcode
-              </Button>
-            )}
-            {/* Going out and coming back are recorded by deliveries; only the status changes here. */}
-            {canRecord && types.includes('status_change') && can('asset.status_change') && (
-              <Button variant="secondary" onClick={() => setRecording('status_change')}>
-                <ArrowLeftRight className="size-4" aria-hidden /> Ubah status
               </Button>
             )}
           </>
@@ -105,19 +95,17 @@ export function AssetDetailPage() {
 
       {/* The facts people look for first, before reading the full data sheet. */}
       <dl className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Fact icon={MapPin} label="Posisi">
-          {a.position ? (
-            <span className="block">
-              {a.position.label}
-              <Link to={`/transaksi/${a.position.delivery_id}`} className="block text-xs font-normal text-brand-700 hover:underline">
-                {a.position.delivery_number}
+        {/* Set by the system from the cylinder's transactions; there is no status to change by hand. */}
+        <Fact icon={MapPin} label="Lokasi Status">
+          <span className="block">
+            {a.location_status.label}
+            {a.location_status.detail && <span className="block text-xs font-normal text-slate-500">{a.location_status.detail}</span>}
+            {a.location_status.delivery_id && (
+              <Link to={`/transaksi/${a.location_status.delivery_id}`} className="block text-xs font-normal text-brand-700 hover:underline">
+                {a.location_status.delivery_number}
               </Link>
-            </span>
-          ) : isCylinder ? (
-            'Di gudang'
-          ) : (
-            <span className="text-slate-400">—</span>
-          )}
+            )}
+          </span>
         </Fact>
         <Fact icon={FolderTree} label="Kategori">
           {a.category?.name ?? '—'}
@@ -200,8 +188,8 @@ export function AssetDetailPage() {
                 ),
                 status_condition: (
                   <>
-                    <Row label="Status">
-                      <AssetStatusBadge status={a.status} cylinder={isCylinder} />
+                    <Row label="Lokasi Status">
+                      <LocationStatusBadge asset={a} />
                     </Row>
                     {a.status === 'on_loan' && <Row label="Peminjam">{`${a.borrower_name}${a.loan_due_date ? ` (kembali ${formatDate(a.loan_due_date)})` : ''}`}</Row>}
                   </>
@@ -224,7 +212,6 @@ export function AssetDetailPage() {
               ))
             })()}
 
-            <Row label="Deskripsi">{a.description ? <span className="whitespace-pre-line">{a.description}</span> : '—'}</Row>
             <Row label="Ditambahkan">{`${formatDateTime(a.created_at)}${a.created_by ? ` oleh ${a.created_by}` : ''}`}</Row>
           </dl>
         </Card>
@@ -272,7 +259,6 @@ export function AssetDetailPage() {
 
       {editing && <AssetFormModal asset={a} onClose={() => setEditing(false)} />}
       {printing && <AssetBarcodeModal asset={a} onClose={() => setPrinting(false)} />}
-      {recording && <TransactionFormModal asset={a} initialType={recording} onClose={() => setRecording(null)} />}
       {archiving && <ArchiveModal asset={a} onClose={() => setArchiving(false)} />}
     </>
   )

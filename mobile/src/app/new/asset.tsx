@@ -26,7 +26,6 @@ export default function NewAssetScreen() {
   const [status, setStatus] = useState<AssetStatus>('available')
   const [acquisitionDate, setAcquisitionDate] = useState('')
   const [acquisitionCost, setAcquisitionCost] = useState('')
-  const [description, setDescription] = useState('')
   const [attributes, setAttributes] = useState<Record<string, AttributeValue>>({})
 
   const [fields, setFields] = useState<CategoryAttribute[]>([])
@@ -83,7 +82,6 @@ export default function NewAssetScreen() {
         status,
         acquisition_date: acquisitionDate || null,
         acquisition_cost: acquisitionCost || null,
-        description: description.trim() || null,
         attributes: Object.fromEntries(fields.map((f) => [f.key, attributes[f.key] ?? null])),
       })
       announce(response, {
@@ -155,9 +153,6 @@ export default function NewAssetScreen() {
           </Field>
           <Field label="Harga perolehan (Rp)" error={errors.acquisition_cost}>
             <Input value={acquisitionCost} onChangeText={(t) => setAcquisitionCost(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" invalid={!!errors.acquisition_cost} />
-          </Field>
-          <Field label="Deskripsi" error={errors.description}>
-            <Input value={description} onChangeText={setDescription} multiline maxLength={2000} invalid={!!errors.description} />
           </Field>
 
           {!can('approval.manage') && <Text style={styles.muted}>Aset baru diajukan dulu dan masuk daftar aset setelah disetujui Super Admin atau Supervisor.</Text>}

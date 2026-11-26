@@ -148,7 +148,6 @@ export default function AssetDetailScreen() {
             ))}
           </View>
         ))}
-        <Row label="Deskripsi">{a.description || '—'}</Row>
         <Row label="Ditambahkan">{`${formatDateTime(a.created_at)}${a.created_by ? ` oleh ${a.created_by}` : ''}`}</Row>
       </Card>
 

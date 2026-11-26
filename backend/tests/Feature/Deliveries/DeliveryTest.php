@@ -314,6 +314,36 @@ class DeliveryTest extends TestCase
         $this->assertFalse(Customer::query()->where('name', 'Klinik Baru')->exists());
     }
 
+    public function test_lokasi_status_follows_the_cylinder_from_warehouse_to_customer(): void
+    {
+        [$a, $b] = [$this->tabung('T-1'), $this->tabung('T-2')];
+        $location = fn (Asset $asset) => $this->getJson("/api/assets/{$asset->id}")->assertOk()->json('data.location_status');
+        $keys = fn (string $filter) => array_column($this->getJson("/api/assets?location_status={$filter}")->assertOk()->json('data'), 'id');
+
+        $this->assertSame(['key' => 'warehouse', 'label' => 'Di Gudang', 'detail' => null, 'delivery_id' => null, 'delivery_number' => null], $location($a));
+        $id = $this->plan('outgoing', [[$this->rs, [$a]]])->json('data.id');
+        $this->assertSame('Akan dikirim ke RS Sehat', $location($a)['detail']);
+
+        // Loaded but not left yet: still in the warehouse.
+        $this->crew($id)->assertOk();
+        $this->scan($id, 'load', 'T-1')->assertOk();
+        $this->assertSame(['warehouse', 'Sedang dimuat untuk RS Sehat'], [$location($a)['key'], $location($a)['detail']]);
+
+        $this->report($id, 'depart')->assertOk();
+        $this->assertSame(['in_transit', 'Dalam Perjalanan', 'Dikirim ke RS Sehat', $id], array_values(array_intersect_key($location($a), array_flip(['key', 'label', 'detail', 'delivery_id']))));
+        $this->assertSame([$a->id], $keys('in_transit'));
+        $this->assertContains($b->id, $keys('warehouse'));
+        $this->assertNotContains($a->id, $keys('warehouse'));
+
+        $this->scan($id, 'unload', 'T-1')->assertOk();
+        $this->report($id, 'stop_done')->assertOk();
+        $this->assertSame(['at_customer', 'Di Customer', 'RS Sehat'], [$location($a)['key'], $location($a)['label'], $location($a)['detail']]);
+        $this->assertSame([$a->id], $keys('at_customer'));
+        $sorted = array_column($this->getJson('/api/assets?sort=-location_status')->json('data'), 'id');
+        $this->assertLessThan(array_search($a->id, $sorted, true), array_search($b->id, $sorted, true));
+        $this->assertErrorCode($this->getJson('/api/assets?location_status=entah'), 422, 'VALIDATION_FAILED');
+    }
+
     public function test_the_crew_comes_from_the_divisions_marked_driver_and_helper(): void
     {
         $office = $this->employee('Siti', $this->division('Admin', null));
@@ -461,7 +491,7 @@ class DeliveryTest extends TestCase
     private function values(): array
     {
         $values = ['Business Unit' => 'PT_SIG', 'Warna' => 'Putih', 'Bahan' => 'Baja', 'Volume Tabung' => 40, 'Satuan Volume' => 'LITER',
-            'Jenis Gas' => 'Oksigen', 'Grade Gas' => 'Medis', 'Jenis Tabung' => 'Besar', 'UOM' => 'TBG', 'Satuan Ukuran' => 'TBG'];
+            'Jenis Gas' => 'Oksigen', 'Grade Gas' => 'Medis', 'Jenis Tabung' => 'Besar', 'UOM' => 'TBG'];
         $keys = TenantCategoryAttribute::query()->where('category_id', $this->cylinder->id)->pluck('key', 'label');
 
         return collect($values)->mapWithKeys(fn ($value, $label) => [$keys[$label] => $value])->all();

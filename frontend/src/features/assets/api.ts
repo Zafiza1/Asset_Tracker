@@ -33,6 +33,8 @@ export interface Asset {
   status: AssetStatus
   /** Where a cylinder is according to its transactions; null when it never was on one. */
   position?: AssetPosition | null
+  /** Lokasi Status, set by the system from the cylinder's transactions. */
+  location_status: LocationStatus
   acquisition_date: string | null
   acquisition_cost: string | null
   description: string | null
@@ -55,6 +57,24 @@ export interface Asset {
   created_by?: string | null
   created_at: string
   updated_at: string
+}
+
+export type LocationStatusKey = 'warehouse' | 'in_transit' | 'at_customer'
+
+export interface LocationStatus {
+  key: LocationStatusKey
+  label: string
+  /** Where exactly: the customer, or the delivery it is planned for or travelling with. */
+  detail: string | null
+  delivery_id: string | null
+  delivery_number: string | null
+}
+
+/** Mirrors Fleet::LOCATION_STATUSES. */
+export const locationStatusLabel: Record<LocationStatusKey, string> = {
+  warehouse: 'Di Gudang',
+  in_transit: 'Dalam Perjalanan',
+  at_customer: 'Di Customer',
 }
 
 export interface AssetPosition {

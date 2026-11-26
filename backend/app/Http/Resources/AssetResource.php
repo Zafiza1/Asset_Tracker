@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Domain\Assets\Models\Asset;
+use App\Domain\Deliveries\Fleet;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\OrganizationModule;
 use App\Domain\TenantMaster\Models\CategoryModule;
@@ -40,7 +41,9 @@ class AssetResource extends JsonResource
             'department' => $this->whenLoaded('department', fn () => Ref::of($this->department)),
             'status' => $this->status,
             // Where a cylinder is according to its deliveries (AssetController fills it for lists and the detail).
-            'position' => $request->attributes->get('asset_positions', [])[$this->id] ?? null,
+            'position' => $position = $request->attributes->get('asset_positions', [])[$this->id] ?? null,
+            // Di Gudang, Dalam Perjalanan or Di Customer, from what happens to the cylinder (Data Aset "Lokasi Status").
+            'location_status' => Fleet::locationStatus($this->status, $position),
             'acquisition_date' => $this->acquisition_date?->toDateString(),
             'acquisition_cost' => $this->acquisition_cost,
             'description' => $this->description,

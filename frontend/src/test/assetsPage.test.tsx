@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AssetsPage } from '../features/assets/AssetsPage'
@@ -24,6 +24,7 @@ const asset = (id: string, name: string, extra: Partial<Asset> = {}): Asset =>
     location_id: 'l1',
     location: { id: 'l1', code: 'GDG', name: 'Gudang' },
     status: 'in_use',
+    location_status: { key: 'warehouse', label: 'Di Gudang', detail: null, delivery_id: null, delivery_number: null },
     acquisition_date: null,
     acquisition_cost: null,
     description: null,
@@ -93,14 +94,13 @@ describe('Multiple Edit on Data Aset (Excel, same flow as Kategori)', () => {
     expect(editSheetCalls()[0]).toBe(`/api/assets/edit-sheet?ids=${laptop.id}`)
   })
 
-  it('opens the same Excel flow from the selection bar', async () => {
+  it('keeps one Multiple Edit, in the header: the selection bar only prints barcodes', async () => {
     renderPage()
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Pilih Printer' }))
     const bar = screen.getByRole('region', { name: 'Aksi untuk aset terpilih' })
-    fireEvent.click(bar.querySelector('button') as HTMLElement)
-
-    expect(screen.getByText('Multiple Edit Aset (Excel)', { selector: 'h2' })).toBeInTheDocument()
-    expect(screen.getByText(/1 aset yang dicentang/)).toBeInTheDocument()
+    expect(within(bar).queryByRole('button', { name: /Multiple Edit/ })).not.toBeInTheDocument()
+    expect(within(bar).queryByRole('button', { name: /Nonaktifkan/ })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Multiple Edit/ })).toHaveLength(1)
   })
 
   it('hides Multiple Edit without asset.update', async () => {

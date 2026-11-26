@@ -6,6 +6,7 @@ use App\Domain\Assets\AssetDataQuality;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
+use App\Domain\Deliveries\Fleet;
 use App\Domain\Organization\Models\Location;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Http\Support\ListQuery;
@@ -35,6 +36,8 @@ final class AssetReport
             'location' => ListQuery::related($asset, 'location', 'name'),
             'acquisition_date' => 'assets.acquisition_date', 'acquisition_cost' => 'assets.acquisition_cost',
             'status' => 'assets.status', 'created_at' => 'assets.created_at',
+            // Di Gudang, Dalam Perjalanan, Di Customer (Fleet::locationStatus()).
+            'location_status' => DB::raw(Fleet::locationStatusSql()),
         ];
     }
 

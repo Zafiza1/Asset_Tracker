@@ -91,6 +91,7 @@ class AssetController extends Controller
             'category_ids' => ['nullable', 'string', 'max:2000'],
             'location_id' => ['nullable', 'uuid'],
             'status' => ['nullable', Rule::in(AssetStatus::ALL)],
+            'location_status' => ['nullable', Rule::in(array_keys(Fleet::LOCATION_STATUSES))],
             'archived' => ['nullable', Rule::in(['only', 'all'])],
             // An optional field left empty (dashboard "Kelengkapan data").
             'missing' => ['nullable', Rule::in(array_keys(AssetDataQuality::FIELDS))],
@@ -117,6 +118,7 @@ class AssetController extends Controller
             ->when($categoryIds, fn ($q) => $q->whereIn('category_id', $this->subtree(TenantAssetCategory::query(), $categoryIds)))
             ->when($request->query('location_id'), fn ($q, $id) => $q->whereIn('location_id', $this->subtree(Location::query(), [$id])))
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
+            ->when($request->query('location_status'), fn ($q, $location) => $q->whereRaw('('.Fleet::locationStatusSql().') = ?', [$location]))
             ->when($request->query('custodian_id'), fn ($q, $id) => $q->where('custodian_user_id', $id))
             ->when($request->query('department_id'), fn ($q, $id) => $q->where('department_id', $id))
             ->when($request->boolean('mine'), fn ($q) => $q->where('custodian_user_id', $this->tenancy->tenant()->userId()))
@@ -388,7 +390,8 @@ class AssetController extends Controller
             new ImportColumn('serial_number', 'No Seri', hint: 'Nomor seri aset yang dipakai sebagai nomor alias (misalnya nomor seri pabrik), harus unik bila diisi.', width: 22),
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
             new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
-            new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Kosongkan untuk menghapus.', width: 40),
+            // The edition without locations (PT SIG / PT CDO) has no Deskripsi; cylinders have their own Catatan.
+            ...(config('edition.locations') ? [new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Kosongkan untuk menghapus.', width: 40)] : []),
             ...self::responsibilityColumns(),
             new ImportColumn('location', 'Lokasi (info)', hint: 'Lokasi saat ini; diubah lewat transaksi mutasi.', width: 30, readOnly: true),
             new ImportColumn('status', 'Status (info)', hint: 'Status saat ini; diubah lewat transaksi.', width: 18, readOnly: true),
@@ -419,7 +422,7 @@ class AssetController extends Controller
             new ImportColumn('serial_number', config('edition.locations') ? 'No Seri' : 'No Manufaktur / No Seri', hint: 'Nomor seri aset yang dipakai sebagai nomor alias (misalnya nomor seri pabrik), harus unik bila diisi. Contoh: SN-2024-0001', width: 22),
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Tanggal pembelian/perolehan, format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
             new ImportColumn('acquisition_cost', 'Biaya Perolehan', hint: 'Harga perolehan dalam Rupiah, angka saja. Contoh: 15000000', type: ImportColumn::NUMBER, width: 20),
-            new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Boleh dikosongkan.', width: 40),
+            ...(config('edition.locations') ? [new ImportColumn('description', 'Keterangan', hint: 'Catatan tambahan tentang aset. Boleh dikosongkan.', width: 40)] : []),
             ...self::responsibilityColumns(),
             ...$this->importFields()->map(fn (array $f, string $column) => new ImportColumn($column, $f['label'], hint: $f['hint'],
                 list: $f['options'] === [] ? null : $f['label'],

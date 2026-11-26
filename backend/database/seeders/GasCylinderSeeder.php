@@ -256,7 +256,7 @@ class GasCylinderSeeder extends Seeder
                     'Business Unit' => $spec['unit'], 'Warna' => $color, 'Bahan' => $type === 'Portabel' ? 'Aluminium' : 'Baja',
                     'Volume Tabung' => $volume, 'Satuan Volume' => $unit, 'Usia Tabung (Bulan)' => $age,
                     'Jenis Gas' => $gas, 'Grade Gas' => $grade, 'Jenis Tabung' => $type, 'UOM' => 'TBG',
-                    'Tgl Reference' => now()->subDays($i)->toDateString(), 'Satuan Ukuran' => 'TBG', 'Qty' => 1, 'Catatan' => self::MARK,
+                    'Qty' => 1, 'Catatan' => self::MARK,
                 ]),
             ]);
         }

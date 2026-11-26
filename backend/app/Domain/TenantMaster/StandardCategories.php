@@ -68,8 +68,6 @@ final class StandardCategories
                 self::required(self::field('Grade Gas', AttributeType::STRING, self::BASIC)),
                 self::required(self::field('Jenis Tabung', AttributeType::STRING, self::BASIC)),
                 self::required(self::select('UOM', $units, self::BASIC)),
-                self::field('Tgl Reference', AttributeType::DATE, self::BASIC),
-                self::required(self::select('Satuan Ukuran', $units, self::BASIC)),
                 self::field('Qty', AttributeType::INTEGER, self::BASIC),
                 self::field('Catatan', AttributeType::TEXT, self::BASIC),
             ],

@@ -26,8 +26,8 @@ import {
   usePersistedSearchParams,
 } from "../../lib/usePersistedFilters";
 import { toOptions, useOptions } from "../master/options";
-import { isCylinder, statusFilterLabel, MAX_EDIT_SELECTION, type Asset, type AssetStatus } from "./api";
-import { AssetStatusBadge } from "./AssetStatusBadge";
+import { assetStatusLabel, locationStatusLabel, MAX_EDIT_SELECTION, type Asset, type AssetStatus, type LocationStatusKey } from "./api";
+import { LocationStatusBadge } from "./LocationStatusBadge";
 import { AddMenu } from "../../components/ui/AddMenu";
 import { AssetBarcodeModal } from "./AssetBarcodeModal";
 import { AssetBulkActions } from "./AssetBulkActions";
@@ -38,6 +38,7 @@ const FILTERS = [
   "page",
   "search",
   "category_ids",
+  "location_status",
   "status",
   "archived",
   "missing",
@@ -59,15 +60,13 @@ const MISSING_LABEL: Record<string, string> = {
 };
 const ADVANCED = [
   "category_ids",
-  "status",
-  "archived",
-  "missing",
+  "location_status",
   "overdue",
   "acquired_from",
   "acquired_to",
 ] as const;
 /** Sort options of the dropdown; the column headers can set the other directions too. */
-const SORT_OPTIONS = ["", "name", "-name", "-acquisition_date", "acquisition_date", "status"];
+const SORT_OPTIONS = ["", "name", "-name", "-acquisition_date", "acquisition_date", "location_status"];
 const SORT_LABEL: Record<string, string> = {
   "": "terbaru ditambahkan",
   "-created_at": "terbaru ditambahkan",
@@ -77,6 +76,8 @@ const SORT_LABEL: Record<string, string> = {
   "-acquisition_date": "tanggal perolehan terbaru",
   acquisition_date: "tanggal perolehan terlama",
   status: "status (A–Z)",
+  location_status: "Lokasi Status (Di Customer dulu)",
+  "-location_status": "Lokasi Status (Di Gudang dulu)",
   serial_number: "No Manufaktur (A–Z)",
   "-serial_number": "No Manufaktur (Z–A)",
   category: "kategori (A–Z)",
@@ -121,8 +122,7 @@ const DEFAULT_COLUMNS = [
   "name",
   "serial_number",
   "category",
-  "position",
-  "status",
+  "location_status",
   "barcode",
 ];
 
@@ -161,9 +161,15 @@ export function AssetsPage() {
   const advanced = useFilterDraft(params, ADVANCED);
   const draft = advanced.draft;
 
-  const visibleColumns = (params.get("columns") ?? DEFAULT_COLUMNS.join(","))
-    .split(",")
-    .filter(Boolean);
+  // Posisi and Status became one column, Lokasi Status; saved column lists still name the old ones.
+  const visibleColumns = [
+    ...new Set(
+      (params.get("columns") ?? DEFAULT_COLUMNS.join(","))
+        .split(",")
+        .filter(Boolean)
+        .map((c) => (c === "position" || c === "status" ? "location_status" : c)),
+    ),
+  ];
 
   const toggleColumn = (key: string) => {
     const next = visibleColumns.includes(key)
@@ -252,11 +258,20 @@ export function AssetsPage() {
           category_ids: selectedCategories.filter((c) => c !== id).join(","),
         }),
     })),
+    ...(params.get("location_status")
+      ? [
+          {
+            key: "location_status",
+            label: `Lokasi Status: ${locationStatusLabel[params.get("location_status") as LocationStatusKey] ?? params.get("location_status")}`,
+            clear: () => update({ location_status: "" }),
+          },
+        ]
+      : []),
     ...(params.get("status")
       ? [
           {
             key: "status",
-            label: `Status: ${statusFilterLabel[params.get("status") as AssetStatus] ?? params.get("status")}`,
+            label: `Status: ${assetStatusLabel[params.get("status") as AssetStatus] ?? params.get("status")}`,
             clear: () => update({ status: "" }),
           },
         ]
@@ -315,7 +330,7 @@ export function AssetsPage() {
             {/* Long names stop after two lines; the full name is the cell's tooltip. */}
             <span className="line-clamp-2 whitespace-normal break-words">{a.name}</span>
             <span className="block truncate text-xs font-normal text-slate-500 md:hidden">
-              {[a.serial_number, a.category?.name, a.position?.label].filter(Boolean).join(" · ")}
+              {[a.serial_number, a.location_status.detail ?? a.location_status.label].filter(Boolean).join(" · ")}
             </span>
           </span>
         </Link>
@@ -352,31 +367,13 @@ export function AssetsPage() {
       hideOnMobile: true,
     },
     {
-      // Where a cylinder is according to its transactions: warehouse, on the way, or a customer.
-      key: "position",
-      header: "Posisi",
-      className: "w-52",
-      title: (a) => a.position?.label,
-      cell: (a) =>
-        a.position ? (
-          <Link to={`/transaksi/${a.position.delivery_id}`} className="line-clamp-2 whitespace-normal hover:text-brand-700">
-            {a.position.label}
-          </Link>
-        ) : (
-          <span className="text-slate-400">{a.status === "available" || a.status === "in_use" ? "Di gudang" : "—"}</span>
-        ),
-      hideOnMobile: true,
-    },
-    {
-      key: "status",
-      header: "Status",
-      className: "w-32 md:w-36",
-      sortKey: "status",
-      cell: (a) => (
-        <div className="flex flex-wrap gap-1">
-          <AssetStatusBadge status={a.status} archived={a.is_archived} cylinder={isCylinder(a)} />
-        </div>
-      ),
+      // Set by the system from the cylinder's transactions: Di Gudang, Dalam Perjalanan, Di Customer.
+      key: "location_status",
+      header: "Lokasi Status",
+      className: "w-56",
+      sortKey: "location_status",
+      title: (a) => a.location_status.detail ?? undefined,
+      cell: (a) => <LocationStatusBadge asset={a} />,
     },
     // Only while the Barcode module is on (Menu Modul).
     ...(barcodeModule
@@ -486,35 +483,14 @@ export function AssetsPage() {
               onChange={(ids) => advanced.set({ category_ids: ids.join(",") })}
             />
             <Select
-              value={draft.status}
-              onChange={(e) => advanced.set({ status: e.target.value })}
-              aria-label="Filter status"
+              value={draft.location_status}
+              onChange={(e) => advanced.set({ location_status: e.target.value })}
+              aria-label="Filter lokasi status"
             >
-              <option value="">Status: semua</option>
-              {(Object.keys(statusFilterLabel) as AssetStatus[]).map((s) => (
-                <option key={s} value={s}>
-                  {statusFilterLabel[s]}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={draft.archived}
-              onChange={(e) => advanced.set({ archived: e.target.value })}
-              aria-label="Aset aktif atau nonaktif"
-            >
-              <option value="">Aset aktif</option>
-              <option value="only">Aset nonaktif</option>
-              <option value="all">Aktif &amp; nonaktif</option>
-            </Select>
-            <Select
-              value={draft.missing}
-              onChange={(e) => advanced.set({ missing: e.target.value })}
-              aria-label="Filter kelengkapan data"
-            >
-              <option value="">Kelengkapan data: semua</option>
-              {Object.entries(MISSING_LABEL).map(([k, label]) => (
+              <option value="">Lokasi Status: semua</option>
+              {(Object.keys(locationStatusLabel) as LocationStatusKey[]).map((k) => (
                 <option key={k} value={k}>
-                  Belum diisi: {label}
+                  {locationStatusLabel[k]}
                 </option>
               ))}
             </Select>
@@ -561,19 +537,8 @@ export function AssetsPage() {
             <AssetBulkActions
               selected={[...selected.values()]}
               offPage={offPage}
-              canEdit={can("asset.update")}
-              canArchive={can("asset.archive")}
               barcode={barcodeModule}
-              editable={editAssets.length}
-              onEdit={() => setBulkEditing(true)}
               onClear={() => setSelected(new Map())}
-              onDone={(ids) =>
-                setSelected((prev) => {
-                  const next = new Map(prev);
-                  ids.forEach((id) => next.delete(id));
-                  return next;
-                })
-              }
             />
             <DataTable
               columns={columns}

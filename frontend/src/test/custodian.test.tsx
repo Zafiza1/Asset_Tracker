@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { tenantNavigation } from '../app/navigation'
+import { AssetDetailPage } from '../features/assets/AssetDetailPage'
 import { AssetFormModal } from '../features/assets/AssetFormModal'
 import { AssetsPage } from '../features/assets/AssetsPage'
 import type { Asset } from '../features/assets/api'
@@ -36,6 +37,7 @@ const asset = (id: string, name: string, extra: Partial<Asset> = {}): Asset =>
     department_id: 'd-keu',
     department: { id: 'd-keu', code: 'KEU', name: 'Keuangan' },
     status: 'available',
+    location_status: { key: 'warehouse', label: 'Di Gudang', detail: null, delivery_id: null, delivery_number: null },
     acquisition_date: null,
     acquisition_cost: null,
     description: null,
@@ -88,6 +90,45 @@ describe('Data Aset tanpa penanggung jawab dan departemen', () => {
     expect(await screen.findByRole('textbox', { name: /Nama Produk|Nama aset/, hidden: true })).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: /Penanggung jawab/, hidden: true })).not.toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: 'Departemen', hidden: true })).not.toBeInTheDocument()
+  })
+})
+
+describe('Data Aset: Lokasi Status', () => {
+  it('shows Posisi and Status as one column set by the transactions', async () => {
+    const onTheWay = asset('a1', 'Oksigen Medis', {
+      status: 'off_site',
+      location_status: { key: 'in_transit', label: 'Dalam Perjalanan', detail: 'Dikirim ke RS Sehat', delivery_id: 'd1', delivery_number: 'OUT-2026-000001' },
+    })
+    const repaired = asset('a2', 'Nitrogen HP', { status: 'under_maintenance' })
+    setup(<AssetsPage />, (url) => (url.startsWith('/api/assets') ? page([onTheWay, repaired]) : { data: [] }), '/aset?columns=name,position,status')
+    expect(await screen.findByRole('columnheader', { name: /Lokasi Status/ })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /^Posisi/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /^Status/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Dalam Perjalanan')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Dikirim ke RS Sehat' })).toHaveAttribute('href', '/transaksi/d1')
+    // A status that is not a place is shown next to it.
+    expect(screen.getByText('Dalam Perbaikan')).toBeInTheDocument()
+  })
+})
+
+describe('Detail aset: Lokasi Status', () => {
+  it('shows Lokasi Status instead of Posisi and has no Ubah status', async () => {
+    const atCustomer = asset('a1', 'Oksigen Medis', {
+      status: 'off_site',
+      location_status: { key: 'at_customer', label: 'Di Customer', detail: 'RS Sehat', delivery_id: 'd1', delivery_number: 'OUT-2026-000001' },
+    })
+    setup(
+      <Routes>
+        <Route path="/aset/:id" element={<AssetDetailPage />} />
+      </Routes>,
+      (url) => (url === '/api/assets/a1' ? { data: atCustomer, attribute_fields: [] } : { data: [] }),
+      '/aset/a1',
+    )
+    // The card at the top and the row in the data sheet.
+    expect(await screen.findAllByText('Lokasi Status', { selector: 'dt, dt *' })).toHaveLength(2)
+    expect(screen.queryByText('Posisi', { selector: 'dt, dt *' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'OUT-2026-000001' })).toHaveAttribute('href', '/transaksi/d1')
+    expect(screen.queryByRole('button', { name: /Ubah status/ })).not.toBeInTheDocument()
   })
 })
 

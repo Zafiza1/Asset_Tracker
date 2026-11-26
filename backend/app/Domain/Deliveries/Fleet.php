@@ -21,6 +21,22 @@ use Illuminate\Support\Facades\DB;
  */
 final class Fleet
 {
+    /**
+     * Lokasi Status of a cylinder, set by what happens to it: in the warehouse while no transaction
+     * carries it, on the way while it is on a vehicle that has left, at a customer once delivered.
+     */
+    public const WAREHOUSE = 'warehouse';
+
+    public const IN_TRANSIT = 'in_transit';
+
+    public const AT_CUSTOMER = 'at_customer';
+
+    public const LOCATION_STATUSES = [
+        self::WAREHOUSE => 'Di Gudang',
+        self::IN_TRANSIT => 'Dalam Perjalanan',
+        self::AT_CUSTOMER => 'Di Customer',
+    ];
+
     /** Fields of a cylinder shown next to its name when choosing or scanning it. */
     private const CYLINDER_LABELS = ['Business Unit', 'Jenis Gas', 'Grade Gas', 'Jenis Tabung', 'Warna', 'Volume Tabung', 'Satuan Volume'];
 
@@ -99,7 +115,7 @@ final class Fleet
             ->whereIn('di.asset_id', $assetIds)
             ->whereIn('di.state', [DeliveryItem::PLANNED, DeliveryItem::LOADED, DeliveryItem::UNLOADED, DeliveryItem::RETURNED, DeliveryItem::MISSING])
             ->orderBy('di.asset_id')->orderByDesc('di.active')->orderByDesc('di.updated_at')
-            ->selectRaw('DISTINCT ON (di.asset_id) di.asset_id, di.state, di.active, d.id AS delivery_id, d.number, d.direction, c.name AS customer, a.status AS asset_status')
+            ->selectRaw('DISTINCT ON (di.asset_id) di.asset_id, di.state, di.active, d.id AS delivery_id, d.number, d.direction, d.status AS delivery_status, c.name AS customer, a.status AS asset_status')
             ->get();
 
         $out = [];
@@ -116,11 +132,49 @@ final class Fleet
             };
             $out[$row->asset_id] = [
                 'state' => $state, 'label' => $label, 'customer' => $row->customer,
-                'delivery_id' => $row->delivery_id, 'delivery_number' => $row->number,
+                'delivery_id' => $row->delivery_id, 'delivery_number' => $row->number, 'delivery_status' => $row->delivery_status,
             ];
         }
 
         return $out;
+    }
+
+    /**
+     * The Lokasi Status of an asset from its status and its place in the deliveries (positions()).
+     *
+     * @param  array{state: string, label: string, customer: string, delivery_id: string, delivery_number: string, delivery_status: string}|null  $position
+     * @return array{key: string, label: string, detail: string|null, delivery_id: string|null, delivery_number: string|null}
+     */
+    public static function locationStatus(string $status, ?array $position): array
+    {
+        $onTheWay = $position !== null && $position['state'] === 'in_transit' && $position['delivery_status'] === Delivery::IN_TRANSIT;
+        $key = $onTheWay ? self::IN_TRANSIT : ($status === AssetStatus::OFF_SITE ? self::AT_CUSTOMER : self::WAREHOUSE);
+        $detail = match (true) {
+            $position === null => null,
+            $key === self::IN_TRANSIT => $position['label'],
+            $key === self::AT_CUSTOMER => $position['state'] === 'missing' ? "{$position['customer']} · selisih, perlu dicek" : $position['customer'],
+            $position['state'] === 'planned' => "Akan dikirim ke {$position['customer']}",
+            $position['state'] === 'in_transit' => "Sedang dimuat untuk {$position['customer']}",
+            default => null,
+        };
+        $linked = $detail !== null;
+
+        return [
+            'key' => $key, 'label' => self::LOCATION_STATUSES[$key], 'detail' => $detail,
+            'delivery_id' => $linked ? $position['delivery_id'] : null, 'delivery_number' => $linked ? $position['delivery_number'] : null,
+        ];
+    }
+
+    /** The same Lokasi Status as locationStatus(), as SQL on `assets`, for filtering and sorting lists. */
+    public static function locationStatusSql(): string
+    {
+        $loaded = DeliveryItem::LOADED;
+        $onTrip = Delivery::IN_TRANSIT;
+        $off = AssetStatus::OFF_SITE;
+
+        return "CASE WHEN EXISTS (SELECT 1 FROM delivery_items di JOIN deliveries d ON d.id = di.delivery_id
+                WHERE di.asset_id = assets.id AND di.active AND di.state = '{$loaded}' AND d.status = '{$onTrip}') THEN '".self::IN_TRANSIT."'
+            WHEN assets.status = '{$off}' THEN '".self::AT_CUSTOMER."' ELSE '".self::WAREHOUSE."' END";
     }
 
     private function inCategory(string $code): Builder
