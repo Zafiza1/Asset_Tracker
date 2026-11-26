@@ -28,6 +28,12 @@ export const tenantNavigation: NavSection[] = [
   {
     items: [
       { to: '/', label: 'Beranda', icon: Home },
+      // Right under Beranda, so what waits for a decision is seen first. One approval list:
+      // approvers (Super Admin, Supervisor) decide data change requests and the steps of
+      // transactions under "Persetujuan"; their own changes need no approval. Everyone else
+      // follows the outcome of their submissions under "Pengajuan Saya".
+      { to: '/notifikasi', label: 'Persetujuan', icon: Bell, permission: 'approval.manage', inboxBadge: true },
+      { to: '/notifikasi', label: 'Pengajuan Saya', icon: ClipboardList, hiddenWithPermission: 'approval.manage', inboxBadge: true },
       { to: '/dashboard-aset', label: 'Dashboard Aset', icon: LayoutDashboard, permission: 'dashboard.view' },
     ],
   },
@@ -39,11 +45,6 @@ export const tenantNavigation: NavSection[] = [
       // Cylinders going out to customers and coming back, and where their vehicles are now.
       { to: '/transaksi', label: 'Transaksi', icon: ArrowLeftRight, permission: 'delivery.view' },
       { to: '/tracking', label: 'Tracking', icon: MapPinned, permission: 'delivery.view' },
-      // One approval list: approvers (Super Admin, Supervisor) decide data change requests and
-      // the steps of transactions under "Persetujuan"; their own changes need no approval. Everyone
-      // else follows the outcome of their submissions under "Pengajuan Saya".
-      { to: '/notifikasi', label: 'Persetujuan', icon: Bell, permission: 'approval.manage', inboxBadge: true },
-      { to: '/notifikasi', label: 'Pengajuan Saya', icon: ClipboardList, hiddenWithPermission: 'approval.manage', inboxBadge: true },
     ],
   },
   {
