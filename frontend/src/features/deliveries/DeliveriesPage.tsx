@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ArrowDownToLine, ArrowUpFromLine, ChevronDown, Plus, SearchX, Truck } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { MenuItem } from '../../components/ui/AddMenu'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
@@ -12,6 +12,7 @@ import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { PillTabs } from '../../components/ui/Tabs'
 import { useAuth } from '../../lib/auth/context'
+import { usePersistedFilters, usePersistedSearchParams } from '../../lib/usePersistedFilters'
 import { formatDate } from '../../lib/format'
 import { ago, crewText, deliveriesApi, DELIVERIES_KEY, deliveryStatusLabel, REFRESH_MS, vehicleText, type Delivery, type Direction } from './api'
 import { DeliveryFormModal } from './DeliveryFormModal'
@@ -25,7 +26,9 @@ const ADVANCED = ['date_from', 'date_to', 'vehicle_id'] as const
 export function DeliveriesPage() {
   const { can } = useAuth()
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
+  // Filters stay when leaving the menu and coming back (saved like Data Aset's).
+  const [params, setParams] = usePersistedSearchParams('/transaksi')
+  const persisted = usePersistedFilters('/transaksi')
   const [search, setSearch] = useState(params.get('search') ?? '')
   const [creating, setCreating] = useState<Direction | null>(null)
   const filters = Object.fromEntries(FILTERS.map((k) => [k, params.get(k)]))
@@ -34,8 +37,13 @@ export function DeliveriesPage() {
   const update = (next: Record<string, string>) => {
     const merged = new URLSearchParams(params)
     for (const [k, v] of Object.entries(next)) {
-      if (v) merged.set(k, v)
-      else merged.delete(k)
+      if (v) {
+        merged.set(k, v)
+        persisted.updateFilter(k, v)
+      } else {
+        merged.delete(k)
+        persisted.removeFilter(k)
+      }
     }
     if (!('page' in next)) merged.delete('page')
     setParams(merged)
@@ -49,7 +57,7 @@ export function DeliveriesPage() {
     const v = vehicles.find((x) => x.id === id)
     return v ? [v.plate, v.name].filter(Boolean).join(' · ') : '…'
   }
-  const resetAll = () => (setSearch(''), setParams(new URLSearchParams()))
+  const resetAll = () => (setSearch(''), persisted.resetFilters(), setParams(new URLSearchParams()))
   const from = params.get('date_from')
   const to = params.get('date_to')
   const chips: FilterChip[] = [
