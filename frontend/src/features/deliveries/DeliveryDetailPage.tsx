@@ -98,8 +98,8 @@ export function DeliveryDetailPage() {
             {d.notes && <Fact label="Catatan" value={d.notes} />}
           </dl>
         </Card>
-        <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">
-          <div className="space-y-6">
+        <div className="grid items-start gap-6 xl:grid-cols-[3fr_2fr]">
+          <div className="min-w-0 space-y-6">
             <RouteCard delivery={d} />
             <StopsCard delivery={d} />
           </div>
@@ -225,7 +225,8 @@ function TimelineCard({ events }: { events: DeliveryEvent[] }) {
   const [view, setView] = useState<TimelineView>('trip')
   const shown = [...events].reverse().filter((e) => view === 'all' || !SCANS.has(e.type))
   return (
-    <Card title="Garis waktu">
+    // Grows with its events (no inner scroll that cut the oldest ones off) and only as tall as they are.
+    <Card title="Garis waktu" className="min-w-0">
       <div className="px-5 pt-3">
         <PillTabs<TimelineView>
           label="Isi garis waktu"
@@ -237,7 +238,7 @@ function TimelineCard({ events }: { events: DeliveryEvent[] }) {
           ]}
         />
       </div>
-      <ol className="max-h-[48rem] space-y-4 overflow-y-auto px-5 py-4">
+      <ol className="space-y-4 px-5 py-4">
         {shown.map((e) => (
           <li key={e.id} className="flex gap-3">
             <span className={`mt-1.5 size-2.5 shrink-0 rounded-full ${e.type === 'issue' ? 'bg-red-600' : e.type === 'completed' ? 'bg-green-600' : 'bg-brand-500'}`} aria-hidden />

@@ -93,7 +93,7 @@ export function DeliveryFormModal({ direction, delivery, onClose, onSaved }: { d
   return (
     <Modal
       open
-      size="xl"
+      size="full"
       title={title}
       onClose={onClose}
       footer={

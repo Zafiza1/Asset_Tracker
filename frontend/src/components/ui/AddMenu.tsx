@@ -52,7 +52,8 @@ export function AddMenu({ label, noun, onForm, onImport }: AddMenuProps) {
   )
 }
 
-function MenuItem({ icon, title, hint, onClick }: { icon: React.ReactNode; title: string; hint: string; onClick: () => void }) {
+/** One choice of a dropdown menu: icon, name and a line on what it does. */
+export function MenuItem({ icon, title, hint, onClick }: { icon: React.ReactNode; title: string; hint: string; onClick: () => void }) {
   return (
     <button
       type="button"

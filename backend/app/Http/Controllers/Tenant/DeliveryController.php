@@ -46,6 +46,7 @@ class DeliveryController extends Controller
             'direction' => ['nullable', Rule::in(array_keys(Delivery::DIRECTIONS))],
             'status' => ['nullable', Rule::in([...array_keys(Delivery::STATUSES), 'open'])],
             'customer_id' => ['nullable', 'uuid'],
+            'vehicle_id' => ['nullable', 'uuid'],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d'],
         ]);
@@ -53,6 +54,7 @@ class DeliveryController extends Controller
             ->when($request->query('direction'), fn ($q, $direction) => $q->where('direction', $direction))
             ->when($request->query('status'), fn ($q, $status) => $status === 'open' ? $q->whereIn('status', Delivery::OPEN) : $q->where('status', $status))
             ->when($request->query('customer_id'), fn ($q, $id) => $q->whereHas('stops', fn ($s) => $s->where('customer_id', $id)))
+            ->when($request->query('vehicle_id'), fn ($q, $id) => $q->where('vehicle_id', $id))
             ->when($request->query('date_from'), fn ($q, $date) => $q->whereDate('planned_date', '>=', $date))
             ->when($request->query('date_to'), fn ($q, $date) => $q->whereDate('planned_date', '<=', $date))
             ->when($request->query('search'), function ($q, $term) {

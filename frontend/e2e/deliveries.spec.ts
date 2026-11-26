@@ -97,7 +97,8 @@ test('transaksi keluar dan masuk tabung: rencana di web, jalan di mobile, pantau
 
   // 2. Plan an outgoing transaction of two cylinders; the crew is left to the phone.
   await page.goto('/transaksi')
-  await page.getByRole('button', { name: /keluar/i }).first().click()
+  await page.getByRole('button', { name: 'Transaksi', exact: true }).click()
+  await page.getByRole('menuitem', { name: /Transaksi keluar/ }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Customer').selectOption({ label: 'RS Uji E2E' })
   await dialog.getByLabel(/E2E-TBG-1/).check()
@@ -150,7 +151,8 @@ test('transaksi keluar dan masuk tabung: rencana di web, jalan di mobile, pantau
 
   // 7. Incoming: fetched at the customer, unloaded at the warehouse, one is left behind.
   await page.goto('/transaksi')
-  await page.getByRole('button', { name: /masuk/i }).first().click()
+  await page.getByRole('button', { name: 'Transaksi', exact: true }).click()
+  await page.getByRole('menuitem', { name: /Transaksi masuk/ }).click()
   await page.getByRole('dialog').getByLabel('Customer').selectOption({ label: 'RS Uji E2E' })
   await page.getByRole('dialog').getByLabel(/E2E-TBG-1/).check()
   await page.getByRole('dialog').getByRole('button', { name: 'Simpan' }).click()

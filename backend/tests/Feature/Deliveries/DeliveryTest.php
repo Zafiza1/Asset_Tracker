@@ -253,6 +253,18 @@ class DeliveryTest extends TestCase
         $this->assertTrue(now()->addMinute()->gt($times[1]));
     }
 
+    public function test_list_filters_by_vehicle_and_date(): void
+    {
+        $withTruck = $this->plan('outgoing', [[$this->rs, [$this->tabung('T-1')]]])->json('data.id');
+        $this->crew($withTruck)->assertOk();
+        $this->plan('outgoing', [[$this->bengkel, [$this->tabung('T-2')]]])->assertCreated();
+        $today = now()->toDateString();
+
+        $this->getJson('/api/deliveries?vehicle_id='.$this->truck->id)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $withTruck);
+        $this->getJson("/api/deliveries?date_from={$today}&date_to={$today}")->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson('/api/deliveries?date_from='.now()->addDay()->toDateString())->assertOk()->assertJsonCount(0, 'data');
+    }
+
     public function test_permissions_separate_planning_from_operating(): void
     {
         $this->createRole($this->org, 'SUPIR', ['delivery.view', 'delivery.operate']);

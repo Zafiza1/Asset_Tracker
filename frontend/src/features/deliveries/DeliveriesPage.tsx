@@ -1,12 +1,14 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ArrowDownToLine, ArrowUpFromLine, History, SearchX, Truck } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, ChevronDown, Plus, SearchX, Truck } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { Button, ButtonLink } from '../../components/ui/Button'
+import { MenuItem } from '../../components/ui/AddMenu'
+import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
 import { Select } from '../../components/ui/Field'
-import { FilterPanel, SearchForm } from '../../components/ui/Filters'
+import { ActiveFilters, AdvancedFilters, DateRangeFilter, FilterPanel, SearchForm, useFilterDraft } from '../../components/ui/Filters'
+import { searchChip, type FilterChip } from '../../components/ui/filterChips'
 import { DataTable, Pagination, type Column } from '../../components/ui/Table'
 import { PillTabs } from '../../components/ui/Tabs'
 import { useAuth } from '../../lib/auth/context'
@@ -15,7 +17,9 @@ import { ago, crewText, deliveriesApi, DELIVERIES_KEY, deliveryStatusLabel, REFR
 import { DeliveryFormModal } from './DeliveryFormModal'
 import { DeliveryStatusBadge, DirectionBadge } from './DeliveryParts'
 
-const FILTERS = ['page', 'per_page', 'search', 'direction', 'status', 'sort'] as const
+const FILTERS = ['page', 'per_page', 'search', 'direction', 'status', 'date_from', 'date_to', 'vehicle_id', 'sort'] as const
+/** Behind "Filter lanjutan": applied together with "Terapkan filter". */
+const ADVANCED = ['date_from', 'date_to', 'vehicle_id'] as const
 
 /** Menu Transaksi: outgoing and incoming transactions of cylinders. */
 export function DeliveriesPage() {
@@ -36,7 +40,23 @@ export function DeliveriesPage() {
     if (!('page' in next)) merged.delete('page')
     setParams(merged)
   }
-  const hasFilters = !!(params.get('search') || params.get('status') || params.get('direction'))
+  const hasFilters = ['search', 'status', 'direction', ...ADVANCED].some((k) => params.get(k))
+  const advanced = useFilterDraft(params, ADVANCED)
+  const draft = advanced.draft
+  const options = useQuery({ queryKey: [...DELIVERIES_KEY, 'options'], queryFn: () => deliveriesApi.options() })
+  const vehicles = options.data?.data.vehicles ?? []
+  const vehicleName = (id: string) => {
+    const v = vehicles.find((x) => x.id === id)
+    return v ? [v.plate, v.name].filter(Boolean).join(' · ') : '…'
+  }
+  const resetAll = () => (setSearch(''), setParams(new URLSearchParams()))
+  const from = params.get('date_from')
+  const to = params.get('date_to')
+  const chips: FilterChip[] = [
+    ...searchChip(params.get('search'), () => (setSearch(''), update({ search: '' }))),
+    ...(from || to ? [{ key: 'date', label: `Tanggal: ${from ? formatDate(from) : '…'} – ${to ? formatDate(to) : '…'}`, clear: () => update({ date_from: '', date_to: '' }) }] : []),
+    ...(params.get('vehicle_id') ? [{ key: 'vehicle', label: `Kendaraan: ${vehicleName(params.get('vehicle_id')!)}`, clear: () => update({ vehicle_id: '' }) }] : []),
+  ]
   const mayCreate = (direction: Direction) => can('delivery.manage') && can(direction === 'outgoing' ? 'asset.outgoing' : 'asset.incoming')
 
   const columns: Column<Delivery>[] = [
@@ -112,21 +132,7 @@ export function DeliveriesPage() {
         description="Tabung keluar ke customer dan masuk kembali ke gudang. Scan muat, perjalanan, dan scan bongkar dicatat dari aplikasi mobile."
         actions={
           <>
-            {can('transaction.view') && (
-              <ButtonLink to="/transaksi/riwayat" variant="secondary">
-                <History className="size-4" aria-hidden /> Riwayat aset
-              </ButtonLink>
-            )}
-            {mayCreate('incoming') && (
-              <Button variant="secondary" onClick={() => setCreating('incoming')}>
-                <ArrowDownToLine className="size-4" aria-hidden /> Transaksi masuk
-              </Button>
-            )}
-            {mayCreate('outgoing') && (
-              <Button onClick={() => setCreating('outgoing')}>
-                <ArrowUpFromLine className="size-4" aria-hidden /> Transaksi keluar
-              </Button>
-            )}
+            {(mayCreate('incoming') || mayCreate('outgoing')) && <NewTransactionMenu incoming={mayCreate('incoming')} outgoing={mayCreate('outgoing')} onPick={setCreating} />}
           </>
         }
       />
@@ -160,6 +166,18 @@ export function DeliveriesPage() {
               </Select>
             }
           />
+          <AdvancedFilters activeCount={advanced.activeCount} dirty={advanced.dirty} onApply={() => update(draft)} onClear={() => advanced.set(advanced.empty)} error={draft.date_from && draft.date_to && draft.date_from > draft.date_to ? 'Tanggal "Dari" tidak boleh setelah "Sampai".' : null}>
+            <DateRangeFilter from={draft.date_from} to={draft.date_to} onChange={(f, t) => advanced.set({ date_from: f, date_to: t })} />
+            <Select value={draft.vehicle_id} onChange={(e) => advanced.set({ vehicle_id: e.target.value })} aria-label="Filter kendaraan">
+              <option value="">Kendaraan: semua</option>
+              {vehicles.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {[v.plate, v.name].filter(Boolean).join(' · ')}
+                </option>
+              ))}
+            </Select>
+          </AdvancedFilters>
+          <ActiveFilters chips={chips} onReset={resetAll} />
         </FilterPanel>
         {query.isPending ? (
           <TableSkeleton columns={5} label="Memuat transaksi…" />
@@ -172,7 +190,7 @@ export function DeliveriesPage() {
             description={hasFilters ? 'Ubah kata kunci atau filter.' : 'Buat transaksi keluar untuk mengirim tabung ke customer, atau transaksi masuk untuk menjemputnya.'}
             action={
               hasFilters ? (
-                <Button variant="secondary" onClick={() => (setSearch(''), setParams(new URLSearchParams()))}>
+                <Button variant="secondary" onClick={resetAll}>
                   Hapus pencarian dan filter
                 </Button>
               ) : undefined
@@ -187,5 +205,28 @@ export function DeliveriesPage() {
       </Card>
       {creating && <DeliveryFormModal direction={creating} onClose={() => setCreating(null)} onSaved={(d) => navigate(`/transaksi/${d.id}`)} />}
     </>
+  )
+}
+
+/** "Transaksi" with its two kinds in a dropdown: cylinders out to customers, or back to the warehouse. */
+function NewTransactionMenu({ incoming, outgoing, onPick }: { incoming: boolean; outgoing: boolean; onPick: (direction: Direction) => void }) {
+  const [open, setOpen] = useState(false)
+  const choose = (direction: Direction) => () => (setOpen(false), onPick(direction))
+  return (
+    <div className="relative" onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
+      <Button onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu">
+        <Plus className="size-4" aria-hidden /> Transaksi
+        <ChevronDown className={`size-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+      </Button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div role="menu" aria-label="Jenis transaksi" className="absolute right-0 z-20 mt-2 w-72 animate-fade-in rounded-lg bg-white p-1.5 shadow-overlay ring-1 ring-slate-900/10">
+            {outgoing && <MenuItem icon={<ArrowUpFromLine className="size-4" aria-hidden />} title="Transaksi keluar" hint="Kirim tabung dari gudang ke customer" onClick={choose('outgoing')} />}
+            {incoming && <MenuItem icon={<ArrowDownToLine className="size-4" aria-hidden />} title="Transaksi masuk" hint="Jemput tabung dari customer ke gudang" onClick={choose('incoming')} />}
+          </div>
+        </>
+      )}
+    </div>
   )
 }
