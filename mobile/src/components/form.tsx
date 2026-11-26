@@ -38,6 +38,8 @@ export interface Option {
   /** Indent level in a tree (subcategory, sublocation). */
   depth?: number
   hint?: string
+  /** Code of the record, where the form depends on it. */
+  code?: string
 }
 
 /**

@@ -1,13 +1,13 @@
 import { ArrowRight, CircleCheck, Clock } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { formatDate } from '../../lib/format'
-import { assetStatusLabel } from '../assets/api'
+import { CYLINDER_CATEGORY, statusLabel } from '../assets/api'
 import { daysLate, type AssetTransaction, type TransactionWithState } from './api'
 import { Link } from 'react-router'
 import { FieldValueList } from '../transactionTypes/FieldValueList'
 
 const locationChange = (trx: AssetTransaction) => trx.to_location && { from: trx.from_location?.name, to: trx.to_location.name }
-const statusChange = (trx: AssetTransaction) => trx.to_status && { from: trx.from_status && assetStatusLabel[trx.from_status], to: assetStatusLabel[trx.to_status] }
+const statusChange = (trx: AssetTransaction, cylinder: boolean) => trx.to_status && { from: trx.from_status && statusLabel(trx.from_status, cylinder), to: statusLabel(trx.to_status, cylinder) }
 
 /** "Gudang → Kantor", or just the new value when there was none before; otherwise the unchanged value. Inherits the cell's font. */
 function ChangeValue({ change, unchanged }: { change: { from?: string | null; to: string } | null | undefined; unchanged: string | null }) {
@@ -27,13 +27,13 @@ function ChangeValue({ change, unchanged }: { change: { from?: string | null; to
 
 /** Location / status columns of an asset's history: the change, or the value the asset kept through the transaction. */
 export const LocationChange = ({ trx }: { trx: TransactionWithState }) => <ChangeValue change={locationChange(trx)} unchanged={trx.location_after ?? 'Tanpa lokasi'} />
-export const StatusChange = ({ trx }: { trx: TransactionWithState }) => <ChangeValue change={statusChange(trx)} unchanged={assetStatusLabel[trx.status_after]} />
+export const StatusChange = ({ trx, cylinder = false }: { trx: TransactionWithState; cylinder?: boolean }) => <ChangeValue change={statusChange(trx, cylinder)} unchanged={statusLabel(trx.status_after, cylinder)} />
 
 /** One line per thing the transaction changed ("Lokasi: Gudang → Kantor"), plus borrower and notes. */
-export function TransactionChanges({ trx }: { trx: AssetTransaction }) {
+export function TransactionChanges({ trx, cylinder = trx.asset?.category_code === CYLINDER_CATEGORY }: { trx: AssetTransaction; cylinder?: boolean }) {
   const rows: { label: string; from?: string | null; to?: string | null }[] = []
   if (trx.to_location) rows.push({ label: 'Lokasi', ...locationChange(trx) })
-  if (trx.to_status) rows.push({ label: 'Status', ...statusChange(trx) })
+  if (trx.to_status) rows.push({ label: 'Status', ...statusChange(trx, cylinder) })
 
   return (
     <div className="space-y-0.5 text-sm">

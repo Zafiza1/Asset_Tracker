@@ -13,6 +13,7 @@ use App\Domain\AssetTransactions\TransactionLog;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\AssetTransactions\Types\TransactionFieldTypes;
 use App\Domain\Audit\AuditLogger;
+use App\Domain\Deliveries\Fleet;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
@@ -285,6 +286,9 @@ final class AssetTransactionService
         $status = $data['to_status'] ?? null;
         if ($status === null || $status === $asset->status) {
             throw $this->fieldError('to_status', 'Pilih status baru yang berbeda dari saat ini.');
+        }
+        if ($status === AssetStatus::IN_USE && Fleet::isCylinderCategory($asset->category_id)) {
+            throw $this->fieldError('to_status', 'Tabung tidak memakai status Aktif.');
         }
 
         return [['status' => $status], ['from_status' => $asset->status, 'to_status' => $status]];
@@ -591,7 +595,7 @@ final class AssetTransactionService
                 AssetStatus::OFF_SITE => ' Catat transaksi masuk terlebih dahulu.',
                 default => '',
             };
-            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Aset berstatus '.AssetStatus::LABELS[$asset->status]." tidak dapat {$action}.{$hint}");
+            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Aset berstatus '.$asset->statusLabel()." tidak dapat {$action}.{$hint}");
         }
     }
 

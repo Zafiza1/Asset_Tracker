@@ -35,6 +35,7 @@
         <!-- The general product, whatever edition .env sets (.env.example has PT SIG / PT CDO); tests of the edition set config() themselves. -->
         <env name="EDITION_LICENSING" value="true" force="true"/>
         <env name="EDITION_LOCATIONS" value="true" force="true"/>
+        <env name="EDITION_CUSTODIANS" value="true" force="true"/>
         <env name="EDITION_CATEGORIES" value="" force="true"/>
         <env name="EDITION_RETURN_DAYS" value="30" force="true"/>
     </php>

@@ -35,6 +35,8 @@ class AssetTransactionResource extends JsonResource
             'asset' => $this->whenLoaded('asset', fn () => [
                 'id' => $this->asset->id,
                 'name' => $this->asset->name,
+                // Decides the labels of its statuses; only lists of several assets load it.
+                'category_code' => $this->asset->relationLoaded('category') ? $this->asset->category?->code : null,
             ]),
             'from_location' => $this->whenLoaded('fromLocation', fn () => Ref::of($this->fromLocation)),
             'to_location' => $this->whenLoaded('toLocation', fn () => Ref::of($this->toLocation)),

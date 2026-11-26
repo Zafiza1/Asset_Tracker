@@ -32,6 +32,7 @@ use App\Http\Controllers\Tenant\TenantCategoryController;
 use App\Http\Controllers\Tenant\TenantDefinitionController;
 use App\Http\Controllers\Tenant\TenantVersionController;
 use App\Http\Controllers\Tenant\UserController;
+use App\Http\Controllers\Tenant\VehicleController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -152,6 +153,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
         'locations' => [LocationController::class, 'location', 'location'],
         'employees' => [EmployeeController::class, 'employee', 'employee'],
         'customers' => [CustomerController::class, 'customer', 'customer'],
+        'vehicles' => [VehicleController::class, 'vehicle', 'vehicle'],
         'tenant-masters/categories' => [TenantCategoryController::class, 'tenantCategory', 'category'],
         'asset-definitions' => [TenantDefinitionController::class, 'tenantDefinition', null],
     ];

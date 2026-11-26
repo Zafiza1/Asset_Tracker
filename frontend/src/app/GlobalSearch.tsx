@@ -4,7 +4,7 @@ import { ArrowRight, Boxes, CornerDownLeft, Loader2, Search, type LucideIcon } f
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { AssetStatusBadge } from '../features/assets/AssetStatusBadge'
-import type { Asset } from '../features/assets/api'
+import { isCylinder, type Asset } from '../features/assets/api'
 import { api, qs } from '../lib/api/client'
 import type { Paginated } from '../lib/api/types'
 import type { NavSection } from './navigation'
@@ -197,7 +197,7 @@ function SearchDialog({ sections, searchAssets, label, onClose }: { sections: Na
                 </span>
                 {entry.asset && (
                   <span className="hidden shrink-0 gap-1 sm:flex">
-                    <AssetStatusBadge status={entry.asset.status} archived={entry.asset.is_archived} />
+                    <AssetStatusBadge status={entry.asset.status} archived={entry.asset.is_archived} cylinder={isCylinder(entry.asset)} />
                   </span>
                 )}
                 {i === active && <CornerDownLeft className="size-4 shrink-0 text-brand-600" aria-hidden />}

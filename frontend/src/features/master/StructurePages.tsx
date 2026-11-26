@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { AddMenu } from '../../components/ui/AddMenu'
 import { ImportModal } from '../../components/ui/ImportModal'
 import type { Column } from '../../components/ui/Table'
-import type { Customer, Department, Employee, TenantCategory } from '../../lib/api/types'
+import type { Customer, Department, Employee, TenantCategory, Vehicle } from '../../lib/api/types'
 import { useAuth } from '../../lib/auth/context'
 import { formatDate } from '../../lib/format'
 import { CategoryAttributesModal } from './CategoryAttributes'
@@ -26,19 +26,39 @@ function useMasterPermissions() {
   return { canCreate: can('master.tenant.create'), canUpdate: can('master.tenant.update'), canArchive: can('master.tenant.archive') }
 }
 
+const DELIVERY_ROLE_OPTIONS = [
+  { value: 'driver', label: 'Supir' },
+  { value: 'helper', label: 'Kernet' },
+]
+
+/** Divisi (stored as departments). An employee's division is also their position (jabatan). */
 export function DepartmentsPage() {
   return (
     <MasterListPage<Department>
-      title="Departemen"
-      description="Bagian organisasi pemilik atau pengguna aset, misalnya Keuangan atau IT."
+      title="Divisi"
+      description="Divisi sekaligus jabatan karyawan, misalnya Supir, Kernet, atau Petugas Gudang. Divisi yang ditandai Supir atau Kernet bisa dipilih sebagai kru di pengiriman."
       endpoint="/departments"
-      emptyHint="Tambahkan departemen agar aset bisa dikelompokkan per bagian, misalnya Keuangan atau IT."
+      emptyHint="Tambahkan divisi, misalnya Supir, Kernet, dan Petugas Gudang, lalu pilih divisinya di data karyawan."
       {...useMasterPermissions()}
+      filters={[{ name: 'delivery_role', label: 'Peran di pengiriman', options: DELIVERY_ROLE_OPTIONS }]}
       columns={[
         code<Department>(),
         { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
+        { key: 'delivery_role', header: 'Peran di pengiriman', sortKey: 'delivery_role', className: 'w-44', cell: (r) => r.delivery_role_label ?? '—' },
+        { key: 'employees', header: 'Karyawan', className: 'w-28', hideOnMobile: true, cell: (r) => r.employees_count ?? 0 },
       ]}
-      fields={[{ name: 'name', label: 'Nama', required: true }]}
+      fields={[
+        { name: 'name', label: 'Nama', required: true, placeholder: 'mis. Supir' },
+        { name: 'code', label: 'Kode', createOnly: true, hint: 'Boleh dikosongkan: dibuat otomatis dari nama. Huruf besar, angka, - _ . (maks. 30).' },
+        {
+          name: 'delivery_role',
+          label: 'Peran di pengiriman',
+          type: 'select',
+          options: DELIVERY_ROLE_OPTIONS,
+          emptyOption: '— Tidak ada —',
+          hint: 'Supir: karyawannya bisa dipilih sebagai supir. Kernet: bisa dipilih sebagai kernet (supir juga bisa menjadi kernet).',
+        },
+      ]}
     />
   )
 }
@@ -66,28 +86,21 @@ function treeNameCell(row: { name: string; code: string; depth: number; parent?:
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-const POSITION_OPTIONS = [
-  { value: 'driver', label: 'Supir' },
-  { value: 'helper', label: 'Kernet' },
-  { value: 'warehouse', label: 'Petugas Gudang' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'other', label: 'Lainnya' },
-]
-
 export function EmployeesPage() {
+  const divisions = toOptions(useOptions<Department>('/departments').data)
   return (
     <MasterListPage<Employee>
       title="Karyawan"
-      description="Supir, kernet, dan karyawan lain. Supir dan kernet dipilih di mobile saat tabung dikirim atau dijemput."
+      description="Supir, kernet, dan karyawan lain. Jabatan karyawan adalah divisinya; karyawan divisi Supir dan Kernet dipilih di mobile saat tabung dikirim atau dijemput."
       endpoint="/employees"
       searchPlaceholder="Cari NIK, nama, atau No HP"
       emptyHint="Tambahkan supir dan kernet agar bisa dipilih di aplikasi mobile."
       {...useMasterPermissions()}
-      filters={[{ name: 'position', label: 'Jabatan', options: POSITION_OPTIONS }]}
+      filters={[{ name: 'department_id', label: 'Divisi', options: divisions }]}
       columns={[
         { ...code<Employee>(), header: 'NIK' },
         { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
-        { key: 'position', header: 'Jabatan', sortKey: 'position', className: 'w-36', cell: (r) => r.position_label },
+        { key: 'department', header: 'Divisi', sortKey: 'department', className: 'w-40', cell: (r) => r.department?.name ?? '—' },
         { key: 'phone', header: 'No HP', className: 'w-40', hideOnMobile: true, cell: (r) => r.phone ?? '—' },
         {
           key: 'license',
@@ -108,7 +121,7 @@ export function EmployeesPage() {
       fields={[
         { name: 'name', label: 'Nama', required: true },
         { name: 'code', label: 'NIK', createOnly: true, hint: 'Boleh dikosongkan: dibuat otomatis dari nama. Huruf besar, angka, - _ . (maks. 30).' },
-        { name: 'position', label: 'Jabatan', type: 'select', required: true, options: POSITION_OPTIONS, emptyOption: '— Pilih —' },
+        { name: 'department_id', label: 'Divisi', type: 'select', required: true, options: divisions, emptyOption: '— Pilih divisi —', hint: 'Divisi sekaligus jabatan karyawan. Atur daftarnya di Master Data › Divisi.' },
         { name: 'phone', label: 'No HP' },
         { name: 'license_number', label: 'No SIM', hint: 'Untuk supir.' },
         { name: 'license_expires_on', label: 'SIM berlaku sampai', type: 'date' },
@@ -138,6 +151,76 @@ export function CustomersPage() {
         { name: 'address', label: 'Alamat', type: 'textarea' },
         { name: 'contact_name', label: 'Nama kontak' },
         { name: 'phone', label: 'No HP' },
+      ]}
+    />
+  )
+}
+
+const VEHICLE_TYPE_OPTIONS = [
+  { value: 'truk', label: 'Truk' },
+  { value: 'pickup', label: 'Pick Up' },
+  { value: 'mobil', label: 'Mobil' },
+  { value: 'motor', label: 'Motor' },
+  { value: 'bus', label: 'Bus' },
+  { value: 'forklift', label: 'Forklift' },
+  { value: 'alat_berat', label: 'Alat Berat' },
+  { value: 'lainnya', label: 'Lainnya' },
+]
+
+const FUEL_OPTIONS = [
+  { value: 'bensin', label: 'Bensin' },
+  { value: 'solar', label: 'Solar' },
+  { value: 'listrik', label: 'Listrik' },
+  { value: 'hybrid', label: 'Hybrid' },
+  { value: 'gas', label: 'Gas' },
+  { value: 'lainnya', label: 'Lainnya' },
+]
+
+/** A document's end date, red once it has passed. */
+function ValidUntil({ date }: { date: string | null }) {
+  if (!date) return <>—</>
+  const expired = date < today()
+  return <span className={expired ? 'font-semibold text-red-700' : undefined}>{expired ? 'Habis ' : ''}{formatDate(date)}</span>
+}
+
+/** Master Data › Kendaraan: what cylinders are delivered with. Not assets: Data Aset only holds cylinders. */
+export function VehiclesPage() {
+  return (
+    <MasterListPage<Vehicle>
+      title="Kendaraan"
+      description="Kendaraan untuk mengirim dan menjemput tabung. Kendaraan aktif bisa dipilih di transaksi dan di mobile."
+      endpoint="/vehicles"
+      searchPlaceholder="Cari kode, nama, nomor polisi, rangka, atau mesin"
+      emptyHint="Tambahkan kendaraan agar bisa dipilih saat tabung dikirim atau dijemput."
+      {...useMasterPermissions()}
+      filters={[{ name: 'type', label: 'Jenis', options: VEHICLE_TYPE_OPTIONS }]}
+      columns={[
+        code<Vehicle>(),
+        {
+          key: 'plate_number',
+          header: 'Nomor Polisi',
+          sortKey: 'plate_number',
+          className: 'w-36',
+          cell: (r) => <span className="font-mono text-sm font-medium text-slate-900">{r.plate_number}</span>,
+        },
+        { key: 'name', header: 'Nama / Merk', sortKey: 'name', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
+        { key: 'type', header: 'Jenis', sortKey: 'type', className: 'w-28', cell: (r) => r.type_label },
+        { key: 'year', header: 'Tahun', sortKey: 'year', className: 'w-20', hideOnMobile: true, cell: (r) => r.year ?? '—' },
+        { key: 'stnk', header: 'STNK s.d.', sortKey: 'stnk_expires_on', className: 'w-36', hideOnMobile: true, cell: (r) => <ValidUntil date={r.stnk_expires_on} /> },
+        { key: 'kir', header: 'KIR s.d.', sortKey: 'kir_expires_on', className: 'w-36', hideOnMobile: true, cell: (r) => <ValidUntil date={r.kir_expires_on} /> },
+      ]}
+      fields={[
+        { name: 'name', label: 'Nama / Merk', required: true, placeholder: 'mis. Truk Hino Dutro' },
+        { name: 'plate_number', label: 'Nomor Polisi', required: true, placeholder: 'mis. L 9123 UA' },
+        { name: 'code', label: 'Kode', createOnly: true, hint: 'Boleh dikosongkan: dibuat otomatis dari nama. Huruf besar, angka, - _ . (maks. 30).' },
+        { name: 'type', label: 'Jenis Kendaraan', type: 'select', required: true, options: VEHICLE_TYPE_OPTIONS, emptyOption: '— Pilih jenis —' },
+        { name: 'year', label: 'Tahun Pembuatan', type: 'number' },
+        { name: 'chassis_number', label: 'Nomor Rangka' },
+        { name: 'engine_number', label: 'Nomor Mesin' },
+        { name: 'fuel', label: 'Bahan Bakar', type: 'select', options: FUEL_OPTIONS, emptyOption: '— Pilih —' },
+        { name: 'capacity', label: 'Kapasitas Muatan (kg)', type: 'number' },
+        { name: 'stnk_expires_on', label: 'STNK berlaku sampai', type: 'date' },
+        { name: 'kir_expires_on', label: 'KIR berlaku sampai', type: 'date' },
       ]}
     />
   )
@@ -233,7 +316,7 @@ export function TenantCategoriesPage() {
           { name: 'parent_id', label: 'Kategori induk', type: 'select', options: categories, emptyOption: '— Kategori utama —', hint: 'Subkategori mewarisi atribut kategori induknya.' },
           { name: 'description', label: 'Deskripsi', type: 'textarea' },
         ]}
-        emptyHint="Tambahkan kategori pertama, misalnya Tabung atau Kendaraan."
+        emptyHint="Tambahkan kategori pertama, misalnya Tabung."
         showColumnToggle
         defaultColumns={['name', 'code', 'attributes']}
       />

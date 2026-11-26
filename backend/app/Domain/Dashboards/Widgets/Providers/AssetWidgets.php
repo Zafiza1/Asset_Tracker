@@ -154,9 +154,10 @@ final class AssetWidgets
     public function assetsByStatus(WidgetContext $ctx): array
     {
         $counts = $ctx->assets()->toBase()->select('status', DB::raw('count(*) AS count'))->groupBy('status')->pluck('count', 'status');
+        $labels = AssetStatus::labels();
 
         return ['items' => array_map(fn (string $s) => [
-            'status' => $s, 'label' => AssetStatus::LABELS[$s], 'count' => (int) ($counts[$s] ?? 0),
+            'status' => $s, 'label' => $labels[$s], 'count' => (int) ($counts[$s] ?? 0),
         ], AssetStatus::ALL)];
     }
 
@@ -355,7 +356,7 @@ final class AssetWidgets
     public function recentAssets(WidgetContext $ctx): array
     {
         $limit = $ctx->intConfig('limit') ?: 10;
-        $rows = $ctx->assets()->with(['category:id,name', 'location:id,name'])
+        $rows = $ctx->assets()->with(['category:id,code,name', 'location:id,name'])
             ->orderByDesc('created_at')->limit($limit)->get();
 
         return [
@@ -369,7 +370,7 @@ final class AssetWidgets
                 'asset' => ['id' => $a->id, 'name' => $a->name, 'asset_number' => $a->asset_number],
                 'category' => $a->category?->name,
                 'location' => $a->location?->name,
-                'status' => ['value' => $a->status, 'label' => AssetStatus::LABELS[$a->status] ?? $a->status],
+                'status' => ['value' => $a->status, 'label' => $a->statusLabel()],
             ])->all(),
             'count' => $ctx->assets()->count(),
         ];
@@ -507,7 +508,7 @@ final class AssetWidgets
             'in_transit' => 'Dalam perjalanan',
             'at_customer' => $positions[$id]['customer'],
             'missing' => 'Selisih',
-            default => in_array($status, [AssetStatus::AVAILABLE, AssetStatus::IN_USE], true) ? 'Gudang' : AssetStatus::LABELS[$status],
+            default => in_array($status, [AssetStatus::AVAILABLE, AssetStatus::IN_USE], true) ? 'Gudang' : AssetStatus::label($status, cylinder: true),
         })->countBy()->sortDesc()->take($limit)
             ->map(fn (int $count, string $name) => ['id' => null, 'name' => $name, 'count' => $count])->values()->all();
     }

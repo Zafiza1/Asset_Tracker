@@ -96,7 +96,8 @@ final class HomeCards
             $today = CarbonImmutable::now($tenant->organization->timezone ?: 'UTC')->startOfDay();
             $cards = [];
             foreach (self::CARDS as $key => $permission) {
-                if ((isset(self::HIDDEN_WITH[$key]) && $tenant->can(self::HIDDEN_WITH[$key])) || ($key === 'license' && ! config('edition.licensing'))) {
+                if ((isset(self::HIDDEN_WITH[$key]) && $tenant->can(self::HIDDEN_WITH[$key])) || ($key === 'license' && ! config('edition.licensing'))
+                    || (in_array($key, ['my_assets', 'inactive_custodians'], true) && ! config('edition.custodians'))) {
                     continue;
                 }
                 if ($permission === null || array_filter((array) $permission, fn (string $p) => $tenant->can($p)) !== []) {

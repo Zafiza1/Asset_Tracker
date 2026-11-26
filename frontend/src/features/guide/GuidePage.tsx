@@ -236,7 +236,7 @@ function Step2() {
         <>Setelah pengguna bergabung, Super Admin atau Supervisor membuka <MenuLink to="/pengguna" permission="user.view">detail penggunanya</MenuLink> untuk mengubah role atau mempersempit <Label>Cakupan data</Label>.</>,
       ]} />
       <Tip>
-        <strong className="font-semibold">Cakupan data</strong> menentukan aset mana yang terlihat. Pengguna yang diundang awalnya mencakup seluruh organisasi. Bila dibatasi ke satu departemen, pengguna hanya melihat aset departemen itu.
+        <strong className="font-semibold">Cakupan data</strong> menentukan aset mana yang terlihat. Pengguna yang diundang awalnya mencakup seluruh organisasi. Bila dibatasi ke satu divisi, pengguna hanya melihat aset divisi itu.
       </Tip>
     </StepSection>
   )
@@ -433,7 +433,7 @@ const PROBLEMS: { q: string; a: ReactNode }[] = [
   { q: 'Menu yang saya cari tidak ada, atau muncul "Akses ditolak".', a: 'Role Anda belum memiliki izin untuk menu itu. Hubungi Super Admin atau Supervisor organisasi Anda.' },
   { q: 'Perubahan yang saya simpan belum terlihat.', a: <>Kemungkinan masih menunggu persetujuan. Periksa statusnya di menu <MenuLink to="/notifikasi">Pengajuan Saya</MenuLink>.</> },
   { q: 'Saya tidak menemukan aset tertentu.', a: 'Aset itu mungkin berada di luar cakupan data Anda, atau sudah nonaktif. Untuk melihat aset nonaktif, ubah filter di Data Aset menjadi "Aset nonaktif".' },
-  { q: 'Tabung tidak muncul saat membuat transaksi.', a: 'Untuk transaksi keluar, tabung harus berstatus Aktif atau Tersedia dan tidak sedang dipakai transaksi lain. Untuk transaksi masuk, tabung harus tercatat berada di customer itu.' },
+  { q: 'Tabung tidak muncul saat membuat transaksi.', a: 'Untuk transaksi keluar, tabung harus berstatus Di Gudang dan tidak sedang dipakai transaksi lain. Untuk transaksi masuk, tabung harus tercatat berada di customer itu.' },
   { q: 'Saya salah scan muat.', a: 'Di mobile, pilih Batal muat pada tabungnya selama kendaraan belum berangkat (transaksi keluar) atau customer belum diselesaikan (transaksi masuk).' },
   { q: 'Tidak bisa menekan Berangkat.', a: 'Pastikan kendaraan dan supir sudah diisi, minimal satu tabung sudah dimuat (transaksi keluar), dan kendaraan maupun krunya tidak sedang dalam perjalanan lain.' },
   { q: 'Posisi kendaraan tidak bergerak di Tracking.', a: 'Posisi terkirim selama aplikasi mobile terbuka dan izin lokasi aktif. Minta supir membuka transaksinya di aplikasi.' },

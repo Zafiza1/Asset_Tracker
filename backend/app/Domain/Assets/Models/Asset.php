@@ -3,6 +3,7 @@
 namespace App\Domain\Assets\Models;
 
 use App\Domain\Assets\AssetScope;
+use App\Domain\Assets\AssetStatus;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
@@ -11,6 +12,7 @@ use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
 use App\Domain\Shared\Tenancy\Tenancy;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
+use App\Domain\TenantMaster\StandardCategories;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -93,6 +95,12 @@ class Asset extends Model
     public function isArchived(): bool
     {
         return $this->archived_at !== null;
+    }
+
+    /** The status as shown for this asset; a cylinder has its own labels. */
+    public function statusLabel(): string
+    {
+        return AssetStatus::label($this->status, $this->loadMissing('category')->category?->code === StandardCategories::CYLINDER);
     }
 
     public function category(): BelongsTo

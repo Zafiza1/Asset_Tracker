@@ -9,6 +9,7 @@ use App\Domain\AssetTransactions\Services\AssetTransactionService;
 use App\Domain\AssetTransactions\TransactionLog;
 use App\Domain\AssetTransactions\TransactionType;
 use App\Domain\Audit\AuditLogger;
+use App\Domain\Deliveries\Fleet;
 use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Department;
@@ -57,7 +58,11 @@ final class AssetService
         }
         $this->assertSerialAvailable($data['serial_number'] ?? null);
         $this->assertResponsibility($data);
-        $status = $data['status'] ?? AssetStatus::IN_USE;
+        $cylinder = Fleet::isCylinderCategory($data['category_id']);
+        $status = $data['status'] ?? ($cylinder ? AssetStatus::AVAILABLE : AssetStatus::IN_USE);
+        if ($cylinder && $status === AssetStatus::IN_USE) {
+            throw self::cylinderInUse('status');
+        }
         $hidden = $this->attributes->resolveHidden($data['category_id'], $data['hidden_attributes'] ?? []);
         $values = $this->attributes->resolveValues($data['category_id'], [], $data['attributes'] ?? [], $hidden);
         $extras = $this->attributes->resolveExtras($data['category_id'], $hidden, $data['extra_attributes'] ?? []);
@@ -97,6 +102,9 @@ final class AssetService
         }
         if (isset($data['category_id']) && $data['category_id'] !== $asset->category_id) {
             $this->assertActive(TenantAssetCategory::class, $data['category_id'], 'category_id', 'Kategori');
+            if ($asset->status === AssetStatus::IN_USE && Fleet::isCylinderCategory($data['category_id'])) {
+                throw self::cylinderInUse('category_id');
+            }
         }
         if (array_key_exists('serial_number', $data)) {
             $this->assertSerialAvailable($data['serial_number'], $asset->id);
@@ -273,6 +281,14 @@ final class AssetService
             $message = 'Penanggung jawab harus anggota aktif organisasi ini.';
             throw ApiException::unprocessable('INVALID_REFERENCE', $message, ['fields' => ['custodian_user_id' => [$message]]]);
         }
+    }
+
+    /** A cylinder is in the warehouse, with a customer, or out of service, but never Aktif. */
+    public static function cylinderInUse(string $field): ApiException
+    {
+        $message = 'Tabung tidak memakai status Aktif. Pilih Di Gudang atau Dalam Perbaikan.';
+
+        return ApiException::unprocessable('VALIDATION_FAILED', $message, ['fields' => [$field => [$message]]]);
     }
 
     /** The asset would end up outside the user's data scope (F-09 §3.3). */

@@ -130,7 +130,7 @@ final class AssetReport
             'archived' => (int) $row->archived,
             'total_value' => (string) $row->total_value,
             'valued' => (int) $row->valued,
-            'by_status' => array_map(fn (string $s) => ['status' => $s, 'label' => AssetStatus::LABELS[$s], 'count' => (int) ($statusCounts[$s] ?? 0)], AssetStatus::ALL),
+            'by_status' => array_map(fn (string $s) => ['status' => $s, 'label' => AssetStatus::labels()[$s], 'count' => (int) ($statusCounts[$s] ?? 0)], AssetStatus::ALL),
             'by_category' => $byCategory,
             'by_location' => $byLocation,
         ];
@@ -155,7 +155,7 @@ final class AssetReport
             $lines[] = 'Lokasi: '.(Location::query()->whereKey($filters['location_id'])->value('name') ?? '-');
         }
         if ($filters['status'] ?? null) {
-            $lines[] = 'Status: '.AssetStatus::LABELS[$filters['status']];
+            $lines[] = 'Status: '.AssetStatus::labels()[$filters['status']];
         }
         $lines[] = match ($filters['archived'] ?? null) {
             'only' => 'Aset: nonaktif',

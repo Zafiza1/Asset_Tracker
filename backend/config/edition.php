@@ -19,6 +19,12 @@ return [
     'locations' => filter_var(env('EDITION_LOCATIONS', true), FILTER_VALIDATE_BOOL),
 
     /*
+    | false: assets have no custodian (penanggung jawab) and no department; the asset form, list,
+    | import and the Beranda cards about custodians leave them out.
+    */
+    'custodians' => filter_var(env('EDITION_CUSTODIANS', true), FILTER_VALIDATE_BOOL),
+
+    /*
     | Codes of the standard categories (StandardCategories) a new organization starts with, comma
     | separated. Empty: the general set.
     */

@@ -58,7 +58,7 @@ export function DeliveryFormModal({ direction, delivery, onClose, onSaved }: { d
       const input: DeliveryInput = {
         planned_date: plannedDate,
         expected_return_date: outgoing ? returnDate || null : null,
-        vehicle_asset_id: vehicleId || null,
+        vehicle_id: vehicleId || null,
         notes: notes.trim() || null,
         stops: stops.map((s) => ({ customer_id: s.customerId, asset_ids: s.cylinders.map((c) => c.id) })),
       }
@@ -124,7 +124,7 @@ export function DeliveryFormModal({ direction, delivery, onClose, onSaved }: { d
             <Field label={outgoing ? 'Tanggal kirim' : 'Tanggal jemput'} required error={errors.planned_date}>
               {(p) => <Input {...p} type="date" value={plannedDate} onChange={(e) => setPlannedDate(e.target.value)} />}
             </Field>
-            <Field label="Kendaraan" error={errors.vehicle_asset_id} hint="Dari Data Aset kategori Kendaraan. Bisa juga dipilih di mobile.">
+            <Field label="Kendaraan" error={errors.vehicle_id} hint="Dari Master Data › Kendaraan. Bisa juga dipilih di mobile.">
               {(p) => (
                 <Select {...p} value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
                   <option value="">— Dipilih nanti di mobile —</option>

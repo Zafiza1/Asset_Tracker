@@ -77,7 +77,7 @@ export function formatChangeValue(field: string, value: unknown): string {
 }
 
 /** The life of one asset as a vertical timeline, newest first and grouped by month. */
-export function AssetTimeline({ events }: { events: TimelineEvent[] }) {
+export function AssetTimeline({ events, cylinder = false }: { events: TimelineEvent[]; cylinder?: boolean }) {
   const [filter, setFilter] = useState<Filter>('all')
   const hasTransactions = events.some((e) => e.kind === 'transaction')
   const shown = events.filter((e) => filter === 'all' || (filter === 'transaction') === (e.kind === 'transaction'))
@@ -119,7 +119,7 @@ export function AssetTimeline({ events }: { events: TimelineEvent[] }) {
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{g.month}</h3>
               <ol className="relative space-y-4 before:absolute before:bottom-2 before:left-[1.0625rem] before:top-2 before:w-px before:bg-slate-200">
                 {g.events.map((e) => (
-                  <TimelineItem key={e.id} event={e} />
+                  <TimelineItem key={e.id} event={e} cylinder={cylinder} />
                 ))}
               </ol>
             </section>
@@ -130,7 +130,7 @@ export function AssetTimeline({ events }: { events: TimelineEvent[] }) {
   )
 }
 
-function TimelineItem({ event: e }: { event: TimelineEvent }) {
+function TimelineItem({ event: e, cylinder }: { event: TimelineEvent; cylinder: boolean }) {
   const style = e.kind === 'transaction' ? TYPE_STYLE[e.transaction.type] ?? EDIT_STYLE : e.kind === 'file_change' ? FILE_STYLE : EDIT_STYLE
   const Icon = style.icon
 
@@ -150,7 +150,7 @@ function TimelineItem({ event: e }: { event: TimelineEvent }) {
           </time>
         </div>
         {e.actor && <p className="text-xs text-slate-500">oleh {e.actor}</p>}
-        <div className="mt-1.5">{e.kind === 'transaction' ? <TransactionChanges trx={e.transaction} /> : <FieldChanges changes={e.changes} />}</div>
+        <div className="mt-1.5">{e.kind === 'transaction' ? <TransactionChanges trx={e.transaction} cylinder={cylinder} /> : <FieldChanges changes={e.changes} />}</div>
       </div>
     </li>
   )

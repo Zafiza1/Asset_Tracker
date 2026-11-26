@@ -108,6 +108,8 @@ class AssetController extends Controller
         $request->merge(['category_id_list' => $categoryIds])->validate(['category_id_list.*' => ['uuid']]);
 
         $query = $this->scope->apply(Asset::query())->with(self::RELATIONS)
+            ->when(config('edition.categories'), fn ($q, $codes) => $q->whereIn('category_id', $this->subtree(TenantAssetCategory::query(),
+                TenantAssetCategory::query()->whereIn('code', $codes)->pluck('id')->all())))
             ->when($request->query('search'), fn ($q, $term) => $q->where(fn ($w) => $w
                 ->where('name', 'ilike', ListQuery::like($term))
                 ->orWhere('serial_number', 'ilike', ListQuery::like($term))
@@ -288,15 +290,15 @@ class AssetController extends Controller
         return SpreadsheetImport::template('template_aset.xlsx', 'Template Import Pendataan Aset', $this->importColumns(), [
             'Kategori' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
             'Lokasi' => SpreadsheetImport::codeList(Location::query()),
-            'Status' => array_map(fn ($s) => AssetStatus::LABELS[$s], AssetStatus::INITIAL),
+            'Status' => array_map(fn ($s) => AssetStatus::labels()[$s], AssetStatus::INITIAL),
             'Kondisi' => array_column(self::conditionOptions(), 'label'),
-            'Departemen' => SpreadsheetImport::codeList(Department::query()),
+            ...(config('edition.custodians') ? ['Departemen' => SpreadsheetImport::codeList(Department::query())] : []),
             ...$this->importFields()->filter(fn (array $f) => $f['options'] !== [])->mapWithKeys(fn (array $f) => [$f['label'] => array_values($f['options'])])->all(),
         ], [
             config('edition.locations')
                 ? 'Kategori dan lokasi harus sudah dibuat sebelum mengimpor aset. Nomor aset dibuat otomatis oleh sistem.'
-                : 'Untuk kategori Tabung isi semua kolom bertanda (Tabung); untuk Kendaraan cukup Nomor Polisi dan Kondisi. No Reference dibuat otomatis oleh sistem.',
-            'Penanggung jawab diisi dengan email anggota aktif organisasi. Departemen dan penanggung jawab boleh dikosongkan.',
+                : 'Isi semua kolom bertanda (Tabung). No Reference dibuat otomatis oleh sistem.',
+            ...(config('edition.custodians') ? ['Penanggung jawab diisi dengan email anggota aktif organisasi. Departemen dan penanggung jawab boleh dikosongkan.'] : []),
         ]);
     }
 
@@ -330,15 +332,15 @@ class AssetController extends Controller
             'department_code' => SpreadsheetImport::codeItem($a->department),
             'custodian_email' => $a->custodianMember?->user?->email,
             'location' => SpreadsheetImport::codeItem($a->location),
-            'status' => AssetStatus::LABELS[$a->status] ?? $a->status,
+            'status' => $a->statusLabel(),
             'updated_at' => $this->lastChanged($a),
         ]);
 
         return SpreadsheetImport::editSheet('edit_aset.xlsx', 'Multiple Edit Aset', $this->editColumns(), $rows, [
             'Kategori' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
-            'Departemen' => SpreadsheetImport::codeList(Department::query()),
+            ...(config('edition.custodians') ? ['Departemen' => SpreadsheetImport::codeList(Department::query())] : []),
         ], [
-            'Penanggung jawab diisi dengan email anggota aktif organisasi; kosongkan untuk melepas penanggung jawab.',
+            ...(config('edition.custodians') ? ['Penanggung jawab diisi dengan email anggota aktif organisasi; kosongkan untuk melepas penanggung jawab.'] : []),
             'Lokasi dan status tidak dapat diubah di sini; gunakan transaksi (mutasi, peminjaman, perbaikan). Atribut kategori diubah dari halaman detail aset.',
             'Kolom "Terakhir Diubah" dipakai untuk memeriksa perubahan: jika aset diubah orang lain setelah file ini diunduh, baris aset tersebut ditolak. Unduh ulang file untuk mendapatkan data terbaru.',
         ]);
@@ -412,7 +414,7 @@ class AssetController extends Controller
             new ImportColumn('name', 'Nama Aset', required: true, hint: 'Nama aset, maksimal 150 karakter. Contoh: Laptop Dell Latitude 5440', width: 32),
             new ImportColumn('category_code', 'Kategori', required: true, hint: 'Pilih kategori aset dari daftar.', list: 'Kategori', width: 34),
             ...(config('edition.locations') ? [new ImportColumn('location_code', 'Lokasi', required: true, hint: 'Pilih lokasi aset dari daftar.', list: 'Lokasi', width: 34)] : []),
-            new ImportColumn('status', 'Status', hint: 'Pilih status awal. Jika kosong: Aktif.', list: 'Status', width: 18),
+            new ImportColumn('status', 'Status', hint: config('edition.locations') ? 'Pilih status awal. Jika kosong: Aktif.' : 'Pilih status awal. Jika kosong: Di Gudang untuk tabung, Aktif untuk kendaraan. Tabung tidak memakai Aktif.', list: 'Status', width: 18),
             new ImportColumn('condition', 'Kondisi', required: config('edition.locations'), hint: 'Pilih kondisi aset dari daftar.', list: 'Kondisi', width: 18),
             new ImportColumn('serial_number', config('edition.locations') ? 'No Seri' : 'No Manufaktur / No Seri', hint: 'Nomor seri aset yang dipakai sebagai nomor alias (misalnya nomor seri pabrik), harus unik bila diisi. Contoh: SN-2024-0001', width: 22),
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Tanggal pembelian/perolehan, format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
@@ -431,7 +433,8 @@ class AssetController extends Controller
 
     /**
      * Edition without storage locations (PT SIG / PT CDO): the template also asks for the fields of
-     * a cylinder and the plate of a vehicle, so either can be imported with its required fields.
+     * a cylinder, so cylinders can be imported with their required fields. Vehicles are not assets
+     * there (Master Data › Kendaraan).
      *
      * @return Collection<string, array{label: string, key: string, type: string, hint: string, options: array<string, string>}> by column
      */
@@ -447,8 +450,7 @@ class AssetController extends Controller
             'options' => array_column($a->options ?? [], 'label', 'value'),
         ]];
 
-        return $fieldsOf(StandardCategories::CYLINDER)->mapWithKeys(fn ($a) => $column($a, 'Tabung'))
-            ->union($fieldsOf(StandardCategories::VEHICLE)->where('label', Fleet::PLATE_LABEL)->mapWithKeys(fn ($a) => $column($a, 'Kendaraan')));
+        return $fieldsOf(StandardCategories::CYLINDER)->mapWithKeys(fn ($a) => $column($a, 'Tabung'));
     }
 
     /**
@@ -483,9 +485,13 @@ class AssetController extends Controller
         'custodian_email' => ['nullable', 'email', 'max:255'],
     ];
 
-    /** @return list<ImportColumn> F-09: department (dropdown) and custodian (member email) */
+    /** @return list<ImportColumn> F-09: department (dropdown) and custodian (member email); none in an edition without custodians */
     private static function responsibilityColumns(): array
     {
+        if (! config('edition.custodians')) {
+            return [];
+        }
+
         return [
             // Optional: files downloaded before F-09 lack them and still upload.
             new ImportColumn('department_code', 'Departemen', hint: 'Pilih departemen dari daftar. Boleh dikosongkan.', list: 'Departemen', width: 30, optional: true),
@@ -553,17 +559,15 @@ class AssetController extends Controller
         return [$attribute->key => $value];
     }
 
-    /** The status column accepts the key (in_use) or its label (Aktif); empty means in use. */
+    /** The status column accepts the key (in_use) or its label (Aktif); empty means the category's usual one. */
     private function importStatus(?string $value): ?string
     {
         if ($value === null) {
             return null;
         }
         $key = str_replace(' ', '_', strtolower($value));
-        $byLabel = array_search(strtolower($value), array_map('strtolower', AssetStatus::LABELS), true)
-            ?: (AssetStatus::FORMER_LABELS[strtolower(trim($value))] ?? false);
 
-        return in_array($key, AssetStatus::ALL, true) ? $key : ($byLabel ?: $value);
+        return in_array($key, AssetStatus::ALL, true) ? $key : (AssetStatus::fromLabel($value) ?? $value);
     }
 
     /** Full history of one asset, newest first. */
@@ -607,9 +611,11 @@ class AssetController extends Controller
             'extra_attributes.*' => ['array:label,data_type,value'],
             'extra_attributes.*.label' => ['nullable', 'string', 'max:100'],
             'extra_attributes.*.data_type' => ['nullable', 'string', 'max:16'],
-            // F-09; membership and status are checked by the service.
-            'custodian_user_id' => [...$optional, 'uuid'],
-            'department_id' => [...$optional, 'uuid'],
+            // F-09; membership and status are checked by the service. Not in an edition without custodians.
+            ...(config('edition.custodians') ? [
+                'custodian_user_id' => [...$optional, 'uuid'],
+                'department_id' => [...$optional, 'uuid'],
+            ] : []),
         ];
     }
 

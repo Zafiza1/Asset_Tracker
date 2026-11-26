@@ -22,7 +22,7 @@ export const OPERATORS: { value: string; label: string }[] = [
 export function operatorsFor(subject: string, numeric: boolean): { value: string; label: string }[] {
   if (subject === 'asset.custodian') return [{ value: 'not_empty', label: 'ada' }, { value: 'empty', label: 'belum ada' }]
   if (subject === 'starter.is_custodian') return [{ value: 'eq', label: 'adalah' }, { value: 'neq', label: 'bukan' }]
-  if (subject === 'target.department_differs') return [{ value: 'eq', label: 'berbeda dengan departemen aset' }, { value: 'neq', label: 'sama dengan departemen aset' }]
+  if (subject === 'target.department_differs') return [{ value: 'eq', label: 'berbeda dengan divisi aset' }, { value: 'neq', label: 'sama dengan divisi aset' }]
   if (subject === 'core.outgoing_nature') return OPERATORS.filter((o) => ['eq', 'neq', 'in', 'not_in'].includes(o.value))
   return OPERATORS.filter((o) => numeric || !['gt', 'gte', 'lt', 'lte'].includes(o.value))
 }
@@ -43,10 +43,10 @@ const SUBJECT_LABELS: Record<string, string> = {
   'asset.condition': 'kondisi aset',
   'asset.category': 'kategori aset',
   'asset.location': 'lokasi aset',
-  'asset.department': 'departemen aset',
+  'asset.department': 'divisi aset',
   'asset.custodian': 'penanggung jawab aset',
   'starter.is_custodian': 'pencatat adalah penanggung jawab',
-  'target.department_differs': 'departemen asal penerima',
+  'target.department_differs': 'divisi asal penerima',
   'starter.role': 'role pencatat',
   'core.outgoing_nature': 'sifat transaksi keluar',
 }

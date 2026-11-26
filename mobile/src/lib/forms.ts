@@ -21,7 +21,7 @@ export function useMasterOptions(endpoint: '/tenant-masters/categories', enabled
     setError(null)
     try {
       const rows = (await get<{ data: MasterOption[] }>(`${endpoint}?all=1&status=active`)).data
-      setOptions(rows.map((r) => ({ value: r.id, label: `${r.name} (${r.code})`, depth: r.depth ?? 0 })))
+      setOptions(rows.map((r) => ({ value: r.id, label: `${r.name} (${r.code})`, depth: r.depth ?? 0, code: r.code })))
     } catch (e) {
       setError(errorMessage(e))
     } finally {

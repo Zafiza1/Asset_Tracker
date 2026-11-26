@@ -11,6 +11,7 @@ use App\Domain\Organization\Models\Customer;
 use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Employee;
 use App\Domain\Organization\Models\Location;
+use App\Domain\Organization\Models\Vehicle;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -41,11 +42,19 @@ final class ApprovalDetails
         'category_id' => 'Kategori',
         'location_id' => 'Lokasi',
         'custodian_user_id' => 'Penanggung jawab',
-        'department_id' => 'Departemen',
+        'department_id' => 'Divisi',
         'parent_id' => 'Induk',
         'status' => 'Status',
         'address' => 'Alamat',
-        'position' => 'Jabatan',
+        'delivery_role' => 'Peran di pengiriman',
+        'plate_number' => 'Nomor polisi',
+        'year' => 'Tahun',
+        'chassis_number' => 'Nomor rangka',
+        'engine_number' => 'Nomor mesin',
+        'fuel' => 'Bahan bakar',
+        'capacity' => 'Kapasitas muatan',
+        'stnk_expires_on' => 'STNK berlaku sampai',
+        'kir_expires_on' => 'KIR berlaku sampai',
         'phone' => 'No HP',
         'license_number' => 'No SIM',
         'license_expires_on' => 'Masa berlaku SIM',
@@ -73,6 +82,7 @@ final class ApprovalDetails
         'department' => Department::class,
         'employee' => Employee::class,
         'customer' => Customer::class,
+        'vehicle' => Vehicle::class,
     ];
 
     /** @return list<array{label: string, value: string, current?: string}> */
@@ -159,10 +169,11 @@ final class ApprovalDetails
             'department_id' => self::name(Department::class, $value),
             'custodian_user_id' => self::person($value),
             'parent_id' => self::name(ApprovalActions::entity($approval->action) === 'location' ? Location::class : TenantAssetCategory::class, $value),
-            'type' => TransactionType::LABELS[$value] ?? (string) $value,
-            'position' => Employee::POSITIONS[$value] ?? (string) $value,
-            'to_status' => AssetStatus::LABELS[$value] ?? (string) $value,
-            'status' => AssetStatus::LABELS[$value] ?? self::MASTER_STATUS[$value] ?? (string) $value,
+            'type' => ApprovalActions::entity($approval->action) === 'vehicle' ? Vehicle::TYPES[$value] ?? (string) $value : TransactionType::LABELS[$value] ?? (string) $value,
+            'fuel' => Vehicle::FUELS[$value] ?? (string) $value,
+            'delivery_role' => Department::DELIVERY_ROLES[$value] ?? (string) $value,
+            'to_status' => AssetStatus::labels()[$value] ?? (string) $value,
+            'status' => AssetStatus::labels()[$value] ?? self::MASTER_STATUS[$value] ?? (string) $value,
             'acquisition_cost' => is_numeric($value) ? 'Rp '.number_format((float) $value, 0, ',', '.') : (string) $value,
             'attributes' => self::attributes($value),
             default => self::scalar($value),

@@ -18,6 +18,7 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Customer;
 use App\Domain\Organization\Models\Employee;
 use App\Domain\Organization\Models\Organization;
+use App\Domain\Organization\Models\Vehicle;
 use App\Domain\ReportDesigner\Models\ReportExport;
 use App\Domain\ReportDesigner\Models\ReportTemplate;
 use App\Domain\ReportDesigner\Models\ReportTemplateVersion;
@@ -169,10 +170,12 @@ class RouteSecurityTest extends TestCase
         $dashboardTemplate = (new DashboardTemplate)->forceFill(['organization_id' => $orgB->id, 'template_key' => 'beta', 'name' => 'Beta',
             'dashboard_type' => 'custom', 'scope' => 'organization']);
         $dashboardTemplate->save();
-        $employee = (new Employee)->forceFill(['organization_id' => $orgB->id, 'code' => 'E1', 'name' => 'Supir', 'position' => 'driver']);
+        $employee = (new Employee)->forceFill(['organization_id' => $orgB->id, 'code' => 'E1', 'name' => 'Supir']);
         $employee->save();
         $customer = (new Customer)->forceFill(['organization_id' => $orgB->id, 'code' => 'C1', 'name' => 'Customer']);
         $customer->save();
+        $vehicle = (new Vehicle)->forceFill(['organization_id' => $orgB->id, 'code' => 'V1', 'name' => 'Truk', 'plate_number' => 'B 1 X']);
+        $vehicle->save();
         $delivery = (new Delivery)->forceFill(['organization_id' => $orgB->id, 'number' => 'OUT-2026-000001', 'direction' => 'outgoing',
             'planned_date' => now()->toDateString(), 'created_by' => $adminB->id]);
         $delivery->save();
@@ -180,6 +183,7 @@ class RouteSecurityTest extends TestCase
         return [
             'employee' => $employee->id,
             'customer' => $customer->id,
+            'vehicle' => $vehicle->id,
             'delivery' => $delivery->id,
             'dashboard' => $dashboard->id,
             'widget' => $widget->id,

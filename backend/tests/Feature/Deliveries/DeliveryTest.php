@@ -2,14 +2,17 @@
 
 namespace Tests\Feature\Deliveries;
 
+use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\Models\AssetTransaction;
 use App\Domain\Identity\Models\User;
 use App\Domain\Licensing\Models\OrganizationLicense;
 use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Customer;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Employee;
 use App\Domain\Organization\Models\Organization;
+use App\Domain\Organization\Models\Vehicle;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Models\TenantCategoryAttribute;
 use App\Domain\TenantMaster\Services\TenantCategoryService;
@@ -30,7 +33,14 @@ class DeliveryTest extends TestCase
 
     private TenantAssetCategory $vehicleCategory;
 
-    private Asset $truck;
+    /** An asset of category Kendaraan: in the general product vehicles may also be registered as assets. */
+    private Asset $vehicleAsset;
+
+    private Vehicle $truck;
+
+    private Department $drivers;
+
+    private Department $helpers;
 
     private Employee $driver;
 
@@ -47,9 +57,13 @@ class DeliveryTest extends TestCase
         $categories = app(TenantCategoryService::class);
         $this->cylinder = $categories->installOne($this->org->id, StandardCategories::CYLINDER, StandardCategories::cylinder());
         $this->vehicleCategory = $categories->installOne($this->org->id, StandardCategories::VEHICLE, StandardCategories::all()[StandardCategories::VEHICLE]);
-        $this->truck = $this->asset($this->vehicleCategory, 'Truk', 'RANGKA-1', ['nomor_polisi' => 'L 1234 AB']);
-        $this->driver = $this->employee('Budi', 'driver');
-        $this->helper = $this->employee('Andi', 'helper');
+        $this->vehicleAsset = $this->asset($this->vehicleCategory, 'Truk', 'RANGKA-1', ['nomor_polisi' => 'L 1234 AB']);
+        $this->truck = (new Vehicle)->forceFill(['organization_id' => $this->org->id, 'code' => 'TRUK-1', 'name' => 'Truk', 'plate_number' => 'L 1234 AB', 'type' => 'truk']);
+        $this->truck->save();
+        $this->drivers = $this->division('Supir', Department::DRIVER);
+        $this->helpers = $this->division('Kernet', Department::HELPER);
+        $this->driver = $this->employee('Budi', $this->drivers);
+        $this->helper = $this->employee('Andi', $this->helpers);
         $this->rs = $this->customer('RS Sehat');
         $this->bengkel = $this->customer('Bengkel Las');
         $this->actingAs($this->admin);
@@ -176,13 +190,13 @@ class DeliveryTest extends TestCase
         DB::table('assets')->where('id', $broken->id)->update(['status' => 'under_maintenance']);
         $this->assertErrorCode($this->plan('outgoing', [[$this->rs, [$broken]]]), 422, 'VALIDATION_FAILED');
         // A vehicle is not a cylinder.
-        $this->assertErrorCode($this->plan('outgoing', [[$this->rs, [$this->truck]]]), 422, 'VALIDATION_FAILED');
+        $this->assertErrorCode($this->plan('outgoing', [[$this->rs, [$this->vehicleAsset]]]), 422, 'VALIDATION_FAILED');
         $this->assertErrorCode($this->plan('outgoing', [[$this->rs, []]]), 422, 'VALIDATION_FAILED');
         $atWarehouse = $this->tabung('T-2');
         $this->assertErrorCode($this->plan('incoming', [[$this->rs, [$atWarehouse]]]), 422, 'VALIDATION_FAILED');
 
         $id = $this->plan('outgoing', [[$this->rs, [$atWarehouse]]])->json('data.id');
-        $this->assertErrorCode($this->scan($id, 'load', $this->truck->id), 404, 'CYLINDER_NOT_FOUND');
+        $this->assertErrorCode($this->scan($id, 'load', $this->vehicleAsset->id), 404, 'CYLINDER_NOT_FOUND');
         $this->assertErrorCode($this->scan($id, 'load', 'T-1'), 409, 'INVALID_ASSET_STATUS');
     }
 
@@ -288,9 +302,9 @@ class DeliveryTest extends TestCase
     public function test_employees_and_customers_are_master_data(): void
     {
         $this->postJson('/api/employees', ['name' => 'Cahyo'])->assertUnprocessable();
-        $employee = $this->postJson('/api/employees', ['name' => 'Cahyo', 'position' => 'driver', 'license_expires_on' => '2027-01-31'])
-            ->assertCreated()->assertJsonPath('data.code', 'CAHYO')->assertJsonPath('data.position_label', 'Supir')->json('data.id');
-        $this->getJson('/api/employees?position=helper')->assertJsonCount(1, 'data');
+        $employee = $this->postJson('/api/employees', ['name' => 'Cahyo', 'department_id' => $this->drivers->id, 'license_expires_on' => '2027-01-31'])
+            ->assertCreated()->assertJsonPath('data.code', 'CAHYO')->assertJsonPath('data.department.name', 'Supir')->json('data.id');
+        $this->getJson("/api/employees?department_id={$this->helpers->id}")->assertJsonCount(1, 'data');
         $this->postJson("/api/employees/{$employee}/archive")->assertOk();
         $this->postJson("/api/employees/{$employee}/restore")->assertOk()->assertJsonPath('data.status', 'active');
 
@@ -298,6 +312,49 @@ class DeliveryTest extends TestCase
         $this->actingAs($this->createTenantUser($this->org, ['ADMIN']));
         $this->postJson('/api/customers', ['name' => 'Klinik Baru', 'phone' => '0812'])->assertStatus(202);
         $this->assertFalse(Customer::query()->where('name', 'Klinik Baru')->exists());
+    }
+
+    public function test_the_crew_comes_from_the_divisions_marked_driver_and_helper(): void
+    {
+        $office = $this->employee('Siti', $this->division('Admin', null));
+        $options = $this->getJson('/api/deliveries/options')->assertOk();
+        $this->assertSame(['Budi'], array_column($options->json('data.drivers'), 'name'));
+        $this->assertEqualsCanonicalizing(['Andi', 'Budi'], array_column($options->json('data.helpers'), 'name'));
+        $this->assertSame('L 1234 AB', $options->json('data.vehicles.0.plate'));
+
+        $id = $this->plan('outgoing', [[$this->rs, [$this->tabung('T-1')]]])->json('data.id');
+        $this->assertErrorCode($this->putJson("/api/deliveries/{$id}/crew", ['vehicle_id' => $this->truck->id, 'driver_id' => $office->id]), 422, 'VALIDATION_FAILED');
+        $this->crew($id)->assertOk();
+        // While the trip is open its crew's division keeps its role, and the vehicle stays in use.
+        $this->assertErrorCode($this->patchJson("/api/departments/{$this->drivers->id}", ['delivery_role' => null]), 409, 'DEPARTMENT_IN_USE');
+        $this->assertErrorCode($this->postJson("/api/vehicles/{$this->truck->id}/archive"), 409, 'VEHICLE_IN_USE');
+        $this->assertErrorCode($this->postJson("/api/departments/{$this->drivers->id}/archive"), 409, 'DEPARTMENT_IN_USE');
+    }
+
+    public function test_vehicles_are_master_data(): void
+    {
+        $this->postJson('/api/vehicles', ['name' => 'Pick Up'])->assertUnprocessable();
+        $id = $this->postJson('/api/vehicles', ['name' => 'Pick Up Traga', 'plate_number' => ' w  8789 uc ', 'type' => 'pickup', 'year' => 2023,
+            'fuel' => 'solar', 'capacity' => 1000, 'stnk_expires_on' => '2027-03-31'])
+            ->assertCreated()->assertJsonPath('data.code', 'PICK-UP-TRAGA')->assertJsonPath('data.plate_number', 'W 8789 UC')
+            ->assertJsonPath('data.type_label', 'Pick Up')->assertJsonPath('data.fuel_label', 'Solar')->json('data.id');
+        $this->assertErrorCode($this->postJson('/api/vehicles', ['name' => 'Lain', 'plate_number' => 'l 1234 ab', 'type' => 'truk']), 422, 'VALIDATION_FAILED');
+        $this->getJson('/api/vehicles?type=pickup')->assertJsonCount(1, 'data');
+        $this->getJson('/api/vehicles?search=8789')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $id);
+        $this->patchJson("/api/vehicles/{$id}", ['status' => 'inactive'])->assertOk();
+        $this->assertSame([$this->truck->id], array_column($this->getJson('/api/deliveries/options')->json('data.vehicles'), 'id'));
+    }
+
+    public function test_an_edition_without_custodians_or_other_categories_keeps_assets_to_cylinders(): void
+    {
+        config(['edition.custodians' => false, 'edition.categories' => [StandardCategories::CYLINDER]]);
+        $cylinder = $this->tabung('T-1');
+        $this->assertSame([$cylinder->id], array_column($this->getJson('/api/assets')->assertOk()->json('data'), 'id'));
+
+        $division = $this->division('Gudang', null);
+        $this->patchJson("/api/assets/{$cylinder->id}", ['department_id' => $division->id])->assertOk();
+        $this->assertNull($cylinder->fresh()->department_id);
+        $this->assertNotContains('my_assets', array_column($this->getJson('/api/home/cards')->json('data'), 'key'));
     }
 
     public function test_without_licensing_and_locations_assets_need_neither(): void
@@ -310,6 +367,29 @@ class DeliveryTest extends TestCase
 
         config(['edition.licensing' => true]);
         $this->assertErrorCode($this->postJson('/api/assets', ['name' => 'Oksigen']), 403, 'LICENSE_INACTIVE');
+    }
+
+    public function test_a_cylinder_is_never_aktif_and_its_status_says_where_it_is(): void
+    {
+        config(['edition.locations' => false, 'edition.categories' => [StandardCategories::CYLINDER, StandardCategories::VEHICLE]]);
+        $new = fn (array $data) => $this->postJson('/api/assets', ['name' => 'Oksigen', 'category_id' => $this->cylinder->id, 'attributes' => $this->values(), ...$data]);
+
+        $id = $new(['serial_number' => 'T-9'])->assertCreated()->assertJsonPath('data.status', 'available')->json('data.id');
+        $this->assertErrorCode($new(['serial_number' => 'T-10', 'status' => 'in_use']), 422, 'VALIDATION_FAILED');
+        $this->assertErrorCode($this->postJson('/api/transactions', ['asset_ids' => [$id], 'type' => 'status_change', 'to_status' => 'in_use']), 422, 'VALIDATION_FAILED');
+        $this->postJson('/api/transactions', ['asset_ids' => [$id], 'type' => 'status_change', 'to_status' => 'under_maintenance'])->assertCreated();
+        // A vehicle in use cannot become a cylinder; vehicles keep Aktif.
+        $this->vehicleAsset->forceFill(['status' => 'in_use'])->save();
+        $this->assertErrorCode($this->patchJson("/api/assets/{$this->vehicleAsset->id}", ['category_id' => $this->cylinder->id, 'attributes' => $this->values()]), 422, 'VALIDATION_FAILED');
+
+        $this->assertSame('Di Gudang', $this->tabung('T-11')->statusLabel());
+        $this->assertSame('Aktif', $this->vehicleAsset->statusLabel());
+        $this->assertSame('Tersedia', AssetStatus::label('available'));
+        $this->assertSame('Tersedia / Di Gudang', AssetStatus::labels()['available']);
+        foreach (['Tersedia', 'di gudang', 'Tersedia / Di Gudang', 'Tidak Aktif'] as $label) {
+            $this->assertSame('available', AssetStatus::fromLabel($label));
+        }
+        $this->assertNull(AssetStatus::fromLabel('Entah'));
     }
 
     // ------------------------------------------------------------------ helpers
@@ -341,7 +421,7 @@ class DeliveryTest extends TestCase
 
     private function crew(string $id): TestResponse
     {
-        return $this->putJson("/api/deliveries/{$id}/crew", ['vehicle_asset_id' => $this->truck->id, 'driver_id' => $this->driver->id, 'helper_id' => $this->helper->id]);
+        return $this->putJson("/api/deliveries/{$id}/crew", ['vehicle_id' => $this->truck->id, 'driver_id' => $this->driver->id, 'helper_id' => $this->helper->id]);
     }
 
     /** @param list<Asset> $cylinders */
@@ -387,9 +467,17 @@ class DeliveryTest extends TestCase
         return collect($values)->mapWithKeys(fn ($value, $label) => [$keys[$label] => $value])->all();
     }
 
-    private function employee(string $name, string $position): Employee
+    private function division(string $name, ?string $role): Department
     {
-        $employee = (new Employee)->forceFill(['organization_id' => $this->org->id, 'code' => strtoupper($name), 'name' => $name, 'position' => $position]);
+        $division = (new Department)->forceFill(['organization_id' => $this->org->id, 'code' => strtoupper($name), 'name' => $name, 'delivery_role' => $role]);
+        $division->save();
+
+        return $division;
+    }
+
+    private function employee(string $name, Department $division): Employee
+    {
+        $employee = (new Employee)->forceFill(['organization_id' => $this->org->id, 'code' => strtoupper($name), 'name' => $name, 'department_id' => $division->id]);
         $employee->save();
 
         return $employee;

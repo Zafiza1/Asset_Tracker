@@ -142,7 +142,7 @@ class ReportExportController extends Controller
                 ['key' => 'search', 'label' => 'Cari', 'type' => 'text', 'placeholder' => 'Nama, no seri, deskripsi'],
                 ['key' => 'category_ids', 'label' => 'Kategori', 'type' => 'lookup', 'lookup' => 'categories'],
                 ['key' => 'location_id', 'label' => 'Lokasi', 'type' => 'lookup', 'lookup' => 'locations'],
-                ['key' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => $options(AssetStatus::LABELS)],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => $options(AssetStatus::labels())],
                 ['key' => 'archived', 'label' => 'Aset nonaktif', 'type' => 'select', 'options' => [['value' => 'only', 'label' => 'Hanya nonaktif'], ['value' => 'all', 'label' => 'Aktif & nonaktif']]],
                 ['key' => 'acquired_from', 'label' => 'Perolehan dari', 'type' => 'date', 'range' => 'acquired'],
                 ['key' => 'acquired_to', 'label' => 'Perolehan sampai', 'type' => 'date', 'range' => 'acquired'],

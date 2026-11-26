@@ -29,7 +29,7 @@ use Illuminate\Validation\Rule;
 class AssetTransactionController extends Controller
 {
     /** incomingTransaction: return status and days outside of temporary outgoing rows. */
-    private const RELATIONS = ['asset', 'fromLocation', 'toLocation', 'creator', 'incomingTransaction:id,outgoing_transaction_id,transaction_date', 'typeDefinition.fields'];
+    private const RELATIONS = ['asset.category:id,code', 'fromLocation', 'toLocation', 'creator', 'incomingTransaction:id,outgoing_transaction_id,transaction_date', 'typeDefinition.fields'];
 
     private const MAX_ASSETS = 200;
 

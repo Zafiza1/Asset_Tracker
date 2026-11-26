@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Boxes, FileSpreadsheet, ImageOff, Plus, Printer, SearchX, UserRound } from "lucide-react";
+import { Boxes, FileSpreadsheet, ImageOff, Plus, Printer, SearchX } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -17,7 +17,6 @@ import { ColumnToggle } from "../../components/ui/ColumnToggle";
 import { EmptyState, ErrorState, TableSkeleton } from "../../components/ui/Feedback";
 import { ImportModal } from "../../components/ui/ImportModal";
 import { Select } from "../../components/ui/Field";
-import { PillTabs } from "../../components/ui/Tabs";
 import { DataTable, Pagination, type Column, type RowSelection } from "../../components/ui/Table";
 import { api, qs } from "../../lib/api/client";
 import type { Paginated } from "../../lib/api/types";
@@ -27,22 +26,18 @@ import {
   usePersistedSearchParams,
 } from "../../lib/usePersistedFilters";
 import { toOptions, useOptions } from "../master/options";
-import { assetStatusLabel, MAX_EDIT_SELECTION, type Asset, type AssetStatus } from "./api";
+import { isCylinder, statusFilterLabel, MAX_EDIT_SELECTION, type Asset, type AssetStatus } from "./api";
 import { AssetStatusBadge } from "./AssetStatusBadge";
 import { AddMenu } from "../../components/ui/AddMenu";
 import { AssetBarcodeModal } from "./AssetBarcodeModal";
 import { AssetBulkActions } from "./AssetBulkActions";
 import { AssetFormModal } from "./AssetFormModal";
 import { CategoryFilter } from "./CategoryFilter";
-import { CustodianName } from "./CustodianPicker";
 
 const FILTERS = [
   "page",
   "search",
   "category_ids",
-  "department_id",
-  "custodian_id",
-  "mine",
   "status",
   "archived",
   "missing",
@@ -64,7 +59,6 @@ const MISSING_LABEL: Record<string, string> = {
 };
 const ADVANCED = [
   "category_ids",
-  "department_id",
   "status",
   "archived",
   "missing",
@@ -184,10 +178,6 @@ export function AssetsPage() {
 
   const categoryRows = useOptions("/tenant-masters/categories").data;
   const categories = toOptions(categoryRows);
-  const departmentRows = useOptions("/departments").data;
-  const departments = toOptions(departmentRows);
-  // "Aset saya" (F-09): the assets the current user answers for.
-  const mine = params.get("mine") === "1";
 
   const query = useQuery({
     queryKey: ["/assets", filters],
@@ -209,8 +199,7 @@ export function AssetsPage() {
     if (!("page" in next)) merged.delete("page");
     setParams(merged);
   };
-  // The "Aset saya" tab is a view of its own, not a filter to clear.
-  const hasFilters = FILTERS.some((k) => !VIEW_KEYS.has(k) && k !== "mine" && params.get(k));
+  const hasFilters = FILTERS.some((k) => !VIEW_KEYS.has(k) && params.get(k));
   const sort = params.get("sort") ?? "";
   const sortOptions = SORT_OPTIONS.includes(sort) ? SORT_OPTIONS : [...SORT_OPTIONS, sort];
 
@@ -263,29 +252,11 @@ export function AssetsPage() {
           category_ids: selectedCategories.filter((c) => c !== id).join(","),
         }),
     })),
-    ...(params.get("department_id")
-      ? [
-          {
-            key: "department",
-            label: `Departemen: ${nameOf(departmentRows, params.get("department_id"))}`,
-            clear: () => update({ department_id: "" }),
-          },
-        ]
-      : []),
-    ...(params.get("custodian_id")
-      ? [
-          {
-            key: "custodian",
-            label: `Penanggung jawab: ${query.data?.data.find((a) => a.custodian_user_id === params.get("custodian_id"))?.custodian?.name ?? "terpilih"}`,
-            clear: () => update({ custodian_id: "" }),
-          },
-        ]
-      : []),
     ...(params.get("status")
       ? [
           {
             key: "status",
-            label: `Status: ${assetStatusLabel[params.get("status") as AssetStatus] ?? params.get("status")}`,
+            label: `Status: ${statusFilterLabel[params.get("status") as AssetStatus] ?? params.get("status")}`,
             clear: () => update({ status: "" }),
           },
         ]
@@ -397,34 +368,13 @@ export function AssetsPage() {
       hideOnMobile: true,
     },
     {
-      key: "custodian",
-      header: "Penanggung jawab",
-      className: "w-48",
-      title: (a) => a.custodian?.name ?? undefined,
-      cell: (a) =>
-        a.custodian ? (
-          <CustodianName custodian={a.custodian} detail={a.department?.name} />
-        ) : (
-          <span className="text-slate-400">—</span>
-        ),
-      hideOnMobile: true,
-    },
-    {
-      key: "department",
-      header: "Departemen",
-      className: "w-40",
-      title: (a) => a.department?.name,
-      cell: (a) => a.department?.name ?? <span className="text-slate-400">—</span>,
-      hideOnMobile: true,
-    },
-    {
       key: "status",
       header: "Status",
       className: "w-32 md:w-36",
       sortKey: "status",
       cell: (a) => (
         <div className="flex flex-wrap gap-1">
-          <AssetStatusBadge status={a.status} archived={a.is_archived} />
+          <AssetStatusBadge status={a.status} archived={a.is_archived} cylinder={isCylinder(a)} />
         </div>
       ),
     },
@@ -495,15 +445,6 @@ export function AssetsPage() {
       />
       <Card>
         <FilterPanel>
-          <PillTabs
-            label="Tampilan aset"
-            value={mine ? "mine" : ""}
-            onChange={(v) => update({ mine: v === "mine" ? "1" : "" })}
-            tabs={[
-              { value: "", label: "Semua" },
-              { value: "mine", label: "Aset saya" },
-            ]}
-          />
           <SearchForm
             value={search}
             onChange={setSearch}
@@ -545,26 +486,14 @@ export function AssetsPage() {
               onChange={(ids) => advanced.set({ category_ids: ids.join(",") })}
             />
             <Select
-              value={draft.department_id}
-              onChange={(e) => advanced.set({ department_id: e.target.value })}
-              aria-label="Filter departemen"
-            >
-              <option value="">Departemen: semua</option>
-              {departments.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-            <Select
               value={draft.status}
               onChange={(e) => advanced.set({ status: e.target.value })}
               aria-label="Filter status"
             >
               <option value="">Status: semua</option>
-              {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
+              {(Object.keys(statusFilterLabel) as AssetStatus[]).map((s) => (
                 <option key={s} value={s}>
-                  {assetStatusLabel[s]}
+                  {statusFilterLabel[s]}
                 </option>
               ))}
             </Select>
@@ -604,17 +533,6 @@ export function AssetsPage() {
           <TableSkeleton columns={6} label="Memuat data aset…" />
         ) : query.isError ? (
           <ErrorState error={query.error} onRetry={() => void query.refetch()} />
-        ) : query.data!.data.length === 0 && mine && !hasFilters ? (
-          <EmptyState
-            icon={UserRound}
-            title="Belum ada aset yang Anda pegang"
-            description="Aset muncul di sini saat Anda dicatat sebagai penanggung jawabnya. Minta admin menunjuk Anda, atau lihat semua aset."
-            action={
-              <Button variant="secondary" onClick={() => update({ mine: "" })}>
-                Lihat semua aset
-              </Button>
-            }
-          />
         ) : query.data!.data.length === 0 ? (
           <EmptyState
             icon={hasFilters ? SearchX : Boxes}

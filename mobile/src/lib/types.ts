@@ -23,10 +23,6 @@ export interface Asset {
   /** Uses the Barcode module: it has printable 1D/2D barcodes. */
   barcode_enabled: boolean
   /** F-09: the member who answers for the asset; one who has since left stays, marked inactive. */
-  custodian_user_id?: string | null
-  custodian?: { id: string; name: string | null; is_active: boolean } | null
-  department_id?: string | null
-  department?: Ref | null
   /** Where a cylinder is according to its deliveries; null in the warehouse. */
   position?: { label: string; delivery_id: string; delivery_number: string } | null
   status: AssetStatus
@@ -70,7 +66,7 @@ export interface MasterOption {
   status: string
 }
 
-/** Statuses an asset can be registered with (AssetStatus::INITIAL). */
+/** Statuses an asset can be registered with (AssetStatus::INITIAL); a cylinder is never in_use. */
 export const INITIAL_STATUSES: AssetStatus[] = ['in_use', 'available', 'under_maintenance']
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
@@ -252,9 +248,14 @@ export const assetStatusLabel: Record<AssetStatus, string> = {
   available: 'Tersedia',
   under_maintenance: 'Dalam Perbaikan',
   on_loan: 'Dipinjamkan',
-  off_site: 'Di Luar Organisasi',
+  off_site: 'Di Customer / Dikirim',
   lost: 'Hilang',
   disposed: 'Dihapuskan',
+}
+
+/** The status of one asset: a cylinder that is available is in the warehouse (AssetStatus::CYLINDER_LABELS). */
+export function statusLabel(status: AssetStatus, cylinder: boolean): string {
+  return cylinder && status === 'available' ? 'Di Gudang' : assetStatusLabel[status]
 }
 
 /** Badge colors per status: [background, text], as the web app's badge tones. */

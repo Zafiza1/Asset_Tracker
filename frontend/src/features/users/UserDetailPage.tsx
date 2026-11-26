@@ -357,7 +357,7 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
             ))}
           </ul>
         )}
-        <p className="text-xs text-slate-500">Cakupan digabungkan. Cakupan departemen mencakup semua aset departemen itu.</p>
+        <p className="text-xs text-slate-500">Cakupan digabungkan. Cakupan divisi mencakup semua aset divisi itu.</p>
         {editable && (
           <div className="flex flex-wrap items-end gap-2">
             <Select value={type} onChange={(e) => (setType(e.target.value as ScopeType), setRefId(''))} className="w-auto" aria-label="Jenis cakupan">
@@ -381,7 +381,7 @@ function ScopesCard({ user, editable }: { user: User; editable: boolean }) {
               variant="secondary"
               loading={mutation.isPending && !removing}
               disabled={type !== 'organization' && !refId}
-              title={type !== 'organization' && choices.length === 0 ? 'Belum ada departemen' : undefined}
+              title={type !== 'organization' && choices.length === 0 ? 'Belum ada divisi' : undefined}
               onClick={() => {
                 const added: DataScopeEntry = { scope_type: type, ref_id: type === 'organization' ? null : refId }
                 save([...scopes, added], 'Cakupan data ditambahkan', scopeLabel(added))

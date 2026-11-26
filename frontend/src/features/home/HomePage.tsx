@@ -394,7 +394,7 @@ function cardContent(card: HomeCard): CardContent {
             ))}
           </Rows>
         ),
-        link: { to: '/aset?mine=1', label: 'Lihat Aset saya' },
+        link: { to: '/aset', label: 'Lihat aset' },
       }
     case 'inactive_custodians':
       return {

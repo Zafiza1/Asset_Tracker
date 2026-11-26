@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftRight, FolderTree, MapPin, Pencil, Power, Printer, RotateCcw, UserRound, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, FolderTree, MapPin, Pencil, Power, Printer, RotateCcw, Wallet, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
@@ -20,7 +20,7 @@ import { attributeRowsBySection, SECTION_LABELS } from '../master/categoryAttrib
 import { allowedTypes, daysLate, withStateAfter, type AssetTransaction, type ManualTransactionType, type TransactionWithState } from '../transactions/api'
 import { StatusChange } from '../transactions/TransactionChanges'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
-import { assetStatusLabel, CYLINDER_CATEGORY, formatMoney, type Asset } from './api'
+import { formatMoney, isCylinder as isCylinderAsset, statusLabel, type Asset } from './api'
 import { AssetStatusBadge } from './AssetStatusBadge'
 import { AssetBarcodeModal } from './AssetBarcodeModal'
 import { AssetFormModal } from './AssetFormModal'
@@ -59,7 +59,7 @@ export function AssetDetailPage() {
   if (asset.isLoading) return <DetailSkeleton label="Memuat data aset…" />
   if (asset.isError) return <ErrorState error={asset.error} onRetry={() => void asset.refetch()} />
   const a = asset.data!.data
-  const isCylinder = a.category?.code === CYLINDER_CATEGORY
+  const isCylinder = isCylinderAsset(a)
   const types = allowedTypes(a.status)
   const canRecord = can('transaction.create') && !a.is_archived
   const overdue = a.status === 'on_loan' && a.loan_due_date !== null && a.loan_due_date < today
@@ -68,7 +68,7 @@ export function AssetDetailPage() {
     <>
       <PageHeader
         title={a.name}
-        badges={<AssetStatusBadge status={a.status} archived={a.is_archived} />}
+        badges={<AssetStatusBadge status={a.status} archived={a.is_archived} cylinder={isCylinder} />}
         description={<span className="text-sm text-slate-500">{[a.serial_number && `${isCylinder ? 'No Manufaktur' : 'No Seri'} ${a.serial_number}`, `No Reference ${a.reference_number}`].filter(Boolean).join(' · ')}</span>}
         actions={
           <>
@@ -105,26 +105,6 @@ export function AssetDetailPage() {
 
       {/* The facts people look for first, before reading the full data sheet. */}
       <dl className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {/* F-09: "who holds it?" is the first question about an asset. */}
-        <Fact icon={UserRound} label="Dipegang oleh">
-          {a.custodian ? (
-            <span className="block">
-              <span className="flex flex-wrap items-center gap-1">
-                {a.custodian.name}
-                {!a.custodian.is_active && <Badge tone="amber">nonaktif</Badge>}
-              </span>
-              {(a.department || !a.custodian.is_active) && (
-                <span className="block text-xs font-normal text-slate-500">{a.custodian.is_active ? a.department?.name : 'Perlu penanggung jawab baru'}</span>
-              )}
-            </span>
-          ) : can('asset.update') && !a.is_archived ? (
-            <button type="button" className="text-left font-semibold text-brand-700 hover:underline" onClick={() => setEditing(true)}>
-              Tunjuk penanggung jawab
-            </button>
-          ) : (
-            <span className="text-slate-400">Belum ada</span>
-          )}
-        </Fact>
         <Fact icon={MapPin} label="Posisi">
           {a.position ? (
             <span className="block">
@@ -218,18 +198,10 @@ export function AssetDetailPage() {
                     </Row>
                   </>
                 ),
-                location_ownership: (
-                  <>
-                    <Row label="Penanggung jawab">
-                      {a.custodian ? `${a.custodian.name ?? '—'}${a.custodian.is_active ? '' : ' (nonaktif)'}` : '—'}
-                    </Row>
-                    <Row label="Departemen">{a.department?.name ?? '—'}</Row>
-                  </>
-                ),
                 status_condition: (
                   <>
                     <Row label="Status">
-                      <AssetStatusBadge status={a.status} />
+                      <AssetStatusBadge status={a.status} cylinder={isCylinder} />
                     </Row>
                     {a.status === 'on_loan' && <Row label="Peminjam">{`${a.borrower_name}${a.loan_due_date ? ` (kembali ${formatDate(a.loan_due_date)})` : ''}`}</Row>}
                   </>
@@ -280,7 +252,7 @@ export function AssetDetailPage() {
             ) : timeline.isError ? (
               <ErrorState error={timeline.error} onRetry={() => void timeline.refetch()} />
             ) : (
-              <AssetTimeline events={timeline.data!.data} />
+              <AssetTimeline events={timeline.data!.data} cylinder={isCylinder} />
             )
           ) : history.isLoading ? (
             <TableSkeleton rows={5} columns={4} label="Memuat riwayat transaksi…" />
@@ -293,7 +265,7 @@ export function AssetDetailPage() {
               description="Keluar, masuk, dan perubahan status aset ini akan tercatat di sini."
             />
           ) : (
-            <DataTable columns={historyColumns} rows={withStateAfter(history.data!.data, a)} className="md:min-w-[36rem]" />
+            <DataTable columns={historyColumns(isCylinder)} rows={withStateAfter(history.data!.data, a)} className="md:min-w-[36rem]" />
           )}
         </Card>
       </div>
@@ -307,7 +279,7 @@ export function AssetDetailPage() {
 }
 
 // The asset's own history: the Riwayat Transaksi table without the asset column.
-const historyColumns: Column<TransactionWithState>[] = [
+const historyColumns = (cylinder: boolean): Column<TransactionWithState>[] => [
   // Number, date and recorder share one cell so the before → after columns get the room.
   {
     key: 'number',
@@ -326,7 +298,7 @@ const historyColumns: Column<TransactionWithState>[] = [
     ),
   },
   { key: 'type', header: 'Jenis', sortValue: (t) => t.type_label, cell: (t) => <Badge tone={t.type === 'registration' ? 'green' : 'blue'}>{t.type_label}</Badge>, className: 'w-40' },
-  { key: 'status', header: 'Status', sortValue: (t) => assetStatusLabel[t.status_after], cell: (t) => <StatusChange trx={t} />, className: 'whitespace-normal', hideOnMobile: true },
+  { key: 'status', header: 'Status', sortValue: (t) => statusLabel(t.status_after, cylinder), cell: (t) => <StatusChange trx={t} cylinder={cylinder} />, className: 'whitespace-normal', hideOnMobile: true },
 ]
 
 function Fact({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {

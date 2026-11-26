@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, Home, IdCard, LayoutDashboard, MapPinned, Network, QrCode, Store, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Bell, BookOpen, Boxes, ClipboardList, Building2, FileClock, FileText, FolderTree, Home, IdCard, LayoutDashboard, MapPinned, Network, QrCode, Store, Truck, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -58,9 +58,10 @@ export const tenantNavigation: NavSection[] = [
     title: 'Master Data',
     items: [
       { to: '/master/kategori', label: 'Kategori Aset', icon: FolderTree, permission: 'master.tenant.view' },
+      { to: '/master/kendaraan', label: 'Kendaraan', icon: Truck, permission: 'master.tenant.view' },
       { to: '/master/karyawan', label: 'Karyawan', icon: IdCard, permission: 'master.tenant.view' },
+      { to: '/master/divisi', label: 'Divisi', icon: Network, permission: 'master.tenant.view' },
       { to: '/master/customer', label: 'Customer', icon: Store, permission: 'master.tenant.view' },
-      { to: '/master/departemen', label: 'Departemen', icon: Network, permission: 'master.tenant.view' },
     ],
   },
   {
@@ -123,7 +124,8 @@ export const breadcrumbLabels: Record<string, string> = {
   versi: 'Versi',
   karyawan: 'Karyawan',
   customer: 'Customer',
-  departemen: 'Departemen',
+  divisi: 'Divisi',
+  kendaraan: 'Kendaraan',
   referensi: 'Referensi',
 }
 

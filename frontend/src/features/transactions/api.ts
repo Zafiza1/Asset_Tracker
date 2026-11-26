@@ -20,7 +20,7 @@ export interface AssetTransaction {
   type_label: string
   transaction_date: string
   asset_id: string
-  asset?: { id: string; name: string }
+  asset?: { id: string; name: string; category_code?: string | null }
   from_location?: Ref | null
   to_location?: Ref | null
   from_status: AssetStatus | null

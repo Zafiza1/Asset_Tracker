@@ -7,7 +7,7 @@ import { Alert, Button, colors } from '@/components/ui'
 import { errorMessage } from '@/lib/api'
 import { announce, fieldErrors, formError, useMasterOptions } from '@/lib/forms'
 import { useSession } from '@/lib/session'
-import { assetStatusLabel, INITIAL_STATUSES, type Asset, type AssetStatus, type AttributeValue, type CategoryAttribute } from '@/lib/types'
+import { CYLINDER_CATEGORY, INITIAL_STATUSES, statusLabel, type Asset, type AssetStatus, type AttributeValue, type CategoryAttribute } from '@/lib/types'
 
 export { ErrorBoundary } from '@/components/ErrorBoundary'
 
@@ -34,6 +34,8 @@ export default function NewAssetScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const isCylinder = categories.options.find((o) => o.value === categoryId)?.code === CYLINDER_CATEGORY
 
   // The category decides which extra fields the asset has.
   const loadFields = useCallback(async () => {
@@ -123,14 +125,18 @@ export default function NewAssetScreen() {
               title="Pilih kategori"
               value={categoryId}
               options={categories.options}
-              onChange={(v) => (setCategoryId(v), setAttributes({}))}
+              onChange={(v) => {
+                setCategoryId(v)
+                setAttributes({})
+                setStatus(categories.options.find((o) => o.value === v)?.code === CYLINDER_CATEGORY ? 'available' : 'in_use')
+              }}
               loading={categories.loading && categories.options.length === 0}
               invalid={!!errors.category_id}
             />
           </Field>
 
           <Field label="Status" error={errors.status}>
-            <Chips value={[status]} options={INITIAL_STATUSES.map((s) => ({ value: s, label: assetStatusLabel[s] }))} onChange={(v) => v[0] && setStatus(v[0] as AssetStatus)} />
+            <Chips value={[status]} options={INITIAL_STATUSES.filter((s) => !isCylinder || s !== 'in_use').map((s) => ({ value: s, label: statusLabel(s, isCylinder) }))} onChange={(v) => v[0] && setStatus(v[0] as AssetStatus)} />
           </Field>
 
           {fieldsState.loading ? (

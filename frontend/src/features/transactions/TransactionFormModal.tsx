@@ -15,7 +15,7 @@ import { useAuth } from '../../lib/auth/context'
 import { useDebounced } from '../../lib/useDebounced'
 import { errorMessage } from '../../lib/forms'
 import { toOptions, useOptions } from '../master/options'
-import { assetStatusLabel, type Asset, type AssetStatus } from '../assets/api'
+import { assetStatusLabel, isCylinder, statusFilterLabel, statusLabel, withoutInUse, type Asset, type AssetStatus } from '../assets/api'
 import { AssetStatusBadge } from '../assets/AssetStatusBadge'
 import { CategoryFilter } from '../assets/CategoryFilter'
 import { allowedTypes, ineligibleReason, localToday, manualTypes, outgoingNatureLabel, outgoingReasons, transactionTypeLabel, typePermission, type ManualTransactionType, type OutgoingNature } from './api'
@@ -136,7 +136,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, initialCu
       sortKey: 'status',
       cell: (a: Asset) => (
         <div>
-          <AssetStatusBadge status={a.status} />
+          <AssetStatusBadge status={a.status} cylinder={isCylinder(a)} />
           {reason(a) && <p className="mt-1 text-xs text-slate-500">Tidak dapat dipilih</p>}
         </div>
       ),
@@ -361,11 +361,11 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, initialCu
             {(p) => (
               <Select {...p} value={values.to_status ?? ''} onChange={set('to_status')}>
                 <option value="">— Pilih —</option>
-                {selectableStatuses
+                {withoutInUse(selectableStatuses, isCylinder(fixedAsset))
                   .filter((s) => s !== fixedAsset?.status && (s !== 'disposed' || can('asset.dispose')))
                   .map((s) => (
                     <option key={s} value={s}>
-                      {assetStatusLabel[s]}
+                      {fixedAsset ? statusLabel(s, isCylinder(fixedAsset)) : statusFilterLabel[s]}
                     </option>
                   ))}
               </Select>
@@ -495,7 +495,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, initialCu
           <div className="rounded-md bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
             <p className="font-medium text-slate-900">{fixedAsset.name}</p>
             <p className="text-slate-600">
-              {assetStatusLabel[fixedAsset.status]}
+              {statusLabel(fixedAsset.status, isCylinder(fixedAsset))}
               {fixedAsset.location ? ` · ${fixedAsset.location.name}` : ''}
             </p>
           </div>
@@ -569,9 +569,9 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, initialCu
               </Select>
               <Select value={filters.status} onChange={(e) => handleFilterChange({ status: e.target.value })} aria-label="Filter status">
                 <option value="">Status: semua</option>
-                {(Object.keys(assetStatusLabel) as AssetStatus[]).map((s) => (
+                {(Object.keys(statusFilterLabel) as AssetStatus[]).map((s) => (
                   <option key={s} value={s}>
-                    {assetStatusLabel[s]}
+                    {statusFilterLabel[s]}
                   </option>
                 ))}
               </Select>

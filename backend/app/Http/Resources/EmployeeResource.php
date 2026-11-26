@@ -15,8 +15,10 @@ class EmployeeResource extends JsonResource
             'id' => $this->id,
             'code' => $this->code,
             'name' => $this->name,
-            'position' => $this->position,
-            'position_label' => Employee::POSITIONS[$this->position] ?? $this->position,
+            'department_id' => $this->department_id,
+            'department' => $this->whenLoaded('department', fn () => $this->department === null ? null : [
+                'id' => $this->department->id, 'name' => $this->department->name, 'delivery_role' => $this->department->delivery_role,
+            ]),
             'phone' => $this->phone,
             'license_number' => $this->license_number,
             'license_expires_on' => $this->license_expires_on?->toDateString(),

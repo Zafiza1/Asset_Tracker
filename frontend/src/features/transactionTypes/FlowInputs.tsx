@@ -47,7 +47,7 @@ export function WhoPicker({ label, value, roles, members, fields, onChange, appr
         { value: 'location_supervisor', label: 'Supervisor yang membawahi aset' },
         { value: 'role', label: 'Role' },
         { value: 'user', label: 'Pengguna tertentu' },
-        { value: 'target_department_supervisor', label: 'Supervisor departemen penerima' },
+        { value: 'target_department_supervisor', label: 'Supervisor divisi penerima' },
       ]
     : [
         { value: 'starter', label: 'Pembuat transaksi' },
@@ -59,8 +59,8 @@ export function WhoPicker({ label, value, roles, members, fields, onChange, appr
   // A choice no longer offered (custodians as approvers, D-57 withdrawn) must be made again.
   const offered = kinds.some((k) => k.value === value.type)
   const hints: Partial<Record<Who['type'], string>> = {
-    location_supervisor: 'Super Admin atau Supervisor yang cakupan datanya meliputi semua aset (lokasi atau departemennya).',
-    target_department_supervisor: 'Supervisor yang cakupannya meliputi departemen asal orang di field yang dipilih; bila tidak ada, Super Admin.',
+    location_supervisor: 'Super Admin atau Supervisor yang cakupan datanya meliputi semua aset (lokasi atau divisinya).',
+    target_department_supervisor: 'Supervisor yang cakupannya meliputi divisi asal orang di field yang dipilih; bila tidak ada, Super Admin.',
   }
   return (
     <div className="space-y-2">
@@ -132,10 +132,10 @@ export function RulesEditor({ label, hint, rules, match, fields, options, onChan
     { value: 'asset.condition', label: 'Aset · Kondisi' },
     { value: 'asset.category', label: 'Aset · Kategori' },
     { value: 'asset.location', label: 'Aset · Lokasi' },
-    { value: 'asset.department', label: 'Aset · Departemen' },
+    { value: 'asset.department', label: 'Aset · Divisi' },
     { value: 'asset.custodian', label: 'Aset · Penanggung jawab' },
     { value: 'starter.is_custodian', label: 'Pembuat · Penanggung jawab aset' },
-    ...(userFields.length ? [{ value: 'target.department_differs', label: 'Lintas departemen (penerima)' }] : []),
+    ...(userFields.length ? [{ value: 'target.department_differs', label: 'Lintas divisi (penerima)' }] : []),
     { value: 'starter.role', label: 'Pembuat · Role' },
     ...(coreType === 'outgoing' ? [{ value: 'core.outgoing_nature', label: 'Keluar · Sifat' }] : []),
     ...fields.filter((f) => f.data_type !== 'attachment').map((f) => ({ value: `field.${f.key}`, label: `Field · ${f.label}` })),
@@ -308,7 +308,7 @@ export function ActionsEditor({ actions, fields, options, onChange }: { actions:
               <FieldSelect label="Field penanggung jawab baru" fields={fields} types={['user']} value={a.user_field} onChange={(user_field) => set(i, { user_field })} />
               <label className="flex items-center gap-2 text-xs text-slate-700">
                 <input type="checkbox" className="size-3.5 accent-brand-700" checked={a.set_department ?? false} onChange={(e) => set(i, { set_department: e.target.checked })} />
-                Departemen aset ikut menjadi departemen asal orang itu
+                Divisi aset ikut menjadi divisi asal orang itu
               </label>
             </>
           )}

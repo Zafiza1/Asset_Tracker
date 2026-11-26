@@ -20,10 +20,12 @@ class DepartmentController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Department::query();
+        $request->validate(['delivery_role' => ['nullable', Rule::in(array_keys(Department::DELIVERY_ROLES))]]);
+        $query = Department::query()->withCount(['employees' => fn ($q) => $q->where('status', '!=', MasterStatus::ARCHIVED)])
+            ->when($request->query('delivery_role'), fn ($q, $role) => $q->where('delivery_role', $role));
 
         return DepartmentResource::collection(MasterRequests::list($query, $request,
-            ['code' => 'code', 'name' => 'name', 'status' => 'status', 'created_at' => 'created_at'], 'name'));
+            ['code' => 'code', 'name' => 'name', 'delivery_role' => 'delivery_role', 'status' => 'status', 'created_at' => 'created_at'], 'name'));
     }
 
     public function store(Request $request, Tenancy $tenancy): DepartmentResource
@@ -32,6 +34,7 @@ class DepartmentController extends Controller
         $data = $request->validate([
             'code' => [...MasterRequests::codeRules(optional: true), Rule::unique('departments', 'code')->where('organization_id', $tenancy->organizationId())],
             'name' => ['required', 'string', 'max:150'],
+            'delivery_role' => ['nullable', Rule::in(array_keys(Department::DELIVERY_ROLES))],
         ]);
 
         $data['code'] = ($data['code'] ?? null) ?: CodeGenerator::fromName($data['name'], 'departments', $tenancy->organizationId());
@@ -48,6 +51,7 @@ class DepartmentController extends Controller
     {
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:150'],
+            'delivery_role' => ['sometimes', 'nullable', Rule::in(array_keys(Department::DELIVERY_ROLES))],
             'status' => ['sometimes', Rule::in(MasterStatus::EDITABLE)],
         ]);
 

@@ -9,7 +9,9 @@ use App\Domain\Deliveries\Models\DeliveryEvent;
 use App\Domain\Deliveries\Models\DeliveryItem;
 use App\Domain\Deliveries\Services\DeliveryService;
 use App\Domain\Organization\Models\Customer;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Employee;
+use App\Domain\Organization\Models\Vehicle;
 use App\Domain\Shared\Masters\MasterStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DeliveryResource;
@@ -81,17 +83,19 @@ class DeliveryController extends Controller
     /** Choices of the forms: vehicles, crew and customers. */
     public function options(): JsonResponse
     {
-        $busy = Delivery::query()->where('status', Delivery::IN_TRANSIT)->get(['vehicle_asset_id', 'driver_id', 'helper_id']);
+        $busy = Delivery::query()->where('status', Delivery::IN_TRANSIT)->get(['vehicle_id', 'driver_id', 'helper_id']);
         $busyPeople = $busy->pluck('driver_id')->merge($busy->pluck('helper_id'))->filter();
-        $employees = fn (string ...$positions) => Employee::query()->where('status', MasterStatus::ACTIVE)->whereIn('position', $positions)->orderBy('name')->get()
-            ->map(fn (Employee $e) => ['id' => $e->id, 'name' => $e->name, 'phone' => $e->phone, 'position' => $e->position, 'on_trip' => $busyPeople->contains($e->id)])->values();
+        $employees = fn (string ...$roles) => Employee::query()->with('department')->where('status', MasterStatus::ACTIVE)->withDeliveryRole($roles)->orderBy('name')->get()
+            ->map(fn (Employee $e) => ['id' => $e->id, 'name' => $e->name, 'phone' => $e->phone, 'position' => $e->department?->delivery_role,
+                'division' => $e->department?->name, 'on_trip' => $busyPeople->contains($e->id)])->values();
 
         return response()->json(['data' => [
-            'vehicles' => $this->fleet->vehicles()->orderBy('name')->get()->map(fn (Asset $a) => [
-                'id' => $a->id, 'name' => $a->name, 'plate' => $this->fleet->plate($a), 'on_trip' => $busy->contains('vehicle_asset_id', $a->id),
+            'vehicles' => $this->fleet->vehicles()->orderBy('name')->get()->map(fn (Vehicle $v) => [
+                'id' => $v->id, 'name' => $v->name, 'plate' => $v->plate_number, 'type' => Vehicle::TYPES[$v->type] ?? $v->type,
+                'on_trip' => $busy->contains('vehicle_id', $v->id),
             ])->values(),
-            'drivers' => $employees(Employee::DRIVER),
-            'helpers' => $employees(Employee::HELPER, Employee::DRIVER),
+            'drivers' => $employees(Department::DRIVER),
+            'helpers' => $employees(Department::HELPER, Department::DRIVER),
             'customers' => Customer::query()->where('status', MasterStatus::ACTIVE)->orderBy('name')->get(['id', 'code', 'name', 'address']),
             'return_days' => (int) config('edition.return_days'),
         ]]);
@@ -135,6 +139,7 @@ class DeliveryController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->legacyVehicle($request);
         $data = $request->validate(['direction' => ['required', Rule::in(array_keys(Delivery::DIRECTIONS))], ...$this->planRules()]);
 
         return $this->detail($this->deliveries->create($data))->response()->setStatusCode(201);
@@ -147,6 +152,8 @@ class DeliveryController extends Controller
 
     public function update(Request $request, Delivery $delivery): DeliveryResource
     {
+        $this->legacyVehicle($request);
+
         return $this->detail($this->deliveries->update($delivery, $request->validate($this->planRules())));
     }
 
@@ -159,8 +166,10 @@ class DeliveryController extends Controller
 
     public function crew(Request $request, Delivery $delivery): DeliveryResource
     {
+        $this->legacyVehicle($request);
+
         return $this->detail($this->deliveries->setCrew($delivery, $request->validate([
-            'vehicle_asset_id' => ['nullable', 'uuid'],
+            'vehicle_id' => ['nullable', 'uuid'],
             'driver_id' => ['required', 'uuid'],
             'helper_id' => ['nullable', 'uuid'],
             ...$this->metaRules(),
@@ -238,13 +247,21 @@ class DeliveryController extends Controller
         }
     }
 
+    /** Phones installed before vehicles became master data send the vehicle as vehicle_asset_id (same id). */
+    private function legacyVehicle(Request $request): void
+    {
+        if ($request->has('vehicle_asset_id') && ! $request->has('vehicle_id')) {
+            $request->merge(['vehicle_id' => $request->input('vehicle_asset_id')]);
+        }
+    }
+
     /** @return array<string, list<mixed>> */
     private function planRules(): array
     {
         return [
             'planned_date' => ['required', 'date_format:Y-m-d', 'after:1999-12-31'],
             'expected_return_date' => ['nullable', 'date_format:Y-m-d'],
-            'vehicle_asset_id' => ['nullable', 'uuid'],
+            'vehicle_id' => ['nullable', 'uuid'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'stops' => ['required', 'array', 'min:1', 'max:20'],
             'stops.*.customer_id' => ['required', 'uuid', 'distinct'],

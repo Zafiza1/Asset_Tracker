@@ -83,14 +83,32 @@ export interface CustodianOption {
   home_department: Ref | null
 }
 
+/** Labels of an asset that is no cylinder; see statusLabel for one asset and statusFilterLabel for lists. */
 export const assetStatusLabel: Record<AssetStatus, string> = {
   in_use: 'Aktif',
   available: 'Tersedia',
   under_maintenance: 'Dalam Perbaikan',
   on_loan: 'Dipinjamkan',
-  off_site: 'Di Luar Organisasi',
+  off_site: 'Di Customer / Dikirim',
   lost: 'Hilang',
   disposed: 'Dihapuskan',
+}
+
+/** Lists mix cylinders and vehicles, so a filter names both meanings (AssetStatus::labels). */
+export const statusFilterLabel: Record<AssetStatus, string> = { ...assetStatusLabel, available: 'Tersedia / Di Gudang' }
+
+export function isCylinder(asset: { category?: Ref | null } | null | undefined): boolean {
+  return asset?.category?.code === CYLINDER_CATEGORY
+}
+
+/** The status of one asset: a cylinder that is available is in the warehouse. */
+export function statusLabel(status: AssetStatus, cylinder = false): string {
+  return cylinder && status === 'available' ? 'Di Gudang' : assetStatusLabel[status]
+}
+
+/** A cylinder is in the warehouse or with a customer, never "in use" by the organization itself. */
+export function withoutInUse(statuses: AssetStatus[], cylinder: boolean): AssetStatus[] {
+  return cylinder ? statuses.filter((s) => s !== 'in_use') : statuses
 }
 
 export const assetStatusTone: Record<AssetStatus, BadgeTone> = {

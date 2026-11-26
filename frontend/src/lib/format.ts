@@ -30,7 +30,7 @@ export const orgStatusLabel: Record<string, string> = {
 
 export const scopeTypeLabel: Record<string, string> = {
   organization: 'Seluruh organisasi',
-  department: 'Departemen',
+  department: 'Divisi',
   location: 'Lokasi',
 }
 
@@ -153,12 +153,12 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
     },
   },
   {
-    label: 'Departemen',
+    label: 'Divisi',
     actions: {
-      'department.created': 'Menambah departemen',
-      'department.updated': 'Mengubah departemen',
-      'department.archived': 'Mengarsipkan departemen',
-      'department.restored': 'Memulihkan departemen',
+      'department.created': 'Menambah divisi',
+      'department.updated': 'Mengubah divisi',
+      'department.archived': 'Mengarsipkan divisi',
+      'department.restored': 'Memulihkan divisi',
     },
   },
   {
@@ -177,6 +177,15 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
       'customer.updated': 'Mengubah customer',
       'customer.archived': 'Mengarsipkan customer',
       'customer.restored': 'Memulihkan customer',
+    },
+  },
+  {
+    label: 'Kendaraan',
+    actions: {
+      'vehicle.created': 'Menambah kendaraan',
+      'vehicle.updated': 'Mengubah kendaraan',
+      'vehicle.archived': 'Mengarsipkan kendaraan',
+      'vehicle.restored': 'Memulihkan kendaraan',
     },
   },
   {

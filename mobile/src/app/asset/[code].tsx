@@ -6,7 +6,7 @@ import { Alert, Badge, Button, Card, colors, Row, SectionHeader } from '@/compon
 import { ApiError, errorMessage } from '@/lib/api'
 import { attributeRowsBySection, daysBetween, formatDate, formatDateTime, formatMoney, localToday } from '@/lib/format'
 import { useSession } from '@/lib/session'
-import { assetStatusColors, assetStatusLabel, CYLINDER_CATEGORY, SECTION_LABELS, type AssetDetail, type AssetTransaction, type Paginated } from '@/lib/types'
+import { assetStatusColors, CYLINDER_CATEGORY, SECTION_LABELS, statusLabel, type AssetDetail, type AssetTransaction, type Paginated } from '@/lib/types'
 
 // A screen that throws keeps the header and back button; only the content shows the error.
 export { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -85,23 +85,12 @@ export default function AssetDetailScreen() {
     location_ownership: (
       <>
         <Row label="Posisi">{a.position?.label ?? (isCylinder ? 'Di gudang' : '—')}</Row>
-        <Row label="Penanggung jawab">
-          {a.custodian ? (
-            <View style={styles.inline}>
-              <Text style={styles.value}>{a.custodian.name ?? '—'}</Text>
-              {!a.custodian.is_active && <Badge colors={[colors.warningSoft, colors.warning]}>nonaktif</Badge>}
-            </View>
-          ) : (
-            'Belum ada'
-          )}
-        </Row>
-        <Row label="Departemen">{a.department?.name ?? 'Tanpa departemen'}</Row>
       </>
     ),
     status_condition: (
       <>
         <Row label="Status">
-          <Badge colors={assetStatusColors[a.status]}>{assetStatusLabel[a.status]}</Badge>
+          <Badge colors={assetStatusColors[a.status]}>{statusLabel(a.status, isCylinder)}</Badge>
         </Row>
         {a.status === 'on_loan' && <Row label="Peminjam">{`${a.borrower_name ?? '—'}${a.loan_due_date ? ` (kembali ${formatDate(a.loan_due_date)})` : ''}`}</Row>}
       </>
@@ -116,26 +105,14 @@ export default function AssetDetailScreen() {
       <View style={{ gap: 2 }}>
         <Text style={styles.name}>{a.name}</Text>
         {a.serial_number && <Text style={styles.code}>{`${isCylinder ? 'No Manufaktur' : 'No Seri'} ${a.serial_number}`}</Text>}
-        {/* "Where is it?" is the first question about a cylinder, "who holds it?" about the rest. */}
-        <Text style={styles.holder}>
-          {isCylinder
-            ? (a.position?.label ?? 'Di gudang')
-            : a.custodian
-              ? `Dipegang oleh ${a.custodian.name ?? '—'}${a.department ? ` · ${a.department.name}` : ''}`
-              : `Belum ada penanggung jawab${a.department ? ` · ${a.department.name}` : ''}`}
-        </Text>
+        {/* "Where is it?" is the first question about a cylinder. */}
+        <Text style={styles.holder}>{a.position?.label ?? (isCylinder ? 'Di gudang' : '—')}</Text>
         {a.position && can('delivery.view') && (
           <Text style={styles.link} onPress={() => router.push({ pathname: '/delivery/[id]', params: { id: a.position!.delivery_id } })} accessibilityRole="link">
             {`Buka transaksi ${a.position.delivery_number}`}
           </Text>
         )}
       </View>
-
-      {a.custodian && !a.custodian.is_active && (
-        <Alert tone="warning" title="Penanggung jawab nonaktif">
-          {`${a.custodian.name ?? 'Penanggung jawab'} sudah tidak aktif di organisasi. Minta administrator menunjuk penanggung jawab baru.`}
-        </Alert>
-      )}
 
       {a.is_archived && (
         <Alert tone="warning" title="Aset nonaktif">
@@ -224,7 +201,7 @@ function OffSite({ history }: { history: AssetTransaction[] | null }) {
   const late = out.due_date ? daysBetween(out.due_date, localToday()) : 0
   const party = [out.counterparty_name, out.counterparty_org && `(${out.counterparty_org})`].filter(Boolean).join(' ')
   return (
-    <Alert tone={late > 0 ? 'error' : 'warning'} title={late > 0 ? `Terlambat ${late} hari` : 'Di luar organisasi'}>
+    <Alert tone={late > 0 ? 'error' : 'warning'} title={late > 0 ? `Terlambat ${late} hari` : 'Di Customer / Dikirim'}>
       {`${out.reason_label ?? 'Keluar'} · ${party} sejak ${formatDate(out.transaction_date)}${out.due_date ? `, rencana kembali ${formatDate(out.due_date)}` : ''} (${out.transaction_number}).`}
     </Alert>
   )

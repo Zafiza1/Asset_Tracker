@@ -114,7 +114,7 @@ export interface DeliveryOptions {
 export interface DeliveryInput {
   planned_date: string
   expected_return_date: string | null
-  vehicle_asset_id: string | null
+  vehicle_id: string | null
   notes: string | null
   stops: { customer_id: string; asset_ids: string[] }[]
 }

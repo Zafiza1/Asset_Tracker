@@ -7,6 +7,8 @@ use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Deliveries\Models\Delivery;
 use App\Domain\Deliveries\Models\DeliveryItem;
+use App\Domain\Organization\Models\Vehicle;
+use App\Domain\Shared\Masters\MasterStatus;
 use App\Domain\TenantMaster\Models\TenantAssetCategory;
 use App\Domain\TenantMaster\Services\CategoryAttributeService;
 use App\Domain\TenantMaster\StandardCategories;
@@ -14,13 +16,11 @@ use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The assets deliveries are about: cylinders (category Tabung) and vehicles (category Kendaraan),
- * each with its subcategories, and where a cylinder is according to its deliveries.
+ * What deliveries are about: cylinders (assets of category Tabung and its subcategories), the vehicles
+ * they travel in (Master Data › Kendaraan), and where a cylinder is according to its deliveries.
  */
 final class Fleet
 {
-    public const PLATE_LABEL = 'Nomor Polisi';
-
     /** Fields of a cylinder shown next to its name when choosing or scanning it. */
     private const CYLINDER_LABELS = ['Business Unit', 'Jenis Gas', 'Grade Gas', 'Jenis Tabung', 'Warna', 'Volume Tabung', 'Satuan Volume'];
 
@@ -38,10 +38,18 @@ final class Fleet
         return $this->inCategory(StandardCategories::CYLINDER);
     }
 
-    /** Active vehicles the user may see that can be used now. */
+    /** Whether a category is Tabung or one of its subcategories. */
+    public static function isCylinderCategory(string $categoryId): bool
+    {
+        $path = TenantAssetCategory::query()->where('code', StandardCategories::CYLINDER)->value('path');
+
+        return $path !== null && TenantAssetCategory::query()->whereKey($categoryId)->where('path', 'like', $path.'%')->exists();
+    }
+
+    /** Active vehicles. */
     public function vehicles(): Builder
     {
-        return $this->inCategory(StandardCategories::VEHICLE)->whereIn('status', [AssetStatus::IN_USE, AssetStatus::AVAILABLE]);
+        return Vehicle::query()->where('status', MasterStatus::ACTIVE);
     }
 
     /** Statuses a cylinder may be loaded with. */
@@ -50,14 +58,9 @@ final class Fleet
         return $direction === Delivery::OUTGOING ? [AssetStatus::AVAILABLE, AssetStatus::IN_USE] : [AssetStatus::OFF_SITE];
     }
 
-    public function plate(?Asset $vehicle): ?string
+    public function plate(?Vehicle $vehicle): ?string
     {
-        if ($vehicle === null) {
-            return null;
-        }
-        $key = $this->fieldsOf($vehicle->category_id)[self::PLATE_LABEL]['key'] ?? null;
-
-        return ($key === null ? null : ($vehicle->attribute_values[$key] ?? null)) ?: $vehicle->serial_number;
+        return $vehicle?->plate_number;
     }
 
     /** @return array<string, string> label => value as shown */

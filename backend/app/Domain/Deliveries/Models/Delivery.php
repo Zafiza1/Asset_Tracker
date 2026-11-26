@@ -6,6 +6,7 @@ use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Identity\Models\User;
 use App\Domain\Organization\Models\Employee;
+use App\Domain\Organization\Models\Vehicle;
 use App\Domain\Shared\Tenancy\BelongsToOrganization;
 use App\Domain\Shared\Tenancy\Tenancy;
 use Illuminate\Contracts\Database\Eloquent\Builder;
@@ -24,7 +25,7 @@ use Illuminate\Support\Carbon;
  * @property string $number also the number of the asset transactions it records
  * @property string $direction
  * @property string $status
- * @property string|null $vehicle_asset_id
+ * @property string|null $vehicle_id
  * @property string|null $driver_id
  * @property string|null $helper_id
  * @property Carbon $planned_date
@@ -113,7 +114,7 @@ class Delivery extends Model
 
     public function vehicle(): BelongsTo
     {
-        return $this->belongsTo(Asset::class, 'vehicle_asset_id');
+        return $this->belongsTo(Vehicle::class);
     }
 
     public function driver(): BelongsTo

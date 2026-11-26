@@ -3,7 +3,9 @@
 namespace App\Domain\Organization\Services;
 
 use App\Domain\Authorization\Services\DataScopeGuard;
+use App\Domain\Deliveries\Models\Delivery;
 use App\Domain\Organization\Models\Department;
+use App\Domain\Organization\Models\Employee;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
@@ -19,7 +21,7 @@ use App\Domain\Shared\Masters\MaterializedPath;
  */
 final class OrganizationStructureService
 {
-    private const DEPARTMENT_AUDIT = ['code', 'name', 'status'];
+    private const DEPARTMENT_AUDIT = ['code', 'name', 'delivery_role', 'status'];
 
     private const LOCATION_AUDIT = ['parent_id', 'code', 'name', 'address', 'status'];
 
@@ -40,13 +42,22 @@ final class OrganizationStructureService
     /** @param array<string, mixed> $data */
     public function updateDepartment(Department $department, array $data): Department
     {
+        $leavesRole = array_key_exists('delivery_role', $data) && $data['delivery_role'] !== $department->delivery_role;
+        if ($leavesRole || ($data['status'] ?? null) === MasterStatus::INACTIVE) {
+            $this->assertDivisionOffTrips($department);
+        }
+
         return $this->writer->update($department, $data, 'department.updated', self::DEPARTMENT_AUDIT);
     }
 
     public function archiveDepartment(Department $department, ?string $reason): Department
     {
         if ($this->usage->inUse(MasterUsage::DEPARTMENT, $department->id)) {
-            throw ApiException::conflict('DEPARTMENT_IN_USE', 'Departemen masih dipakai oleh aset aktif. Ganti departemen asetnya terlebih dahulu.');
+            throw ApiException::conflict('DEPARTMENT_IN_USE', 'Divisi masih dipakai oleh aset aktif. Ganti divisi asetnya terlebih dahulu.');
+        }
+        $employees = Employee::query()->where('department_id', $department->id)->where('status', '!=', MasterStatus::ARCHIVED)->count();
+        if ($employees > 0) {
+            throw ApiException::conflict('DEPARTMENT_IN_USE', "Divisi masih dipakai oleh {$employees} karyawan. Pindahkan karyawannya ke divisi lain terlebih dahulu.");
         }
 
         return $this->writer->archive($department, 'department.archived', $reason);
@@ -55,6 +66,17 @@ final class OrganizationStructureService
     public function restoreDepartment(Department $department): Department
     {
         return $this->writer->restore($department, 'department.restored');
+    }
+
+    /** Its employees keep their place on the deliveries that have not ended. */
+    private function assertDivisionOffTrips(Department $department): void
+    {
+        $crew = Employee::query()->select('id')->where('department_id', $department->id);
+        $delivery = Delivery::query()->whereIn('status', Delivery::OPEN)
+            ->where(fn ($q) => $q->whereIn('driver_id', $crew)->orWhereIn('helper_id', $crew))->first();
+        if ($delivery !== null) {
+            throw ApiException::conflict('DEPARTMENT_IN_USE', "Karyawan divisi {$department->name} masih bertugas di transaksi {$delivery->number} yang belum selesai.");
+        }
     }
 
     // ------------------------------------------------------------------ locations

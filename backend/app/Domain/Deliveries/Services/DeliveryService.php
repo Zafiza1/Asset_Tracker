@@ -2,7 +2,6 @@
 
 namespace App\Domain\Deliveries\Services;
 
-use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\OutgoingReason;
 use App\Domain\AssetTransactions\Services\AssetTransactionService;
@@ -15,6 +14,7 @@ use App\Domain\Deliveries\Models\DeliveryEvent;
 use App\Domain\Deliveries\Models\DeliveryItem;
 use App\Domain\Deliveries\Models\DeliveryStop;
 use App\Domain\Organization\Models\Customer;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Employee;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Masters\MasterStatus;
@@ -41,7 +41,7 @@ use Illuminate\Support\Str;
  */
 final class DeliveryService
 {
-    private const AUDIT = ['number', 'direction', 'status', 'vehicle_asset_id', 'driver_id', 'helper_id', 'planned_date', 'expected_return_date', 'notes'];
+    private const AUDIT = ['number', 'direction', 'status', 'vehicle_id', 'driver_id', 'helper_id', 'planned_date', 'expected_return_date', 'notes'];
 
     /** A report may reach the server this much later than it happened (no signal on the road). */
     private const MAX_DELAY_HOURS = 24;
@@ -123,7 +123,7 @@ final class DeliveryService
     /**
      * The vehicle, driver and helper, entered on the phone before leaving.
      *
-     * @param  array<string, mixed>  $data  vehicle_asset_id?, driver_id, helper_id?, and where/when (meta)
+     * @param  array<string, mixed>  $data  vehicle_id?, driver_id, helper_id?, and where/when (meta)
      */
     public function setCrew(Delivery $delivery, array $data): Delivery
     {
@@ -135,8 +135,8 @@ final class DeliveryService
                 throw ApiException::conflict('DELIVERY_STARTED', 'Kendaraan, supir, dan kernet hanya dapat diisi sebelum berangkat.');
             }
             $changes = ['driver_id' => $data['driver_id'], 'helper_id' => $data['helper_id'] ?? null];
-            if (($data['vehicle_asset_id'] ?? null) !== null) {
-                $changes['vehicle_asset_id'] = $data['vehicle_asset_id'];
+            if (($data['vehicle_id'] ?? null) !== null) {
+                $changes['vehicle_id'] = $data['vehicle_id'];
             }
             $this->assertCrew($delivery, $changes);
             $before = $this->auditable($delivery);
@@ -323,10 +323,10 @@ final class DeliveryService
         if ($delivery->status === Delivery::IN_TRANSIT) {
             throw ApiException::conflict('ALREADY_DEPARTED', 'Perjalanan ini sudah berangkat.');
         }
-        if ($delivery->vehicle_asset_id === null || $delivery->driver_id === null) {
+        if ($delivery->vehicle_id === null || $delivery->driver_id === null) {
             throw ApiException::unprocessable('CREW_REQUIRED', 'Isi kendaraan dan supir sebelum berangkat.');
         }
-        $this->assertCrew($delivery, ['vehicle_asset_id' => $delivery->vehicle_asset_id, 'driver_id' => $delivery->driver_id, 'helper_id' => $delivery->helper_id]);
+        $this->assertCrew($delivery, ['vehicle_id' => $delivery->vehicle_id, 'driver_id' => $delivery->driver_id, 'helper_id' => $delivery->helper_id]);
         $this->assertCrewFree($delivery);
 
         if ($delivery->isOutgoing()) {
@@ -458,12 +458,12 @@ final class DeliveryService
                 throw self::fieldError('expected_return_date', 'Perkiraan tabung kembali tidak boleh sebelum tanggal kirim.');
             }
         }
-        $vehicle = $data['vehicle_asset_id'] ?? null;
+        $vehicle = $data['vehicle_id'] ?? null;
         if ($vehicle !== null) {
             $this->assertVehicle($vehicle);
         }
 
-        return ['planned_date' => $data['planned_date'], 'expected_return_date' => $return, 'vehicle_asset_id' => $vehicle, 'notes' => $data['notes'] ?? null];
+        return ['planned_date' => $data['planned_date'], 'expected_return_date' => $return, 'vehicle_id' => $vehicle, 'notes' => $data['notes'] ?? null];
     }
 
     /**
@@ -535,7 +535,7 @@ final class DeliveryService
         $message = match (true) {
             $asset->isArchived() => 'nonaktif',
             in_array($asset->status, Fleet::loadableStatuses($direction), true) => null,
-            $direction === Delivery::OUTGOING => 'berstatus '.AssetStatus::LABELS[$asset->status].' sehingga tidak dapat dikirim',
+            $direction === Delivery::OUTGOING => 'berstatus '.$asset->statusLabel().' sehingga tidak dapat dikirim',
             default => 'tidak sedang berada di customer',
         };
         if ($message !== null) {
@@ -572,26 +572,26 @@ final class DeliveryService
     private function assertVehicle(string $id): void
     {
         if (! $this->fleet->vehicles()->whereKey($id)->exists()) {
-            throw self::fieldError('vehicle_asset_id', 'Kendaraan tidak ditemukan atau tidak dapat dipakai.');
+            throw self::fieldError('vehicle_id', 'Kendaraan tidak ditemukan atau tidak dapat dipakai.');
         }
     }
 
     /** @param array<string, mixed> $crew */
     private function assertCrew(Delivery $delivery, array $crew): void
     {
-        $vehicle = $crew['vehicle_asset_id'] ?? $delivery->vehicle_asset_id;
+        $vehicle = $crew['vehicle_id'] ?? $delivery->vehicle_id;
         if ($vehicle === null) {
-            throw self::fieldError('vehicle_asset_id', 'Kendaraan wajib dipilih.');
+            throw self::fieldError('vehicle_id', 'Kendaraan wajib dipilih.');
         }
         // One chosen on the web stays usable for a driver with a narrower data scope.
-        if ($vehicle !== $delivery->vehicle_asset_id) {
+        if ($vehicle !== $delivery->vehicle_id) {
             $this->assertVehicle($vehicle);
         }
-        $employee = fn (?string $id, array $positions) => Employee::query()->whereKey($id)->where('status', MasterStatus::ACTIVE)->whereIn('position', $positions)->exists();
-        if (! $employee($crew['driver_id'], [Employee::DRIVER])) {
+        $employee = fn (?string $id, array $roles) => Employee::query()->whereKey($id)->where('status', MasterStatus::ACTIVE)->withDeliveryRole($roles)->exists();
+        if (! $employee($crew['driver_id'], [Department::DRIVER])) {
             throw self::fieldError('driver_id', 'Supir tidak ditemukan atau tidak aktif.');
         }
-        if ($crew['helper_id'] !== null && ! $employee($crew['helper_id'], [Employee::HELPER, Employee::DRIVER])) {
+        if ($crew['helper_id'] !== null && ! $employee($crew['helper_id'], [Department::HELPER, Department::DRIVER])) {
             throw self::fieldError('helper_id', 'Kernet tidak ditemukan atau tidak aktif.');
         }
         if ($crew['helper_id'] === $crew['driver_id']) {
@@ -604,10 +604,10 @@ final class DeliveryService
     {
         $people = array_filter([$delivery->driver_id, $delivery->helper_id]);
         $other = Delivery::query()->where('status', Delivery::IN_TRANSIT)->whereKeyNot($delivery->id)
-            ->where(fn ($q) => $q->where('vehicle_asset_id', $delivery->vehicle_asset_id)->orWhereIn('driver_id', $people)->orWhereIn('helper_id', $people))
+            ->where(fn ($q) => $q->where('vehicle_id', $delivery->vehicle_id)->orWhereIn('driver_id', $people)->orWhereIn('helper_id', $people))
             ->first();
         if ($other !== null) {
-            $what = $other->vehicle_asset_id === $delivery->vehicle_asset_id ? 'Kendaraan' : 'Supir atau kernet';
+            $what = $other->vehicle_id === $delivery->vehicle_id ? 'Kendaraan' : 'Supir atau kernet';
             throw ApiException::conflict('CREW_BUSY', "{$what} masih dalam perjalanan {$other->number}.");
         }
     }

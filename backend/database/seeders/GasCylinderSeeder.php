@@ -15,10 +15,13 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\UserManagement;
 use App\Domain\Licensing\Services\Licensing;
 use App\Domain\Organization\Models\Customer;
+use App\Domain\Organization\Models\Department;
 use App\Domain\Organization\Models\Employee;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Organization\Models\OrganizationModule;
+use App\Domain\Organization\Models\Vehicle;
 use App\Domain\Organization\Services\DeliveryMasterService;
+use App\Domain\Organization\Services\OrganizationStructureService;
 use App\Domain\Platform\Services\OrganizationProvisioner;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\Tenancy;
@@ -34,8 +37,8 @@ use RuntimeException;
 
 /**
  * Dummy data of the PT SIG / PT CDO edition: two separate organizations that share the Super Admin
- * of PT SIG (registered on the web with code PTSIGCDO), each with the categories Tabung and
- * Kendaraan, employees, customers, cylinders and deliveries in several stages. Everything goes through the services the API uses.
+ * of PT SIG (registered on the web with code PTSIGCDO), each with the category Tabung, divisions,
+ * employees, vehicles, customers, cylinders and deliveries in several stages. Everything goes through the services the API uses.
  *
  *     php artisan db:seed --database=pgsql_owner --class=GasCylinderSeeder
  *
@@ -119,8 +122,8 @@ class GasCylinderSeeder extends Seeder
 
     private function seed(Organization $organization, array $spec): void
     {
-        [$cylinder, $vehicle] = $this->categories($organization);
-        $this->barcode([$cylinder, $vehicle]);
+        $cylinder = $this->categories($organization);
+        $this->barcode([$cylinder]);
         $this->driverRole();
         if (Asset::query()->where('serial_number', "{$spec['prefix']}-TBG-0001")->exists()) {
             $this->command?->info("{$spec['name']}: data dummy sudah ada, dilewati.");
@@ -130,34 +133,29 @@ class GasCylinderSeeder extends Seeder
 
         $customers = $this->customers($spec);
         [$drivers, $helpers] = $this->employees($spec);
-        $vehicles = $this->vehicles($vehicle, $spec);
+        $vehicles = $this->vehicles($spec);
         $cylinders = $this->cylinders($cylinder, $spec);
         $this->deliveries($spec, $customers, $drivers, $helpers, $vehicles, $cylinders);
         $this->command?->info("{$spec['name']}: ".count($cylinders).' tabung, '.count($vehicles).' kendaraan, '.(count($drivers) + count($helpers) + 2).' karyawan, '.count($customers).' customer, 5 transaksi.');
     }
 
-    /**
-     * Tabung and Kendaraan; the other standard categories are archived unless assets use them.
-     *
-     * @return array{0: TenantAssetCategory, 1: TenantAssetCategory}
-     */
-    private function categories(Organization $organization): array
+    /** Tabung; the other standard categories are archived unless assets use them. Vehicles are not assets here. */
+    private function categories(Organization $organization): TenantAssetCategory
     {
         $service = app(TenantCategoryService::class);
         $find = fn (string $code) => TenantAssetCategory::query()->where('code', $code)->first();
         $cylinder = $find(StandardCategories::CYLINDER) ?? $service->installOne($organization->id, StandardCategories::CYLINDER, StandardCategories::cylinder());
-        $vehicle = $find(StandardCategories::VEHICLE) ?? $service->installOne($organization->id, StandardCategories::VEHICLE, StandardCategories::all()[StandardCategories::VEHICLE]);
 
-        $others = array_diff(array_keys(StandardCategories::all()), [StandardCategories::VEHICLE]);
+        $others = array_keys(StandardCategories::all());
         foreach (TenantAssetCategory::query()->whereIn('code', $others)->where('status', '!=', 'archived')->get() as $category) {
             try {
-                $service->archive($category, 'Edisi PT SIG / PT CDO hanya memakai kategori Tabung dan Kendaraan.');
+                $service->archive($category, 'Edisi PT SIG / PT CDO hanya memakai kategori Tabung.');
             } catch (ApiException $e) {
                 $this->command?->warn("Kategori {$category->name} tidak diarsipkan: {$e->getMessage()}");
             }
         }
 
-        return [$cylinder, $vehicle];
+        return $cylinder;
     }
 
     /** @param list<TenantAssetCategory> $categories */
@@ -194,44 +192,50 @@ class GasCylinderSeeder extends Seeder
     /** @return array{0: list<Employee>, 1: list<Employee>} drivers and helpers */
     private function employees(array $spec): array
     {
+        $division = fn (string $name, string $code, ?string $role) => Department::query()->where('code', $code)->first()
+            ?? app(OrganizationStructureService::class)->createDepartment(['code' => $code, 'name' => $name, 'delivery_role' => $role]);
+        $divisions = [
+            'driver' => $division('Supir', 'SUPIR', Department::DRIVER),
+            'helper' => $division('Kernet', 'KERNET', Department::HELPER),
+            'admin' => $division('Admin', 'ADMIN', null),
+            'warehouse' => $division('Petugas Gudang', 'GUDANG', null),
+        ];
         $number = 0;
-        $create = function (string $name, string $position) use ($spec, &$number) {
+        $create = function (string $name, string $position) use ($spec, $divisions, &$number) {
             $number++;
-            $license = $position === Employee::DRIVER ? [
+            $license = $position === 'driver' ? [
                 'license_number' => sprintf('9%03d-0000-%06d', $number, $number),
                 'license_expires_on' => now()->addMonths(6 + $number * 5)->toDateString(),
             ] : [];
 
             return app(DeliveryMasterService::class)->createEmployee([
-                'code' => sprintf('%s-%04d', $spec['prefix'], $number), 'name' => $name, 'position' => $position,
+                'code' => sprintf('%s-%04d', $spec['prefix'], $number), 'name' => $name, 'department_id' => $divisions[$position]->id,
                 'phone' => '0813-0000-2'.sprintf('%03d', $number), ...$license,
             ]);
         };
-        $drivers = array_map(fn (string $name) => $create($name, Employee::DRIVER), $spec['drivers']);
-        $helpers = array_map(fn (string $name) => $create($name, Employee::HELPER), $spec['helpers']);
+        $drivers = array_map(fn (string $name) => $create($name, 'driver'), $spec['drivers']);
+        $helpers = array_map(fn (string $name) => $create($name, 'helper'), $spec['helpers']);
         $create('Siti Aminah', 'admin');
         $create('Supriyadi', 'warehouse');
 
         return [$drivers, $helpers];
     }
 
-    /** @return list<Asset> */
-    private function vehicles(TenantAssetCategory $category, array $spec): array
+    /** @return list<Vehicle> */
+    private function vehicles(array $spec): array
     {
         $rows = [
-            ['Truk Engkel Mitsubishi Colt Diesel', '9123 UA', 'TRUK', 2021],
-            ['Truk Double Hino Dutro', '9456 UB', 'TRUK', 2022],
-            ['Pick Up Isuzu Traga', '8789 UC', 'MOBIL', 2023],
+            ['Truk Engkel Mitsubishi Colt Diesel', '9123 UA', 'truk', 2021, 4000],
+            ['Truk Double Hino Dutro', '9456 UB', 'truk', 2022, 6000],
+            ['Pick Up Isuzu Traga', '8789 UC', 'pickup', 2023, 1000],
         ];
 
-        return array_map(fn (array $row, int $i) => app(AssetService::class)->create([
-            'name' => $row[0], 'serial_number' => sprintf('%s-KDR-%02d', $spec['prefix'], $i + 1), 'category_id' => $category->id,
-            'status' => AssetStatus::IN_USE, 'description' => self::MARK,
-            'attributes' => $this->values($category, [
-                'Nomor Polisi' => $spec['plate'].' '.$row[1], 'Jenis Kendaraan' => $row[2], 'Tahun Pembuatan' => $row[3],
-                'Jenis Bahan Bakar' => 'SOLAR', CategoryAttributeService::CONDITION_LABEL => 'BAIK',
-            ]),
-        ]), $rows, array_keys($rows));
+        return array_map(fn (array $row, int $i) => Vehicle::query()->where('code', sprintf('%s-KDR-%02d', $spec['prefix'], $i + 1))->first()
+            ?? app(DeliveryMasterService::class)->createVehicle([
+                'code' => sprintf('%s-KDR-%02d', $spec['prefix'], $i + 1), 'name' => $row[0], 'plate_number' => $spec['plate'].' '.$row[1],
+                'type' => $row[2], 'year' => $row[3], 'fuel' => 'solar', 'capacity' => $row[4],
+                'stnk_expires_on' => now()->addMonths(4 + $i * 5)->toDateString(), 'kir_expires_on' => now()->addMonths(2 + $i * 3)->toDateString(),
+            ]), $rows, array_keys($rows));
     }
 
     /** @return list<Asset> */
@@ -266,7 +270,7 @@ class GasCylinderSeeder extends Seeder
      * @param  list<Customer>  $customers
      * @param  list<Employee>  $drivers
      * @param  list<Employee>  $helpers
-     * @param  list<Asset>  $vehicles
+     * @param  list<Vehicle>  $vehicles
      * @param  list<Asset>  $cylinders
      */
     private function deliveries(array $spec, array $customers, array $drivers, array $helpers, array $vehicles, array $cylinders): void
@@ -278,7 +282,7 @@ class GasCylinderSeeder extends Seeder
         ];
         $ids = fn (int $from, int $count) => array_map(fn (Asset $a) => $a->id, array_slice($cylinders, $from, $count));
         $plan = fn (string $direction, array $stops, int $vehicle) => $service->create([
-            'direction' => $direction, 'planned_date' => now()->toDateString(), 'vehicle_asset_id' => $vehicles[$vehicle]->id, 'notes' => self::MARK,
+            'direction' => $direction, 'planned_date' => now()->toDateString(), 'vehicle_id' => $vehicles[$vehicle]->id, 'notes' => self::MARK,
             'stops' => array_map(fn (array $s) => ['customer_id' => $s[0]->id, 'asset_ids' => $s[1]], $stops),
         ]);
         $crew = fn (Delivery $d, int $i, int $minutesAgo) => $service->setCrew($d, ['driver_id' => $drivers[$i]->id, 'helper_id' => $helpers[$i]->id, ...$at($minutesAgo)]);

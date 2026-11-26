@@ -312,10 +312,10 @@ export interface MasterRecord {
   updated_at: string
 }
 
-/** Master Data › Karyawan: drivers, helpers and other staff (not accounts). */
+/** Master Data › Karyawan: drivers, helpers and other staff (not accounts). Their position is their division. */
 export interface Employee extends MasterRecord {
-  position: string
-  position_label: string
+  department_id: string | null
+  department: { id: string; name: string; delivery_role: DeliveryRole | null } | null
   phone: string | null
   license_number: string | null
   license_expires_on: string | null
@@ -328,7 +328,30 @@ export interface Customer extends MasterRecord {
   phone: string | null
 }
 
-export type Department = MasterRecord
+/** Divisi whose employees can drive (driver) or help (helper) on a delivery. */
+export type DeliveryRole = 'driver' | 'helper'
+
+/** Master Data › Divisi (stored as departments): also the position of an employee. */
+export interface Department extends MasterRecord {
+  delivery_role: DeliveryRole | null
+  delivery_role_label: string | null
+  employees_count?: number
+}
+
+/** Master Data › Kendaraan: what deliveries are made with (not assets). */
+export interface Vehicle extends MasterRecord {
+  plate_number: string
+  type: string
+  type_label: string
+  year: number | null
+  chassis_number: string | null
+  engine_number: string | null
+  fuel: string | null
+  fuel_label: string | null
+  capacity: number | null
+  stnk_expires_on: string | null
+  kir_expires_on: string | null
+}
 
 export interface Location extends MasterRecord {
   address: string | null

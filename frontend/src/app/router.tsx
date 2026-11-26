@@ -10,7 +10,7 @@ import { AssetsPage } from '../features/assets/AssetsPage'
 import { DeliveriesPage } from '../features/deliveries/DeliveriesPage'
 import { DeliveryDetailPage } from '../features/deliveries/DeliveryDetailPage'
 import { TrackingPage } from '../features/deliveries/TrackingPage'
-import { CustomersPage, DepartmentsPage, EmployeesPage, TenantCategoriesPage } from '../features/master/StructurePages'
+import { CustomersPage, DepartmentsPage, EmployeesPage, TenantCategoriesPage, VehiclesPage } from '../features/master/StructurePages'
 import { OrganizationPage } from '../features/organization/OrganizationPage'
 import { CreateOrganizationPage, SelectOrganizationPage } from '../features/organizations/OrganizationPages'
 import { ModulesPage } from '../features/organization/ModulesPage'
@@ -100,7 +100,10 @@ export const router = createBrowserRouter([
                   { path: '/master/kategori', element: tenant('master.tenant.view', <TenantCategoriesPage />) },
                   { path: '/master/karyawan', element: tenant('master.tenant.view', <EmployeesPage />) },
                   { path: '/master/customer', element: tenant('master.tenant.view', <CustomersPage />) },
-                  { path: '/master/departemen', element: tenant('master.tenant.view', <DepartmentsPage />) },
+                  { path: '/master/divisi', element: tenant('master.tenant.view', <DepartmentsPage />) },
+                  // Former address of Divisi.
+                  { path: '/master/departemen', element: <Navigate to="/master/divisi" replace /> },
+                  { path: '/master/kendaraan', element: tenant('master.tenant.view', <VehiclesPage />) },
                   { path: '*', element: <NotFound /> },
                 ],
               },

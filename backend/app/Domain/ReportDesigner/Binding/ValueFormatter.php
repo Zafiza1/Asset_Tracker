@@ -116,7 +116,7 @@ final class ValueFormatter
         $map = match (true) {
             str_ends_with($fieldKey, '.type') => TransactionType::LABELS,
             str_ends_with($fieldKey, '.outgoing_nature') => OutgoingReason::NATURE_LABELS,
-            str_contains($fieldKey, 'status') => AssetStatus::LABELS,
+            str_contains($fieldKey, 'status') => AssetStatus::labels(),
             default => [],
         };
 

@@ -58,7 +58,7 @@ export default function DeliveryScreen() {
   const [actionError, setActionError] = useState<string | null>(null)
 
   // Crew form (draft/loading only)
-  const [crew, setCrew] = useState({ vehicle_asset_id: '', driver_id: '', helper_id: '' })
+  const [crew, setCrew] = useState({ vehicle_id: '', driver_id: '', helper_id: '' })
   const [crewErrors, setCrewErrors] = useState<Record<string, string>>({})
   const crewLoadedFor = useRef<string | null>(null)
 
@@ -78,7 +78,7 @@ export default function DeliveryScreen() {
         crewLoadedFor.current = d.id
         setOptions(o)
         setCrew({
-          vehicle_asset_id: d.vehicle?.id ?? '',
+          vehicle_id: d.vehicle?.id ?? '',
           driver_id: d.driver?.id ?? '',
           helper_id: d.helper?.id ?? '',
         })
@@ -153,7 +153,7 @@ export default function DeliveryScreen() {
     setBusy(true)
     setActionError(null)
     setCrewErrors({})
-    const chosen = { vehicle_asset_id: crew.vehicle_asset_id || null, driver_id: crew.driver_id, helper_id: crew.helper_id || null }
+    const chosen = { vehicle_id: crew.vehicle_id || null, driver_id: crew.driver_id, helper_id: crew.helper_id || null }
     try {
       const meta = await deliveryMeta()
       const r = await sendOnce(JSON.stringify([id, 'crew', chosen]), (client_id) => put<{ data: Delivery }>(`/deliveries/${id}/crew`, { ...chosen, client_id, ...meta }))
@@ -318,11 +318,11 @@ export default function DeliveryScreen() {
             <View style={styles.form}>
               {options ? (
                 <>
-                  <Field label="Kendaraan" required error={crewErrors.vehicle_asset_id}>
+                  <Field label="Kendaraan" required error={crewErrors.vehicle_id}>
                     <Select
                       title="Kendaraan"
-                      value={crew.vehicle_asset_id || null}
-                      onChange={(v) => setCrew({ ...crew, vehicle_asset_id: v ?? '' })}
+                      value={crew.vehicle_id || null}
+                      onChange={(v) => setCrew({ ...crew, vehicle_id: v ?? '' })}
                       options={options.vehicles.map((v) => ({ value: v.id, label: `${v.name}${v.plate ? ` · ${v.plate}` : ''}`, hint: v.on_trip ? 'Masih dalam perjalanan lain' : undefined }))}
                     />
                   </Field>
@@ -347,7 +347,7 @@ export default function DeliveryScreen() {
               ) : (
                 <ActivityIndicator color={colors.brand} />
               )}
-              <Button title="Simpan kru" onPress={saveCrew} loading={busy} disabled={!options || !crew.vehicle_asset_id || !crew.driver_id} />
+              <Button title="Simpan kru" onPress={saveCrew} loading={busy} disabled={!options || !crew.vehicle_id || !crew.driver_id} />
             </View>
           </Card>
         )}
