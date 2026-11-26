@@ -96,7 +96,8 @@ class DeliveryController extends Controller
                 'id' => $v->id, 'name' => $v->name, 'plate' => $v->plate_number, 'type' => Vehicle::typeLabel($v->type),
                 'on_trip' => $busy->contains('vehicle_id', $v->id),
             ])->values(),
-            'drivers' => $employees(Department::DRIVER),
+            // Supir and Kernet swap: either may drive or help (`position` tells which one they usually are).
+            'drivers' => $employees(Department::DRIVER, Department::HELPER),
             'helpers' => $employees(Department::HELPER, Department::DRIVER),
             'customers' => Customer::query()->where('status', MasterStatus::ACTIVE)->orderBy('name')->get(['id', 'code', 'name', 'address']),
             'return_days' => (int) config('edition.return_days'),

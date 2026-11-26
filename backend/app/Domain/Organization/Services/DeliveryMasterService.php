@@ -27,8 +27,10 @@ final class DeliveryMasterService
     public function createEmployee(array $data): Employee
     {
         $this->assertDivision($data['department_id']);
+        // The code is the system's: never entered, never changed.
+        $data['code'] = $this->nextEmployeeCode();
 
-        return $this->writer->create(new Employee, $data, 'employee.created', self::EMPLOYEE_AUDIT);
+        return $this->writer->create(new Employee, $this->withoutLicenseOutsideCrew($data, $data['department_id']), 'employee.created', self::EMPLOYEE_AUDIT);
     }
 
     /** @param array<string, mixed> $data */
@@ -41,8 +43,41 @@ final class DeliveryMasterService
         if ($leavesDivision || ($data['status'] ?? null) === MasterStatus::INACTIVE) {
             $this->assertEmployeeFree($employee);
         }
+        unset($data['code']);
+        $data = $this->withoutLicenseOutsideCrew($data, $data['department_id'] ?? $employee->department_id);
 
         return $this->writer->update($employee, $data, 'employee.updated', self::EMPLOYEE_AUDIT);
+    }
+
+    /**
+     * Next code of an employee: the numbering of the latest coded employee goes on (SIG-0010 →
+     * SIG-0011), KRY-0001 for the first one. Codes are per organization (Tenancy scope).
+     */
+    private function nextEmployeeCode(): string
+    {
+        $latest = Employee::query()->whereRaw("code ~ '^[A-Z]+-[0-9]+$'")->latest()->value('code');
+        $prefix = $latest === null ? 'KRY' : explode('-', $latest)[0];
+        $width = $latest === null ? 4 : max(4, strlen(explode('-', $latest)[1]));
+        $number = (int) Employee::query()->where('code', 'like', $prefix.'-%')->whereRaw("code ~ '^[A-Z]+-[0-9]+$'")
+            ->selectRaw("max(cast(split_part(code, '-', 2) as bigint)) as n")->value('n');
+        do {
+            $code = $prefix.'-'.str_pad((string) ++$number, $width, '0', STR_PAD_LEFT);
+        } while (Employee::query()->where('code', $code)->exists());
+
+        return $code;
+    }
+
+    /**
+     * Only Supir and Kernet keep a SIM: for any other division the SIM fields are emptied.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function withoutLicenseOutsideCrew(array $data, ?string $departmentId): array
+    {
+        $crew = $departmentId !== null && Department::query()->whereKey($departmentId)->whereNotNull('delivery_role')->exists();
+
+        return $crew ? $data : [...$data, 'license_number' => null, 'license_expires_on' => null];
     }
 
     public function archiveEmployee(Employee $employee, ?string $reason): Employee

@@ -88,21 +88,37 @@ function treeNameCell(row: { name: string; code: string; depth: number; parent?:
 const today = () => new Date().toISOString().slice(0, 10)
 
 export function EmployeesPage() {
-  const divisions = toOptions(useOptions<Department>('/departments').data)
+  const divisionRows = useOptions<Department>('/departments').data
+  const divisions = toOptions(divisionRows)
+  // Supir and Kernet drive and help on deliveries, so only they have a SIM.
+  const crew = (values: Record<string, string>) => !!divisionRows?.find((d) => d.id === values.department_id)?.delivery_role
+  const permissions = useMasterPermissions()
+  const [editing, setEditing] = useState<Employee | 'new' | null>(null)
+  const [importing, setImporting] = useState(false)
   return (
+    <>
     <MasterListPage<Employee>
       title="Karyawan"
       description="Supir, kernet, dan karyawan lain. Jabatan karyawan adalah divisinya; karyawan divisi Supir dan Kernet dipilih di mobile saat tabung dikirim atau dijemput."
       endpoint="/employees"
-      searchPlaceholder="Cari NIK, nama, atau No HP"
+      searchPlaceholder="Cari kode, nama, atau No HP"
       emptyHint="Tambahkan supir dan kernet agar bisa dipilih di aplikasi mobile."
-      {...useMasterPermissions()}
+      {...permissions}
+      // Switched off when they leave, never archived here.
+      canArchive={false}
+      // Adding goes through the AddMenu (form or Excel import), as in Data Aset.
+      canCreate={false}
+      editing={editing}
+      onEditChange={setEditing}
+      headerActions={permissions.canCreate && <AddMenu label="Tambah karyawan" noun="karyawan" onForm={() => setEditing('new')} onImport={() => setImporting(true)} />}
+      bulkEdit={{ title: 'Multiple Edit Karyawan', endpoint: '/employees/edit-sheet', filename: 'edit_karyawan.xlsx', noun: 'karyawan', selectable: true }}
       filters={[{ name: 'department_id', label: 'Divisi', options: divisions }]}
       columns={[
-        { ...code<Employee>(), header: 'NIK' },
-        { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
-        { key: 'department', header: 'Divisi', sortKey: 'department', className: 'w-40', cell: (r) => r.department?.name ?? '—' },
-        { key: 'phone', header: 'No HP', className: 'w-40', hideOnMobile: true, cell: (r) => r.phone ?? '—' },
+        // System codes are short (SIG-0011), so the name keeps the room.
+        { ...code<Employee>(), className: 'w-28' },
+        { key: 'name', header: 'Nama', sortKey: 'name', title: (r) => r.name, cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
+        { key: 'department', header: 'Divisi', sortKey: 'department', className: 'w-36', cell: (r) => r.department?.name ?? '—' },
+        { key: 'phone', header: 'No HP', className: 'w-36', hideOnMobile: true, cell: (r) => r.phone ?? '—' },
         {
           key: 'license',
           header: 'SIM',
@@ -121,13 +137,24 @@ export function EmployeesPage() {
       ]}
       fields={[
         { name: 'name', label: 'Nama', required: true },
-        { name: 'code', label: 'NIK', createOnly: true, hint: 'Boleh dikosongkan: dibuat otomatis dari nama. Huruf besar, angka, - _ . (maks. 30).' },
+        { name: 'code', label: 'Kode', systemGenerated: true, hint: 'Dibuat oleh sistem saat karyawan disimpan, tidak dapat diubah.' },
         { name: 'department_id', label: 'Divisi', type: 'select', required: true, options: divisions, emptyOption: '— Pilih divisi —', hint: 'Divisi sekaligus jabatan karyawan. Atur daftarnya di Master Data › Divisi.' },
         { name: 'phone', label: 'No HP' },
-        { name: 'license_number', label: 'No SIM', hint: 'Untuk supir.' },
-        { name: 'license_expires_on', label: 'SIM berlaku sampai', type: 'date' },
+        { name: 'license_number', label: 'No SIM', showWhen: crew },
+        { name: 'license_expires_on', label: 'SIM berlaku sampai', type: 'date', showWhen: crew },
       ]}
     />
+    {importing && (
+      <ImportModal
+        open={importing}
+        onClose={() => setImporting(false)}
+        title="Tambah Karyawan dari Excel (Import)"
+        endpoint="/employees/import"
+        templateEndpoint="/employees/template"
+        templateFilename="template_karyawan.xlsx"
+      />
+    )}
+    </>
   )
 }
 

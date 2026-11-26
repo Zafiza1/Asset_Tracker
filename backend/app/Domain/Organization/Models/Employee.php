@@ -16,7 +16,7 @@ use Illuminate\Support\Carbon;
  *
  * @property string $id
  * @property string $organization_id
- * @property string $code NIK
+ * @property string $code given by the system (DeliveryMasterService), never entered
  * @property string $name
  * @property string|null $department_id division, which is also the position
  * @property string|null $phone

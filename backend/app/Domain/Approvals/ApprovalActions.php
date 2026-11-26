@@ -50,6 +50,8 @@ final class ApprovalActions
         'employee.update' => [self::CATEGORY_MASTER, 'Perubahan karyawan'],
         'employee.archive' => [self::CATEGORY_MASTER, 'Pengarsipan karyawan'],
         'employee.restore' => [self::CATEGORY_MASTER, 'Pemulihan karyawan'],
+        'employee.import' => [self::CATEGORY_MASTER, 'Impor karyawan dari Excel'],
+        'employee.import_edits' => [self::CATEGORY_MASTER, 'Multiple Edit karyawan dari Excel'],
         'customer.create' => [self::CATEGORY_MASTER, 'Penambahan customer'],
         'customer.update' => [self::CATEGORY_MASTER, 'Perubahan customer'],
         'customer.archive' => [self::CATEGORY_MASTER, 'Pengarsipan customer'],

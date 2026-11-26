@@ -331,7 +331,7 @@ export default function DeliveryScreen() {
                       title="Supir"
                       value={crew.driver_id || null}
                       onChange={(v) => setCrew({ ...crew, driver_id: v ?? '' })}
-                      options={options.drivers.map((p) => ({ value: p.id, label: p.name, hint: p.on_trip ? 'Masih dalam perjalanan lain' : undefined }))}
+                      options={options.drivers.map((p) => ({ value: p.id, label: p.name, hint: [p.position === 'helper' ? 'Kernet' : 'Supir', p.on_trip ? 'Masih dalam perjalanan lain' : null].filter(Boolean).join(' · ') }))}
                     />
                   </Field>
                   <Field label="Kernet" error={crewErrors.helper_id}>

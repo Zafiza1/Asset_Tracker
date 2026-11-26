@@ -163,7 +163,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
         Route::get("/{$uri}", [$controller, 'index'])->middleware($view);
         Route::post("/{$uri}", [$controller, 'store'])->middleware([$create, ...$approval('create')]);
         // Bulk import from .xlsx (registered before /{param} so "template" is not taken as an id).
-        if (in_array($uri, ['locations', 'vehicles', 'tenant-masters/categories'], true)) {
+        if (in_array($uri, ['locations', 'vehicles', 'employees', 'tenant-masters/categories'], true)) {
             Route::post("/{$uri}/import", [$controller, 'import'])->middleware([$create, ...$approval('import')]);
             Route::get("/{$uri}/template", [$controller, 'downloadTemplate'])->middleware($create);
             // Bulk edit: download the existing records as .xlsx, upload the edited file.

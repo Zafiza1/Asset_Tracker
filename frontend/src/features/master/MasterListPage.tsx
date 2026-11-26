@@ -31,6 +31,10 @@ export interface MasterField {
   required?: boolean
   /** Only settable at creation (e.g. codes, which are immutable). */
   createOnly?: boolean
+  /** Given by the system (e.g. a code): shown greyed out ("Otomatis" when adding), never sent. */
+  systemGenerated?: boolean
+  /** Shown only while this holds for the values being entered; a hidden field is sent empty. */
+  showWhen?: (values: Record<string, string>) => boolean
   hint?: string
   placeholder?: string
   options?: SelectOption[]
@@ -498,14 +502,16 @@ function MasterFormModal<T extends MasterRecord>({ config, record, onClose, onSa
       return [f.name, value === null || value === undefined ? '' : String(value)]
     }),
   )
-  const { register, handleSubmit, setError, formState } = useForm<Values>({ defaultValues: defaults })
+  const { register, handleSubmit, setError, formState, watch } = useForm<Values>({ defaultValues: defaults })
+  const current = watch()
+  const shown = (f: MasterField) => !f.showWhen || f.showWhen(current)
 
   const save = useMutation({
     mutationFn: (values: Values) => {
       const payload: Record<string, unknown> = {}
       for (const f of config.fields) {
-        if (record && f.createOnly) continue
-        const raw = values[f.name]?.trim() ?? ''
+        if ((record && f.createOnly) || f.systemGenerated) continue
+        const raw = shown(f) ? (values[f.name]?.trim() ?? '') : ''
         payload[f.name] = raw === '' ? null : f.type === 'number' ? Number(raw) : raw
       }
       return record ? api.patch(`${config.endpoint}/${record.id}`, payload) : api.post(config.endpoint, payload)
@@ -537,13 +543,15 @@ function MasterFormModal<T extends MasterRecord>({ config, record, onClose, onSa
     >
       <form id="master-form" noValidate className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), save.mutate(v)))}>
         {formError && <Alert tone="error">{formError}</Alert>}
-        {config.fields.map((f) => {
-          const disabled = !!record && !!f.createOnly
+        {config.fields.filter(shown).map((f) => {
+          const disabled = (!!record && !!f.createOnly) || !!f.systemGenerated
           const rules = { required: f.required && !disabled ? `${f.label} wajib diisi.` : false }
           return (
-            <Field key={f.name} label={f.label} required={f.required && !disabled} error={formState.errors[f.name]?.message} hint={disabled ? 'Tidak dapat diubah setelah dibuat.' : f.hint}>
+            <Field key={f.name} label={f.label} required={f.required && !disabled} error={formState.errors[f.name]?.message} hint={f.systemGenerated ? (f.hint ?? 'Diberikan oleh sistem, tidak dapat diubah.') : disabled ? 'Tidak dapat diubah setelah dibuat.' : f.hint}>
               {(p) =>
-                f.type === 'select' ? (
+                f.systemGenerated ? (
+                  <Input {...p} value={record ? ((record as unknown as Record<string, unknown>)[f.name] as string) ?? '' : 'Otomatis'} readOnly disabled />
+                ) : f.type === 'select' ? (
                   <Select {...p} disabled={disabled} {...register(f.name, rules)}>
                     <option value="">{f.emptyOption ?? '— Pilih —'}</option>
                     {(f.optionsFor ? f.optionsFor(record) : f.options)?.map((o) => (

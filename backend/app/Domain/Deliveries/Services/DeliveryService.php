@@ -588,7 +588,8 @@ final class DeliveryService
             $this->assertVehicle($vehicle);
         }
         $employee = fn (?string $id, array $roles) => Employee::query()->whereKey($id)->where('status', MasterStatus::ACTIVE)->withDeliveryRole($roles)->exists();
-        if (! $employee($crew['driver_id'], [Department::DRIVER])) {
+        // Supir and Kernet swap: either may drive or help on a trip.
+        if (! $employee($crew['driver_id'], [Department::DRIVER, Department::HELPER])) {
             throw self::fieldError('driver_id', 'Supir tidak ditemukan atau tidak aktif.');
         }
         if ($crew['helper_id'] !== null && ! $employee($crew['helper_id'], [Department::HELPER, Department::DRIVER])) {

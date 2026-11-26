@@ -234,7 +234,9 @@ class DeliveryTest extends TestCase
         $this->assertErrorCode($this->patchJson("/api/employees/{$this->driver->id}", ['status' => 'inactive']), 409, 'EMPLOYEE_IN_USE');
         $this->assertErrorCode($this->postJson("/api/customers/{$this->rs->id}/archive"), 409, 'CUSTOMER_IN_USE');
 
-        $this->assertErrorCode($this->putJson("/api/deliveries/{$second}/crew", ['driver_id' => $this->helper->id]), 422, 'VALIDATION_FAILED');
+        // Someone outside Supir and Kernet cannot drive.
+        $office = $this->employee('Siti', $this->division('Admin', null));
+        $this->assertErrorCode($this->putJson("/api/deliveries/{$second}/crew", ['vehicle_id' => $this->truck->id, 'driver_id' => $office->id]), 422, 'VALIDATION_FAILED');
     }
 
     public function test_a_report_sent_twice_is_recorded_once_and_implausible_times_are_replaced(): void
@@ -276,7 +278,7 @@ class DeliveryTest extends TestCase
 
         $this->actingAs($driverUser);
         $this->getJson('/api/deliveries')->assertOk()->assertJsonCount(1, 'data');
-        $this->getJson('/api/deliveries/options')->assertOk()->assertJsonPath('data.drivers.0.name', 'Budi')->assertJsonPath('data.vehicles.0.plate', 'L 1234 AB');
+        $this->getJson('/api/deliveries/options')->assertOk()->assertJsonPath('data.drivers.1.name', 'Budi')->assertJsonPath('data.vehicles.0.plate', 'L 1234 AB');
         $this->scan($id, 'load', 'T-1')->assertOk();
         $this->crew($id)->assertOk();
         $this->report($id, 'depart')->assertOk();
@@ -315,8 +317,16 @@ class DeliveryTest extends TestCase
     public function test_employees_and_customers_are_master_data(): void
     {
         $this->postJson('/api/employees', ['name' => 'Cahyo'])->assertUnprocessable();
-        $employee = $this->postJson('/api/employees', ['name' => 'Cahyo', 'department_id' => $this->drivers->id, 'license_expires_on' => '2027-01-31'])
-            ->assertCreated()->assertJsonPath('data.code', 'CAHYO')->assertJsonPath('data.department.name', 'Supir')->json('data.id');
+        // The code is the system's: what is sent is ignored, the numbering goes on (KRY-0001 when none has one).
+        $employee = $this->postJson('/api/employees', ['name' => 'Cahyo', 'code' => 'PILIHAN-SENDIRI', 'department_id' => $this->drivers->id, 'license_number' => 'SIM-1', 'license_expires_on' => '2027-01-31'])
+            ->assertCreated()->assertJsonPath('data.code', 'KRY-0001')->assertJsonPath('data.department.name', 'Supir')->assertJsonPath('data.license_number', 'SIM-1')->json('data.id');
+        $this->patchJson("/api/employees/{$employee}", ['code' => 'LAIN'])->assertOk()->assertJsonPath('data.code', 'KRY-0001');
+        $this->postJson('/api/employees', ['name' => 'Dewi', 'department_id' => $this->drivers->id])->assertCreated()->assertJsonPath('data.code', 'KRY-0002');
+        // Only Supir and Kernet keep a SIM: moving to another division empties it.
+        $office = $this->division('Admin', null);
+        $this->postJson('/api/employees', ['name' => 'Eka', 'department_id' => $office->id, 'license_number' => 'SIM-2'])->assertCreated()->assertJsonPath('data.license_number', null);
+        $this->patchJson("/api/employees/{$employee}", ['department_id' => $office->id])->assertOk()
+            ->assertJsonPath('data.license_number', null)->assertJsonPath('data.license_expires_on', null);
         $this->getJson("/api/employees?department_id={$this->helpers->id}")->assertJsonCount(1, 'data');
         $this->postJson("/api/employees/{$employee}/archive")->assertOk();
         $this->postJson("/api/employees/{$employee}/restore")->assertOk()->assertJsonPath('data.status', 'active');
@@ -361,7 +371,8 @@ class DeliveryTest extends TestCase
     {
         $office = $this->employee('Siti', $this->division('Admin', null));
         $options = $this->getJson('/api/deliveries/options')->assertOk();
-        $this->assertSame(['Budi'], array_column($options->json('data.drivers'), 'name'));
+        // Supir and Kernet swap: both may drive and both may help.
+        $this->assertEqualsCanonicalizing(['Andi', 'Budi'], array_column($options->json('data.drivers'), 'name'));
         $this->assertEqualsCanonicalizing(['Andi', 'Budi'], array_column($options->json('data.helpers'), 'name'));
         $this->assertSame('L 1234 AB', $options->json('data.vehicles.0.plate'));
 
@@ -372,6 +383,13 @@ class DeliveryTest extends TestCase
         $this->assertErrorCode($this->patchJson("/api/departments/{$this->drivers->id}", ['delivery_role' => null]), 409, 'DEPARTMENT_IN_USE');
         $this->assertErrorCode($this->postJson("/api/vehicles/{$this->truck->id}/archive"), 409, 'VEHICLE_IN_USE');
         $this->assertErrorCode($this->postJson("/api/departments/{$this->drivers->id}/archive"), 409, 'DEPARTMENT_IN_USE');
+    }
+
+    public function test_a_kernet_may_drive_and_a_supir_may_help(): void
+    {
+        $id = $this->plan('outgoing', [[$this->rs, [$this->tabung('T-1')]]])->json('data.id');
+        $this->putJson("/api/deliveries/{$id}/crew", ['vehicle_id' => $this->truck->id, 'driver_id' => $this->helper->id, 'helper_id' => $this->driver->id])
+            ->assertOk()->assertJsonPath('data.driver.name', 'Andi')->assertJsonPath('data.helper.name', 'Budi');
     }
 
     public function test_vehicles_are_master_data(): void
