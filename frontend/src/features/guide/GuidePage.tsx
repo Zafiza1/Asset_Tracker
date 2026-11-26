@@ -263,7 +263,7 @@ function Step4() {
     ]}>
       <NumberedList items={[
         <>Buka <MenuLink to="/aset" permission="asset.view">Data Aset</MenuLink>, lalu klik <Label>Tambah aset</Label> → <Label>Isi formulir</Label>.</>,
-        <>Pilih kategori. Untuk <Label>Aset Tabung</Label>, isi <Label>Nama Produk</Label>, <Label>No Manufaktur</Label> (harus unik), Business Unit, jenis dan grade gas, volume, dan isian lain bertanda bintang.</>,
+        <>Pilih kategori. Untuk <Label>Aset Tabung</Label>, isi <Label>Nama Produk</Label>, <Label>No Manufaktur</Label> (harus unik), jenis dan grade gas, volume, dan isian lain bertanda bintang. Business Unit terisi otomatis sesuai organisasi, dan status diatur sistem dari transaksi tabung.</>,
         <>Untuk <Label>Aset Kendaraan</Label>, isi <Label>Nomor Polisi</Label>; itu yang tampil saat memilih kendaraan pengiriman.</>,
         <>Klik <Label>Simpan</Label>. <Label>No Reference</Label> dibuat oleh sistem, dan riwayat <Label>Penambahan aset</Label> tercatat dengan sendirinya.</>,
       ]} />

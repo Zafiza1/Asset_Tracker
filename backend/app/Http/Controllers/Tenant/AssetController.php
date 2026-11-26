@@ -6,6 +6,7 @@ use App\Domain\Assets\AssetDataQuality;
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
 use App\Domain\Assets\AssetTimeline;
+use App\Domain\Assets\BusinessUnit;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\Assets\Services\AssetService;
 use App\Domain\Deliveries\Fleet;
@@ -65,6 +66,7 @@ class AssetController extends Controller
         private readonly AssetScope $scope,
         private readonly CategoryAttributeService $attributes,
         private readonly Tenancy $tenancy,
+        private readonly BusinessUnit $businessUnit,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -171,6 +173,11 @@ class AssetController extends Controller
             'registered_on' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after:1999-12-31'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
+        // Without storage locations (PT SIG / PT CDO) a cylinder's status follows its transactions
+        // only: it is registered Di Gudang and never chosen by hand.
+        if (! config('edition.locations')) {
+            unset($data['status']);
+        }
 
         return new AssetResource($this->assets->create($data)->load(self::RELATIONS));
     }
@@ -267,7 +274,7 @@ class AssetController extends Controller
         $rules = $this->descriptiveRules(creating: true);
 
         $imported = SpreadsheetImport::run($rows, function (array $row) use ($rules, $columns) {
-            $row['status'] = $this->importStatus($row['status']);
+            $row['status'] = config('edition.locations') ? $this->importStatus($row['status'] ?? null) : null;
             $data = Validator::make($row, [
                 ...Arr::only($rules, ['name', 'serial_number', 'acquisition_date', 'acquisition_cost', 'description']),
                 'category_code' => ['required', 'string'],
@@ -292,7 +299,7 @@ class AssetController extends Controller
         return SpreadsheetImport::template('template_aset.xlsx', 'Template Import Pendataan Aset', $this->importColumns(), [
             'Kategori' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
             'Lokasi' => SpreadsheetImport::codeList(Location::query()),
-            'Status' => array_map(fn ($s) => AssetStatus::labels()[$s], AssetStatus::INITIAL),
+            ...(config('edition.locations') ? ['Status' => array_map(fn ($s) => AssetStatus::labels()[$s], AssetStatus::INITIAL)] : []),
             'Kondisi' => array_column(self::conditionOptions(), 'label'),
             ...(config('edition.custodians') ? ['Departemen' => SpreadsheetImport::codeList(Department::query())] : []),
             ...$this->importFields()->filter(fn (array $f) => $f['options'] !== [])->mapWithKeys(fn (array $f) => [$f['label'] => array_values($f['options'])])->all(),
@@ -417,7 +424,8 @@ class AssetController extends Controller
             new ImportColumn('name', 'Nama Aset', required: true, hint: 'Nama aset, maksimal 150 karakter. Contoh: Laptop Dell Latitude 5440', width: 32),
             new ImportColumn('category_code', 'Kategori', required: true, hint: 'Pilih kategori aset dari daftar.', list: 'Kategori', width: 34),
             ...(config('edition.locations') ? [new ImportColumn('location_code', 'Lokasi', required: true, hint: 'Pilih lokasi aset dari daftar.', list: 'Lokasi', width: 34)] : []),
-            new ImportColumn('status', 'Status', hint: config('edition.locations') ? 'Pilih status awal. Jika kosong: Aktif.' : 'Pilih status awal. Jika kosong: Di Gudang untuk tabung, Aktif untuk kendaraan. Tabung tidak memakai Aktif.', list: 'Status', width: 18),
+            // Without storage locations the status follows the cylinder's transactions (AssetController::store).
+            ...(config('edition.locations') ? [new ImportColumn('status', 'Status', hint: 'Pilih status awal. Jika kosong: Aktif.', list: 'Status', width: 18)] : []),
             new ImportColumn('condition', 'Kondisi', required: config('edition.locations'), hint: 'Pilih kondisi aset dari daftar.', list: 'Kondisi', width: 18),
             new ImportColumn('serial_number', config('edition.locations') ? 'No Seri' : 'No Manufaktur / No Seri', hint: 'Nomor seri aset yang dipakai sebagai nomor alias (misalnya nomor seri pabrik), harus unik bila diisi. Contoh: SN-2024-0001', width: 22),
             new ImportColumn('acquisition_date', 'Tanggal Perolehan', hint: 'Tanggal pembelian/perolehan, format YYYY-MM-DD. Contoh: 2024-01-15', type: ImportColumn::DATE, width: 20),
@@ -453,7 +461,11 @@ class AssetController extends Controller
             'options' => array_column($a->options ?? [], 'label', 'value'),
         ]];
 
-        return $fieldsOf(StandardCategories::CYLINDER)->mapWithKeys(fn ($a) => $column($a, 'Tabung'));
+        $cylinder = TenantAssetCategory::query()->where('code', StandardCategories::CYLINDER)->value('id');
+        // The Business Unit follows the organization (BusinessUnit), so the file does not ask for it.
+        $fixed = $cylinder === null ? null : ($this->businessUnit->fixed($cylinder)['key'] ?? null);
+
+        return $fieldsOf(StandardCategories::CYLINDER)->reject(fn ($a) => $a->key === $fixed)->mapWithKeys(fn ($a) => $column($a, 'Tabung'));
     }
 
     /**

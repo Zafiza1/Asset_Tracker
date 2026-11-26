@@ -405,7 +405,8 @@ class DeliveryTest extends TestCase
         $new = fn (array $data) => $this->postJson('/api/assets', ['name' => 'Oksigen', 'category_id' => $this->cylinder->id, 'attributes' => $this->values(), ...$data]);
 
         $id = $new(['serial_number' => 'T-9'])->assertCreated()->assertJsonPath('data.status', 'available')->json('data.id');
-        $this->assertErrorCode($new(['serial_number' => 'T-10', 'status' => 'in_use']), 422, 'VALIDATION_FAILED');
+        // The status is not chosen at registration: whatever is sent, a new cylinder is Di Gudang.
+        $new(['serial_number' => 'T-10', 'status' => 'in_use'])->assertCreated()->assertJsonPath('data.status', 'available');
         $this->assertErrorCode($this->postJson('/api/transactions', ['asset_ids' => [$id], 'type' => 'status_change', 'to_status' => 'in_use']), 422, 'VALIDATION_FAILED');
         $this->postJson('/api/transactions', ['asset_ids' => [$id], 'type' => 'status_change', 'to_status' => 'under_maintenance'])->assertCreated();
         // A vehicle in use cannot become a cylinder; vehicles keep Aktif.

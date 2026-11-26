@@ -4,16 +4,17 @@ import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Feedback'
-import { Field, Input, Select } from '../../components/ui/Field'
+import { Field, Input } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { toast } from '../../components/ui/toast'
 import { api, ApiError, isApprovalPending } from '../../lib/api/client'
 import type { AttributeValue, CategoryAttribute, Resource } from '../../lib/api/types'
+import { useAuth } from '../../lib/auth/context'
 import { applyApiErrors, errorMessage } from '../../lib/forms'
 import { AttributeFields } from '../master/CategoryAttributes'
 import { useCategoryAttributes } from '../master/categoryAttributeData'
 import { toOptions, useOptions } from '../master/options'
-import { CYLINDER_CATEGORY, initialStatuses, statusLabel, withoutInUse, type Asset, type ExtraAttribute } from './api'
+import { CYLINDER_CATEGORY, fixedBusinessUnit, type Asset, type ExtraAttribute } from './api'
 import { AssetCategoryPicker } from './AssetCategoryPicker'
 import { AssetDocumentPicker, type DocumentChange } from './AssetDocumentPicker'
 import { AssetImagePicker, type ImageChange } from './AssetImagePicker'
@@ -47,12 +48,11 @@ type Values = {
   name: string
   serial_number: string
   category_id: string
-  status: string
   acquisition_date: string
   acquisition_cost: string
 }
 
-/** Fields editable after registration; the status changes through transactions. */
+/** Fields editable after registration. The status is never entered: it follows the asset's transactions. */
 const EDITABLE: (keyof Values)[] = ['name', 'serial_number', 'category_id', 'acquisition_date', 'acquisition_cost']
 
 /**
@@ -82,7 +82,6 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
       name: asset?.name ?? '',
       serial_number: asset?.serial_number ?? '',
       category_id: asset?.category_id ?? '',
-      status: 'in_use',
       acquisition_date: asset?.acquisition_date ?? '',
       acquisition_cost: asset?.acquisition_cost ?? '',
     },
@@ -91,6 +90,10 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
   // The category decides which extra fields the asset has.
   const categoryId = useWatch({ control, name: 'category_id' })
   const fields = useCategoryAttributes(categoryId).data ?? []
+  // The Business Unit follows the organization the asset is in (the API stores it the same way).
+  const organizationName = useAuth().profile?.organization?.name
+  const businessUnit = fixedBusinessUnit(fields, organizationName)
+  const shownAttributes = businessUnit ? { ...attributes, [businessUnit.key]: businessUnit.value } : attributes
   // A cylinder's name is its product and its serial number the No Manufaktur (required).
   const isCylinder = (categoryQuery.data?.find((c) => c.id === categoryId)?.code ?? asset?.category?.code) === CYLINDER_CATEGORY
   const nameLabel = isCylinder ? 'Nama Produk' : 'Nama aset'
@@ -121,7 +124,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
     mutationFn: async (values: Values): Promise<Asset | null> => {
       const keys = saved ? EDITABLE : (Object.keys(values) as (keyof Values)[])
       const payload: Record<string, unknown> = Object.fromEntries(keys.map((k) => [k, values[k].trim() === '' ? null : values[k].trim()]))
-      payload.attributes = Object.fromEntries(fields.filter((f) => !hidden.includes(f.key)).map((f) => [f.key, shownValue(f, attributes[f.key])]))
+      payload.attributes = Object.fromEntries(fields.filter((f) => !hidden.includes(f.key)).map((f) => [f.key, shownValue(f, shownAttributes[f.key])]))
       payload.hidden_attributes = hidden.filter((k) => fields.some((f) => f.key === k))
       payload.extra_attributes = extras.map((e) => ({ ...e, label: e.label.trim() }))
       const response = saved
@@ -227,8 +230,6 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
           changing={!!categoryId}
           onPick={(id) => {
             setValue('category_id', id, { shouldDirty: true, shouldValidate: true })
-            // The usual status of the category; a cylinder is never "Aktif".
-            setValue('status', categoryQuery.data?.find((c) => c.id === id)?.code === CYLINDER_CATEGORY ? 'available' : 'in_use')
             setStep('details')
           }}
         />
@@ -236,7 +237,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
       {/* Kept mounted (only hidden) while the category is chosen, so nothing entered is lost. */}
       <form id="asset-form" noValidate hidden={step !== 'details'} className="space-y-4" onSubmit={handleSubmit((v) => (setFormError(null), setAttributeErrors({}), setImageError(null), setDocumentError(null), save.mutate(v)))}>
         {formError && <Alert tone="error">{formError}</Alert>}
-        {asset && <p className="text-sm text-slate-600">Status diubah lewat transaksi agar riwayatnya tercatat.</p>}
+        <p className="text-sm text-slate-600">{asset ? 'Status diatur sistem dari transaksi tabung, sehingga tidak dapat diubah di sini.' : 'Aset baru tercatat Di Gudang; statusnya selanjutnya diatur sistem dari transaksi tabung.'}</p>
 
         <AssetImagePicker currentUrl={saved?.image_url ?? null} value={image} onChange={(v) => (setImageError(null), setImage(v))} error={imageError} />
 
@@ -267,27 +268,17 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
             <Field label="No Reference" hint="Dibuat oleh sistem saat aset disimpan.">
               {(p) => <Input {...p} value="Otomatis" readOnly disabled />}
             </Field>
-            <Field label="Status" error={err('status')}>
-              {(p) => (
-                <Select {...p} {...register('status')}>
-                  {withoutInUse(initialStatuses, isCylinder).map((s) => (
-                    <option key={s} value={s}>
-                      {statusLabel(s, isCylinder)}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
           </div>
         )}
 
         <AttributeFields
           fields={fields}
-          values={attributes}
+          values={shownAttributes}
           errors={attributeErrors}
           onChange={(key, value) => setAttributes((current) => ({ ...current, [key]: value }))}
           hidden={hidden}
           onHiddenChange={(next) => (setHiddenError(null), setHidden(next))}
+          locked={businessUnit ? { [businessUnit.key]: `Mengikuti organisasi ${organizationName}; tidak dapat diubah.` } : undefined}
         />
         {hiddenError && <Alert tone="error">{hiddenError}</Alert>}
         <ExtraAttributeFields values={extras} errors={extraErrors} onChange={(next) => (setExtraErrors({}), setExtras(next))} />

@@ -4,6 +4,7 @@ namespace App\Domain\Assets\Services;
 
 use App\Domain\Assets\AssetScope;
 use App\Domain\Assets\AssetStatus;
+use App\Domain\Assets\BusinessUnit;
 use App\Domain\Assets\Models\Asset;
 use App\Domain\AssetTransactions\Services\AssetTransactionService;
 use App\Domain\AssetTransactions\TransactionLog;
@@ -43,6 +44,7 @@ final class AssetService
         private readonly AuditLogger $audit,
         private readonly Tenancy $tenancy,
         private readonly CategoryAttributeService $attributes,
+        private readonly BusinessUnit $businessUnit,
     ) {}
 
     /** @param array<string, mixed> $data validated input */
@@ -64,7 +66,7 @@ final class AssetService
             throw self::cylinderInUse('status');
         }
         $hidden = $this->attributes->resolveHidden($data['category_id'], $data['hidden_attributes'] ?? []);
-        $values = $this->attributes->resolveValues($data['category_id'], [], $data['attributes'] ?? [], $hidden);
+        $values = $this->attributes->resolveValues($data['category_id'], [], $this->businessUnit->apply($data['category_id'], $data['attributes'] ?? []), $hidden);
         $extras = $this->attributes->resolveExtras($data['category_id'], $hidden, $data['extra_attributes'] ?? []);
 
         return DB::transaction(function () use ($data, $locationId, $status, $values, $hidden, $extras) {
@@ -124,6 +126,13 @@ final class AssetService
         // Values are revalidated when they are sent or when the category (hence the set of fields) changes.
         $categoryId = $changes['category_id'] ?? $asset->category_id;
         $fieldsChange = array_key_exists('attributes', $data) || array_key_exists('hidden_attributes', $data) || array_key_exists('extra_attributes', $data);
+        // The Business Unit follows the organization: a value sent by hand is replaced, and a
+        // missing or wrong one is corrected on the next save.
+        $unit = $this->businessUnit->fixed($categoryId);
+        if ($unit !== null && ($fieldsChange || ($asset->attribute_values[$unit['key']] ?? null) !== $unit['value'])) {
+            $data['attributes'] = $this->businessUnit->apply($categoryId, $data['attributes'] ?? []);
+            $fieldsChange = true;
+        }
         if ($fieldsChange || $categoryId !== $asset->category_id) {
             $hidden = $this->attributes->resolveHidden($categoryId, $data['hidden_attributes'] ?? $asset->hidden_attributes ?? []);
             $current = $categoryId === $asset->category_id ? $asset->attribute_values

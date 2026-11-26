@@ -5,7 +5,6 @@ import { Link, useNavigate } from "react-router";
 import {
   ActiveFilters,
   AdvancedFilters,
-  DateRangeFilter,
   FilterPanel,
   SearchForm,
   useFilterDraft,
@@ -43,8 +42,6 @@ const FILTERS = [
   "archived",
   "missing",
   "overdue",
-  "acquired_from",
-  "acquired_to",
   "sort",
   "per_page",
   "columns",
@@ -62,8 +59,6 @@ const ADVANCED = [
   "category_ids",
   "location_status",
   "overdue",
-  "acquired_from",
-  "acquired_to",
 ] as const;
 /** Sort options of the dropdown; the column headers can set the other directions too. */
 const SORT_OPTIONS = ["", "name", "-name", "-acquisition_date", "acquisition_date", "location_status"];
@@ -84,8 +79,6 @@ const SORT_LABEL: Record<string, string> = {
   "-category": "kategori (Z–A)",
   "-status": "status (Z–A)",
 };
-const dateLabel = (d: string) =>
-  new Date(`${d}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 
 /**
  * Small square photo of the asset; a missing or broken image falls back to the same placeholder,
@@ -118,9 +111,8 @@ function AssetThumb({ asset }: { asset: Asset }) {
   );
 }
 const DEFAULT_COLUMNS = [
-  "code",
-  "name",
   "serial_number",
+  "name",
   "category",
   "location_status",
   "barcode",
@@ -294,15 +286,6 @@ export function AssetsPage() {
           },
         ]
       : []),
-    ...(params.get("acquired_from") || params.get("acquired_to")
-      ? [
-          {
-            key: "acquired",
-            label: `Perolehan: ${params.get("acquired_from") ? dateLabel(params.get("acquired_from")!) : "…"} – ${params.get("acquired_to") ? dateLabel(params.get("acquired_to")!) : "…"}`,
-            clear: () => update({ acquired_from: "", acquired_to: "" }),
-          },
-        ]
-      : []),
     ...(archived
       ? [
           {
@@ -315,6 +298,19 @@ export function AssetsPage() {
   ];
 
   const columns: Column<Asset>[] = [
+    {
+      key: "serial_number",
+      header: "No Manufaktur",
+      sortKey: "serial_number",
+      className: "w-36",
+      title: (a) => a.serial_number,
+      cell: (a) =>
+        a.serial_number ? (
+          <span className="font-mono text-xs">{a.serial_number}</span>
+        ) : (
+          <span className="text-slate-400">—</span>
+        ),
+    },
     {
       key: "name",
       header: "Aset",
@@ -330,25 +326,11 @@ export function AssetsPage() {
             {/* Long names stop after two lines; the full name is the cell's tooltip. */}
             <span className="line-clamp-2 whitespace-normal break-words">{a.name}</span>
             <span className="block truncate text-xs font-normal text-slate-500 md:hidden">
-              {[a.serial_number, a.location_status.detail ?? a.location_status.label].filter(Boolean).join(" · ")}
+              {a.location_status.detail ?? a.location_status.label}
             </span>
           </span>
         </Link>
       ),
-    },
-    {
-      key: "serial_number",
-      header: "No Manufaktur",
-      sortKey: "serial_number",
-      className: "w-36",
-      title: (a) => a.serial_number,
-      cell: (a) =>
-        a.serial_number ? (
-          <span className="font-mono text-xs">{a.serial_number}</span>
-        ) : (
-          <span className="text-slate-400">—</span>
-        ),
-      hideOnMobile: true,
     },
     {
       key: "category",
@@ -494,11 +476,6 @@ export function AssetsPage() {
                 </option>
               ))}
             </Select>
-            <DateRangeFilter
-              from={draft.acquired_from}
-              to={draft.acquired_to}
-              onChange={(from, to) => advanced.set({ acquired_from: from, acquired_to: to })}
-            />
           </AdvancedFilters>
           <ActiveFilters
             chips={chips}

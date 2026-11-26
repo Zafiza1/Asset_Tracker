@@ -1,5 +1,5 @@
 import type { BadgeTone } from '../../components/ui/badgeTones'
-import type { AttributeValue, ModuleKey } from '../../lib/api/types'
+import type { AttributeValue, CategoryAttribute, ModuleKey } from '../../lib/api/types'
 
 /** Asset Management module: API shapes and labels. Statuses mirror App\Domain\Assets\AssetStatus. */
 
@@ -144,8 +144,17 @@ export const assetStatusTone: Record<AssetStatus, BadgeTone> = {
 /** Mirrors AssetController::MAX_EDIT_SELECTION: the checked ids travel in the download URL. */
 export const MAX_EDIT_SELECTION = 100
 
-/** Statuses selectable when registering an asset. */
-export const initialStatuses: AssetStatus[] = ['in_use', 'available', 'under_maintenance']
+/**
+ * Mirrors App\Domain\Assets\BusinessUnit: a cylinder's Business Unit is the option named after the
+ * organization it is registered in, so it is shown but never chosen. Null when the category has no
+ * such field or the organization's name is not one of its options.
+ */
+export function fixedBusinessUnit(fields: CategoryAttribute[], organizationName: string | undefined): { key: string; value: string } | null {
+  const norm = (v: string | undefined) => (v ?? '').trim().toLowerCase()
+  const field = fields.find((f) => f.data_type === 'enum' && norm(f.label) === 'business unit')
+  const option = field?.options?.find((o) => organizationName && norm(o.label) === norm(organizationName))
+  return field && option ? { key: field.key, value: option.value } : null
+}
 
 const money = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
 

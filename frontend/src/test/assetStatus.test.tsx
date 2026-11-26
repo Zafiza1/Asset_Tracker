@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { AssetStatusBadge } from '../features/assets/AssetStatusBadge'
-import { initialStatuses, statusFilterLabel, withoutInUse } from '../features/assets/api'
+import { statusFilterLabel, withoutInUse } from '../features/assets/api'
 
 describe('asset status of cylinders', () => {
   it('names an available cylinder by where it is, other assets stay "Tersedia"', () => {
@@ -15,7 +15,7 @@ describe('asset status of cylinders', () => {
   })
 
   it('offers no Aktif for a cylinder', () => {
-    expect(withoutInUse(initialStatuses, true)).toEqual(['available', 'under_maintenance'])
-    expect(withoutInUse(initialStatuses, false)).toContain('in_use')
+    expect(withoutInUse(['in_use', 'available', 'under_maintenance'], true)).toEqual(['available', 'under_maintenance'])
+    expect(withoutInUse(['in_use', 'available'], false)).toContain('in_use')
   })
 })

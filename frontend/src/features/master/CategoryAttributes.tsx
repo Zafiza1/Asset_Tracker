@@ -27,6 +27,7 @@ export function AttributeFields({
   onChange,
   hidden = [],
   onHiddenChange,
+  locked = {},
 }: {
   fields: CategoryAttribute[]
   values: Record<string, AttributeValue>
@@ -35,6 +36,8 @@ export function AttributeFields({
   /** Keys of optional fields this asset does not use; with `onHiddenChange` each optional field can be left out. */
   hidden?: string[]
   onHiddenChange?: (hidden: string[]) => void
+  /** Fields the system fills in, by key, with the hint saying why; they are shown but cannot be changed. */
+  locked?: Record<string, string>
 }) {
   if (fields.length === 0) return null
   const left = fields.filter((f) => hidden.includes(f.key))
@@ -57,11 +60,11 @@ export function AttributeFields({
           <div className="grid gap-4 sm:grid-cols-2">
             {sectionFields.map((f) => (
               <div key={f.key} className={clsx('relative', f.data_type === 'text' && 'sm:col-span-2')}>
-                <Field label={f.label} required={f.is_required} error={errors[f.key]}>
-                  {(p) => <AttributeValueInput id={p.id} spec={f} value={values[f.key] ?? null} onChange={(v) => onChange(f.key, v)} />}
+                <Field label={f.label} required={f.is_required} error={errors[f.key]} hint={locked[f.key]}>
+                  {(p) => <AttributeValueInput id={p.id} spec={f} value={values[f.key] ?? null} onChange={(v) => onChange(f.key, v)} disabled={f.key in locked} />}
                 </Field>
                 {/* A required field applies to every asset of the category, so only optional ones can be left out. */}
-                {onHiddenChange && !f.is_required && (
+                {onHiddenChange && !f.is_required && !(f.key in locked) && (
                   <IconButton
                     label={`Hapus atribut ${f.label} dari aset ini`}
                     tooltip="Tidak dipakai aset ini"

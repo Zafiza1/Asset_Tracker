@@ -1,13 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FolderTree, MapPin, Pencil, Power, Printer, RotateCcw, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, FolderTree, MapPin, Pencil, Printer, RotateCcw, Wallet, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { Badge } from '../../components/ui/Badge'
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Button } from '../../components/ui/Button'
 import { Card, PageHeader } from '../../components/ui/Card'
 import { Alert, DetailSkeleton, EmptyState, ErrorState, TableSkeleton } from '../../components/ui/Feedback'
-import { Field, Textarea } from '../../components/ui/Field'
 import { toast } from '../../components/ui/toast'
 import { DataTable, type Column } from '../../components/ui/Table'
 import { SegmentedControl } from '../../components/ui/Tabs'
@@ -30,7 +28,6 @@ export function AssetDetailPage() {
   const { id } = useParams()
   const { can } = useAuth()
   const [editing, setEditing] = useState(false)
-  const [archiving, setArchiving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
   const [historyView, setHistoryView] = useState<'timeline' | 'table'>('timeline')
@@ -65,7 +62,6 @@ export function AssetDetailPage() {
       <PageHeader
         title={a.name}
         badges={<LocationStatusBadge asset={a} compact />}
-        description={<span className="text-sm text-slate-500">{[a.serial_number && `${isCylinder ? 'No Manufaktur' : 'No Seri'} ${a.serial_number}`, `No Reference ${a.reference_number}`].filter(Boolean).join(' · ')}</span>}
         actions={
           <>
             {a.barcode_enabled && (
@@ -124,11 +120,6 @@ export function AssetDetailPage() {
               {can('asset.update') && !a.is_archived && (
                 <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
                   <Pencil className="size-4" aria-hidden /> Ubah
-                </Button>
-              )}
-              {can('asset.archive') && !a.is_archived && (
-                <Button size="sm" variant="ghost" onClick={() => setArchiving(true)}>
-                  <Power className="size-4" aria-hidden /> Nonaktifkan
                 </Button>
               )}
               {can('asset.restore') && a.is_archived && <RestoreButton asset={a} />}
@@ -259,7 +250,6 @@ export function AssetDetailPage() {
 
       {editing && <AssetFormModal asset={a} onClose={() => setEditing(false)} />}
       {printing && <AssetBarcodeModal asset={a} onClose={() => setPrinting(false)} />}
-      {archiving && <ArchiveModal asset={a} onClose={() => setArchiving(false)} />}
     </>
   )
 }
@@ -331,37 +321,6 @@ function RestoreButton({ asset }: { asset: Asset }) {
         <RotateCcw className="size-4" aria-hidden /> Aktifkan kembali
       </Button>
     </>
-  )
-}
-
-function ArchiveModal({ asset, onClose }: { asset: Asset; onClose: () => void }) {
-  const refresh = useRefreshAsset()
-  const [reason, setReason] = useState('')
-  const archive = useMutation({
-    mutationFn: () => api.post(`/assets/${asset.id}/archive`, { reason: reason.trim() || null }),
-    onSuccess: async (response) => {
-      await refresh()
-      toast.saved(response, 'Aset dinonaktifkan', asset.name)
-      onClose()
-    },
-  })
-
-  return (
-    <ConfirmDialog
-      open
-      tone="danger"
-      title={`Nonaktifkan ${asset.name}?`}
-      confirmLabel="Nonaktifkan"
-      loading={archive.isPending}
-      error={archive.error}
-      onConfirm={() => archive.mutate()}
-      onClose={onClose}
-    >
-      <p>
-        Aset tidak lagi dihitung sebagai inventaris aktif dan tidak dapat ditransaksikan. Data dan seluruh riwayatnya tetap tersimpan, dan aset dapat diaktifkan kembali kapan saja.
-      </p>
-      <Field label="Alasan">{(p) => <Textarea {...p} rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="mis. rusak total, dijual, hilang" />}</Field>
-    </ConfirmDialog>
   )
 }
 
