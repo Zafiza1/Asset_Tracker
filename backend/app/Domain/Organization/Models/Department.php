@@ -31,6 +31,17 @@ class Department extends Model
 
     protected $fillable = ['code', 'name', 'delivery_role', 'status'];
 
+    /**
+     * The delivery role a division named Supir or Kernet has (any case, extra spaces ignored); null
+     * for any other name. Used where the role is not chosen by hand (Divisi).
+     */
+    public static function roleFromName(string $name): ?string
+    {
+        $name = mb_strtolower(trim((string) preg_replace('/\s+/', ' ', $name)));
+
+        return array_search($name, array_map('mb_strtolower', self::DELIVERY_ROLES), true) ?: null;
+    }
+
     public function employees(): HasMany
     {
         return $this->hasMany(Employee::class);

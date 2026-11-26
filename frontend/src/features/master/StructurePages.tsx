@@ -27,40 +27,49 @@ function useMasterPermissions() {
   return { canCreate: can('master.tenant.create'), canUpdate: can('master.tenant.update'), canArchive: can('master.tenant.archive') }
 }
 
-const DELIVERY_ROLE_OPTIONS = [
-  { value: 'driver', label: 'Supir' },
-  { value: 'helper', label: 'Kernet' },
-]
-
-/** Divisi (stored as departments). An employee's division is also their position (jabatan). */
+/**
+ * Divisi (stored as departments). An employee's division is also their position (jabatan). The code
+ * and the delivery role are the system's: a division named Supir or Kernet is a delivery crew.
+ */
 export function DepartmentsPage() {
+  const permissions = useMasterPermissions()
+  const [editing, setEditing] = useState<Department | 'new' | null>(null)
+  const [importing, setImporting] = useState(false)
   return (
-    <MasterListPage<Department>
-      title="Divisi"
-      description="Divisi sekaligus jabatan karyawan, misalnya Supir, Kernet, atau Petugas Gudang. Divisi yang ditandai Supir atau Kernet bisa dipilih sebagai kru di pengiriman."
-      endpoint="/departments"
-      emptyHint="Tambahkan divisi, misalnya Supir, Kernet, dan Petugas Gudang, lalu pilih divisinya di data karyawan."
-      {...useMasterPermissions()}
-      filters={[{ name: 'delivery_role', label: 'Peran di pengiriman', options: DELIVERY_ROLE_OPTIONS }]}
-      columns={[
-        code<Department>(),
-        { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
-        { key: 'delivery_role', header: 'Peran di pengiriman', sortKey: 'delivery_role', className: 'w-44', cell: (r) => r.delivery_role_label ?? '—' },
-        { key: 'employees', header: 'Karyawan', className: 'w-28', hideOnMobile: true, cell: (r) => r.employees_count ?? 0 },
-      ]}
-      fields={[
-        { name: 'name', label: 'Nama', required: true, placeholder: 'mis. Supir' },
-        { name: 'code', label: 'Kode', createOnly: true, hint: 'Boleh dikosongkan: dibuat otomatis dari nama. Huruf besar, angka, - _ . (maks. 30).' },
-        {
-          name: 'delivery_role',
-          label: 'Peran di pengiriman',
-          type: 'select',
-          options: DELIVERY_ROLE_OPTIONS,
-          emptyOption: '— Tidak ada —',
-          hint: 'Supir: karyawannya bisa dipilih sebagai supir. Kernet: bisa dipilih sebagai kernet (supir juga bisa menjadi kernet).',
-        },
-      ]}
-    />
+    <>
+      <MasterListPage<Department>
+        title="Divisi"
+        description="Divisi sekaligus jabatan karyawan, misalnya Supir, Kernet, atau Petugas Gudang. Karyawan divisi Supir dan Kernet bisa dipilih sebagai kru pengiriman."
+        endpoint="/departments"
+        emptyHint="Tambahkan divisi, misalnya Supir, Kernet, dan Petugas Gudang, lalu pilih divisinya di data karyawan."
+        {...permissions}
+        // Adding goes through the AddMenu (form or Excel import), as in Data Aset.
+        canCreate={false}
+        editing={editing}
+        onEditChange={setEditing}
+        headerActions={permissions.canCreate && <AddMenu label="Tambah divisi" noun="divisi" onForm={() => setEditing('new')} onImport={() => setImporting(true)} />}
+        bulkEdit={{ title: 'Multiple Edit Divisi', endpoint: '/departments/edit-sheet', filename: 'edit_divisi.xlsx', noun: 'divisi', selectable: true }}
+        columns={[
+          code<Department>(),
+          { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
+          { key: 'employees', header: 'Karyawan', className: 'w-28', hideOnMobile: true, cell: (r) => r.employees_count ?? 0 },
+        ]}
+        fields={[
+          { name: 'name', label: 'Nama', required: true, placeholder: 'mis. Petugas Gudang', hint: 'Divisi bernama Supir atau Kernet otomatis menjadi kru pengiriman.' },
+          { name: 'code', label: 'Kode', systemGenerated: true, hint: 'Dibuat oleh sistem dari nama saat divisi disimpan, tidak dapat diubah.' },
+        ]}
+      />
+      {importing && (
+        <ImportModal
+          open={importing}
+          onClose={() => setImporting(false)}
+          title="Tambah Divisi dari Excel (Import)"
+          endpoint="/departments/import"
+          templateEndpoint="/departments/template"
+          templateFilename="template_divisi.xlsx"
+        />
+      )}
+    </>
   )
 }
 

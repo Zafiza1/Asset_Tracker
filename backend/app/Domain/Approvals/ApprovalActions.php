@@ -40,6 +40,8 @@ final class ApprovalActions
         'department.update' => [self::CATEGORY_MASTER, 'Perubahan divisi'],
         'department.archive' => [self::CATEGORY_MASTER, 'Pengarsipan divisi'],
         'department.restore' => [self::CATEGORY_MASTER, 'Pemulihan divisi'],
+        'department.import' => [self::CATEGORY_MASTER, 'Impor divisi dari Excel'],
+        'department.import_edits' => [self::CATEGORY_MASTER, 'Multiple Edit divisi dari Excel'],
         'location.create' => [self::CATEGORY_MASTER, 'Penambahan lokasi'],
         'location.update' => [self::CATEGORY_MASTER, 'Perubahan lokasi'],
         'location.archive' => [self::CATEGORY_MASTER, 'Pengarsipan lokasi'],
