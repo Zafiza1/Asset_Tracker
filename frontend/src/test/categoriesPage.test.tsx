@@ -107,16 +107,27 @@ describe('TenantCategoriesPage', () => {
     expect(JSON.parse(String(patch?.[1]?.body))).toEqual({ status: 'inactive' })
   })
 
-  it('explains up front when a category cannot be archived yet', async () => {
+  it('offers no archiving, only deactivating', async () => {
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Arsipkan Kendaraan' }))
-    const dialog = dialogTitled('Arsipkan Kendaraan?')
-    expect(within(dialog).getByText(/masih memiliki 1 subkategori/)).toBeInTheDocument()
-    expect(within(dialog).getByRole('button', { name: 'Arsipkan', hidden: true })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: 'Nonaktifkan Kendaraan' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Arsipkan/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Filter lanjutan/ }))
+    const status = screen.getByRole('combobox', { name: 'Filter status', hidden: true })
+    expect(within(status).queryByRole('option', { name: 'Diarsipkan', hidden: true })).not.toBeInTheDocument()
+    expect(within(status).getByRole('option', { name: 'Nonaktif', hidden: true })).toBeInTheDocument()
+  })
 
-    fireEvent.click(within(dialog).getAllByRole('button', { name: 'Tutup', hidden: true }).at(-1)!)
-    fireEvent.click(screen.getByRole('button', { name: 'Arsipkan Mobil Operasional Direksi' }))
-    expect(within(screen.getByRole('dialog', { hidden: true })).getByRole('button', { name: 'Arsipkan', hidden: true })).toBeEnabled()
+  it('never offers a category, or one of its subcategories, as its own parent', async () => {
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Ubah Kendaraan' }))
+    const parentOf = () => within(dialogTitled('Ubah Kategori Aset')).getByLabelText('Kategori induk', { selector: 'select' })
+    await waitFor(() => expect(within(parentOf()).getAllByRole('option', { hidden: true })).toHaveLength(1))
+    expect(within(parentOf()).getByRole('option', { name: '— Kategori utama —', hidden: true })).toBeInTheDocument()
+
+    fireEvent.click(within(dialogTitled('Ubah Kategori Aset')).getByRole('button', { name: 'Batal', hidden: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ubah Mobil Operasional Direksi' }))
+    await waitFor(() => expect(within(parentOf()).getByRole('option', { name: /Kendaraan \(KENDARAAN\)/, hidden: true })).toBeInTheDocument())
+    expect(within(parentOf()).queryByRole('option', { name: /Mobil Operasional Direksi/, hidden: true })).not.toBeInTheDocument()
   })
 
   it('limits Multiple Edit to the checked categories', async () => {

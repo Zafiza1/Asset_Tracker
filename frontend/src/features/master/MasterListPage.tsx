@@ -33,6 +33,8 @@ export interface MasterField {
   hint?: string
   placeholder?: string
   options?: SelectOption[]
+  /** Options that depend on the record being edited (null when adding), in place of `options`. */
+  optionsFor?: (record: MasterRecord | null) => SelectOption[]
   /** Label of the empty choice for optional selects. */
   emptyOption?: string
 }
@@ -329,8 +331,11 @@ export function MasterListPage<T extends MasterRecord>(config: MasterListConfig<
             </Select>
           ))}
           <Select value={draft.status} onChange={(e) => advanced.set({ status: e.target.value })} aria-label="Filter status">
-            <option value="">Status: semua (tanpa arsip)</option>
-            {Object.entries(masterStatusLabel).map(([value, label]) => (
+            <option value="">{config.canArchive ? 'Status: semua (tanpa arsip)' : 'Status: semua'}</option>
+            {/* Without archiving on this page there is no Diarsipkan to look for. */}
+            {Object.entries(masterStatusLabel)
+              .filter(([value]) => config.canArchive || value !== 'archived')
+              .map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -530,7 +535,7 @@ function MasterFormModal<T extends MasterRecord>({ config, record, onClose, onSa
                 f.type === 'select' ? (
                   <Select {...p} disabled={disabled} {...register(f.name, rules)}>
                     <option value="">{f.emptyOption ?? '— Pilih —'}</option>
-                    {f.options?.map((o) => (
+                    {(f.optionsFor ? f.optionsFor(record) : f.options)?.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
                       </option>

@@ -273,7 +273,23 @@ const LEVEL_OPTIONS = [
 ]
 
 export function TenantCategoriesPage() {
-  const categories = toOptions(useOptions<TenantCategory>('/tenant-masters/categories').data)
+  const categoryRows = useOptions<TenantCategory>('/tenant-masters/categories').data
+  const categories = toOptions(categoryRows)
+  // A category cannot sit under itself or under one of its own subcategories.
+  const parentOptions = (record: { id: string } | null) => {
+    if (!record) return categories
+    const excluded = new Set([record.id])
+    for (let grew = true; grew; ) {
+      grew = false
+      for (const c of categoryRows ?? []) {
+        if (c.parent_id && excluded.has(c.parent_id) && !excluded.has(c.id)) {
+          excluded.add(c.id)
+          grew = true
+        }
+      }
+    }
+    return categories.filter((o) => !excluded.has(o.value))
+  }
   const permissions = useMasterPermissions()
   const [attributesOf, setAttributesOf] = useState<TenantCategory | null>(null)
   const [editing, setEditing] = useState<TenantCategory | 'new' | null>(null)
@@ -289,7 +305,8 @@ export function TenantCategoriesPage() {
         canCreate={false}
         editing={editing}
         onEditChange={setEditing}
-        canDelete={permissions.canArchive}
+        // No archiving here: a category is deactivated, not archived.
+        canArchive={false}
         searchPlaceholder="Cari kode, nama, atau deskripsi"
         bulkEdit={{ title: 'Multiple Edit Kategori Aset', endpoint: '/tenant-masters/categories/edit-sheet', filename: 'edit_kategori_aset.xlsx', noun: 'kategori', selectable: true }}
         impact={categoryImpact}
@@ -299,8 +316,8 @@ export function TenantCategoriesPage() {
           { name: 'level', label: 'Tingkat', options: LEVEL_OPTIONS },
         ]}
         columns={({ filtered }) => [
-          { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => treeNameCell(r, filtered) },
           code<TenantCategory>(),
+          { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => treeNameCell(r, filtered) },
           {
             key: 'attributes',
             header: 'Atribut',
@@ -313,12 +330,12 @@ export function TenantCategoriesPage() {
         fields={[
           { name: 'name', label: 'Nama', required: true, placeholder: 'mis. Tabung Oksigen' },
           { name: 'code', label: 'Kode', createOnly: true, placeholder: 'mis. TABUNG-O2', hint: 'Boleh dikosongkan: kode dibuat otomatis dari nama. Huruf besar, angka, - _ . (maks. 30).' },
-          { name: 'parent_id', label: 'Kategori induk', type: 'select', options: categories, emptyOption: '— Kategori utama —', hint: 'Subkategori mewarisi atribut kategori induknya.' },
+          { name: 'parent_id', label: 'Kategori induk', type: 'select', optionsFor: parentOptions, emptyOption: '— Kategori utama —', hint: 'Subkategori mewarisi atribut kategori induknya.' },
           { name: 'description', label: 'Deskripsi', type: 'textarea' },
         ]}
         emptyHint="Tambahkan kategori pertama, misalnya Tabung."
         showColumnToggle
-        defaultColumns={['name', 'code', 'attributes']}
+        defaultColumns={['code', 'name', 'attributes']}
       />
       {attributesOf && <CategoryAttributesModal category={attributesOf} canUpdate={permissions.canUpdate} onClose={() => setAttributesOf(null)} />}
       {importing && (
