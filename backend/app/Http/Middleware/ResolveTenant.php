@@ -52,7 +52,7 @@ final class ResolveTenant
             throw new ApiException('ACCOUNT_INACTIVE', 'Akun Anda tidak aktif.', 401);
         }
         if (! $user->isTenantUser()) {
-            throw ApiException::forbidden('TENANT_USER_REQUIRED', 'Endpoint ini hanya untuk pengguna organisasi.');
+            throw ApiException::forbidden('TENANT_USER_REQUIRED', 'Endpoint ini hanya untuk pengguna business unit.');
         }
 
         if ($user->must_change_password) {
@@ -65,7 +65,7 @@ final class ResolveTenant
                 throw ApiException::forbidden('MOBILE_TOKEN_READ_ONLY', 'Perubahan ini hanya dapat dilakukan melalui aplikasi web.');
             }
             $organization = $this->access->find($user, $token->organization_id)
-                ?? throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Organisasi ini sedang tidak aktif atau akses Anda telah dicabut.');
+                ?? throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Business Unit ini sedang tidak aktif atau akses Anda telah dicabut.');
             Auth::setUser($user->withAccessToken($token));
 
             return $this->tenancy->runAsTenant(new TenantContext($organization, $user), fn () => $next($request));
@@ -76,16 +76,16 @@ final class ResolveTenant
         if ($organization === null) {
             if ($session?->has(OrganizationAccess::SESSION_KEY)) {
                 $this->access->forget($session);
-                throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Organisasi ini sedang tidak aktif atau akses Anda telah dicabut.');
+                throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Business Unit ini sedang tidak aktif atau akses Anda telah dicabut.');
             }
             if ($this->access->accessible($user)->isEmpty()) {
-                throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Organisasi Anda sedang tidak aktif.');
+                throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Business Unit Anda sedang tidak aktif.');
             }
-            throw ApiException::conflict('ORGANIZATION_SELECTION_REQUIRED', 'Pilih organisasi terlebih dahulu.');
+            throw ApiException::conflict('ORGANIZATION_SELECTION_REQUIRED', 'Pilih business unit terlebih dahulu.');
         }
         $expected = $request->header('X-Organization-Id');
         if ($expected !== null && $expected !== $organization->id) {
-            throw ApiException::conflict('ORGANIZATION_MISMATCH', 'Organisasi aktif telah berganti. Muat ulang halaman.');
+            throw ApiException::conflict('ORGANIZATION_MISMATCH', 'Business Unit aktif telah berganti. Muat ulang halaman.');
         }
 
         Auth::setUser($user);

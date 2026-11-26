@@ -204,7 +204,7 @@ export function TransactionTypeFormPage() {
       {system ? (
         <div className="mb-4">
           <Alert tone="info" title="Jenis sistem">
-            Jenis ini bawaan aplikasi dan memakai aturan inti (mis. aset yang dipinjam tidak dapat dipindah); nama dan pengaturannya tetap. Organisasi dapat menambah field formulir dan alur, mis. persetujuan sebelum aset dipinjamkan. Tanpa alur terbit, transaksinya langsung tercatat.
+            Jenis ini bawaan aplikasi dan memakai aturan inti (mis. aset yang dipinjam tidak dapat dipindah); nama dan pengaturannya tetap. Business Unit dapat menambah field formulir dan alur, mis. persetujuan sebelum aset dipinjamkan. Tanpa alur terbit, transaksinya langsung tercatat.
           </Alert>
         </div>
       ) : !canManage && (
@@ -496,12 +496,12 @@ function FieldRow({ field: f, index, count, editable, errors, onChange, onMove, 
               />
             ))}
             <SmallNumber label="Maks. MB" value={s.max_mb} onChange={(v) => setS({ max_mb: v })} />
-            <span className="text-xs text-slate-500">Tanpa centang: semua jenis. Ukuran tidak melebihi batas unggah organisasi.</span>
+            <span className="text-xs text-slate-500">Tanpa centang: semua jenis. Ukuran tidak melebihi batas unggah business unit.</span>
           </>
         )}
         {(f.data_type === 'user' || f.data_type === 'location' || f.data_type === 'counterparty' || f.data_type === 'datetime') && (
           <span className="text-xs text-slate-500">
-            {f.data_type === 'user' ? 'Memilih anggota aktif organisasi.' : f.data_type === 'location' ? 'Memilih lokasi dalam cakupan data pengisi.' : f.data_type === 'counterparty' ? 'Nama dan kontak; kontak hanya tampil bagi yang berizin.' : 'Tanggal dan jam.'}
+            {f.data_type === 'user' ? 'Memilih anggota aktif business unit.' : f.data_type === 'location' ? 'Memilih lokasi dalam cakupan data pengisi.' : f.data_type === 'counterparty' ? 'Nama dan kontak; kontak hanya tampil bagi yang berizin.' : 'Tanggal dan jam.'}
           </span>
         )}
       </div>

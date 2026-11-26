@@ -155,7 +155,7 @@ export function InvitationsPage() {
           <EmptyState
             icon={chips.length > 0 ? SearchX : MailPlus}
             title={chips.length > 0 ? 'Tidak ada undangan yang cocok' : 'Belum ada undangan'}
-            description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : 'Undang pengguna untuk memberi mereka akses ke organisasi ini.'}
+            description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : 'Undang pengguna untuk memberi mereka akses ke business unit ini.'}
             action={
               chips.length > 0 ? (
                 <Button variant="secondary" onClick={resetAll}>

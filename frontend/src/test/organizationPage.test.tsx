@@ -88,13 +88,13 @@ describe('OrganizationPage', () => {
     expect(screen.getByText('IDR (Rupiah Indonesia)')).toBeInTheDocument()
     expect(screen.getByText('Diperbarui 31 Okt 2026', { exact: false })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Lengkapi sekarang' })).toBeInTheDocument()
-    expect(screen.getByText(/Anda dapat mengedit profil organisasi/)).toBeInTheDocument()
+    expect(screen.getByText(/Anda dapat mengedit profil business unit/)).toBeInTheDocument()
   })
 
   it('is read-only for every role but Super Admin', async () => {
     renderPage(['organization.view'])
     expect(await screen.findByText(/Hanya Super Admin yang dapat mengubahnya/)).toBeInTheDocument()
-    expect(screen.getByText(/Hubungi Super Admin organisasi/)).toBeInTheDocument()
+    expect(screen.getByText(/Hubungi Super Admin business unit/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit profil' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Lengkapi sekarang' })).not.toBeInTheDocument()
   })
@@ -123,7 +123,7 @@ describe('OrganizationPage', () => {
     fireEvent.change(screen.getByLabelText(/Zona waktu/), { target: { value: 'Asia/Makassar' } })
     fireEvent.click(screen.getByRole('button', { name: 'Simpan perubahan' }))
 
-    expect(await screen.findByText('Profil organisasi berhasil diperbarui')).toBeInTheDocument()
+    expect(await screen.findByText('Profil business unit berhasil diperbarui')).toBeInTheDocument()
     expect(putBody(fetchMock)).toMatchObject({ name: 'PT SIG', email: 'halo@sig.co.id', phone: '+6281234567890', tax_id: '012345678901234', timezone: 'Asia/Makassar', currency: 'IDR' })
     expect(screen.getByText('01.234.567.8-901.234')).toBeInTheDocument()
     expect(screen.getByText('Asia/Makassar (WITA)')).toBeInTheDocument()
@@ -131,6 +131,6 @@ describe('OrganizationPage', () => {
     expect(screen.getByText('Profil lengkap')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Tutup notifikasi' }))
-    await waitFor(() => expect(screen.queryByText('Profil organisasi berhasil diperbarui')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Profil business unit berhasil diperbarui')).not.toBeInTheDocument())
   })
 })

@@ -17,18 +17,19 @@ import { usePermissionCatalog } from '../roles/api'
 import { PermissionPicker } from '../roles/PermissionPicker'
 import { RoleQuickCreateModal } from '../roles/RoleQuickCreateModal'
 import { useOrganizationOptions } from './api'
+import { EmployeePicker, type EmployeeOption } from './EmployeePicker'
 
 const schema = z.object({
   email: z.email('Masukkan email yang valid.'),
-  employee_number: z.string().max(50).optional(),
-  job_title: z.string().max(100).optional(),
+  // The account is for an employee: name, code (nomor induk) and division (jabatan) come from Karyawan.
+  employee_id: z.string({ error: 'Pilih karyawan.' }).min(1, 'Pilih karyawan.'),
   // One entry per organization the user is invited to, each with a single role.
   memberships: z
     .array(z.object({
       organization_id: z.string(),
       role_id: z.string().min(1, 'Pilih minimal satu role.'),
     }))
-    .min(1, 'Pilih minimal satu organisasi.'),
+    .min(1, 'Pilih minimal satu business unit.'),
 })
 type FormValues = z.infer<typeof schema>
 
@@ -57,6 +58,7 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
   const [formError, setFormError] = useState<string | null>(null)
   const [creatingRole, setCreatingRole] = useState(false)
   const [expandedPermissions, setExpandedPermissions] = useState<string[]>([])
+  const [employee, setEmployee] = useState<EmployeeOption | null>(null)
   const current = organizations.find((o) => o.is_current)
   const multiple = organizations.length > 1
 
@@ -105,8 +107,8 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
         title="Undang Pengguna"
         description={
           multiple
-            ? 'Masukkan email, pilih organisasi yang boleh diakses, lalu pilih role di setiap organisasi. Pengguna menerima undangan lewat email dan baru mendapat akses setelah menerimanya.'
-            : 'Masukkan email lalu pilih role-nya; bila belum ada role yang sesuai, buat role baru beserta permission-nya langsung di sini. Pengguna baru mendapat akses setelah menerima undangan lewat email.'
+            ? 'Pilih karyawan, isi emailnya, pilih business unit yang boleh diakses, lalu pilih role di setiap business unit. Pengguna menerima undangan lewat email dan baru mendapat akses setelah menerimanya.'
+            : 'Pilih karyawan, isi emailnya, lalu pilih role-nya; bila belum ada role yang sesuai, buat role baru beserta permission-nya langsung di sini. Pengguna baru mendapat akses setelah menerima undangan lewat email.'
         }
       />
       <Card>
@@ -118,22 +120,25 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
           )}
           <div className="sm:col-span-2">
             <Alert tone="info">
-              Pemilik email yang sudah punya akun masuk dengan akunnya lalu menerima undangan; yang belum punya akun mendaftar dari tautan undangan. Nama dan password diisi sendiri oleh pengguna. Undangan memiliki batas waktu dan hanya dapat dipakai sekali.
+              Pilih karyawan yang akan diberi akun, lalu isi emailnya. Yang belum punya akun mendaftar dari tautan undangan dengan nama karyawan tersebut dan password buatannya sendiri; yang sudah punya akun cukup masuk lalu menerima undangan. Undangan memiliki batas waktu dan hanya dapat dipakai sekali.
             </Alert>
           </div>
+          <Field label="Nama karyawan" error={formState.errors.employee_id?.message} hint="Ketik nama atau kode karyawan, lalu pilih. Kode dan divisinya ikut tercatat." required>
+            {(p) => (
+              <EmployeePicker
+                {...p}
+                value={employee}
+                onChange={(e) => (setEmployee(e), setValue('employee_id', e?.id ?? '', { shouldValidate: formState.isSubmitted }))}
+              />
+            )}
+          </Field>
           <Field label="Email" error={formState.errors.email?.message} required>
             {(p) => <Input {...p} type="email" autoComplete="off" {...register('email')} />}
-          </Field>
-          <Field label="Nomor induk karyawan" error={formState.errors.employee_number?.message}>
-            {(p) => <Input {...p} {...register('employee_number')} />}
-          </Field>
-          <Field label="Jabatan" error={formState.errors.job_title?.message}>
-            {(p) => <Input {...p} {...register('job_title')} />}
           </Field>
           <fieldset className="space-y-3 sm:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <legend className="text-sm font-medium text-slate-700">
-                {multiple ? 'Akses Organisasi & Role' : 'Role & Permission'} <span className="text-red-600">*</span>
+                {multiple ? 'Akses Business Unit & Role' : 'Role & Permission'} <span className="text-red-600">*</span>
               </legend>
               {current && (
                 <Button variant="secondary" size="sm" onClick={() => setCreatingRole(true)}>
@@ -161,7 +166,7 @@ function UserInviteForm({ organizations }: { organizations: UserOrganizationOpti
                       />
                       <span className="text-sm font-medium text-slate-800">{org.name}</span>
                       <span className="text-xs text-slate-500">{org.code}</span>
-                      {org.is_current && <Badge tone="blue">Organisasi aktif</Badge>}
+                      {org.is_current && <Badge tone="blue">Business Unit aktif</Badge>}
                     </label>
                   )}
                   {selected && (

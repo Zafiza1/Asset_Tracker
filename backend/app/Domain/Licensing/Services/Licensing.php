@@ -76,7 +76,7 @@ final class Licensing
     public static function inactive(): ApiException
     {
         return ApiException::forbidden('LICENSE_INACTIVE',
-            'Lisensi Asset Tracker organisasi ini tidak aktif atau sudah kedaluwarsa. Organisasi hanya dapat dilihat sampai lisensi diperpanjang.');
+            'Lisensi Asset Tracker business unit ini tidak aktif atau sudah kedaluwarsa. Business Unit hanya dapat dilihat sampai lisensi diperpanjang.');
     }
 
     /** Records a purchase (platform console). */

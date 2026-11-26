@@ -224,7 +224,7 @@ final class AssetService
             throw ApiException::conflict('ASSET_ON_LOAN', 'Aset yang sedang dipinjam harus dikembalikan sebelum dinonaktifkan.');
         }
         if ($asset->status === AssetStatus::OFF_SITE) {
-            throw ApiException::conflict('ASSET_OFF_SITE', 'Aset yang sedang di luar organisasi harus dicatat masuk kembali sebelum dinonaktifkan.');
+            throw ApiException::conflict('ASSET_OFF_SITE', 'Aset yang sedang di luar business unit harus dicatat masuk kembali sebelum dinonaktifkan.');
         }
 
         return DB::transaction(function () use ($asset, $reason) {
@@ -287,7 +287,7 @@ final class AssetService
         $active = OrganizationMember::query()->where('user_id', $userId)->where('status', User::STATUS_ACTIVE)
             ->whereHas('user', fn ($q) => $q->where('status', User::STATUS_ACTIVE))->exists();
         if (! $active) {
-            $message = 'Penanggung jawab harus anggota aktif organisasi ini.';
+            $message = 'Penanggung jawab harus anggota aktif business unit ini.';
             throw ApiException::unprocessable('INVALID_REFERENCE', $message, ['fields' => ['custodian_user_id' => [$message]]]);
         }
     }

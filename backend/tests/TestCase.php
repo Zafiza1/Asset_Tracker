@@ -128,7 +128,7 @@ abstract class TestCase extends BaseTestCase
     protected function createOrganization(string $code, string $status = Organization::STATUS_ACTIVE, int $seats = 10): array
     {
         $result = $this->app->make(OrganizationProvisioner::class)->provision(
-            ['code' => $code, 'name' => "Organisasi {$code}"],
+            ['code' => $code, 'name' => "Business Unit {$code}"],
             ['name' => "Admin {$code}", 'email' => strtolower($code).'-admin@example.test', 'password' => self::PASSWORD],
             adminMustChangePassword: false,
             standardCategories: false,

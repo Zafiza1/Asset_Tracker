@@ -67,7 +67,7 @@ final class DashboardService
         return $this->findOrCreate(
             fn () => Dashboard::query()->where('dashboard_type', DashboardType::OVERVIEW)->first(),
             function () {
-                $dashboard = $this->newSystemDashboard(DashboardType::OVERVIEW, 'Overview', 'Ringkasan seluruh aset organisasi.');
+                $dashboard = $this->newSystemDashboard(DashboardType::OVERVIEW, 'Overview', 'Ringkasan seluruh aset business unit.');
                 // The Overview is the organization's default unless another dashboard already is.
                 $dashboard->is_default = ! Dashboard::query()->where('is_default', true)->exists();
                 $dashboard->save();
@@ -163,7 +163,7 @@ final class DashboardService
         if (array_key_exists('visibility', $data) && $data['visibility'] !== $dashboard->visibility) {
             if (! $dashboard->isCustom() || $data['visibility'] === DashboardType::PERSONAL) {
                 // Members may already rely on an organization dashboard (shares, defaults).
-                throw ApiException::unprocessable('VISIBILITY_LOCKED', 'Dashboard organisasi tidak dapat dijadikan dashboard pribadi.');
+                throw ApiException::unprocessable('VISIBILITY_LOCKED', 'Dashboard business unit tidak dapat dijadikan dashboard pribadi.');
             }
             if (! $manager) {
                 throw ApiException::forbidden();
@@ -171,14 +171,14 @@ final class DashboardService
         }
         $status = $data['status'] ?? $dashboard->status;
         if ($status === Dashboard::STATUS_ARCHIVED && ($dashboard->isOverview() || $dashboard->isAssetBoard() || ($data['is_default'] ?? $dashboard->is_default))) {
-            throw ApiException::unprocessable('DASHBOARD_NOT_ARCHIVABLE', 'Overview, dashboard aset, dan dashboard default organisasi tidak dapat diarsipkan.');
+            throw ApiException::unprocessable('DASHBOARD_NOT_ARCHIVABLE', 'Overview, dashboard aset, dan dashboard default business unit tidak dapat diarsipkan.');
         }
         if (array_key_exists('is_default', $data) && (bool) $data['is_default'] !== $dashboard->is_default) {
             if (! $manager) {
                 throw ApiException::forbidden();
             }
             if ($data['is_default'] && ($data['visibility'] ?? $dashboard->visibility) !== DashboardType::ORGANIZATION) {
-                throw ApiException::unprocessable('INVALID_DEFAULT_DASHBOARD', 'Hanya dashboard organisasi yang dapat menjadi default organisasi.');
+                throw ApiException::unprocessable('INVALID_DEFAULT_DASHBOARD', 'Hanya dashboard business unit yang dapat menjadi default business unit.');
             }
         }
 

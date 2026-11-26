@@ -75,7 +75,7 @@ function RoleForm({ role, catalog }: { role?: Role; catalog: Permission[] }) {
         title={role ? role.name : 'Tambah Role'}
         description={
           role?.is_locked
-            ? 'Role terkunci: permission tidak dapat diubah agar organisasi selalu memiliki administrator.'
+            ? 'Role terkunci: permission tidak dapat diubah agar business unit selalu memiliki administrator.'
             : allowed
               ? 'Role default: hanya permission bawaan role ini yang dapat diaktifkan atau dinonaktifkan.'
               : undefined

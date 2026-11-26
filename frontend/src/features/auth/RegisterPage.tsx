@@ -13,7 +13,7 @@ import { AuthShell } from './AuthShell'
 
 const schema = z
   .object({
-    organization_name: z.string().trim().min(1, 'Nama organisasi wajib diisi.').max(150),
+    organization_name: z.string().trim().min(1, 'Nama business unit wajib diisi.').max(150),
     organization_code: organizationCodeRule,
     name: z.string().trim().min(1, 'Nama wajib diisi.').max(150),
     email: z.email('Masukkan email yang valid.'),
@@ -57,7 +57,7 @@ export function RegisterPage() {
   return (
     <AuthShell
       wide
-      subtitle="Daftarkan organisasi Anda. Anda akan menjadi administratornya dan dapat menambahkan pengguna lain."
+      subtitle="Daftarkan business unit Anda. Anda akan menjadi administratornya dan dapat menambahkan pengguna lain."
       footer={
         <>
           Sudah punya akun?{' '}
@@ -70,8 +70,8 @@ export function RegisterPage() {
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         {formError && <Alert tone="error">{formError}</Alert>}
         <section className="space-y-4" aria-labelledby="reg-org">
-          <h2 id="reg-org" className="text-sm font-semibold text-slate-900">Organisasi</h2>
-          <Field label="Nama organisasi" error={err.organization_name?.message} required>
+          <h2 id="reg-org" className="text-sm font-semibold text-slate-900">Business Unit</h2>
+          <Field label="Nama business unit" error={err.organization_name?.message} required>
             {(p) => (
               <Input
                 {...p}
@@ -82,7 +82,7 @@ export function RegisterPage() {
               />
             )}
           </Field>
-          <Field label="Kode organisasi" error={err.organization_code?.message} hint="Singkatan unik, dipakai sebagai identitas organisasi. Tidak dapat diubah." required>
+          <Field label="Kode business unit" error={err.organization_code?.message} hint="Singkatan unik, dipakai sebagai identitas business unit. Tidak dapat diubah." required>
             {(p) => <Input {...p} className={`${p.className} uppercase`} placeholder="mis. MAJU" {...register('organization_code', { onChange: () => setCodeEdited(true) })} />}
           </Field>
         </section>
@@ -118,7 +118,7 @@ export function RegisterPage() {
       >
         <div className="space-y-3">
           <p className="text-slate-700">
-            Organisasi "{pendingData?.organization_name}" berhasil didaftarkan.
+            Business Unit "{pendingData?.organization_name}" berhasil didaftarkan.
           </p>
         </div>
       </Modal>

@@ -20,7 +20,7 @@ final class SampleTemplates
             'outgoing' => [
                 'code' => 'RPT-TRX-KELUAR',
                 'name' => 'Laporan Transaksi Keluar',
-                'description' => 'Aset yang keluar dari organisasi: sifat, alasan, pihak luar, dokumen, dan status kembali.',
+                'description' => 'Aset yang keluar dari business unit: sifat, alasan, pihak luar, dokumen, dan status kembali.',
                 'category' => 'Transaksi',
                 'data_source' => 'asset_transaction',
                 'design' => self::listing(['type' => 'outgoing'], [
@@ -40,7 +40,7 @@ final class SampleTemplates
             'incoming' => [
                 'code' => 'RPT-TRX-MASUK',
                 'name' => 'Laporan Transaksi Masuk',
-                'description' => 'Aset yang kembali masuk ke organisasi beserta transaksi keluarnya.',
+                'description' => 'Aset yang kembali masuk ke business unit beserta transaksi keluarnya.',
                 'category' => 'Transaksi',
                 'data_source' => 'asset_transaction',
                 'design' => self::listing(['type' => 'incoming'], [

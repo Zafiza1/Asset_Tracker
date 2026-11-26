@@ -80,7 +80,7 @@ const entityTypeLabels: Record<string, string> = {
   Vehicle: 'Kendaraan',
   Delivery: 'Transaksi tabung',
   Role: 'Role',
-  Organization: 'Organisasi',
+  Organization: 'Business Unit',
   OrganizationInvitation: 'Undangan',
   OrganizationLicense: 'Lisensi',
   LicenseCode: 'Kode lisensi',

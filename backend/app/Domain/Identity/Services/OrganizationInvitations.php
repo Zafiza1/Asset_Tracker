@@ -16,6 +16,7 @@ use App\Domain\Identity\Notifications\OrganizationInvitationNotification;
 use App\Domain\Licensing\Models\LicenseCode;
 use App\Domain\Licensing\Services\LicenseCodeService;
 use App\Domain\Licensing\Services\Licensing;
+use App\Domain\Organization\Models\Employee;
 use App\Domain\Organization\Models\Organization;
 use App\Domain\Shared\Exceptions\ApiException;
 use App\Domain\Shared\Tenancy\Tenancy;
@@ -320,9 +321,25 @@ final class OrganizationInvitations
             'organization' => Organization::query()->findOrFail($invitation->organization_id),
             'inviter' => $invitation->isPlatformIssued() ? null : User::query()->findOrFail($invitation->invited_by),
             'roles' => Role::query()->where('organization_id', $invitation->organization_id)->whereIn('id', $invitation->role_ids)->orderBy('name')->get(),
+            'name' => $this->inviteeName($invitation),
             // Already in the invitation email; the sign-up form shows it instead of asking for it.
             'licenseCode' => $invitation->license_code_id === null ? null : LicenseCode::query()->whereKey($invitation->license_code_id)->value('code'),
         ]);
+    }
+
+    /**
+     * Name of the employee an invitation is for (its employee number is the employee's code), null
+     * for an invitation that is not for an employee. Read in the system context: there is no tenant
+     * context before the account exists.
+     */
+    public function inviteeName(OrganizationInvitation $invitation): ?string
+    {
+        if ($invitation->employee_number === null) {
+            return null;
+        }
+
+        return $this->tenancy->runAsSystem(fn () => Employee::query()->where('organization_id', $invitation->organization_id)
+            ->where('code', $invitation->employee_number)->value('name'));
     }
 
     /**
@@ -336,7 +353,7 @@ final class OrganizationInvitations
         $this->assertOpen($invitation);
 
         if (! $user->isTenantUser()) {
-            throw ApiException::forbidden('TENANT_USER_REQUIRED', 'Akun platform tidak dapat bergabung dengan organisasi.');
+            throw ApiException::forbidden('TENANT_USER_REQUIRED', 'Akun platform tidak dapat bergabung dengan business unit.');
         }
         if (mb_strtolower($user->email) !== mb_strtolower($invitation->email)) {
             throw ApiException::forbidden('INVITATION_EMAIL_MISMATCH', 'Undangan ini ditujukan untuk email lain. Masuk dengan akun yang sesuai dengan email undangan.');
@@ -382,10 +399,13 @@ final class OrganizationInvitations
      *
      * @return array{user: User, organization: Organization, invitation: OrganizationInvitation}
      */
-    public function registerAndAccept(string $token, string $name, string $password, ?string $licenseCode): array
+    public function registerAndAccept(string $token, ?string $name, string $password, ?string $licenseCode): array
     {
         $invitation = $this->findByToken($token);
         $this->assertOpen($invitation);
+        // An invitation for an employee names the account after them; otherwise the invitee does.
+        $name = $this->inviteeName($invitation) ?? (trim((string) $name) !== '' ? trim((string) $name)
+            : throw ApiException::unprocessable('VALIDATION_FAILED', 'Nama wajib diisi.', ['fields' => ['name' => ['Nama wajib diisi.']]]));
 
         // License code is required: either from invitation or provided by user. There is no tenant
         // context before the account exists, so the code is looked up in the system context.
@@ -393,7 +413,7 @@ final class OrganizationInvitations
         if ($invitation->license_code_id === null) {
             $licenseCode = trim($licenseCode ?? '');
             if ($licenseCode === '') {
-                throw ApiException::unprocessable('LICENSE_CODE_REQUIRED', 'Kode lisensi wajib diisi untuk bergabung dengan organisasi ini.');
+                throw ApiException::unprocessable('LICENSE_CODE_REQUIRED', 'Kode lisensi wajib diisi untuk bergabung dengan business unit ini.');
             }
             $licenseCodeId = $this->tenancy->runAsSystem(fn () => $this->licenseCodes->validateCode($licenseCode, $invitation->organization_id))->id;
         }
@@ -592,10 +612,10 @@ final class OrganizationInvitations
     {
         $org = Organization::query()->whereKey($organization->id)->lockForUpdate()->firstOrFail();
         if (! $org->isActive()) {
-            throw ApiException::conflict('ORGANIZATION_INACTIVE', 'Organisasi tidak aktif. Aktifkan organisasi sebelum mengundang administrator.');
+            throw ApiException::conflict('ORGANIZATION_INACTIVE', 'Business Unit tidak aktif. Aktifkan business unit sebelum mengundang administrator.');
         }
         if ($this->hasMembers($org)) {
-            throw ApiException::conflict('ORGANIZATION_HAS_MEMBERS', 'Organisasi ini sudah memiliki anggota. Pengguna baru diundang oleh Admin organisasi.');
+            throw ApiException::conflict('ORGANIZATION_HAS_MEMBERS', 'Business Unit ini sudah memiliki anggota. Pengguna baru diundang oleh Admin business unit.');
         }
 
         return $org;
@@ -660,7 +680,7 @@ final class OrganizationInvitations
             return null;
         }
         if ($member->status !== User::STATUS_DEACTIVATED) {
-            throw ApiException::conflict('ALREADY_MEMBER', 'Akun dengan email ini sudah menjadi anggota organisasi.');
+            throw ApiException::conflict('ALREADY_MEMBER', 'Akun dengan email ini sudah menjadi anggota business unit.');
         }
 
         return $user->id;
@@ -681,8 +701,8 @@ final class OrganizationInvitations
         match ($invitation->effectiveStatus()) {
             OrganizationInvitation::STATUS_PENDING => null,
             OrganizationInvitation::STATUS_ACCEPTED => throw ApiException::conflict('INVITATION_USED', 'Undangan ini sudah diterima dan tidak dapat dipakai lagi.'),
-            OrganizationInvitation::STATUS_REVOKED => throw new ApiException('INVITATION_REVOKED', 'Undangan ini telah dibatalkan oleh Admin organisasi.', 410),
-            default => throw new ApiException('INVITATION_EXPIRED', 'Undangan ini sudah kedaluwarsa. Minta Admin organisasi mengirim ulang undangan.', 410),
+            OrganizationInvitation::STATUS_REVOKED => throw new ApiException('INVITATION_REVOKED', 'Undangan ini telah dibatalkan oleh Admin business unit.', 410),
+            default => throw new ApiException('INVITATION_EXPIRED', 'Undangan ini sudah kedaluwarsa. Minta Admin business unit mengirim ulang undangan.', 410),
         };
     }
 
@@ -704,7 +724,7 @@ final class OrganizationInvitations
             $this->licensing->assertSeats($organizationId, 0);
         } catch (ApiException $e) {
             throw ApiException::conflict('ORGANIZATION_NO_SEAT',
-                'Organisasi ini sedang tidak memiliki seat lisensi untuk Anda. Hubungi Admin organisasi, lalu coba lagi.',
+                'Business Unit ini sedang tidak memiliki seat lisensi untuk Anda. Hubungi Admin business unit, lalu coba lagi.',
                 ['reason' => strtolower($e->errorCode)]);
         }
     }
@@ -712,7 +732,7 @@ final class OrganizationInvitations
     private function unavailable(string $reason): ApiException
     {
         return new ApiException('INVITATION_UNAVAILABLE',
-            'Undangan ini tidak dapat digunakan lagi. Minta Admin organisasi mengirim undangan baru.', 410, ['reason' => $reason]);
+            'Undangan ini tidak dapat digunakan lagi. Minta Admin business unit mengirim undangan baru.', 410, ['reason' => $reason]);
     }
 
     private function lock(OrganizationInvitation $invitation): OrganizationInvitation

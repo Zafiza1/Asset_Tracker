@@ -29,13 +29,13 @@ export const orgStatusLabel: Record<string, string> = {
 }
 
 export const scopeTypeLabel: Record<string, string> = {
-  organization: 'Seluruh organisasi',
+  organization: 'Seluruh business unit',
   department: 'Divisi',
   location: 'Lokasi',
 }
 
 export const permissionGroupLabel: Record<string, string> = {
-  organization: 'Organisasi',
+  organization: 'Business Unit',
   user: 'Pengguna',
   role: 'Role',
   master: 'Master Data',
@@ -99,19 +99,19 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
       'auth.mobile_login': 'Masuk lewat aplikasi seluler',
       'auth.mobile_logout': 'Keluar dari aplikasi seluler',
       'auth.registered': 'Mendaftar akun baru',
-      'auth.organization_created': 'Membuat organisasi baru',
-      'auth.organization_switched': 'Berpindah organisasi',
+      'auth.organization_created': 'Membuat business unit baru',
+      'auth.organization_switched': 'Berpindah business unit',
       'auth.password_changed': 'Mengganti kata sandi',
       'auth.email_verified': 'Memverifikasi email',
     },
   },
   {
-    label: 'Organisasi',
+    label: 'Business Unit',
     actions: {
-      'organization.created': 'Membuat organisasi',
-      'organization.updated': 'Mengubah profil organisasi',
-      'organization.status_changed': 'Mengubah status organisasi',
-      'settings.updated': 'Mengubah pengaturan organisasi',
+      'organization.created': 'Membuat business unit',
+      'organization.updated': 'Mengubah profil business unit',
+      'organization.status_changed': 'Mengubah status business unit',
+      'settings.updated': 'Mengubah pengaturan business unit',
       'module.enabled': 'Mengaktifkan modul',
       'module.categories_added': 'Memasang modul pada kategori aset',
       'module.categories_removed': 'Melepas modul dari kategori aset',
@@ -122,7 +122,7 @@ export const auditActionGroups: { label: string; actions: Record<string, string>
     label: 'Pengguna',
     actions: {
       'user.created': 'Menambah pengguna baru',
-      'user.member_added': 'Menambahkan pengguna ke organisasi',
+      'user.member_added': 'Menambahkan pengguna ke business unit',
       'user.updated': 'Mengubah data pengguna',
       'user.status_changed': 'Mengubah status pengguna',
       'user.roles_changed': 'Mengubah role pengguna',

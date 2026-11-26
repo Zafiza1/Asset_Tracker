@@ -118,7 +118,7 @@ class ReportDesignerBindingTest extends TestCase
         ])->assertOk()->json('data');
 
         $this->assertTrue($data['valid']);
-        $this->assertSame('Organisasi ALPHA', $data['context']['organization.name']);
+        $this->assertSame('Business Unit ALPHA', $data['context']['organization.name']);
         $this->assertSame(1, $data['total']);
         $this->assertSame('Aset 1', $data['rows'][0]['asset.name']);
         $this->assertSame('Rp 1.500.000', $data['rows'][0]['asset.acquisition_cost']);
@@ -127,7 +127,7 @@ class ReportDesignerBindingTest extends TestCase
         $this->assertSame('Gudang 1', $data['rows'][0]['asset.location']);
 
         $elements = collect($data['elements'])->keyBy('id');
-        $this->assertSame('Laporan Organisasi ALPHA', $elements['h1']['text']);
+        $this->assertSame('Laporan Business Unit ALPHA', $elements['h1']['text']);
         $this->assertSame('Aset: Aset 1', $elements['h2']['text']);
         $this->assertSame('Kondisi: '.AssetStatus::LABELS['available'], $elements['c1']['text']);
         $this->assertTrue($elements['c1']['visible']);

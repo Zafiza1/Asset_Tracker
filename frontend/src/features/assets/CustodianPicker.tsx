@@ -138,7 +138,7 @@ export function CustodianPicker({ value, onChange, className, ...aria }: Props) 
         onKeyDown={onKeyDown}
       />
       {editing && (
-        <ul id={listId} role="listbox" aria-label="Anggota organisasi" className="absolute inset-x-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg bg-white p-1 shadow-raised ring-1 ring-slate-200">
+        <ul id={listId} role="listbox" aria-label="Anggota business unit" className="absolute inset-x-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg bg-white p-1 shadow-raised ring-1 ring-slate-200">
           {options.isFetching && rows.length === 0 && (
             <li className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500">
               <Loader2 className="size-4 animate-spin" aria-hidden />

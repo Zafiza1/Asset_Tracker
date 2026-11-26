@@ -165,7 +165,7 @@ function OrganizationsCard({ user, canGrant }: { user: User; canGrant: boolean }
   const open = () => (mutation.reset(), setOrganizationId(''), setRoleIds([]), setAdding(true))
 
   return (
-    <Card title="Akses organisasi" actions={canGrant && <Button variant="secondary" size="sm" onClick={open}>Undang ke organisasi lain</Button>}>
+    <Card title="Akses business unit" actions={canGrant && <Button variant="secondary" size="sm" onClick={open}>Undang ke business unit lain</Button>}>
       <div className="p-4 text-sm">
         {invited && (
           <div className="mb-3">
@@ -183,7 +183,7 @@ function OrganizationsCard({ user, canGrant }: { user: User; canGrant: boolean }
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-slate-800">{org.name}</span>
                   <span className="text-xs text-slate-500">{org.code}</span>
-                  {org.is_current && <Badge tone="blue">Organisasi aktif</Badge>}
+                  {org.is_current && <Badge tone="blue">Business Unit aktif</Badge>}
                   <StatusBadge status={org.status}>{userStatusLabel[org.status]}</StatusBadge>
                 </div>
                 <p className="text-xs text-slate-500">{org.roles.length ? org.roles.map((r) => r.name).join(', ') : 'Belum memiliki role.'}</p>
@@ -191,12 +191,12 @@ function OrganizationsCard({ user, canGrant }: { user: User; canGrant: boolean }
             ))}
           </ul>
         )}
-        <p className="mt-2 text-xs text-slate-500">Status, role, dan cakupan data di organisasi lain diubah setelah berpindah ke organisasi tersebut.</p>
+        <p className="mt-2 text-xs text-slate-500">Status, role, dan cakupan data di business unit lain diubah setelah berpindah ke business unit tersebut.</p>
       </div>
       <Modal
         size="full"
         open={adding}
-        title="Undang ke organisasi lain"
+        title="Undang ke business unit lain"
         onClose={() => setAdding(false)}
         footer={
           <>
@@ -217,13 +217,13 @@ function OrganizationsCard({ user, canGrant }: { user: User; canGrant: boolean }
           ) : options.isError ? (
             <Alert tone="error">{errorMessage(options.error)}</Alert>
           ) : available.length === 0 ? (
-            <p className="text-sm text-slate-600">Pengguna sudah memiliki akses ke semua organisasi yang Anda kelola.</p>
+            <p className="text-sm text-slate-600">Pengguna sudah memiliki akses ke semua business unit yang Anda kelola.</p>
           ) : (
             <>
-              <Field label="Organisasi" required>
+              <Field label="Business Unit" required>
                 {(p) => (
                   <Select {...p} value={organizationId} onChange={(e) => (setOrganizationId(e.target.value), setRoleIds([]))}>
-                    <option value="">— Pilih organisasi —</option>
+                    <option value="">— Pilih business unit —</option>
                     {available.map((o) => (
                       <option key={o.id} value={o.id}>
                         {o.name} ({o.code})

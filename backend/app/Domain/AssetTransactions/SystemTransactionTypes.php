@@ -16,12 +16,12 @@ final class SystemTransactionTypes
 {
     /** system_type => [description, locks_assets, closes]. A NOTE never holds its assets (D-29). */
     public const TYPES = [
-        TransactionType::TRANSFER => ['Memindah aset ke lokasi lain dalam organisasi.', true, null],
+        TransactionType::TRANSFER => ['Memindah aset ke lokasi lain dalam business unit.', true, null],
         TransactionType::STATUS_CHANGE => ['Mengubah status aset.', true, null],
         TransactionType::LOAN => ['Meminjamkan aset kepada seseorang dengan rencana tanggal kembali.', true, null],
         TransactionType::RETURN => ['Mencatat aset pinjaman yang sudah kembali.', true, TransactionType::LOAN],
         TransactionType::NOTE => ['Mencatat aktivitas tanpa mengubah aset.', false, null],
-        TransactionType::OUTGOING => ['Aset keluar organisasi, sementara atau permanen.', true, null],
+        TransactionType::OUTGOING => ['Aset keluar business unit, sementara atau permanen.', true, null],
         TransactionType::INCOMING => ['Aset yang keluar sementara masuk kembali.', true, TransactionType::OUTGOING],
     ];
 

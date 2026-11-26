@@ -39,7 +39,7 @@ const SessionContext = createContext<Session | null>(null)
 /** The backend asks to choose when the account belongs to several organizations. */
 export class OrganizationChoiceRequired extends Error {
   constructor(public readonly organizations: Organization[]) {
-    super('Pilih organisasi terlebih dahulu.')
+    super('Pilih business unit terlebih dahulu.')
   }
 }
 

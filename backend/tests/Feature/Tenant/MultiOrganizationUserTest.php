@@ -96,7 +96,7 @@ class MultiOrganizationUserTest extends TestCase
         ]));
 
         $this->assertErrorCode($response, 422, 'INVALID_ROLE');
-        $this->assertStringStartsWith('Organisasi BETA:', $response->json('error.message'));
+        $this->assertStringStartsWith('Business Unit BETA:', $response->json('error.message'));
         $this->assertFalse(OrganizationInvitation::query()->where('email', 'sari@grup.test')->exists());
         $this->assertFalse(AuditLog::query()->where('action', 'invitation.created')->exists());
         // Emails go out only after commit, so the rolled-back ALPHA invitation sent nothing.

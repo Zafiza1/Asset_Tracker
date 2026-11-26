@@ -9,6 +9,8 @@ use App\Domain\Identity\Models\OrganizationMember;
 use App\Domain\Identity\Models\User;
 use App\Domain\Identity\Services\OrganizationAccess;
 use App\Domain\Licensing\Models\LicenseCode;
+use App\Domain\Organization\Models\Department;
+use App\Domain\Organization\Models\Employee;
 use App\Domain\Organization\Models\Location;
 use App\Domain\Organization\Models\Organization;
 use Illuminate\Database\QueryException;
@@ -230,6 +232,37 @@ class InvitationAcceptanceTest extends TestCase
         $unknown = $this->postJson('/api/auth/invitation/inspect', ['token' => hash('sha256', 'x')]);
         $this->assertErrorCode($unknown, 404, 'INVITATION_INVALID');
         $this->assertSame($unknown->json('error.message'), $this->postJson('/api/auth/invitation/inspect', ['token' => 'tebakan'])->json('error.message'));
+    }
+
+    public function test_an_invitation_for_an_employee_takes_their_name_code_and_division(): void
+    {
+        $division = (new Department)->forceFill(['organization_id' => $this->alpha->id, 'code' => 'GUDANG', 'name' => 'Petugas Gudang']);
+        $division->save();
+        $employee = (new Employee)->forceFill(['organization_id' => $this->alpha->id, 'code' => 'SIG-0010', 'name' => 'Supriyadi', 'department_id' => $division->id]);
+        $employee->save();
+        $other = (new Employee)->forceFill(['organization_id' => $this->alpha->id, 'code' => 'SIG-0011', 'name' => 'Sutrisno', 'department_id' => $division->id]);
+        $other->save();
+
+        $this->loginAs($this->admin);
+        $this->assertEqualsCanonicalizing(['Supriyadi', 'Sutrisno'], array_column($this->getJson('/api/invitations/employee-options')->assertOk()->json('data'), 'name'));
+        $this->assertSame(['Sutrisno'], array_column($this->getJson('/api/invitations/employee-options?search=0011')->json('data'), 'name'));
+
+        $token = $this->invite('supri@luar.test', profile: ['employee_id' => $employee->id, 'job_title' => 'Diabaikan']);
+        $invitation = OrganizationInvitation::query()->where('email', 'supri@luar.test')->sole();
+        $this->assertSame(['SIG-0010', 'Petugas Gudang'], [$invitation->employee_number, $invitation->job_title]);
+        // Invited once: no longer offered.
+        $this->assertSame(['Sutrisno'], array_column($this->getJson('/api/invitations/employee-options')->json('data'), 'name'));
+
+        $this->beGuest();
+        $this->postJson('/api/auth/invitation/inspect', ['token' => $token])->assertOk()->assertJsonPath('data.name', 'Supriyadi');
+        // The name comes from the employee, whatever is typed.
+        $this->postJson('/api/auth/invitation/register', [...$this->signUp($token), 'name' => null])->assertCreated();
+        $this->assertSame('Supriyadi', User::query()->where('email', 'supri@luar.test')->value('name'));
+
+        // A member already has an account: inviting the employee again is refused.
+        $this->loginAs($this->admin);
+        $response = $this->postJson('/api/invitations', [...$this->payload('lagi@luar.test', 'SUPERVISOR'), 'scopes' => [['scope_type' => 'organization']], 'employee_id' => $employee->id]);
+        $this->assertErrorCode($response, 422, 'VALIDATION_FAILED');
     }
 
     public function test_new_address_signs_up_through_the_invitation_and_joins(): void

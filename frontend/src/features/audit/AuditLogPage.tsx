@@ -99,7 +99,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
     ...(applied.action ? [{ key: 'action', label: `Aktivitas: ${auditActionLabel(applied.action)}`, clear: () => update({ action: '', page: '' }) }] : []),
     ...(applied.from ? [{ key: 'from', label: `Dari ${formatDate(applied.from)}`, clear: () => update({ from: '', page: '' }) }] : []),
     ...(applied.to ? [{ key: 'to', label: `Sampai ${formatDate(applied.to)}`, clear: () => update({ to: '', page: '' }) }] : []),
-    ...(applied.organization_id ? [{ key: 'organization', label: 'Satu organisasi', clear: () => update({ organization_id: '', page: '' }) }] : []),
+    ...(applied.organization_id ? [{ key: 'organization', label: 'Satu business unit', clear: () => update({ organization_id: '', page: '' }) }] : []),
   ]
 
   const columns: Column<AuditLog>[] = [
@@ -163,7 +163,7 @@ export function AuditLogPage({ endpoint, title }: { endpoint: string; title: str
 
   return (
     <>
-      <PageHeader title={title} description="Riwayat aktivitas di organisasi, terbaru di atas." />
+      <PageHeader title={title} description="Riwayat aktivitas di business unit, terbaru di atas." />
       <Card>
         <FilterPanel>
           <SearchForm

@@ -57,7 +57,7 @@ final class OrganizationProvisioner
             throw ApiException::forbidden();
         }
         if ($admin instanceof User && ! $admin->isTenantUser()) {
-            throw ApiException::unprocessable('INVALID_ADMIN', 'Akun platform tidak dapat menjadi anggota organisasi.');
+            throw ApiException::unprocessable('INVALID_ADMIN', 'Akun platform tidak dapat menjadi anggota business unit.');
         }
 
         return DB::transaction(function () use ($organization, $admin, $adminMustChangePassword, $standardCategories) {

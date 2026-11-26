@@ -80,7 +80,7 @@ final class SystemWidgets
             ],
             'active_assets' => [
                 'name' => 'Aset Aktif',
-                'description' => 'Aset sedang dipakai: digunakan sendiri, dipinjam, atau di luar organisasi sementara.',
+                'description' => 'Aset sedang dipakai: digunakan sendiri, dipinjam, atau di luar business unit sementara.',
                 'component_type' => 'statistic',
                 'data_sources' => ['assets'],
                 'permission' => 'asset.view',
@@ -98,7 +98,7 @@ final class SystemWidgets
             ],
             'total_value' => [
                 'name' => 'Nilai Perolehan',
-                'description' => 'Jumlah harga perolehan aset, dalam mata uang organisasi.',
+                'description' => 'Jumlah harga perolehan aset, dalam mata uang business unit.',
                 'component_type' => 'statistic',
                 'data_sources' => ['assets'],
                 'permission' => 'asset.view',
@@ -116,7 +116,7 @@ final class SystemWidgets
             ],
             'assets_off_site' => [
                 'name' => 'Keluar Sementara',
-                'description' => 'Aset di luar organisasi yang belum kembali.',
+                'description' => 'Aset di luar business unit yang belum kembali.',
                 'component_type' => 'statistic',
                 'data_sources' => ['assets'],
                 'permission' => 'asset.view',
@@ -291,7 +291,7 @@ final class SystemWidgets
             ],
             'transactions_monthly' => [
                 'name' => 'Transaksi per Bulan per Jenis',
-                'description' => 'Jumlah transaksi per bulan untuk setiap jenis, termasuk jenis buatan organisasi.',
+                'description' => 'Jumlah transaksi per bulan untuk setiap jenis, termasuk jenis buatan business unit.',
                 'component_type' => 'chart',
                 'data_sources' => ['transactions'],
                 'permission' => 'transaction.view',
@@ -452,8 +452,8 @@ final class SystemWidgets
                 'layout' => $half,
             ],
             'custom_transactions' => [
-                'name' => 'Transaksi Jenis Organisasi',
-                'description' => 'Transaksi jenis buatan organisasi beserta nilai field kustomnya.',
+                'name' => 'Transaksi Jenis Business Unit',
+                'description' => 'Transaksi jenis buatan business unit beserta nilai field kustomnya.',
                 'component_type' => 'table',
                 'data_sources' => ['transactions'],
                 'permission' => 'transaction.view',

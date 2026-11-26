@@ -35,7 +35,7 @@ export function OrganizationSwitcher() {
     try {
       await switchOrganization(id)
       const next = profile.organizations.find((o) => o.id === id)
-      toast.info('Organisasi aktif diganti', next ? `Anda sekarang bekerja di ${next.name}.` : undefined)
+      toast.info('Business Unit aktif diganti', next ? `Anda sekarang bekerja di ${next.name}.` : undefined)
       navigate('/', { replace: true })
     } finally {
       setPending(false)
@@ -53,15 +53,15 @@ export function OrganizationSwitcher() {
         className="flex max-w-full items-center gap-2 rounded-lg px-2 py-1 text-left transition-colors hover:bg-slate-100 disabled:opacity-60"
       >
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold text-slate-900">{active?.name ?? 'Pilih organisasi'}</span>
+          <span className="block truncate text-sm font-semibold text-slate-900">{active?.name ?? 'Pilih business unit'}</span>
           <span className="block truncate text-xs text-slate-500">{active?.code}</span>
         </span>
         <ChevronsUpDown className="size-4 shrink-0 text-slate-400" aria-hidden />
       </button>
       {open && (
         <div className="absolute left-0 z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] animate-fade-in rounded-lg bg-white py-1 shadow-overlay ring-1 ring-slate-900/10">
-          <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Organisasi Anda</p>
-          <ul role="listbox" aria-label="Organisasi Anda" className="max-h-72 overflow-y-auto overscroll-contain">
+          <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Business Unit Anda</p>
+          <ul role="listbox" aria-label="Business Unit Anda" className="max-h-72 overflow-y-auto overscroll-contain">
             {profile.organizations.map((o) => (
               <li key={o.id} role="option" aria-selected={o.id === active?.id}>
                 <button type="button" onClick={() => void choose(o.id)} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50">
@@ -77,7 +77,7 @@ export function OrganizationSwitcher() {
           <div className="mt-1 border-t border-slate-100 pt-1">
             <Link to="/organisasi/baru" onClick={() => setOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-slate-50">
               <Plus className="size-4" aria-hidden />
-              Buat organisasi baru
+              Buat business unit baru
             </Link>
           </div>
         </div>

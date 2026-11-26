@@ -152,7 +152,7 @@ class AssetController extends Controller
     public function lookup(Request $request): AssetResource
     {
         if (! OrganizationModule::isEnabled(OrganizationModule::BARCODE)) {
-            throw ApiException::forbidden('MODULE_DISABLED', 'Modul Barcode belum diaktifkan oleh administrator organisasi.');
+            throw ApiException::forbidden('MODULE_DISABLED', 'Modul Barcode belum diaktifkan oleh administrator business unit.');
         }
         $code = trim($request->validate(['code' => ['required', 'string', 'max:200']])['code']);
         $query = $this->scope->apply(Asset::query());
@@ -307,7 +307,7 @@ class AssetController extends Controller
             config('edition.locations')
                 ? 'Kategori dan lokasi harus sudah dibuat sebelum mengimpor aset. Nomor aset dibuat otomatis oleh sistem.'
                 : 'Isi semua kolom bertanda (Tabung). No Reference dibuat otomatis oleh sistem.',
-            ...(config('edition.custodians') ? ['Penanggung jawab diisi dengan email anggota aktif organisasi. Departemen dan penanggung jawab boleh dikosongkan.'] : []),
+            ...(config('edition.custodians') ? ['Penanggung jawab diisi dengan email anggota aktif business unit. Departemen dan penanggung jawab boleh dikosongkan.'] : []),
         ]);
     }
 
@@ -349,7 +349,7 @@ class AssetController extends Controller
             'Kategori' => SpreadsheetImport::codeList(TenantAssetCategory::query()),
             ...(config('edition.custodians') ? ['Departemen' => SpreadsheetImport::codeList(Department::query())] : []),
         ], [
-            ...(config('edition.custodians') ? ['Penanggung jawab diisi dengan email anggota aktif organisasi; kosongkan untuk melepas penanggung jawab.'] : []),
+            ...(config('edition.custodians') ? ['Penanggung jawab diisi dengan email anggota aktif business unit; kosongkan untuk melepas penanggung jawab.'] : []),
             'Lokasi dan status tidak dapat diubah di sini; gunakan transaksi (mutasi, peminjaman, perbaikan). Atribut kategori diubah dari halaman detail aset.',
             'Kolom "Terakhir Diubah" dipakai untuk memeriksa perubahan: jika aset diubah orang lain setelah file ini diunduh, baris aset tersebut ditolak. Unduh ulang file untuk mendapatkan data terbaru.',
         ]);
@@ -510,7 +510,7 @@ class AssetController extends Controller
         return [
             // Optional: files downloaded before F-09 lack them and still upload.
             new ImportColumn('department_code', 'Departemen', hint: 'Pilih departemen dari daftar. Boleh dikosongkan.', list: 'Departemen', width: 30, optional: true),
-            new ImportColumn('custodian_email', 'Penanggung Jawab (email)', hint: 'Email anggota aktif organisasi yang memegang aset. Boleh dikosongkan.', width: 30, optional: true),
+            new ImportColumn('custodian_email', 'Penanggung Jawab (email)', hint: 'Email anggota aktif business unit yang memegang aset. Boleh dikosongkan.', width: 30, optional: true),
         ];
     }
 
@@ -538,7 +538,7 @@ class AssetController extends Controller
             ->whereRaw('lower(users.email) = ?', [mb_strtolower(trim($email))])
             ->value('organization_members.user_id');
         if ($email !== null && $custodian === null) {
-            throw ApiException::unprocessable('INVALID_REFERENCE', "Anggota dengan email '{$email}' tidak ditemukan di organisasi ini.");
+            throw ApiException::unprocessable('INVALID_REFERENCE', "Anggota dengan email '{$email}' tidak ditemukan di business unit ini.");
         }
 
         return [...$result, 'custodian_user_id' => $custodian];

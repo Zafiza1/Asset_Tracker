@@ -21,18 +21,18 @@ const type = (label: RegExp, value: string) => fireEvent.change(screen.getByLabe
 describe('RegisterPage', () => {
   it('suggests the organization code from its name until the code is edited', () => {
     renderPage(vi.fn())
-    type(/Nama organisasi/, 'PT Maju Jaya')
-    expect(screen.getByLabelText(/Kode organisasi/)).toHaveValue('PTMAJUJAYA')
+    type(/Nama business unit/, 'PT Maju Jaya')
+    expect(screen.getByLabelText(/Kode business unit/)).toHaveValue('PTMAJUJAYA')
 
-    type(/Kode organisasi/, 'MAJU')
-    type(/Nama organisasi/, 'PT Maju Jaya Abadi')
-    expect(screen.getByLabelText(/Kode organisasi/)).toHaveValue('MAJU')
+    type(/Kode business unit/, 'MAJU')
+    type(/Nama business unit/, 'PT Maju Jaya Abadi')
+    expect(screen.getByLabelText(/Kode business unit/)).toHaveValue('MAJU')
   })
 
   it('validates the password before submitting', async () => {
     const signUp = vi.fn()
     renderPage(signUp)
-    type(/Nama organisasi/, 'PT Maju Jaya')
+    type(/Nama business unit/, 'PT Maju Jaya')
     type(/Nama lengkap/, 'Rina')
     type(/^Email/, 'rina@maju.test')
     type(/^Password/, 'Rahasia-Kuat-2026')
@@ -46,8 +46,8 @@ describe('RegisterPage', () => {
   it('submits the organization and administrator account', async () => {
     const signUp = vi.fn(async () => ({}) as Profile)
     renderPage(signUp)
-    type(/Nama organisasi/, 'PT Maju Jaya')
-    type(/Kode organisasi/, 'MAJU')
+    type(/Nama business unit/, 'PT Maju Jaya')
+    type(/Kode business unit/, 'MAJU')
     type(/Nama lengkap/, 'Rina')
     type(/^Email/, 'rina@maju.test')
     type(/^Password/, 'Rahasia-Kuat-2026')

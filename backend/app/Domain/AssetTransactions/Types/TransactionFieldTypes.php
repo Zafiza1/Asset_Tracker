@@ -282,7 +282,7 @@ final class TransactionFieldTypes
             $ok = is_string($value) && OrganizationMember::query()->where('organization_id', $this->tenancy->organizationId())
                 ->where('user_id', $value)->where('status', User::STATUS_ACTIVE)->exists();
             if (! $ok) {
-                $fail(':attribute harus anggota aktif organisasi.');
+                $fail(':attribute harus anggota aktif business unit.');
             }
         };
     }

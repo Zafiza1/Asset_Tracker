@@ -37,7 +37,7 @@ final class OrgAdminGuard
             ->count('users.id');
 
         if ($count < 1) {
-            throw ApiException::conflict('LAST_ORG_ADMIN', 'Organisasi harus memiliki minimal satu Super Admin yang aktif.');
+            throw ApiException::conflict('LAST_ORG_ADMIN', 'Business Unit harus memiliki minimal satu Super Admin yang aktif.');
         }
     }
 }

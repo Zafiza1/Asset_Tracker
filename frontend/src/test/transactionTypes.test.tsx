@@ -134,7 +134,7 @@ describe('Jenis Transaksi page', () => {
     const { wrap } = setup(['transaction.view'], () => ({ data: [loan] }))
     wrap(<TransactionTypesPage />)
     fireEvent.change(await screen.findByLabelText('Filter jenis'), { target: { value: 'organization' } })
-    expect(await screen.findByText('Belum ada jenis buatan organisasi')).toBeInTheDocument()
+    expect(await screen.findByText('Belum ada jenis buatan business unit')).toBeInTheDocument()
     expect(screen.getByText(/1 jenis sistem sudah tersedia/)).toBeInTheDocument()
   })
 

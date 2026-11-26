@@ -138,7 +138,7 @@ final class LicenseCodeService
 
             $member = OrganizationMember::query()->where('organization_id', $orgId)->where('user_id', $userId)->first();
             if (! $member) {
-                throw ApiException::unprocessable('USER_NOT_MEMBER', 'Pengguna ini bukan anggota organisasi.');
+                throw ApiException::unprocessable('USER_NOT_MEMBER', 'Pengguna ini bukan anggota business unit.');
             }
             if ($member->status === User::STATUS_DEACTIVATED) {
                 throw ApiException::conflict('USER_DEACTIVATED', 'Pengguna ini sudah dinonaktifkan. Aktifkan kembali sebelum menugaskan kode lisensi.');
@@ -240,7 +240,7 @@ final class LicenseCodeService
             ->first();
 
         if (! $licenseCode) {
-            throw ApiException::notFound('CODE_NOT_FOUND', 'Kode lisensi tidak ditemukan untuk organisasi ini.');
+            throw ApiException::notFound('CODE_NOT_FOUND', 'Kode lisensi tidak ditemukan untuk business unit ini.');
         }
 
         if (! $licenseCode->isAvailable()) {

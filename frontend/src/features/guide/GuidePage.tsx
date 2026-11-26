@@ -159,7 +159,7 @@ function RolesSection() {
     <section id="peran" className="scroll-mt-24">
       <Card title="Siapa mengerjakan apa">
         <div className="space-y-3 p-5">
-          <p className="text-sm text-slate-600">Menu yang tampil di sidebar mengikuti role Anda. Tabel ini menunjukkan hak role bawaan; organisasi dapat menguranginya atau membuat role sendiri.</p>
+          <p className="text-sm text-slate-600">Menu yang tampil di sidebar mengikuti role Anda. Tabel ini menunjukkan hak role bawaan; business unit dapat menguranginya atau membuat role sendiri.</p>
           <div className="relative overflow-x-auto overscroll-x-contain rounded-lg ring-1 ring-slate-200">
             <table className="w-full min-w-[34rem] text-sm">
               <thead className="bg-slate-50 text-left text-slate-700">
@@ -183,7 +183,7 @@ function RolesSection() {
             </table>
           </div>
           <p className="text-sm text-slate-600">
-            Supir dan kernet memakai role <strong className="font-semibold text-slate-800">Supir / Kernet</strong>: hanya scan muat/bongkar dan lapor perjalanan di mobile. <strong className="font-semibold text-slate-800">Super Admin</strong> adalah orang yang pertama kali mendaftarkan organisasi. Role buatan sendiri tidak dapat menyetujui pengajuan, sehingga perubahannya selalu melewati persetujuan.
+            Supir dan kernet memakai role <strong className="font-semibold text-slate-800">Supir / Kernet</strong>: hanya scan muat/bongkar dan lapor perjalanan di mobile. <strong className="font-semibold text-slate-800">Super Admin</strong> adalah orang yang pertama kali mendaftarkan business unit. Role buatan sendiri tidak dapat menyetujui pengajuan, sehingga perubahannya selalu melewati persetujuan.
           </p>
         </div>
       </Card>
@@ -193,15 +193,15 @@ function RolesSection() {
 
 function Step1() {
   return (
-    <StepSection n={1} goal="Punya akun dan berada di organisasi yang benar." next={[
+    <StepSection n={1} goal="Punya akun dan berada di business unit yang benar." next={[
       { when: 'Anda Super Admin atau Supervisor', n: 2 },
       { when: 'Anda diberi tugas mengelola data aset', n: 3 },
     ]}>
       <div className="grid gap-3 md:grid-cols-3">
-        <PathCard title="Mendaftarkan organisasi baru">
+        <PathCard title="Mendaftarkan business unit baru">
           <NumberedList items={[
-            <>Di halaman masuk, pilih <Label>Daftarkan organisasi</Label>.</>,
-            'Isi data organisasi dan akun Anda.',
+            <>Di halaman masuk, pilih <Label>Daftarkan business unit</Label>.</>,
+            'Isi data business unit dan akun Anda.',
             <>Anda otomatis menjadi <Label>Super Admin</Label>.</>,
           ]} />
         </PathCard>
@@ -215,12 +215,12 @@ function Step1() {
         <PathCard title="Sudah punya akun">
           <NumberedList items={[
             'Masuk dengan email dan password.',
-            'Bila bergabung di beberapa organisasi, pilih salah satu.',
+            'Bila bergabung di beberapa business unit, pilih salah satu.',
             'Bila memakai password sementara, ganti dahulu.',
           ]} />
         </PathCard>
       </div>
-      <Tip>Nama organisasi yang aktif tampil di bagian atas halaman. Klik nama itu untuk berpindah antara PT SIG dan PT CDO; datanya terpisah, dan Anda hanya melihat organisasi yang memberi Anda akses. Password dapat diganti lewat menu pengguna di pojok kanan atas, pilih <MenuLink to="/ubah-password">Ubah password</MenuLink>.</Tip>
+      <Tip>Nama business unit yang aktif tampil di bagian atas halaman. Klik nama itu untuk berpindah antara PT SIG dan PT CDO; datanya terpisah, dan Anda hanya melihat business unit yang memberi Anda akses. Password dapat diganti lewat menu pengguna di pojok kanan atas, pilih <MenuLink to="/ubah-password">Ubah password</MenuLink>.</Tip>
     </StepSection>
   )
 }
@@ -230,13 +230,13 @@ function Step2() {
     <StepSection n={2} goal="Setiap anggota tim mendapat akun dengan hak akses yang sesuai tugasnya." next={[{ n: 3 }]}>
       <NumberedList items={[
         <>Super Admin membuka <MenuLink to="/pengguna/baru" permission="user.create">Pengguna → Undang pengguna</MenuLink>. Hanya Super Admin yang dapat mengundang.</>,
-        'Isi email, lalu pilih organisasi dan role-nya. Satu pengguna bisa diberi akses ke PT SIG, PT CDO, atau keduanya.',
+        'Isi email, lalu pilih business unit dan role-nya. Satu pengguna bisa diberi akses ke PT SIG, PT CDO, atau keduanya.',
         <>Klik <Label>Kirim undangan</Label>. Pengguna baru mendapat akses setelah menerima undangan itu.</>,
         <>Pantau statusnya di tab <MenuLink to="/pengguna/undangan" permission="user.view">Undangan</MenuLink>. Bila kedaluwarsa, Super Admin memilih <Label>Kirim ulang</Label>; bila keliru, memilih <Label>Cabut</Label>.</>,
         <>Setelah pengguna bergabung, Super Admin atau Supervisor membuka <MenuLink to="/pengguna" permission="user.view">detail penggunanya</MenuLink> untuk mengubah role atau mempersempit <Label>Cakupan data</Label>.</>,
       ]} />
       <Tip>
-        <strong className="font-semibold">Cakupan data</strong> menentukan aset mana yang terlihat. Pengguna yang diundang awalnya mencakup seluruh organisasi. Bila dibatasi ke satu divisi, pengguna hanya melihat aset divisi itu.
+        <strong className="font-semibold">Cakupan data</strong> menentukan aset mana yang terlihat. Pengguna yang diundang awalnya mencakup seluruh business unit. Bila dibatasi ke satu divisi, pengguna hanya melihat aset divisi itu.
       </Tip>
     </StepSection>
   )
@@ -263,7 +263,7 @@ function Step4() {
     ]}>
       <NumberedList items={[
         <>Buka <MenuLink to="/aset" permission="asset.view">Data Aset</MenuLink>, lalu klik <Label>Tambah aset</Label> → <Label>Isi formulir</Label>.</>,
-        <>Pilih kategori. Untuk <Label>Aset Tabung</Label>, isi <Label>Nama Produk</Label>, <Label>No Manufaktur</Label> (harus unik), jenis dan grade gas, volume, dan isian lain bertanda bintang. Business Unit terisi otomatis sesuai organisasi, dan status diatur sistem dari transaksi tabung.</>,
+        <>Pilih kategori. Untuk <Label>Aset Tabung</Label>, isi <Label>Nama Produk</Label>, <Label>No Manufaktur</Label> (harus unik), jenis dan grade gas, volume, dan isian lain bertanda bintang. Business Unit terisi otomatis sesuai business unit, dan status diatur sistem dari transaksi tabung.</>,
         <>Untuk <Label>Aset Kendaraan</Label>, isi <Label>Nomor Polisi</Label>; itu yang tampil saat memilih kendaraan pengiriman.</>,
         <>Klik <Label>Simpan</Label>. <Label>No Reference</Label> dibuat oleh sistem, dan riwayat <Label>Penambahan aset</Label> tercatat dengan sendirinya.</>,
       ]} />
@@ -421,7 +421,7 @@ function Step8() {
           <p>Susun sendiri format laporan dan data yang ingin dilaporkan: seret elemen ke kertas, pilih field, lalu <Label>Terbitkan</Label>. Template yang sudah terbit dapat dijalankan dan diunduh sebagai PDF atau Excel.</p>
         </PathCard>
         <PathCard title={<MenuLink to="/audit" permission="audit.view">Audit Trail</MenuLink>}>
-          <p>Jejak aktivitas di organisasi: siapa melakukan apa dan kapan. Gunakan saat perlu menelusuri suatu perubahan.</p>
+          <p>Jejak aktivitas di business unit: siapa melakukan apa dan kapan. Gunakan saat perlu menelusuri suatu perubahan.</p>
         </PathCard>
       </div>
       <Tip>Aset yang tidak dipakai lagi cukup dinonaktifkan lewat tombol <Label>Nonaktifkan</Label> di detail aset. Aset tidak terhapus: nomor dan riwayatnya tetap tersimpan, dan aset dapat diaktifkan kembali.</Tip>
@@ -430,7 +430,7 @@ function Step8() {
 }
 
 const PROBLEMS: { q: string; a: ReactNode }[] = [
-  { q: 'Menu yang saya cari tidak ada, atau muncul "Akses ditolak".', a: 'Role Anda belum memiliki izin untuk menu itu. Hubungi Super Admin atau Supervisor organisasi Anda.' },
+  { q: 'Menu yang saya cari tidak ada, atau muncul "Akses ditolak".', a: 'Role Anda belum memiliki izin untuk menu itu. Hubungi Super Admin atau Supervisor business unit Anda.' },
   { q: 'Perubahan yang saya simpan belum terlihat.', a: <>Kemungkinan masih menunggu persetujuan. Periksa statusnya di menu <MenuLink to="/notifikasi">Pengajuan Saya</MenuLink>.</> },
   { q: 'Saya tidak menemukan aset tertentu.', a: 'Aset itu mungkin berada di luar cakupan data Anda, atau sudah nonaktif. Untuk melihat aset nonaktif, ubah filter di Data Aset menjadi "Aset nonaktif".' },
   { q: 'Tabung tidak muncul saat membuat transaksi.', a: 'Untuk transaksi keluar, tabung harus berstatus Di Gudang dan tidak sedang dipakai transaksi lain. Untuk transaksi masuk, tabung harus tercatat berada di customer itu.' },

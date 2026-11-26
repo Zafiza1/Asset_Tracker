@@ -60,7 +60,7 @@ export const transactionTypeLabel: Record<TransactionType, string> = {
   restore: 'Pengaktifan kembali',
   outgoing: 'Transaksi keluar',
   incoming: 'Transaksi masuk',
-  custom: 'Jenis organisasi',
+  custom: 'Jenis business unit',
 }
 
 /** Outgoing reasons per nature; mirrors App\Domain\AssetTransactions\OutgoingReason::REASONS. */
@@ -109,8 +109,8 @@ export interface TransactionTarget {
  */
 export function ineligibleReason(asset: Pick<Asset, 'status' | 'location_id'>, type: ManualTransactionType, target: TransactionTarget = {}): string | null {
   if (!allowedTypes(asset.status).includes(type)) {
-    if (type === 'outgoing' && asset.status === 'off_site') return 'Sudah di luar organisasi'
-    if (type === 'incoming') return 'Tidak sedang di luar organisasi'
+    if (type === 'outgoing' && asset.status === 'off_site') return 'Sudah di luar business unit'
+    if (type === 'incoming') return 'Tidak sedang di luar business unit'
     return `Status ${assetStatusLabel[asset.status]}`
   }
   if (type === 'transfer' && target.to_location_id && target.to_location_id === asset.location_id) return 'Sudah di lokasi tujuan'

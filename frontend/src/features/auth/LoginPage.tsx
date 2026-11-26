@@ -39,12 +39,12 @@ export function LoginPage() {
 
   return (
     <AuthShell
-      subtitle="Masuk untuk mengelola aset organisasi Anda."
+      subtitle="Masuk untuk mengelola aset business unit Anda."
       footer={
         <>
           Belum punya akun?{' '}
           <Link to="/daftar" className="font-medium text-brand-700 hover:underline">
-            Daftarkan organisasi
+            Daftarkan business unit
           </Link>
         </>
       }

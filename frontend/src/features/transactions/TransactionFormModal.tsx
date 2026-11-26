@@ -277,7 +277,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, initialCu
                 </option>
               ))}
               {(activeTypes.data?.data.length ?? 0) > 0 && (
-                <optgroup label="Jenis organisasi">
+                <optgroup label="Jenis business unit">
                   {activeTypes.data!.data.map((t) => (
                     <option key={t.id} value={`custom:${t.id}`}>
                       {t.name}
@@ -386,7 +386,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, initialCu
 
         {type === 'outgoing' && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Sifat" required error={err('outgoing_nature')} hint={values.outgoing_nature === 'permanent' ? 'Status aset menjadi Dihapuskan.' : 'Aset akan kembali; statusnya Di Luar Organisasi.'}>
+            <Field label="Sifat" required error={err('outgoing_nature')} hint={values.outgoing_nature === 'permanent' ? 'Status aset menjadi Dihapuskan.' : 'Aset akan kembali; statusnya Di Luar Business Unit.'}>
               {(p) => (
                 <Select
                   {...p}
@@ -414,7 +414,7 @@ export function TransactionFormModal({ asset: fixedAsset, initialType, initialCu
                 </Select>
               )}
             </Field>
-            <Field label="Nama pihak luar" required error={err('counterparty_name')} hint="Penerima di luar organisasi.">
+            <Field label="Nama pihak luar" required error={err('counterparty_name')} hint="Penerima di luar business unit.">
               {(p) => <Input {...p} value={values.counterparty_name ?? ''} onChange={set('counterparty_name')} maxLength={150} placeholder="mis. CV Sinar Servis" />}
             </Field>
             <Field label="Instansi" error={err('counterparty_org')}>

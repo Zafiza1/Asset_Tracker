@@ -107,6 +107,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'license'])->group(function () {
     // Adding users = inviting them; access starts when the owner of the address accepts.
     Route::get('/invitations', [InvitationController::class, 'index'])->middleware('permission:user.view');
     Route::post('/invitations', [InvitationController::class, 'store'])->middleware('permission:user.create,role.manage');
+    Route::get('/invitations/employee-options', [InvitationController::class, 'employeeOptions'])->middleware('permission:user.create,role.manage');
     Route::post('/invitations/{invitation}/resend', [InvitationController::class, 'resend'])->middleware('permission:user.create,role.manage');
     Route::post('/invitations/{invitation}/revoke', [InvitationController::class, 'revoke'])->middleware('permission:user.create,role.manage')->withoutMiddleware('license');
 

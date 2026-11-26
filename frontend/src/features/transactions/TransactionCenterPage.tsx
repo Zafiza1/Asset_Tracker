@@ -55,7 +55,7 @@ export function TransactionCenterPage() {
         <ErrorState error={center.error} onRetry={() => center.refetch()} />
       ) : center.data.data.length === 0 ? (
         <Card>
-          <EmptyState icon={Inbox} title="Belum ada transaksi yang dapat Anda lakukan" description="Role Anda belum diberi izin mencatat transaksi. Hubungi Supervisor atau Super Admin organisasi Anda." />
+          <EmptyState icon={Inbox} title="Belum ada transaksi yang dapat Anda lakukan" description="Role Anda belum diberi izin mencatat transaksi. Hubungi Supervisor atau Super Admin business unit Anda." />
         </Card>
       ) : (
         <div className="space-y-6">

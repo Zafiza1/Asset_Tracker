@@ -39,7 +39,7 @@ export function SampleTemplatesModal({ open, onClose, onCreated }: { open: boole
         </>
       }
     >
-      <p className="mb-4 text-sm text-slate-600">Contoh disalin menjadi template draft milik organisasi. Ubah format dan datanya sesuka Anda sebelum diterbitkan.</p>
+      <p className="mb-4 text-sm text-slate-600">Contoh disalin menjadi template draft milik business unit. Ubah format dan datanya sesuka Anda sebelum diterbitkan.</p>
       {samples.isLoading ? (
         <Spinner label="Memuat contoh…" />
       ) : samples.isError ? (

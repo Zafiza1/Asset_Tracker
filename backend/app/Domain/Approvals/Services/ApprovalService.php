@@ -110,7 +110,7 @@ final class ApprovalService
         $requester = $this->tenancy->runAsSystem(fn () => User::query()->find($approval->requested_by));
         $organization = $requester === null ? null : $this->access->find($requester, $approval->organization_id);
         if ($organization === null) {
-            throw ApiException::conflict('REQUESTER_INACTIVE', 'Pengaju sudah tidak aktif di organisasi ini, sehingga pengajuan tidak dapat diterapkan. Tolak pengajuan ini.');
+            throw ApiException::conflict('REQUESTER_INACTIVE', 'Pengaju sudah tidak aktif di business unit ini, sehingga pengajuan tidak dapat diterapkan. Tolak pengajuan ini.');
         }
 
         $approval = DB::transaction(function () use ($approval, $requester, $organization, $note) {

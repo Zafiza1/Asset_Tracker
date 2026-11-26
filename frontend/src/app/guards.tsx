@@ -45,7 +45,7 @@ export function RequireTenantUser({ children }: { children: ReactNode }) {
           </Button>
         }
       >
-        <p>Admin Platform sudah tidak tersedia. Keluar, lalu masuk dengan akun organisasi Anda.</p>
+        <p>Admin Platform sudah tidak tersedia. Keluar, lalu masuk dengan akun business unit Anda.</p>
       </PageMessage>
     )
   }
@@ -85,7 +85,7 @@ export function Forbidden() {
   return (
     <PageMessage icon={ShieldAlert} title="Akses ditolak">
       <p>Anda tidak memiliki izin untuk membuka halaman ini.</p>
-      <p>Bila Anda memerlukannya, minta Admin organisasi menambahkan izin pada role Anda.</p>
+      <p>Bila Anda memerlukannya, minta Admin business unit menambahkan izin pada role Anda.</p>
     </PageMessage>
   )
 }

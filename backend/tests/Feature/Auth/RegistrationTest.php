@@ -55,8 +55,8 @@ class RegistrationTest extends TestCase
 
         $response = $this->postJson('/api/auth/register', [...self::VALID, 'organization_code' => 'alpha', 'email' => $admin->email]);
 
-        $response->assertStatus(422)->assertJsonPath('error.details.fields.organization_code.0', 'Kode organisasi sudah dipakai.');
-        $this->assertSame('Email sudah terdaftar. Silakan masuk, lalu buat organisasi baru dari menu organisasi.', $response->json('error.details.fields.email.0'));
+        $response->assertStatus(422)->assertJsonPath('error.details.fields.organization_code.0', 'Kode business unit sudah dipakai.');
+        $this->assertSame('Email sudah terdaftar. Silakan masuk, lalu buat business unit baru dari menu business unit.', $response->json('error.details.fields.email.0'));
         $this->assertSame(1, Organization::query()->count());
         $this->assertGuest('web');
     }

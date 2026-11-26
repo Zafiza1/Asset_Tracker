@@ -35,13 +35,13 @@ final class RoleTemplates
         return [
             self::SUPER_ADMIN => [
                 'name' => 'Super Admin',
-                'description' => 'Pemilik organisasi dengan akses penuh dan hak beli lisensi.',
+                'description' => 'Pemilik business unit dengan akses penuh dan hak beli lisensi.',
                 'locked' => true,
                 'permissions' => $allTenantPermissions,
             ],
             self::SUPERVISOR => [
                 'name' => 'Supervisor',
-                'description' => 'Akses penuh atas organisasi (kecuali mengundang pengguna dan manajemen lisensi).',
+                'description' => 'Akses penuh atas business unit (kecuali mengundang pengguna dan manajemen lisensi).',
                 'locked' => false,
                 'permissions' => array_values($supervisorPermissions),
             ],
@@ -101,7 +101,7 @@ final class RoleTemplates
         return [
             self::SUPER_ADMIN => [
                 'name' => 'Super Admin',
-                'description' => 'Mengelola platform, organisasi, dan Generic Master.',
+                'description' => 'Mengelola platform, business unit, dan Generic Master.',
                 'permissions' => PermissionCatalog::codes(PermissionCatalog::SCOPE_PLATFORM),
             ],
         ];

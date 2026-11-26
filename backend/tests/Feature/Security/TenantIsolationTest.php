@@ -96,7 +96,7 @@ class TenantIsolationTest extends TestCase
             ->assertCreated();
 
         $this->assertSame('Alpha Baru', $this->orgA->fresh()->name);
-        $this->assertSame('Organisasi BETA', $this->orgB->fresh()->name);
+        $this->assertSame('Business Unit BETA', $this->orgB->fresh()->name);
         $this->assertSame($this->orgA->id, Role::query()->where('code', 'CUSTOM')->sole()->organization_id);
     }
 

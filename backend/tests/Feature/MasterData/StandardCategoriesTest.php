@@ -20,7 +20,7 @@ class StandardCategoriesTest extends TestCase
     public function test_a_new_organization_starts_with_the_standard_categories_and_their_fields(): void
     {
         $organization = $this->tenancy()->runAsSystem(fn () => $this->app->make(OrganizationProvisioner::class)
-            ->provision(['code' => 'BARU', 'name' => 'Organisasi Baru'], null)['organization']);
+            ->provision(['code' => 'BARU', 'name' => 'Business Unit Baru'], null)['organization']);
 
         $this->tenancy()->runAsSystem(function () use ($organization) {
             $categories = TenantAssetCategory::query()->where('organization_id', $organization->id)->get()->keyBy('code');
@@ -94,7 +94,7 @@ class StandardCategoriesTest extends TestCase
 
     public function test_status_labels_match_the_default_choices(): void
     {
-        $this->assertSame(['Aktif', 'Tersedia', 'Dalam Perbaikan', 'Dipinjamkan', 'Di Luar Organisasi', 'Hilang', 'Dihapuskan'], array_values(AssetStatus::LABELS));
+        $this->assertSame(['Aktif', 'Tersedia', 'Dalam Perbaikan', 'Dipinjamkan', 'Di Luar Business Unit', 'Hilang', 'Dihapuskan'], array_values(AssetStatus::LABELS));
     }
 
     public function test_location_is_required_while_the_serial_number_is_optional(): void

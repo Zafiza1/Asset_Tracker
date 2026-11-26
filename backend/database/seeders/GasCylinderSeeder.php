@@ -90,14 +90,14 @@ class GasCylinderSeeder extends Seeder
     private function organization(string $code, array $spec): array
     {
         $main = Organization::query()->where('code', array_key_first(self::ORGANIZATIONS))->first()
-            ?? throw new RuntimeException('Organisasi PTSIGCDO belum ada. Daftarkan PT SIG di web dengan kode itu terlebih dahulu.');
+            ?? throw new RuntimeException('Business Unit PTSIGCDO belum ada. Daftarkan PT SIG di web dengan kode itu terlebih dahulu.');
         $admin = User::query()->whereHas('roles', fn ($q) => $q->where('roles.organization_id', $main->id)->where('roles.code', RoleTemplates::SUPER_ADMIN))->firstOrFail();
 
         $organization = Organization::query()->where('code', $code)->first();
         if ($organization === null) {
             $organization = app(OrganizationProvisioner::class)->provision(['code' => $code, 'name' => $spec['name']], $admin)['organization'];
             app(Licensing::class)->grantTrial($organization, $admin);
-            $this->command?->info("Organisasi {$spec['name']} dibuat; Super Admin PT SIG menjadi Super Admin-nya.");
+            $this->command?->info("Business Unit {$spec['name']} dibuat; Super Admin PT SIG menjadi Super Admin-nya.");
         }
 
         return [$organization->refresh(), $admin];

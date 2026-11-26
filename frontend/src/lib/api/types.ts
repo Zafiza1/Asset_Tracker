@@ -175,6 +175,8 @@ export interface InvitationPreview {
   expires_at: string
   /** The code the invitation already holds; null: the invitee must enter one when signing up. */
   license_code: string | null
+  /** Name of the employee the invitation is for; the sign-up form then does not ask for a name. */
+  name?: string | null
 }
 
 /** A user's membership in one organization (only organizations the viewer may see). */

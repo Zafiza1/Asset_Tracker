@@ -128,7 +128,7 @@ export function TransactionTypesPage() {
     <>
       <PageHeader
         title="Jenis Transaksi"
-        description="Jenis transaksi organisasi beserta field dan alurnya. Alur yang diterbitkan otomatis berlaku untuk setiap transaksi jenis itu."
+        description="Jenis transaksi business unit beserta field dan alurnya. Alur yang diterbitkan otomatis berlaku untuk setiap transaksi jenis itu."
         actions={
           canManage && (
             <ButtonLink to="/transaksi/jenis/baru">
@@ -158,7 +158,7 @@ export function TransactionTypesPage() {
               <>
                 <Select value={kind} onChange={(e) => setKind(e.target.value as Kind)} aria-label="Filter jenis" className="sm:w-48">
                   <option value="">Semua jenis</option>
-                  <option value="organization">Buatan organisasi</option>
+                  <option value="organization">Buatan business unit</option>
                   <option value="system">Sistem</option>
                 </Select>
                 <Select value={status} onChange={(e) => setStatus(e.target.value as TypeStatus | '')} aria-label="Filter status" className="sm:w-40">
@@ -183,7 +183,7 @@ export function TransactionTypesPage() {
           ) : (
             <EmptyState
               icon={Workflow}
-              title="Belum ada jenis buatan organisasi"
+              title="Belum ada jenis buatan business unit"
               description={`${systemCount ? `${systemCount} jenis sistem sudah tersedia. ` : ''}Buat jenis sendiri, mis. Mutasi Cabang atau Kalibrasi, lengkap dengan field dan alurnya.`}
               action={
                 canManage && (
@@ -201,7 +201,7 @@ export function TransactionTypesPage() {
         {rows.length > 0 && (
           <p className="flex items-center gap-1.5 border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
             <Lock className="size-3.5" aria-hidden />
-            Aturan inti tetap berlaku untuk semua jenis: aset yang dipinjam, di luar organisasi, atau nonaktif tidak dapat ditransaksikan sembarangan.
+            Aturan inti tetap berlaku untuk semua jenis: aset yang dipinjam, di luar business unit, atau nonaktif tidak dapat ditransaksikan sembarangan.
           </p>
         )}
       </Card>

@@ -25,11 +25,11 @@ function tokenFromHash(hash: string): string | null {
 /** Why an invitation link cannot be used, by API error code. */
 const closedReasons: Record<string, { title: string; description: string }> = {
   INVITATION_INVALID: { title: 'Tautan undangan tidak valid', description: 'Periksa kembali tautan di email undangan, atau minta administrator mengirim undangan baru.' },
-  INVITATION_EXPIRED: { title: 'Undangan sudah kedaluwarsa', description: 'Minta Admin organisasi untuk mengirim ulang undangan.' },
-  INVITATION_REVOKED: { title: 'Undangan sudah dicabut', description: 'Admin organisasi telah membatalkan undangan ini.' },
-  INVITATION_USED: { title: 'Undangan sudah digunakan', description: 'Undangan ini sudah diterima. Masuk untuk membuka organisasi tersebut.' },
-  INVITATION_UNAVAILABLE: { title: 'Undangan tidak dapat diterima', description: 'Undangan ini tidak berlaku lagi. Minta Admin organisasi mengirim undangan baru.' },
-  INVITATION_CLOSED: { title: 'Undangan tidak dapat diterima', description: 'Undangan ini tidak berlaku lagi. Minta Admin organisasi mengirim undangan baru.' },
+  INVITATION_EXPIRED: { title: 'Undangan sudah kedaluwarsa', description: 'Minta Admin business unit untuk mengirim ulang undangan.' },
+  INVITATION_REVOKED: { title: 'Undangan sudah dicabut', description: 'Admin business unit telah membatalkan undangan ini.' },
+  INVITATION_USED: { title: 'Undangan sudah digunakan', description: 'Undangan ini sudah diterima. Masuk untuk membuka business unit tersebut.' },
+  INVITATION_UNAVAILABLE: { title: 'Undangan tidak dapat diterima', description: 'Undangan ini tidak berlaku lagi. Minta Admin business unit mengirim undangan baru.' },
+  INVITATION_CLOSED: { title: 'Undangan tidak dapat diterima', description: 'Undangan ini tidak berlaku lagi. Minta Admin business unit mengirim undangan baru.' },
 }
 
 /**
@@ -65,7 +65,7 @@ export function InvitationPage() {
   const closed = code ? closedReasons[code] : undefined
 
   return (
-    <AuthShell wide subtitle="Undangan bergabung dengan organisasi.">
+    <AuthShell wide subtitle="Undangan bergabung dengan business unit.">
       {closed ? (
         <ClosedInvitation {...closed} />
       ) : error ? (
@@ -187,7 +187,8 @@ type SignUpValues = z.infer<typeof signUpSchema>
 function SignUpForm({ token, preview, onJoined }: { token: string; preview: InvitationPreview; onJoined: (o: OrganizationSummary) => void }) {
   const { setProfile } = useAuth()
   const [formError, setFormError] = useState<string | null>(null)
-  const { register, handleSubmit, setError, formState } = useForm<SignUpValues>({ resolver: zodResolver(signUpSchema) })
+  // An invitation for an employee already names the account after them.
+  const { register, handleSubmit, setError, formState } = useForm<SignUpValues>({ resolver: zodResolver(signUpSchema), defaultValues: { name: preview.name ?? '' } })
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null)
@@ -204,8 +205,8 @@ function SignUpForm({ token, preview, onJoined }: { token: string; preview: Invi
     <form onSubmit={onSubmit} noValidate className="space-y-4">
       {formError && <Alert tone="error">{formError}</Alert>}
       <Field label="Email">{(p) => <Input {...p} type="email" value={preview.email} readOnly disabled />}</Field>
-      <Field label="Nama lengkap" error={formState.errors.name?.message} required>
-        {(p) => <Input {...p} autoComplete="name" {...register('name')} />}
+      <Field label="Nama lengkap" error={formState.errors.name?.message} required hint={preview.name ? 'Sesuai data karyawan.' : undefined}>
+        {(p) => <Input {...p} autoComplete="name" readOnly={!!preview.name} className={preview.name ? `${p.className} bg-slate-50` : p.className} {...register('name')} />}
       </Field>
       <Field label="Password" error={formState.errors.password?.message} hint={passwordRule.message} required>
         {(p) => <Input {...p} type="password" autoComplete="new-password" {...register('password')} />}
@@ -240,7 +241,7 @@ function AcceptAsProfile({ token, preview, profile, onJoined }: { token: string;
   )
 
   if (user.user_type !== 'tenant') {
-    return <Alert tone="warning">Akun platform tidak dapat bergabung dengan organisasi.</Alert>
+    return <Alert tone="warning">Akun platform tidak dapat bergabung dengan business unit.</Alert>
   }
   if (user.email.toLowerCase() !== preview.email.toLowerCase()) {
     return (

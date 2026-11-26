@@ -398,7 +398,7 @@ export function AssetsPage() {
     <>
       <PageHeader
         title="Data Aset"
-        description="Seluruh aset organisasi: cari, saring, lalu buka untuk melihat detail dan riwayatnya."
+        description="Seluruh aset business unit: cari, saring, lalu buka untuk melihat detail dan riwayatnya."
         actions={
           <>
             {can("asset.update") && (

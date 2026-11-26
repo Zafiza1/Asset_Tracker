@@ -461,7 +461,7 @@ function cardContent(card: HomeCard): CardContent {
             </Rows>
           </>
         ),
-        link: { to: '/organisasi', label: 'Lihat organisasi' },
+        link: { to: '/organisasi', label: 'Lihat business unit' },
       }
     }
     case 'invitations':

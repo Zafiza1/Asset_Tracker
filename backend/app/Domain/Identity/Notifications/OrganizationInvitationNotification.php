@@ -41,7 +41,7 @@ final class OrganizationInvitationNotification extends Notification
 
         $mail->action('Lihat undangan', self::url($this->token))
             ->line('Undangan berlaku sampai '.$this->expiresAt->format('d-m-Y H:i T').' dan hanya dapat diterima satu kali, oleh akun dengan alamat email ini.')
-            ->line('Abaikan email ini bila Anda tidak mengenal organisasi tersebut.');
+            ->line('Abaikan email ini bila Anda tidak mengenal business unit tersebut.');
 
         return $mail;
     }

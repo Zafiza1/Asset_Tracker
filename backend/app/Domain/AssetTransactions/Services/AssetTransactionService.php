@@ -386,7 +386,7 @@ final class AssetTransactionService
     private function incoming(Asset $asset, array $data): array
     {
         if ($asset->status !== AssetStatus::OFF_SITE) {
-            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Di Luar Organisasi yang dapat dicatat masuk kembali.');
+            throw ApiException::conflict('INVALID_ASSET_STATUS', 'Hanya aset berstatus Di Luar Business Unit yang dapat dicatat masuk kembali.');
         }
         $outgoing = AssetTransaction::query()->where('asset_id', $asset->id)
             ->where('type', TransactionType::OUTGOING)->orderByDesc('seq')->first();

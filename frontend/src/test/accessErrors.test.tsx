@@ -72,7 +72,7 @@ describe('UserDetailPage: rejected access changes', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(SCOPE_ESCALATION.message)
     expect(api.put).toHaveBeenCalledWith('/users/u-1/scopes', { scopes: [...user.data_scopes!, { scope_type: 'organization', ref_id: null }] })
-    expect(screen.queryByText('Seluruh organisasi', { selector: 'span' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Seluruh business unit', { selector: 'span' })).not.toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
@@ -97,7 +97,7 @@ describe('UserDetailPage: rejected access changes', () => {
 
     expect(await screen.findByText(SCOPE_ESCALATION.message)).toBeInTheDocument()
     expect(api.post).toHaveBeenCalledWith('/users/u-1/deactivate')
-    expect(screen.getByText(/Akun dinonaktifkan di organisasi ini/)).toBeInTheDocument()
+    expect(screen.getByText(/Akun dinonaktifkan di business unit ini/)).toBeInTheDocument()
   })
 
   it('keeps the profile form open with the error when job data of a broader member is refused', async () => {
@@ -124,7 +124,7 @@ describe('UserDetailPage: rejected access changes', () => {
     fireEvent.change(screen.getByLabelText('Jenis cakupan'), { target: { value: 'organization' } })
     click('Tambah cakupan')
 
-    expect(await screen.findByText('Seluruh organisasi', { selector: 'span' })).toBeInTheDocument()
+    expect(await screen.findByText('Seluruh business unit', { selector: 'span' })).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

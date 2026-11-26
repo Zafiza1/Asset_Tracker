@@ -551,7 +551,7 @@ final class AssetWidgets
         $labels = [];
         foreach ($rows as $row) {
             $labels[$this->typeKey($row->type, $row->type_definition_id)] = $row->type_definition_id !== null
-                ? ($definitions[$row->type_definition_id] ?? 'Jenis organisasi')
+                ? ($definitions[$row->type_definition_id] ?? 'Jenis business unit')
                 : (TransactionType::LABELS[$row->type] ?? $row->type);
         }
 

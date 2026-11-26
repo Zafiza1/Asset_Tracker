@@ -85,13 +85,13 @@ final class UserManagement
     public function addMember(User $user, array $profile, array $roleIds, array $scopes, array $metadata = [], ?User $actor = null): User
     {
         if (! $user->isTenantUser()) {
-            throw ApiException::unprocessable('INVALID_ACCOUNT', 'Akun platform tidak dapat menjadi anggota organisasi.');
+            throw ApiException::unprocessable('INVALID_ACCOUNT', 'Akun platform tidak dapat menjadi anggota business unit.');
         }
         $this->assertReferences($profile, $user->id);
         $roles = $this->resolveAssignableRoles($roleIds);
         $former = OrganizationMember::query()->where('user_id', $user->id)->first();
         if ($former !== null && $former->status !== User::STATUS_DEACTIVATED) {
-            throw ApiException::conflict('ALREADY_MEMBER', 'Akun dengan email ini sudah menjadi anggota organisasi.');
+            throw ApiException::conflict('ALREADY_MEMBER', 'Akun dengan email ini sudah menjadi anggota business unit.');
         }
 
         return DB::transaction(function () use ($user, $former, $profile, $roles, $scopes, $metadata, $actor) {
@@ -277,7 +277,7 @@ final class UserManagement
     {
         if (! $this->access->isExclusiveTo($user, $this->tenancy->organizationId())) {
             throw ApiException::unprocessable('SHARED_ACCOUNT',
-                'Akun ini juga terdaftar di organisasi lain. Nama, email, telepon, dan password hanya dapat diubah oleh pemilik akun.');
+                'Akun ini juga terdaftar di business unit lain. Nama, email, telepon, dan password hanya dapat diubah oleh pemilik akun.');
         }
     }
 
@@ -356,7 +356,7 @@ final class UserManagement
         // Unique per organization (database constraint); checked here so the answer is not a bare DUPLICATE.
         if (! empty($data['employee_number']) && OrganizationMember::query()->where('employee_number', $data['employee_number'])
             ->when($exceptUserId, fn ($q, $id) => $q->where('user_id', '!=', $id))->exists()) {
-            throw ApiException::conflict('EMPLOYEE_NUMBER_TAKEN', 'Nomor karyawan ini sudah dipakai anggota lain di organisasi ini.');
+            throw ApiException::conflict('EMPLOYEE_NUMBER_TAKEN', 'Nomor karyawan ini sudah dipakai anggota lain di business unit ini.');
         }
     }
 

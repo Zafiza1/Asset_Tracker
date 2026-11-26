@@ -55,7 +55,7 @@ final class SystemTemplates
         return [
             'overview' => [
                 'name' => 'Overview',
-                'description' => 'Ringkasan seluruh aset organisasi.',
+                'description' => 'Ringkasan seluruh aset business unit.',
                 'dashboard_type' => DashboardType::OVERVIEW,
                 'category_type_key' => null,
                 'version' => 1,
@@ -88,7 +88,7 @@ final class SystemTemplates
             'category_machine' => $category('AST_MESIN', 'Aset Mesin & Peralatan', 'Jadwal Maintenance', 'Jadwal Maintenance Berikutnya'),
             'category_property' => $category('AST_PROPERTI', 'Aset Bangunan & Properti', 'Pengingat Berakhirnya Hak', 'Tanggal Berakhir Hak'),
             // Kategori lain memakai widget kategori umum; yang punya atribut tanggal
-            // atau enum khas mendapat widget tambahan (label, bukan key — key atribut beda per organisasi).
+            // atau enum khas mendapat widget tambahan (label, bukan key — key atribut beda per business unit).
             'category_tools' => [
                 'name' => 'Aset Alat Kerja',
                 'description' => 'Template bawaan untuk kategori Aset Alat Kerja.',
@@ -185,7 +185,7 @@ final class SystemTemplates
             // per dashboard type is allowed (dashboard_templates_default).
             'asset_board_super_admin' => [
                 'name' => 'Ringkasan Eksekutif',
-                'description' => 'Template Dashboard Aset untuk Super Admin: nilai dan skala aset seluruh organisasi.',
+                'description' => 'Template Dashboard Aset untuk Super Admin: nilai dan skala aset seluruh business unit.',
                 'dashboard_type' => DashboardType::ASSET_BOARD,
                 'category_type_key' => null,
                 'version' => 1,

@@ -90,7 +90,7 @@ final class GenericCatalogService
             $this->activeCategory($data['category_id']);
             // Tenant categories are anchored to the generic category of what they contain.
             if (DB::table('tenant_asset_definitions')->where('generic_definition_id', $definition->id)->exists()) {
-                throw ApiException::conflict('DEFINITION_IN_USE', 'Kategori tidak dapat diubah karena definisi sudah diadopsi organisasi.');
+                throw ApiException::conflict('DEFINITION_IN_USE', 'Kategori tidak dapat diubah karena definisi sudah diadopsi business unit.');
             }
         }
 
@@ -285,7 +285,7 @@ final class GenericCatalogService
             || $category->definitions()->where('status', '!=', MasterStatus::ARCHIVED)->exists()
             || DB::table('tenant_asset_categories')->where('generic_category_id', $category->id)->exists();
         if ($inUse) {
-            throw ApiException::conflict('CATEGORY_IN_USE', 'Kategori masih memiliki subkategori, definisi, atau dipakai organisasi.');
+            throw ApiException::conflict('CATEGORY_IN_USE', 'Kategori masih memiliki subkategori, definisi, atau dipakai business unit.');
         }
     }
 

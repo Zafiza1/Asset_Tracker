@@ -37,7 +37,7 @@ export function SettingsPage() {
       />
       <div className="space-y-6">
         {!license.active && (
-          <Alert tone="error" title="Organisasi dalam mode hanya-baca">
+          <Alert tone="error" title="Business Unit dalam mode hanya-baca">
             Tidak ada lisensi yang sedang berlaku. Data tetap bisa dilihat, tetapi tidak bisa diubah sampai lisensi diperpanjang.
           </Alert>
         )}

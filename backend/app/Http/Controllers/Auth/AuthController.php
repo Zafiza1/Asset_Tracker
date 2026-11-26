@@ -76,7 +76,7 @@ class AuthController extends Controller
         [$user] = $this->attempt(Arr::only($data, ['email', 'password']));
 
         if (! $user->isTenantUser()) {
-            throw ApiException::forbidden('TENANT_USER_REQUIRED', 'Aplikasi mobile hanya untuk pengguna organisasi.');
+            throw ApiException::forbidden('TENANT_USER_REQUIRED', 'Aplikasi mobile hanya untuk pengguna business unit.');
         }
         if ($user->must_change_password) {
             throw ApiException::forbidden('PASSWORD_CHANGE_REQUIRED', 'Ganti password Anda melalui aplikasi web terlebih dahulu.');
@@ -84,10 +84,10 @@ class AuthController extends Controller
 
         $organization = isset($data['organization_id'])
             ? ($this->access->find($user, $data['organization_id'])
-                ?? throw ApiException::forbidden('ORGANIZATION_ACCESS_DENIED', 'Anda tidak memiliki akses ke organisasi tersebut.'))
+                ?? throw ApiException::forbidden('ORGANIZATION_ACCESS_DENIED', 'Anda tidak memiliki akses ke business unit tersebut.'))
             : $this->access->current(null, $user);
         if ($organization === null) {
-            throw ApiException::conflict('ORGANIZATION_SELECTION_REQUIRED', 'Pilih organisasi terlebih dahulu.', [
+            throw ApiException::conflict('ORGANIZATION_SELECTION_REQUIRED', 'Pilih business unit terlebih dahulu.', [
                 'organizations' => $this->access->accessible($user)
                     ->map(fn (Organization $o) => ['id' => $o->id, 'code' => $o->code, 'name' => $o->name])->values()->all(),
             ]);
@@ -121,7 +121,7 @@ class AuthController extends Controller
         $user = $this->account($request);
         $organization = $user->isActive() ? $this->access->find($user, $token->organization_id) : null;
         if ($organization === null) {
-            throw new ApiException('ACCOUNT_INACTIVE', 'Akun atau akses organisasi Anda tidak aktif.', 401);
+            throw new ApiException('ACCOUNT_INACTIVE', 'Akun atau akses business unit Anda tidak aktif.', 401);
         }
 
         return response()->json(['data' => $this->mobileProfile($user, $organization, $token)]);
@@ -164,12 +164,12 @@ class AuthController extends Controller
         // SUPER_ADMIN role); leftover platform accounts can no longer sign in.
         if ($user->isPlatformUser()) {
             $this->audit->record('auth.login_failed', $user, metadata: ['reason' => 'platform_account_retired'], actor: $user);
-            throw ApiException::forbidden('PLATFORM_ACCOUNT_RETIRED', 'Akun platform sudah tidak digunakan. Masuk dengan akun organisasi Anda.');
+            throw ApiException::forbidden('PLATFORM_ACCOUNT_RETIRED', 'Akun platform sudah tidak digunakan. Masuk dengan akun business unit Anda.');
         }
 
         if ($user->isTenantUser() && $this->access->accessible($user)->isEmpty()) {
             $this->audit->record('auth.login_failed', $user, metadata: ['reason' => 'organization_inactive'], actor: $user);
-            throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Organisasi Anda sedang tidak aktif.');
+            throw ApiException::forbidden('ORGANIZATION_INACTIVE', 'Business Unit Anda sedang tidak aktif.');
         }
 
         return [$user, $defaultOrgId];
@@ -217,8 +217,8 @@ class AuthController extends Controller
                 'password' => ['required', 'string', 'confirmed', 'max:200', Password::min(12)->letters()->mixedCase()->numbers()],
                 'license_quantity' => ['nullable', 'integer', 'min:0', 'max:100'],
             ], [
-                'organization_code.unique' => 'Kode organisasi sudah dipakai.',
-                'email.unique' => 'Email sudah terdaftar. Silakan masuk, lalu buat organisasi baru dari menu organisasi.',
+                'organization_code.unique' => 'Kode business unit sudah dipakai.',
+                'email.unique' => 'Email sudah terdaftar. Silakan masuk, lalu buat business unit baru dari menu business unit.',
             ]);
 
             return DB::transaction(function () use ($provisioner, $licensing, $data) {
@@ -298,7 +298,7 @@ class AuthController extends Controller
 
         $request->merge(['organization_code' => strtoupper((string) $request->input('organization_code'))]);
         $organization = $this->tenancy->runAsSystem(function () use ($request, $provisioner, $licensing, $user) {
-            $data = $request->validate($this->organizationRules(), ['organization_code.unique' => 'Kode organisasi sudah dipakai.']);
+            $data = $request->validate($this->organizationRules(), ['organization_code.unique' => 'Kode business unit sudah dipakai.']);
 
             return DB::transaction(function () use ($provisioner, $licensing, $data, $user) {
                 $organization = $provisioner->provision(
@@ -324,7 +324,7 @@ class AuthController extends Controller
         $data = $request->validate(['organization_id' => ['required', 'uuid']]);
 
         $organization = $this->access->find($user, $data['organization_id'])
-            ?? throw ApiException::forbidden('ORGANIZATION_ACCESS_DENIED', 'Anda tidak memiliki akses ke organisasi tersebut.');
+            ?? throw ApiException::forbidden('ORGANIZATION_ACCESS_DENIED', 'Anda tidak memiliki akses ke business unit tersebut.');
 
         $this->access->switch($request->session(), $user, $organization);
         $this->audit->record('auth.organization_switched', $organization, organizationId: $organization->id, actor: $user);
@@ -416,7 +416,7 @@ class AuthController extends Controller
             throw new ApiException('ACCOUNT_INACTIVE', 'Akun Anda tidak aktif.', 401);
         }
         if (! $user->isTenantUser()) {
-            throw ApiException::forbidden('TENANT_USER_REQUIRED', 'Endpoint ini hanya untuk pengguna organisasi.');
+            throw ApiException::forbidden('TENANT_USER_REQUIRED', 'Endpoint ini hanya untuk pengguna business unit.');
         }
         if ($user->must_change_password) {
             throw ApiException::forbidden('PASSWORD_CHANGE_REQUIRED', 'Anda harus mengganti password sebelum melanjutkan.');

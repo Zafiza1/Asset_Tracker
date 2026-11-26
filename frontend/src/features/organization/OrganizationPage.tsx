@@ -38,7 +38,7 @@ const SUCCESS_TIMEOUT_MS = 6000
 
 const SECTION_META: Record<(typeof PROFILE_SECTIONS)[number]['key'], { title: string; description: string; icon: LucideIcon }> = {
   identity: { title: 'Identitas', description: 'Nama yang tampil di aplikasi dan dokumen resmi.', icon: Building2 },
-  contact: { title: 'Kontak', description: 'Cara menghubungi organisasi.', icon: Phone },
+  contact: { title: 'Kontak', description: 'Cara menghubungi business unit.', icon: Phone },
   regional: { title: 'Regional', description: 'Dipakai untuk tanggal, waktu, dan nilai aset.', icon: Globe2 },
 }
 
@@ -56,7 +56,7 @@ export function OrganizationPage() {
     return () => clearTimeout(timer)
   }, [saved])
 
-  if (query.isLoading) return <DetailSkeleton label="Memuat profil organisasi…" />
+  if (query.isLoading) return <DetailSkeleton label="Memuat profil business unit…" />
   if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />
   const org = query.data!.data
   const canManage = can('organization.manage')
@@ -69,8 +69,8 @@ export function OrganizationPage() {
   return (
     <div className="w-full max-w-6xl">
       <PageHeader
-        title="Profil Organisasi"
-        description="Identitas, kontak, dan pengaturan regional organisasi Anda."
+        title="Profil Business Unit"
+        description="Identitas, kontak, dan pengaturan regional business unit Anda."
         badges={<StatusBadge status={org.status}>{orgStatusLabel[org.status]}</StatusBadge>}
         meta={
           <>
@@ -92,7 +92,7 @@ export function OrganizationPage() {
 
       {saved && (
         <div ref={savedRef} tabIndex={-1} className="relative mb-4 outline-none">
-          <Alert tone="success" title="Profil organisasi berhasil diperbarui">
+          <Alert tone="success" title="Profil business unit berhasil diperbarui">
             <p>Perubahan sudah disimpan dan langsung berlaku.</p>
           </Alert>
           <button
@@ -195,7 +195,7 @@ function CompletenessCard({ org, canManage, onComplete }: { org: Organization; c
               </>
             )}
           </p>
-          {!complete && !canManage && <p className="mt-1 text-sm text-slate-500">Hubungi Super Admin organisasi untuk melengkapinya.</p>}
+          {!complete && !canManage && <p className="mt-1 text-sm text-slate-500">Hubungi Super Admin business unit untuk melengkapinya.</p>}
         </div>
         {complete ? (
           <p className="flex items-center gap-1.5 text-sm font-medium text-green-700">
@@ -277,7 +277,7 @@ function AccessNote({ canManage }: { canManage: boolean }) {
       <Icon className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden />
       {canManage ? (
         <span>
-          <span className="font-medium text-slate-800">Super Admin</span> — Anda dapat mengedit profil organisasi. Peran lain hanya dapat melihatnya.
+          <span className="font-medium text-slate-800">Super Admin</span> — Anda dapat mengedit profil business unit. Peran lain hanya dapat melihatnya.
         </span>
       ) : (
         <span>Anda dapat melihat profil ini. Hanya Super Admin yang dapat mengubahnya.</span>

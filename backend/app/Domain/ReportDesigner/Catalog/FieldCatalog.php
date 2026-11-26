@@ -88,8 +88,8 @@ final class FieldCatalog
                 'transaction.outgoing_number' => ['Nomor Transaksi Keluar', 'string', 'outgoing_transaction.transaction_number', 'outgoing_transaction', $fallback, 'transaction.view'],
             ],
             'context' => [
-                'organization.name' => ['Nama Organisasi', 'string', 'organization.name', null, $fallback, null],
-                'organization.code' => ['Kode Organisasi', 'string', 'organization.code', null, $fallback, null],
+                'organization.name' => ['Nama Business Unit', 'string', 'organization.name', null, $fallback, null],
+                'organization.code' => ['Kode Business Unit', 'string', 'organization.code', null, $fallback, null],
                 'report.generated_at' => ['Waktu Generate', 'date', 'generated_at', null, ['date' => 'd/m/Y H:i'] + $fallback, null],
                 'report.title' => ['Judul Laporan', 'string', 'report.title', null, $fallback, null],
             ],

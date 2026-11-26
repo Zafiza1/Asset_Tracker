@@ -120,7 +120,7 @@ class MultiOrganizationTest extends TestCase
         $this->getJson('/api/organization')->assertOk()->assertJsonPath('data.id', $gamma->id);
 
         $this->postJson('/api/auth/organizations', ['organization_name' => 'Duplikat', 'organization_code' => 'GAMMA'])
-            ->assertStatus(422)->assertJsonPath('error.details.fields.organization_code.0', 'Kode organisasi sudah dipakai.');
+            ->assertStatus(422)->assertJsonPath('error.details.fields.organization_code.0', 'Kode business unit sudah dipakai.');
     }
 
     public function test_creating_organizations_follows_the_self_service_switch(): void

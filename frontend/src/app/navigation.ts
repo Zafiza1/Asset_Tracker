@@ -75,7 +75,7 @@ export const tenantNavigation: NavSection[] = [
     group: 'Administrasi',
     title: 'Administrasi',
     items: [
-      { to: '/organisasi', label: 'Organisasi', icon: Building2, permission: 'organization.view' },
+      { to: '/organisasi', label: 'Business Unit', icon: Building2, permission: 'organization.view' },
       { to: '/pengguna', label: 'Pengguna', icon: Users, permission: 'user.view' },
       { to: '/audit', label: 'Audit Trail', icon: FileClock, permission: 'audit.view' },
     ],
@@ -99,7 +99,7 @@ export function currentNavTarget(sections: NavSection[], pathname: string): stri
 
 /** Breadcrumb labels per first path segment. */
 export const breadcrumbLabels: Record<string, string> = {
-  organisasi: 'Organisasi',
+  organisasi: 'Business Unit',
   pengguna: 'Pengguna',
   role: 'Role & Permission',
   undangan: 'Undangan',

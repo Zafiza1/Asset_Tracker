@@ -45,7 +45,7 @@ final class AssetStatus
         self::AVAILABLE => 'Tersedia',
         self::UNDER_MAINTENANCE => 'Dalam Perbaikan',
         self::ON_LOAN => 'Dipinjamkan',
-        self::OFF_SITE => 'Di Luar Organisasi',
+        self::OFF_SITE => 'Di Luar Business Unit',
         self::LOST => 'Hilang',
         self::DISPOSED => 'Dihapuskan',
     ];

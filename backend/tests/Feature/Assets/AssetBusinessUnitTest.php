@@ -58,7 +58,7 @@ class AssetBusinessUnitTest extends TestCase
 
     public function test_an_organization_not_named_after_an_option_chooses_it_by_hand(): void
     {
-        $this->org->forceFill(['name' => 'Organisasi Lain'])->save();
+        $this->org->forceFill(['name' => 'Business Unit Lain'])->save();
 
         $this->postJson('/api/assets', [
             'name' => 'Oksigen', 'serial_number' => 'MF-3', 'category_id' => $this->cylinder->id,

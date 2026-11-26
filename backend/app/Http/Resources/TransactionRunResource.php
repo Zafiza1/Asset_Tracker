@@ -105,7 +105,7 @@ class TransactionRunResource extends JsonResource
     private const SYSTEM_LABELS = [
         'to_location_id' => 'Lokasi tujuan', 'to_status' => 'Status baru', 'borrower_name' => 'Peminjam',
         'outgoing_nature' => 'Sifat', 'reason_code' => 'Alasan', 'counterparty_name' => 'Pihak luar',
-        'counterparty_org' => 'Organisasi pihak luar', 'counterparty_contact' => 'Kontak pihak luar',
+        'counterparty_org' => 'Instansi pihak luar', 'counterparty_contact' => 'Kontak pihak luar',
         'document_number' => 'No. dokumen', 'due_date' => 'Rencana tanggal kembali',
     ];
 

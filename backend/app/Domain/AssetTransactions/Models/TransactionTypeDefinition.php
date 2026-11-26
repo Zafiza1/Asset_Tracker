@@ -76,7 +76,7 @@ class TransactionTypeDefinition extends Model
         return self::query()->where('system_type', $type)->first();
     }
 
-    /** The organization's own types: what "Jenis organisasi" means everywhere except the type list. */
+    /** The organization's own types: what "Jenis business unit" means everywhere except the type list. */
     public function scopeOrganizationOwn(Builder $query): Builder
     {
         return $query->whereNull('system_type');

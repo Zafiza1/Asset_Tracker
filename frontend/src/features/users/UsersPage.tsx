@@ -177,7 +177,7 @@ export function UsersPage() {
           <EmptyState
             icon={chips.length > 0 ? SearchX : Users}
             title={chips.length > 0 ? 'Tidak ada pengguna yang cocok' : 'Belum ada pengguna'}
-            description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : 'Undang rekan kerja agar mereka dapat ikut mengelola aset organisasi ini.'}
+            description={chips.length > 0 ? 'Ubah kata kunci atau filter pencarian.' : 'Undang rekan kerja agar mereka dapat ikut mengelola aset business unit ini.'}
             action={
               chips.length > 0 ? (
                 <Button variant="secondary" onClick={resetAll}>

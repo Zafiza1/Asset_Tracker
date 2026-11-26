@@ -31,12 +31,14 @@ class InvitationAcceptanceController extends Controller
     public function inspect(Request $request): JsonResponse
     {
         $data = $request->validate(['token' => ['required', 'string', 'max:128']]);
-        ['invitation' => $invitation, 'organization' => $organization, 'inviter' => $inviter, 'roles' => $roles, 'licenseCode' => $licenseCode] = $this->invitations->inspect($data['token']);
+        ['invitation' => $invitation, 'organization' => $organization, 'inviter' => $inviter, 'roles' => $roles, 'licenseCode' => $licenseCode, 'name' => $name] = $this->invitations->inspect($data['token']);
 
         return response()->json(['data' => [
             'email' => $invitation->email,
             'organization' => $this->summary($organization),
             'invited_by' => $inviter?->name ?? OrganizationInvitations::PLATFORM_INVITER_NAME,
+            // Set when the invitation is for an employee: the sign-up form shows it instead of asking.
+            'name' => $name,
             'roles' => $roles->map(fn ($r) => ['code' => $r->code, 'name' => $r->name])->values(),
             'expires_at' => $invitation->expires_at->toIso8601String(),
             'license_code' => $licenseCode,
@@ -88,14 +90,15 @@ class InvitationAcceptanceController extends Controller
     {
         $data = $request->validate([
             'token' => ['required', 'string', 'max:128'],
-            'name' => ['required', 'string', 'max:150'],
+            // Not needed when the invitation is for an employee: the account takes the employee's name.
+            'name' => ['nullable', 'string', 'max:150'],
             'password' => ['required', 'string', 'confirmed', 'max:200', Password::min(12)->letters()->mixedCase()->numbers()],
             'license_code' => ['nullable', 'string', 'max:19'],
         ]);
 
         ['user' => $user, 'organization' => $organization] = $this->invitations->registerAndAccept(
             $data['token'],
-            $data['name'],
+            $data['name'] ?? null,
             $data['password'],
             $data['license_code'] ?? null
         );

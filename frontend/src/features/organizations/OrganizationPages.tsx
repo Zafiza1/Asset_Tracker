@@ -41,7 +41,7 @@ export function SelectOrganizationPage() {
 
   return (
     <AuthShell
-      subtitle={`Masuk sebagai ${profile.user.email}. Pilih organisasi yang ingin Anda kelola.`}
+      subtitle={`Masuk sebagai ${profile.user.email}. Pilih business unit yang ingin Anda kelola.`}
       footer={
         <button type="button" className="font-medium text-brand-700 hover:underline" onClick={() => void logout().then(() => navigate('/login', { replace: true }))}>
           Keluar
@@ -50,7 +50,7 @@ export function SelectOrganizationPage() {
     >
       <div className="space-y-3">
         {error && <Alert tone="error">{error}</Alert>}
-        {profile.organizations.length === 0 && <Alert tone="info">Akun Anda belum terdaftar di organisasi aktif mana pun.</Alert>}
+        {profile.organizations.length === 0 && <Alert tone="info">Akun Anda belum terdaftar di business unit aktif mana pun.</Alert>}
         <ul className="divide-y divide-slate-100 rounded-md ring-1 ring-slate-200">
           {profile.organizations.map((o) => (
             <li key={o.id}>
@@ -73,7 +73,7 @@ export function SelectOrganizationPage() {
         </ul>
         <Link to="/organisasi/baru" className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline">
           <Plus className="size-4" aria-hidden />
-          Buat organisasi baru
+          Buat business unit baru
         </Link>
       </div>
     </AuthShell>
@@ -81,7 +81,7 @@ export function SelectOrganizationPage() {
 }
 
 const schema = z.object({
-  organization_name: z.string().trim().min(1, 'Nama organisasi wajib diisi.').max(150),
+  organization_name: z.string().trim().min(1, 'Nama business unit wajib diisi.').max(150),
   organization_code: organizationCodeRule,
 })
 type FormValues = z.infer<typeof schema>
@@ -109,7 +109,7 @@ export function CreateOrganizationPage() {
 
   return (
     <AuthShell
-      subtitle="Buat organisasi baru dengan akun yang sama. Anda menjadi administratornya dan dapat berpindah antar organisasi kapan saja."
+      subtitle="Buat business unit baru dengan akun yang sama. Anda menjadi administratornya dan dapat berpindah antar business unit kapan saja."
       footer={
         <Link to={profile.organization ? '/' : '/pilih-organisasi'} className="font-medium text-brand-700 hover:underline">
           Batal
@@ -118,7 +118,7 @@ export function CreateOrganizationPage() {
     >
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         {formError && <Alert tone="error">{formError}</Alert>}
-        <Field label="Nama organisasi" error={err.organization_name?.message} required>
+        <Field label="Nama business unit" error={err.organization_name?.message} required>
           {(p) => (
             <Input
               {...p}
@@ -129,11 +129,11 @@ export function CreateOrganizationPage() {
             />
           )}
         </Field>
-        <Field label="Kode organisasi" error={err.organization_code?.message} hint="Singkatan unik, dipakai sebagai identitas organisasi. Tidak dapat diubah." required>
+        <Field label="Kode business unit" error={err.organization_code?.message} hint="Singkatan unik, dipakai sebagai identitas business unit. Tidak dapat diubah." required>
           {(p) => <Input {...p} className={`${p.className} uppercase`} placeholder="mis. MAJU" {...register('organization_code', { onChange: () => setCodeEdited(true) })} />}
         </Field>
         <Button type="submit" className="w-full" loading={formState.isSubmitting}>
-          Buat organisasi
+          Buat business unit
         </Button>
       </form>
     </AuthShell>

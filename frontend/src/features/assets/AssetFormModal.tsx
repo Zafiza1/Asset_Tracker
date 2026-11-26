@@ -278,7 +278,7 @@ export function AssetFormModal({ asset, onClose, onSaved }: { asset?: Asset; onC
           onChange={(key, value) => setAttributes((current) => ({ ...current, [key]: value }))}
           hidden={hidden}
           onHiddenChange={(next) => (setHiddenError(null), setHidden(next))}
-          locked={businessUnit ? { [businessUnit.key]: `Mengikuti organisasi ${organizationName}; tidak dapat diubah.` } : undefined}
+          locked={businessUnit ? { [businessUnit.key]: `Mengikuti business unit ${organizationName}; tidak dapat diubah.` } : undefined}
         />
         {hiddenError && <Alert tone="error">{hiddenError}</Alert>}
         <ExtraAttributeFields values={extras} errors={extraErrors} onChange={(next) => (setExtraErrors({}), setExtras(next))} />

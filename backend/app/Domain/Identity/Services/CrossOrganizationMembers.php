@@ -146,7 +146,7 @@ final class CrossOrganizationMembers
         $targets = [];
         foreach ($grants as $grant) {
             $targets[$grant['organization_id']] = $manageable->get($grant['organization_id'])
-                ?? throw ApiException::forbidden('ORGANIZATION_ACCESS_DENIED', 'Anda tidak dapat menambahkan pengguna ke organisasi tersebut.');
+                ?? throw ApiException::forbidden('ORGANIZATION_ACCESS_DENIED', 'Anda tidak dapat menambahkan pengguna ke business unit tersebut.');
         }
 
         return $targets;

@@ -46,7 +46,7 @@ export default function LoginScreen() {
 
           {organizations ? (
             <View style={styles.form}>
-              <Text style={styles.label}>Pilih organisasi</Text>
+              <Text style={styles.label}>Pilih business unit</Text>
               {organizations.map((o) => (
                 <Pressable key={o.id} style={({ pressed }) => [styles.org, pressed && { backgroundColor: colors.brandSoft }]} onPress={() => submit(o.id)} disabled={loading}>
                   <Text style={styles.orgName}>{o.name}</Text>

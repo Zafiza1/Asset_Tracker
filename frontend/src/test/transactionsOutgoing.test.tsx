@@ -75,8 +75,8 @@ describe('outgoing and incoming rules', () => {
     expect(allowedTypes('available')).toContain('outgoing')
     expect(allowedTypes('under_maintenance')).not.toContain('outgoing')
     expect(allowedTypes('off_site')).toEqual(['incoming', 'note'])
-    expect(ineligibleReason({ status: 'off_site', location_id: null }, 'outgoing')).toBe('Sudah di luar organisasi')
-    expect(ineligibleReason({ status: 'in_use', location_id: null }, 'incoming')).toBe('Tidak sedang di luar organisasi')
+    expect(ineligibleReason({ status: 'off_site', location_id: null }, 'outgoing')).toBe('Sudah di luar business unit')
+    expect(ineligibleReason({ status: 'in_use', location_id: null }, 'incoming')).toBe('Tidak sedang di luar business unit')
   })
 
   it('counts the days past the planned return date', () => {

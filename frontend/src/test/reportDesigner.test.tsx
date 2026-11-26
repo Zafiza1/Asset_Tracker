@@ -51,7 +51,7 @@ const FIELDS = {
     { id: 'f1', data_source: 'asset', field_key: 'asset.name', label: 'Nama Aset', data_type: 'string', bind_path: 'name', relation: null, is_repeatable: false, formats: {}, required_permission: 'asset.view' },
   ],
   context: [
-    { id: 'f2', data_source: 'context', field_key: 'organization.name', label: 'Nama Organisasi', data_type: 'string', bind_path: 'organization.name', relation: null, is_repeatable: false, formats: {}, required_permission: null },
+    { id: 'f2', data_source: 'context', field_key: 'organization.name', label: 'Nama Business Unit', data_type: 'string', bind_path: 'organization.name', relation: null, is_repeatable: false, formats: {}, required_permission: null },
   ],
 }
 

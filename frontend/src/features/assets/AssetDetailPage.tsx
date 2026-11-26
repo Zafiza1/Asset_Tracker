@@ -329,7 +329,7 @@ function OffSiteAlert({ trx }: { trx: AssetTransaction | undefined }) {
   if (!trx) {
     return (
       <div className="mb-4">
-        <Alert tone="info" title="Di luar organisasi">
+        <Alert tone="info" title="Di luar business unit">
           Aset ini sedang berada di pihak luar. Catat transaksi masuk saat aset kembali.
         </Alert>
       </div>
@@ -339,7 +339,7 @@ function OffSiteAlert({ trx }: { trx: AssetTransaction | undefined }) {
   const party = [trx.counterparty_name, trx.counterparty_org && `(${trx.counterparty_org})`].filter(Boolean).join(' ')
   return (
     <div className="mb-4">
-      <Alert tone={late > 0 ? 'error' : 'info'} title={late > 0 ? `Lewat rencana tanggal kembali ${late} hari` : 'Di luar organisasi'}>
+      <Alert tone={late > 0 ? 'error' : 'info'} title={late > 0 ? `Lewat rencana tanggal kembali ${late} hari` : 'Di luar business unit'}>
         {trx.reason_label} · {party} sejak {formatDate(trx.transaction_date)}
         {trx.due_date && <>, rencana kembali {formatDate(trx.due_date)}</>} (<span className="font-mono text-xs">{trx.transaction_number}</span>
         {trx.document_number && <>, dokumen {trx.document_number}</>}).

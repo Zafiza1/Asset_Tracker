@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 const highlights = [
   { icon: MapPin, text: 'Posisi setiap tabung selalu tercatat' },
   { icon: History, text: 'Riwayat transaksi dan audit trail lengkap' },
-  { icon: ShieldCheck, text: 'Akses berbasis role per organisasi' },
+  { icon: ShieldCheck, text: 'Akses berbasis role per business unit' },
 ]
 
 /** Product mark + form card, shared by the login and sign-up pages. A brand panel joins on wide screens. */
@@ -21,7 +21,7 @@ export function AuthShell({ subtitle, children, footer, wide }: { subtitle: stri
           Asset Tracker Enterprise
         </div>
         <div className="relative max-w-md">
-          <p className="font-display text-3xl font-semibold leading-tight tracking-tight text-white">Kelola seluruh aset organisasi dalam satu tempat.</p>
+          <p className="font-display text-3xl font-semibold leading-tight tracking-tight text-white">Kelola seluruh aset business unit dalam satu tempat.</p>
           <ul className="mt-8 space-y-4">
             {highlights.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-center gap-3 text-[0.9375rem]">
@@ -33,7 +33,7 @@ export function AuthShell({ subtitle, children, footer, wide }: { subtitle: stri
             ))}
           </ul>
         </div>
-        <p className="relative text-xs text-brand-300">Sistem manajemen aset untuk organisasi.</p>
+        <p className="relative text-xs text-brand-300">Sistem manajemen aset untuk business unit.</p>
       </aside>
 
       <main className="flex items-center justify-center bg-gradient-to-br from-brand-50 via-white to-white px-4 py-10 lg:bg-none lg:bg-slate-50">

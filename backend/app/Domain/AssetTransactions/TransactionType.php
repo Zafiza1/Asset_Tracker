@@ -49,7 +49,7 @@ final class TransactionType
         self::RESTORE => 'Pengaktifan kembali',
         self::OUTGOING => 'Transaksi keluar',
         self::INCOMING => 'Transaksi masuk',
-        self::CUSTOM => 'Jenis organisasi',
+        self::CUSTOM => 'Jenis business unit',
     ];
 
     /** {TYPE} token of the transaction number format. */

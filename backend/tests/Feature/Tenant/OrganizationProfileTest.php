@@ -16,7 +16,7 @@ class OrganizationProfileTest extends TestCase
             ->assertOk()->assertJsonPath('data.name', 'PT Alpha Baru')->assertJsonPath('data.code', 'ALPHA')->assertJsonPath('data.status', 'active');
 
         $log = AuditLog::query()->where('action', 'organization.updated')->sole();
-        $this->assertSame(['name' => 'Organisasi ALPHA', 'phone' => null], $log->before);
+        $this->assertSame(['name' => 'Business Unit ALPHA', 'phone' => null], $log->before);
         $this->assertSame(['name' => 'PT Alpha Baru', 'phone' => '0215551234'], $log->after);
 
         // Settings are system defaults: readable, but there is no endpoint to change them.

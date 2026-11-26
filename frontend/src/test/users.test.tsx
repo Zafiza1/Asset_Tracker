@@ -20,6 +20,7 @@ const organizations: UserOrganizationOption[] = [
 function renderPage(options: UserOrganizationOption[]) {
   vi.mocked(api.get).mockImplementation(async (path: string) => {
     if (path === '/permissions') return { data: [] }
+    if (path.startsWith('/invitations/employee-options')) return { data: [{ id: 'emp-1', code: 'SIG-0011', name: 'Sari Dewi', division: 'Admin' }] }
     return { data: options }
   })
   vi.mocked(api.post).mockResolvedValue({ data: { id: 'inv-1' }, meta: { organization_ids: ['org-a', 'org-b'] } })
@@ -44,21 +45,27 @@ describe('UserCreatePage (invite)', () => {
   it('keeps the single-organization form when only one organization is manageable', async () => {
     renderPage([organizations[0]])
     expect(await screen.findByText(/Role & Permission/)).toBeInTheDocument()
-    expect(screen.queryByText(/Akses Organisasi/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Akses Business Unit/)).not.toBeInTheDocument()
   })
 
-  it('asks for neither a name nor a password: the invitee provides them', async () => {
+  it('asks for no password and no typed name: the name comes from the chosen employee', async () => {
     renderPage(organizations)
-    await screen.findByText(/Akses Organisasi & Role/)
+    await screen.findByText(/Akses Business Unit & Role/)
     expect(screen.queryByLabelText(/Password/)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Nama lengkap/)).not.toBeInTheDocument()
   })
 
   it('invites to several organizations with roles per organization, then shows the invitations', async () => {
     renderPage(organizations)
-    await screen.findByText(/Akses Organisasi & Role/)
+    await screen.findByText(/Akses Business Unit & Role/)
+    // The name comes from Karyawan: searched as you type, then picked.
+    fireEvent.focus(screen.getByRole('combobox', { name: /Nama karyawan/ }))
+    fireEvent.click(await screen.findByRole('option', { name: /Sari Dewi/ }))
+    expect(screen.getByText('SIG-0011 · Admin')).toBeInTheDocument()
     type(/^Email/, 'sari@grup.test')
     expect(screen.queryByLabelText(/Kode Lisensi/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Jabatan/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Nomor induk/)).not.toBeInTheDocument()
 
     // One role per organization, in the order of the organization list.
     fireEvent.change(screen.getAllByLabelText(/^Role/)[0], { target: { value: 'op-a' } })
@@ -69,8 +76,7 @@ describe('UserCreatePage (invite)', () => {
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/invitations', {
         email: 'sari@grup.test',
-        employee_number: '',
-        job_title: '',
+        employee_id: 'emp-1',
         memberships: [
           { organization_id: 'org-a', role_ids: ['op-a'] },
           { organization_id: 'org-b', role_ids: ['au-b'] },
@@ -84,14 +90,15 @@ describe('UserCreatePage (invite)', () => {
 
   it('requires a role in every selected organization and at least one organization', async () => {
     renderPage(organizations)
-    await screen.findByText(/Akses Organisasi & Role/)
+    await screen.findByText(/Akses Business Unit & Role/)
     type(/^Email/, 'sari@grup.test')
 
     fireEvent.click(screen.getByRole('button', { name: 'Kirim undangan' }))
     expect((await screen.findAllByText('Pilih minimal satu role.')).length).toBeGreaterThan(0)
+    expect(screen.getByText('Pilih karyawan.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('checkbox', { name: /PT Alpha/ }))
-    expect(await screen.findByText('Pilih minimal satu organisasi.')).toBeInTheDocument()
+    expect(await screen.findByText('Pilih minimal satu business unit.')).toBeInTheDocument()
     expect(api.post).not.toHaveBeenCalled()
   })
 })

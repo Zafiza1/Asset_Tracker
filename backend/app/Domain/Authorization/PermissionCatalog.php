@@ -18,8 +18,8 @@ final class PermissionCatalog
     /** @var array<string, array{0: string, 1: string, 2: string}> code => [scope, group, description] */
     private const PERMISSIONS = [
         // Platform
-        'platform.organization.view' => ['platform', 'platform', 'Melihat daftar organisasi'],
-        'platform.organization.manage' => ['platform', 'platform', 'Membuat, mengubah, menangguhkan organisasi'],
+        'platform.organization.view' => ['platform', 'platform', 'Melihat daftar business unit'],
+        'platform.organization.manage' => ['platform', 'platform', 'Membuat, mengubah, menangguhkan business unit'],
         'platform.user.view' => ['platform', 'platform', 'Melihat pengguna platform'],
         'platform.user.manage' => ['platform', 'platform', 'Mengelola pengguna platform'],
         'platform.audit.view' => ['platform', 'platform', 'Melihat audit trail platform'],
@@ -29,8 +29,8 @@ final class PermissionCatalog
         'master.generic.release' => ['platform', 'generic_master', 'Merilis dan men-deprecate versi Generic Master'],
 
         // Tenant
-        'organization.view' => ['tenant', 'organization', 'Melihat profil organisasi'],
-        'organization.manage' => ['tenant', 'organization', 'Mengubah profil organisasi'],
+        'organization.view' => ['tenant', 'organization', 'Melihat profil business unit'],
+        'organization.manage' => ['tenant', 'organization', 'Mengubah profil business unit'],
         'user.view' => ['tenant', 'user', 'Melihat pengguna'],
         'user.create' => ['tenant', 'user', 'Membuat pengguna'],
         'user.update' => ['tenant', 'user', 'Mengubah pengguna dan data scope'],
@@ -50,8 +50,8 @@ final class PermissionCatalog
         'asset.transfer' => ['tenant', 'asset', 'Mengajukan perpindahan lokasi'],
         'asset.status_change' => ['tenant', 'asset', 'Mengajukan perubahan status'],
         'asset.dispose' => ['tenant', 'asset', 'Mengajukan pelepasan aset'],
-        'asset.outgoing' => ['tenant', 'asset', 'Mencatat aset keluar organisasi'],
-        'asset.incoming' => ['tenant', 'asset', 'Mencatat aset masuk kembali ke organisasi'],
+        'asset.outgoing' => ['tenant', 'asset', 'Mencatat aset keluar business unit'],
+        'asset.incoming' => ['tenant', 'asset', 'Mencatat aset masuk kembali ke business unit'],
         'asset.archive' => ['tenant', 'asset', 'Mengarsipkan aset'],
         'asset.restore' => ['tenant', 'asset', 'Memulihkan aset arsip'],
         'document.view' => ['tenant', 'document', 'Melihat dan mengunduh dokumen'],
@@ -87,14 +87,14 @@ final class PermissionCatalog
         'report.manage' => ['tenant', 'report_designer', 'Mengelola aset dan pengaturan template laporan'],
         'report.history.view' => ['tenant', 'report_designer', 'Melihat riwayat ekspor laporan kustom'],
         // Opening a dashboard never grants the data its widgets show: they check the data permissions above.
-        'dashboard.view' => ['tenant', 'dashboard', 'Melihat dashboard organisasi dan yang dibagikan'],
+        'dashboard.view' => ['tenant', 'dashboard', 'Melihat dashboard business unit dan yang dibagikan'],
         'dashboard.create' => ['tenant', 'dashboard', 'Membuat dashboard pribadi'],
-        'dashboard.manage' => ['tenant', 'dashboard', 'Mengelola dashboard organisasi dan template'],
-        'audit.view' => ['tenant', 'audit', 'Melihat audit trail organisasi'],
+        'dashboard.manage' => ['tenant', 'dashboard', 'Mengelola dashboard business unit dan template'],
+        'audit.view' => ['tenant', 'audit', 'Melihat audit trail business unit'],
         'approval.manage' => ['tenant', 'approval', 'Menyetujui/menolak pengajuan transaksi, aset, dan master data'],
         'workflow.view' => ['tenant', 'workflow', 'Melihat konfigurasi workflow'],
         'workflow.manage' => ['tenant', 'workflow', 'Mengelola workflow persetujuan'],
-        'settings.manage' => ['tenant', 'settings', 'Mengelola pengaturan organisasi'],
+        'settings.manage' => ['tenant', 'settings', 'Mengelola pengaturan business unit'],
         'license.manage' => ['tenant', 'license', 'Mengelola lisensi dan kode lisensi'],
     ];
 

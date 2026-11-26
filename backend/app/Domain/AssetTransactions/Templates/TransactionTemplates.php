@@ -58,7 +58,7 @@ final class TransactionTemplates
                 'graph' => self::graph([
                     self::node('start', 'start', 'Diajukan', ['preconditions' => ['match' => 'all', 'assets' => 'all', 'rules' => [
                         ['subject' => 'asset.status', 'op' => 'not_in', 'value' => [AssetStatus::ON_LOAN, AssetStatus::OFF_SITE]],
-                    ]], 'message' => 'Aset yang sedang dipinjamkan atau berada di luar organisasi tidak dapat dimutasi.']),
+                    ]], 'message' => 'Aset yang sedang dipinjamkan atau berada di luar business unit tidak dapat dimutasi.']),
                     self::node('setuju_spv', 'approval', 'Persetujuan Supervisor lokasi', ['approver' => ['type' => 'location_supervisor'], 'min_approvals' => 1]),
                     self::node('terima', 'input', 'Dalam pengiriman', ['assignee' => ['type' => 'field', 'field' => 'penerima'], 'fields' => ['no_bast', 'foto']]),
                     self::node('pindah', 'action', 'Diterima', ['actions' => [

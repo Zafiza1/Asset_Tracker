@@ -170,7 +170,7 @@ final class RoleManagement
     private function assertOrganizationManager(?string $templateCode, array $permissions): void
     {
         if (in_array(RoleTemplates::ORGANIZATION_MANAGE_PERMISSION, $permissions, true) && ! RoleTemplates::mayManageOrganization($templateCode)) {
-            throw new ApiException('ORGANIZATION_MANAGE_ROLE_ONLY', 'Permission mengubah profil organisasi hanya dapat dimiliki role Super Admin.', 422, ['permissions' => [RoleTemplates::ORGANIZATION_MANAGE_PERMISSION]]);
+            throw new ApiException('ORGANIZATION_MANAGE_ROLE_ONLY', 'Permission mengubah profil business unit hanya dapat dimiliki role Super Admin.', 422, ['permissions' => [RoleTemplates::ORGANIZATION_MANAGE_PERMISSION]]);
         }
     }
 

@@ -422,7 +422,7 @@ export function FlowEditorPage() {
                   <p>Pilih langkah di kanvas untuk mengatur siapa yang mengerjakan, field, syarat, atau aksinya.</p>
                   <Field label="Catatan perubahan (opsional)">{(p) => <Textarea {...p} rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />}</Field>
                   <Alert tone="info" title="Aturan inti tetap berlaku">
-                    Aset yang dipinjam, di luar organisasi, atau nonaktif tidak dapat ditransaksikan sembarangan, apa pun alurnya.
+                    Aset yang dipinjam, di luar business unit, atau nonaktif tidak dapat ditransaksikan sembarangan, apa pun alurnya.
                   </Alert>
                   {state && state.versions.length > 0 && (
                     <div>

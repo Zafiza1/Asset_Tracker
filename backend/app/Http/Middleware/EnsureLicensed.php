@@ -34,7 +34,7 @@ final class EnsureLicensed
         }
         if ($status->overLimit()) {
             throw new ApiException('SEAT_LIMIT_EXCEEDED',
-                "Organisasi memakai {$status->used()} seat, melebihi lisensi ({$status->capacity}). Nonaktifkan anggota atau batalkan undangan sampai sesuai, atau tambah seat lisensi.",
+                "Business Unit memakai {$status->used()} seat, melebihi lisensi ({$status->capacity}). Nonaktifkan anggota atau batalkan undangan sampai sesuai, atau tambah seat lisensi.",
                 403, ['seats' => $status->toArray()['seats']]);
         }
 

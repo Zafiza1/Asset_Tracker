@@ -47,7 +47,7 @@ export function EmailVerificationPage() {
       ) : (
         <div className="space-y-4">
           <Alert tone="warning" title="Email belum diverifikasi">
-            Verifikasi {profile.user.email} agar dapat menerima undangan bergabung dengan organisasi.
+            Verifikasi {profile.user.email} agar dapat menerima undangan bergabung dengan business unit.
           </Alert>
           <ResendVerification email={profile.user.email} />
         </div>
@@ -98,7 +98,7 @@ function Verified() {
     <EmptyState
       icon={MailCheck}
       title="Email terverifikasi"
-      description="Anda sekarang dapat menerima undangan organisasi. Buka kembali tautan undangan dari email bila ada."
+      description="Anda sekarang dapat menerima undangan business unit. Buka kembali tautan undangan dari email bila ada."
       action={
         profile && (
           <Link to={landingPath(profile)} className="text-sm font-medium text-brand-700 hover:underline">

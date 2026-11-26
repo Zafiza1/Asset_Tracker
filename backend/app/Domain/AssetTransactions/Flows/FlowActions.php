@@ -120,7 +120,7 @@ final class FlowActions
             ->where('m.user_id', $userId)->where('m.status', User::STATUS_ACTIVE)->where('u.status', User::STATUS_ACTIVE)
             ->first(['u.name', 'm.home_department_id']);
         if ($member === null) {
-            throw ApiException::unprocessable('INVALID_REFERENCE', 'Penanggung jawab baru harus anggota aktif organisasi ini.');
+            throw ApiException::unprocessable('INVALID_REFERENCE', 'Penanggung jawab baru harus anggota aktif business unit ini.');
         }
         $department = $setDepartment ? $member->home_department_id : null;
         $recorder = User::query()->find($run->created_by) ?? throw new LogicException('Run without its recorder.');

@@ -284,7 +284,7 @@ function CreateTemplateModal({ open, onClose, onCreated }: { open: boolean; onCl
         <Field label="Nama template" required error={errors.name}>
           {(p) => <Input {...p} value={form.name} onChange={set('name')} maxLength={150} placeholder="Laporan Stok Aset" />}
         </Field>
-        <Field label="Kode" required error={errors.code} hint="Huruf, angka, strip — unik per organisasi.">
+        <Field label="Kode" required error={errors.code} hint="Huruf, angka, strip — unik per business unit.">
           {(p) => <Input {...p} value={form.code} onChange={set('code')} maxLength={60} placeholder="STOCK-01" className="font-mono" />}
         </Field>
       </div>

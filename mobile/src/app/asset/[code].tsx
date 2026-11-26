@@ -58,7 +58,7 @@ export default function AssetDetailScreen() {
       <SafeAreaView style={styles.center} edges={['bottom']}>
         <Text style={styles.title}>{notFound ? 'Aset tidak ditemukan' : 'Gagal memuat aset'}</Text>
         <Text style={styles.code}>{code}</Text>
-        <Text style={styles.muted}>{notFound ? 'Kode yang dipindai atau No Manufaktur / No Seri yang diketik tidak cocok dengan aset mana pun di organisasi atau cakupan data Anda.' : errorMessage(error)}</Text>
+        <Text style={styles.muted}>{notFound ? 'Kode yang dipindai atau No Manufaktur / No Seri yang diketik tidak cocok dengan aset mana pun di business unit atau cakupan data Anda.' : errorMessage(error)}</Text>
         <View style={{ gap: 8, alignSelf: 'stretch' }}>
           <Button title="Pindai lagi" onPress={() => router.replace('/scan')} />
           {!notFound && <Button title="Coba lagi" variant="secondary" onPress={load} />}
@@ -192,7 +192,7 @@ function OffSite({ history }: { history: AssetTransaction[] | null }) {
   const out = history?.find((t) => t.type === 'outgoing')
   if (!out) {
     return (
-      <Alert tone="warning" title="Di luar organisasi">
+      <Alert tone="warning" title="Di luar business unit">
         Aset ini sedang berada di pihak luar.
       </Alert>
     )

@@ -49,7 +49,7 @@ export function ModulesPage({ module }: { module: ModuleKey }) {
     <>
       <PageHeader
         title={`Modul ${current?.name ?? ""}`.trim()}
-        description="Aktifkan modul sesuai kebutuhan organisasi, lalu pilih kategori aset yang memakainya. Modul yang nonaktif tidak tampil di aplikasi."
+        description="Aktifkan modul sesuai kebutuhan business unit, lalu pilih kategori aset yang memakainya. Modul yang nonaktif tidak tampil di aplikasi."
       />
       {modules.isLoading ? (
         <FormSkeleton fields={2} label="Memuat modul…" />
