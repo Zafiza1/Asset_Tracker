@@ -58,6 +58,8 @@ final class ApprovalActions
         'customer.update' => [self::CATEGORY_MASTER, 'Perubahan customer'],
         'customer.archive' => [self::CATEGORY_MASTER, 'Pengarsipan customer'],
         'customer.restore' => [self::CATEGORY_MASTER, 'Pemulihan customer'],
+        'customer.import' => [self::CATEGORY_MASTER, 'Impor customer dari Excel'],
+        'customer.import_edits' => [self::CATEGORY_MASTER, 'Multiple Edit customer dari Excel'],
         'vehicle.create' => [self::CATEGORY_MASTER, 'Penambahan kendaraan'],
         'vehicle.update' => [self::CATEGORY_MASTER, 'Perubahan kendaraan'],
         'vehicle.archive' => [self::CATEGORY_MASTER, 'Pengarsipan kendaraan'],

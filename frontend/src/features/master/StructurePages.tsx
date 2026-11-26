@@ -168,14 +168,26 @@ export function EmployeesPage() {
 }
 
 export function CustomersPage() {
+  const permissions = useMasterPermissions()
+  const [editing, setEditing] = useState<Customer | 'new' | null>(null)
+  const [importing, setImporting] = useState(false)
   return (
+    <>
     <MasterListPage<Customer>
       title="Customer"
       description="Tujuan tabung dikirim dan tempat tabung dijemput."
       endpoint="/customers"
       searchPlaceholder="Cari kode, nama, alamat, atau kontak"
       emptyHint="Tambahkan customer agar bisa dipilih di transaksi masuk dan keluar."
-      {...useMasterPermissions()}
+      {...permissions}
+      // Switched off when no longer served, never archived here.
+      canArchive={false}
+      // Adding goes through the AddMenu (form or Excel import), as in Data Aset.
+      canCreate={false}
+      editing={editing}
+      onEditChange={setEditing}
+      headerActions={permissions.canCreate && <AddMenu label="Tambah customer" noun="customer" onForm={() => setEditing('new')} onImport={() => setImporting(true)} />}
+      bulkEdit={{ title: 'Multiple Edit Customer', endpoint: '/customers/edit-sheet', filename: 'edit_customer.xlsx', noun: 'customer', selectable: true }}
       columns={[
         code<Customer>(),
         { key: 'name', header: 'Nama', sortKey: 'name', cell: (r) => <span className="font-medium text-slate-900">{r.name}</span> },
@@ -190,6 +202,17 @@ export function CustomersPage() {
         { name: 'phone', label: 'No HP' },
       ]}
     />
+    {importing && (
+      <ImportModal
+        open={importing}
+        onClose={() => setImporting(false)}
+        title="Tambah Customer dari Excel (Import)"
+        endpoint="/customers/import"
+        templateEndpoint="/customers/template"
+        templateFilename="template_customer.xlsx"
+      />
+    )}
+    </>
   )
 }
 
