@@ -254,9 +254,15 @@ final class DeliveryService
         if ($item !== null && $item->state !== DeliveryItem::PLANNED) {
             throw ApiException::conflict('ALREADY_UNLOADED', "{$asset->name} sudah dibongkar di transaksi ini.");
         }
-        $this->assertLoadable($delivery->direction, $asset);
+        if ($item === null && $outgoing) {
+            $this->assertChosen($delivery, $asset);
+        }
         // A cylinder chosen beforehand keeps its customer; at a customer it counts for where it is scanned.
         $stop = $item !== null && $outgoing ? $item->stop : $this->stop($delivery, $data);
+        if ($item === null && ! $outgoing) {
+            $this->assertChosen($delivery, $asset, $stop);
+        }
+        $this->assertLoadable($delivery->direction, $asset);
         if ($stop->isClosed()) {
             throw ApiException::conflict('STOP_CLOSED', "{$stop->customer->name} sudah selesai.");
         }
@@ -552,6 +558,22 @@ final class DeliveryService
         $stop = $id === null ? ($stops->count() === 1 ? $stops->first() : null) : $stops->firstWhere('id', $id);
 
         return $stop ?? throw self::fieldError('stop_id', 'Pilih customer tujuan.');
+    }
+
+    /**
+     * Cylinders chosen when the transaction was made on the web are the only ones it takes; one
+     * that was not chosen is refused, so a wrong label shows at once instead of joining the load.
+     * Without chosen cylinders (an incoming pick-up, or a customer without any), whatever is scanned joins.
+     */
+    private function assertChosen(Delivery $delivery, Asset $asset, ?DeliveryStop $stop = null): void
+    {
+        $chosen = $delivery->items()->where('planned', true)
+            ->when($stop !== null, fn ($query) => $query->where('stop_id', $stop->id))
+            ->exists();
+        if ($chosen) {
+            $where = $stop !== null ? " untuk {$stop->customer->name}" : '';
+            throw ApiException::unprocessable('NOT_IN_DELIVERY', "{$asset->name} ({$asset->serial_number}) tidak termasuk tabung yang dipilih{$where} di transaksi ini.");
+        }
     }
 
     private function assertStopsClosed(Delivery $delivery): void

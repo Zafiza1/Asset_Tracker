@@ -136,20 +136,22 @@ class DeliveryTest extends TestCase
     {
         [$a, $b] = [$this->tabung('T-1'), $this->tabung('T-2')];
         $extra = $this->tabung('T-3');
-        $this->deliver([$a, $b, $extra], $this->rs);
-        $this->getJson('/api/deliveries/cylinders?direction=incoming&customer_id='.$this->rs->id)->assertOk()->assertJsonPath('meta.total', 3);
+        $notChosen = $this->tabung('T-4');
+        $this->deliver([$a, $b, $extra, $notChosen], $this->rs);
+        $this->getJson('/api/deliveries/cylinders?direction=incoming&customer_id='.$this->rs->id)->assertOk()->assertJsonPath('meta.total', 4);
         $this->getJson('/api/deliveries/cylinders?direction=incoming&customer_id='.$this->bengkel->id)->assertOk()->assertJsonPath('meta.total', 0);
 
-        $delivery = $this->plan('incoming', [[$this->rs, [$a, $b]]])->assertCreated()->json('data');
+        $delivery = $this->plan('incoming', [[$this->rs, [$a, $b, $extra]]])->assertCreated()->json('data');
         $this->assertStringStartsWith('IN-', $delivery['number']);
         $id = $delivery['id'];
         $this->assertErrorCode($this->scan($id, 'load', 'T-1'), 409, 'DELIVERY_NOT_STARTED');
         $this->crew($id)->assertOk();
         $this->report($id, 'depart')->assertOk();
 
-        // Loading at the customer marks the arrival; a cylinder that was not planned may join.
+        // Loading at the customer marks the arrival; a cylinder that was not chosen is refused.
         $this->scan($id, 'load', 'T-1')->assertOk()->assertJsonPath('data.stops.0.status', 'arrived');
-        $this->scan($id, 'load', 'T-3')->assertOk()->assertJsonPath('data.counts.total', 3);
+        $this->assertErrorCode($this->scan($id, 'load', 'T-4'), 422, 'NOT_IN_DELIVERY');
+        $this->scan($id, 'load', 'T-3')->assertOk()->assertJsonPath('data.counts.total', 3)->assertJsonPath('data.counts.loaded', 2);
         $this->assertErrorCode($this->scan($id, 'unload', 'T-1'), 409, 'STOP_OPEN');
         $this->report($id, 'stop_done')->assertOk();
         $this->assertErrorCode($this->scan($id, 'load', 'T-2'), 409, 'ALREADY_UNLOADED');
@@ -168,6 +170,34 @@ class DeliveryTest extends TestCase
         $this->getJson("/api/assets/{$extra->id}")->assertJsonPath('data.position.state', 'missing');
         $this->getJson("/api/assets/{$a->id}")->assertJsonPath('data.position.state', 'warehouse');
         $this->assertSame(0, $this->artisan('asset:inspect', ['--org' => 'ALPHA', '--verify-all' => true])->run());
+    }
+
+    public function test_only_the_cylinders_chosen_for_the_transaction_are_loaded_and_a_repeat_scan_counts_once(): void
+    {
+        [$a, $b, $other] = [$this->tabung('T-1'), $this->tabung('T-2'), $this->tabung('T-9')];
+        $id = $this->plan('outgoing', [[$this->rs, [$a]], [$this->bengkel, [$b]]])->assertCreated()->json('data.id');
+
+        $refused = $this->scan($id, 'load', 'T-9');
+        $this->assertErrorCode($refused, 422, 'NOT_IN_DELIVERY');
+        $this->assertStringContainsString('T-9', $refused->json('error.message'));
+        $this->assertDatabaseMissing('delivery_items', ['delivery_id' => $id, 'asset_id' => $other->id]);
+        $this->assertSame('available', $other->fresh()->status);
+
+        $this->scan($id, 'load', 'T-1')->assertOk()->assertJsonPath('meta.already', false)->assertJsonPath('data.counts.loaded', 1);
+        $this->scan($id, 'load', $a->id)->assertOk()->assertJsonPath('meta.already', true)->assertJsonPath('data.counts.loaded', 1);
+        $this->assertSame(1, DB::table('delivery_events')->where('delivery_id', $id)->where('type', 'load')->count());
+        $this->getJson("/api/deliveries/{$id}")->assertJsonPath('data.counts.total', 2);
+    }
+
+    public function test_an_incoming_transaction_without_chosen_cylinders_takes_what_is_scanned(): void
+    {
+        $a = $this->tabung('T-1');
+        $this->deliver([$a], $this->rs);
+        $id = $this->plan('incoming', [[$this->rs, []]])->assertCreated()->json('data.id');
+        $this->crew($id)->assertOk();
+        $this->report($id, 'depart')->assertOk();
+
+        $this->scan($id, 'load', 'T-1')->assertOk()->assertJsonPath('data.counts.loaded', 1);
     }
 
     public function test_a_cylinder_on_an_open_delivery_takes_no_other_transaction(): void
@@ -198,7 +228,11 @@ class DeliveryTest extends TestCase
 
         $id = $this->plan('outgoing', [[$this->rs, [$atWarehouse]]])->json('data.id');
         $this->assertErrorCode($this->scan($id, 'load', $this->vehicleAsset->id), 404, 'CYLINDER_NOT_FOUND');
-        $this->assertErrorCode($this->scan($id, 'load', 'T-1'), 409, 'INVALID_ASSET_STATUS');
+        // Not chosen for this transaction, whatever its status.
+        $this->assertErrorCode($this->scan($id, 'load', 'T-1'), 422, 'NOT_IN_DELIVERY');
+        // A chosen cylinder that cannot move any more is still refused at the scan.
+        DB::table('assets')->where('id', $atWarehouse->id)->update(['status' => 'under_maintenance']);
+        $this->assertErrorCode($this->scan($id, 'load', 'T-2'), 409, 'INVALID_ASSET_STATUS');
     }
 
     public function test_plan_can_be_changed_until_loading_and_a_load_scan_taken_back(): void
