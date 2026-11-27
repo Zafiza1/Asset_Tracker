@@ -59,4 +59,20 @@ describe('GuidePage', () => {
     expect(screen.getByRole('heading', { name: /Kirim & jemput tabung/ })).toBeInTheDocument()
     expect(screen.queryByText(/lisensi/i)).not.toBeInTheDocument()
   })
+
+  it('prepares Master Data before inviting, since an invitation picks an employee', () => {
+    renderGuide([])
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+    expect(headings.indexOf('Siapkan Master Data')).toBeLessThan(headings.indexOf('Undang tim & atur akses'))
+    expect(screen.getAllByText(/Divisi/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Kendaraan').length).toBeGreaterThan(0)
+    // Vehicles are Master Data in this edition, not a category of assets.
+    expect(screen.queryByText('Aset Kendaraan')).not.toBeInTheDocument()
+  })
+
+  it('warns about a cylinder that is not in the transaction and one scanned twice', () => {
+    renderGuide([])
+    expect(screen.getAllByText(/Tabung tidak sesuai/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Tabung sudah di-scan/).length).toBeGreaterThan(0)
+  })
 })
