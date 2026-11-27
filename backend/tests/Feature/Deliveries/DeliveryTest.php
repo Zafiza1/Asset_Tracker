@@ -189,6 +189,23 @@ class DeliveryTest extends TestCase
         $this->getJson("/api/deliveries/{$id}")->assertJsonPath('data.counts.total', 2);
     }
 
+    public function test_an_incoming_cylinder_chosen_for_one_customer_is_refused_at_another(): void
+    {
+        [$a, $b] = [$this->tabung('T-1'), $this->tabung('T-2')];
+        $this->deliver([$a], $this->rs);
+        $this->deliver([$b], $this->bengkel);
+        $delivery = $this->plan('incoming', [[$this->rs, [$a]], [$this->bengkel, [$b]]])->assertCreated()->json('data');
+        [$stopRs, $stopBengkel] = array_column($delivery['stops'], 'id');
+        $this->crew($delivery['id'])->assertOk();
+        $this->report($delivery['id'], 'depart')->assertOk();
+
+        $refused = $this->scan($delivery['id'], 'load', 'T-1', $stopBengkel);
+        $this->assertErrorCode($refused, 422, 'NOT_IN_DELIVERY');
+        $this->assertStringContainsString('Bengkel Las', $refused->json('error.message'));
+        $this->assertDatabaseHas('delivery_items', ['asset_id' => $a->id, 'stop_id' => $stopRs, 'state' => 'planned']);
+        $this->scan($delivery['id'], 'load', 'T-1', $stopRs)->assertOk();
+    }
+
     public function test_an_incoming_transaction_without_chosen_cylinders_takes_what_is_scanned(): void
     {
         $a = $this->tabung('T-1');

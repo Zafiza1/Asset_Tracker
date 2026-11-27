@@ -262,6 +262,9 @@ final class DeliveryService
         if ($item === null && ! $outgoing) {
             $this->assertChosen($delivery, $asset, $stop);
         }
+        if ($item !== null && ! $outgoing && $item->planned && $item->stop_id !== $stop->id) {
+            throw ApiException::unprocessable('NOT_IN_DELIVERY', "{$asset->name} ({$asset->serial_number}) tidak termasuk tabung yang dipilih untuk {$stop->customer->name} di transaksi ini.");
+        }
         $this->assertLoadable($delivery->direction, $asset);
         if ($stop->isClosed()) {
             throw ApiException::conflict('STOP_CLOSED', "{$stop->customer->name} sudah selesai.");
