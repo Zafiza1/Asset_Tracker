@@ -1,11 +1,11 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
+import { ActivityIndicator, Alert as NativeAlert, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Field, Input, Select } from '@/components/form'
-import { Alert, Badge, Button, Card, colors, Row } from '@/components/ui'
+import { Alert, Badge, Button, Card, colors, ProgressBar, Row, Stepper } from '@/components/ui'
 import { ApiError, errorMessage } from '@/lib/api'
-import { canOperateDeliveries, DELIVERY_STATUS_COLORS, deliveryMeta, REPORT_LABEL, sendOnce, type DeliveryMeta } from '@/lib/deliveries'
+import { canOperateDeliveries, DELIVERY_STATUS_COLORS, deliveryMeta, progressStep, PROGRESS_LABELS, REPORT_LABEL, sendOnce, type DeliveryMeta } from '@/lib/deliveries'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { fieldErrors } from '@/lib/forms'
 import { useSession } from '@/lib/session'
@@ -182,6 +182,12 @@ export default function DeliveryScreen() {
   const unscan = (assetId: string) =>
     act((meta) => post<{ data: Delivery }>(`/deliveries/${id}/unscan`, { asset_id: assetId, ...meta }))
 
+  const confirmUnscan = (assetId: string, label: string) =>
+    NativeAlert.alert('Batal muat?', `${label} dikeluarkan dari muatan dan tidak dihitung lagi.`, [
+      { text: 'Tidak', style: 'cancel' },
+      { text: 'Batal muat', style: 'destructive', onPress: () => unscan(assetId) },
+    ])
+
   const stopDone = async (stop: DeliveryStop) => {
     const own = (delivery?.items ?? []).filter((i) => i.stop_id === stop.id)
     const outgoing = delivery?.direction === 'outgoing'
@@ -275,6 +281,7 @@ export default function DeliveryScreen() {
   const canDepart = operate && open && (d.status === 'draft' || d.status === 'loading') && crewReady && (!outgoing || loadedCount > 0)
   const canReturn = operate && d.status === 'in_transit' && stopsClosed && !outgoing && d.returned_at === null
   const canComplete = operate && d.status === 'in_transit' && stopsClosed && (outgoing || d.returned_at !== null)
+  const next = operate && open ? nextStep(d, { crewReady, loadedCount, stopsClosed }) : ''
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
@@ -296,11 +303,20 @@ export default function DeliveryScreen() {
         )}
 
         <Card>
-          <View style={{ padding: 14, gap: 8 }}>
+          <View style={styles.summary}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Badge colors={DELIVERY_STATUS_COLORS[d.status]}>{d.status_label}</Badge>
               <Text style={styles.muted}>{d.direction_label}</Text>
             </View>
+            {d.status !== 'cancelled' && <Stepper steps={PROGRESS_LABELS[d.direction]} current={progressStep(d)} />}
+          </View>
+          {next !== '' && (
+            <View style={styles.next}>
+              <Text style={styles.nextLabel}>Langkah berikutnya</Text>
+              <Text style={styles.nextText}>{next}</Text>
+            </View>
+          )}
+          <View style={{ paddingVertical: 4 }}>
             <Row label="Tanggal kirim">{formatDate(d.planned_date)}</Row>
             {d.expected_return_date && <Row label="Perkiraan kembali">{formatDate(d.expected_return_date)}</Row>}
             {d.departed_at && <Row label="Berangkat">{formatDateTime(d.departed_at)}</Row>}
@@ -366,11 +382,11 @@ export default function DeliveryScreen() {
                   </View>
                   {s.customer.address ? <Text style={styles.muted}>{s.customer.address}</Text> : null}
                   {s.customer.phone ? <Text style={styles.muted}>{s.customer.phone}</Text> : null}
-                  <Text style={styles.muted}>
-                    {count.length > 0
-                      ? `${count.filter((i) => i.state === 'loaded').length} termuat · ${count.filter((i) => i.state === 'unloaded').length} bongkar · ${count.length} tabung`
-                      : 'Tanpa tabung terencana'}
-                  </Text>
+                  {count.length > 0 ? (
+                    <StopProgress items={count} />
+                  ) : (
+                    <Text style={styles.muted}>Tanpa tabung terpilih: tabung yang di-scan ikut tercatat.</Text>
+                  )}
                   {s.receiver_name ? <Text style={styles.muted}>Penerima: {s.receiver_name}</Text> : null}
                   {s.note ? <Text style={styles.muted}>Catatan: {s.note}</Text> : null}
                 </View>
@@ -457,14 +473,16 @@ export default function DeliveryScreen() {
                 <View key={i.id} style={styles.item}>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={styles.itemName}>{i.name}</Text>
-                    <Text style={styles.muted}>{[i.serial_number, i.state_label, i.loaded_by ? `Muat: ${i.loaded_by}` : null, i.unloaded_by ? `Bongkar: ${i.unloaded_by}` : null].filter(Boolean).join(' · ')}</Text>
+                    <Text style={styles.muted}>{[i.serial_number, stops.find((s) => s.id === i.stop_id)?.customer.name, i.loaded_by ? `Muat: ${i.loaded_by}` : null, i.unloaded_by ? `Bongkar: ${i.unloaded_by}` : null].filter(Boolean).join(' · ')}</Text>
                   </View>
-                  <Badge colors={ITEM_COLORS[i.state] ?? ITEM_COLORS.cancelled}>{i.state_label}</Badge>
-                  {mayUnscan && (
-                    <Pressable onPress={() => unscan(i.asset_id)} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Batalkan muat ${i.name}`}>
-                      <Text style={{ color: colors.danger, fontWeight: '700' }}>↩</Text>
-                    </Pressable>
-                  )}
+                  <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                    <Badge colors={ITEM_COLORS[i.state] ?? ITEM_COLORS.cancelled}>{i.state_label}</Badge>
+                    {mayUnscan && (
+                      <Pressable onPress={() => confirmUnscan(i.asset_id, i.serial_number ?? i.name)} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Batal muat ${i.name}`}>
+                        <Text style={styles.unscan}>Batal muat</Text>
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
               )
             })}
@@ -502,6 +520,41 @@ export default function DeliveryScreen() {
       <NoteSheet req={noteReq} note={note} receiver={receiver} onNote={setNote} onReceiver={setReceiver} onSubmit={submitNote} onClose={() => closeNote(null)} />
     </SafeAreaView>
   )
+}
+
+/** Loaded and unloaded cylinders of one customer, as a bar. */
+function StopProgress({ items }: { items: { state: string }[] }) {
+  const loaded = items.filter((i) => i.state === 'loaded').length
+  const unloaded = items.filter((i) => i.state === 'unloaded').length
+  const total = items.filter((i) => i.state !== 'not_loaded' && i.state !== 'cancelled').length || items.length
+  return (
+    <View style={{ gap: 4 }}>
+      <Text style={styles.muted}>{`${loaded} termuat · ${unloaded} dibongkar · ${items.length} tabung`}</Text>
+      <ProgressBar value={(loaded + unloaded) / total} tone={unloaded === total ? 'ok' : 'brand'} />
+    </View>
+  )
+}
+
+/** What the crew does next, in one sentence ('' when nothing is left to do here). */
+function nextStep(d: Delivery, { crewReady, loadedCount, stopsClosed }: { crewReady: boolean; loadedCount: number; stopsClosed: boolean }): string {
+  const outgoing = d.direction === 'outgoing'
+  if (d.status === 'draft' || d.status === 'loading') {
+    if (outgoing && loadedCount === 0) return 'Scan muat tabung di gudang (tombol Scan Muat pada customer).'
+    if (!crewReady) return 'Isi kendaraan dan supir, lalu Simpan kru.'
+    return outgoing ? 'Tekan Berangkat bila semua tabung sudah dimuat.' : 'Tekan Berangkat ke customer.'
+  }
+  if (d.status !== 'in_transit') return ''
+  const stops = d.stops ?? []
+  const here = stops.find((s) => s.status === 'arrived')
+  if (here) return outgoing ? `Di ${here.customer.name}: scan bongkar, lalu Selesai dan isi nama penerima.` : `Di ${here.customer.name}: scan muat, lalu Selesai.`
+  if (!stopsClosed) {
+    const to = stops.find((s) => s.status === 'pending')
+    if (!to) return ''
+    return outgoing ? `Menuju ${to.customer.name}. Tekan Tiba saat sampai.` : `Menuju ${to.customer.name}. Tekan Tiba atau langsung Scan Muat saat sampai.`
+  }
+  if (!outgoing && d.returned_at === null) return 'Semua customer selesai. Tekan Tiba di gudang saat sampai.'
+  if (!outgoing && loadedCount > 0) return 'Scan bongkar tabung di gudang, lalu Selesaikan transaksi.'
+  return 'Tekan Selesaikan transaksi.'
 }
 
 /** Bottom sheet asking for the note/receiver some actions require. */
@@ -547,6 +600,11 @@ function NoteSheet({
 
 const styles = StyleSheet.create({
   page: { padding: 16, gap: 12 },
+  summary: { padding: 14, gap: 14 },
+  next: { marginHorizontal: 14, marginBottom: 8, padding: 12, borderRadius: 10, backgroundColor: colors.brandSoft, gap: 2 },
+  nextLabel: { fontSize: 12, fontWeight: '700', color: colors.brandDark, textTransform: 'uppercase', letterSpacing: 0.5 },
+  nextText: { fontSize: 15, fontWeight: '600', color: colors.text },
+  unscan: { color: colors.danger, fontWeight: '700', fontSize: 13 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
   muted: { color: colors.muted, fontSize: 14 },
   hint: { color: colors.muted, fontSize: 13 },

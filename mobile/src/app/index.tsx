@@ -47,7 +47,7 @@ export default function HomeScreen() {
   )
 
   const actions: { title: string; text: string; href: Href; badge?: number | null }[] = [
-    ...(can('asset.create') ? [{ title: 'Tambah Aset', text: 'Daftarkan tabung atau kendaraan baru.', href: '/new/asset' as const }] : []),
+    ...(can('asset.create') ? [{ title: 'Tambah Aset', text: 'Daftarkan tabung baru.', href: '/new/asset' as const }] : []),
     ...(canRequest
       ? [
           {

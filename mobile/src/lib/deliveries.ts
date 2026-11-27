@@ -117,3 +117,17 @@ export const DELIVERY_STATUS_COLORS: Record<Delivery['status'], [string, string]
   completed: ['#dcfce7', '#166534'],
   cancelled: ['#f1f5f9', '#334155'],
 }
+
+/** Stage the trip is at, 0–4 (same as the web's progressStep): prepared, loading, on the way, unloading, done. */
+export function progressStep(d: Delivery): number {
+  if (d.status === 'completed') return 4
+  if (d.status === 'draft' || d.status === 'cancelled') return 0
+  if (d.status === 'loading') return 1
+  const unloading = d.direction === 'incoming' ? d.returned_at !== null : (d.stops ?? []).some((s) => s.status === 'arrived')
+  return unloading ? 3 : 2
+}
+
+export const PROGRESS_LABELS: Record<Delivery['direction'], string[]> = {
+  outgoing: ['Disiapkan', 'Muat di gudang', 'Perjalanan', 'Bongkar', 'Selesai'],
+  incoming: ['Disiapkan', 'Muat di customer', 'Perjalanan', 'Bongkar di gudang', 'Selesai'],
+}
