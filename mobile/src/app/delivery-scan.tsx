@@ -33,6 +33,26 @@ interface ScanResult {
   text: string
   outcome: Outcome
   message?: string
+  /** What the crew should do about a refused cylinder. */
+  advice?: string
+  /** Only a lost connection or a server fault is worth sending again. */
+  retry?: boolean
+}
+
+/** What to do with a cylinder the server refused, per answer and phase. */
+function adviceFor(code: string, phase: ScanPhase): string | null {
+  switch (code) {
+    case 'NOT_IN_DELIVERY':
+      return 'Jangan dimuat: keluarkan tabung ini dari muatan. Tabung tidak dihitung.'
+    case 'OTHER_CUSTOMER':
+      return phase === 'unload' ? 'Jangan dibongkar di sini: tabung ini untuk customer lain dan tetap di kendaraan.' : 'Tabung ini untuk customer lain. Tidak dihitung di sini.'
+    case 'NOT_LOADED':
+      return 'Tabung ini tidak ada di muatan kendaraan. Jangan dibongkar; tidak dihitung.'
+    case 'CYLINDER_NOT_FOUND':
+      return 'Kode tidak dikenal. Periksa label atau No Manufaktur yang diketik.'
+    default:
+      return null
+  }
 }
 
 const OUTCOME: Record<Exclude<Outcome, 'sending'>, { label: string; fg: string; bg: string; vibrate: number | number[] }> = {
@@ -64,8 +84,12 @@ export default function DeliveryScanScreen() {
   const lastSeen = useRef(new Map<string, number>())
   const sending = useRef(new Set<string>())
   const nextId = useRef(1)
-  // While an alert is open the camera keeps reporting the same label; those reports are ignored.
+  // While an alert is open the camera keeps reporting labels; they are ignored, and only the
+  // refused label is kept "in view", so it is not read again the moment the alert closes.
   const paused = useRef(false)
+  const pausedKey = useRef<string | null>(null)
+  // A scan answer is newer than the first load of the screen; a late first load must not replace it.
+  const answered = useRef(false)
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // One scan after the other, in the order they were made.
   const queue = useRef<Promise<void>>(Promise.resolve())
@@ -77,7 +101,7 @@ export default function DeliveryScanScreen() {
 
   useEffect(() => {
     get<{ data: Delivery }>(`/deliveries/${params.id}`)
-      .then((r) => keepDelivery(r.data))
+      .then((r) => !answered.current && keepDelivery(r.data))
       .catch(() => undefined)
     return () => {
       if (bannerTimer.current) clearTimeout(bannerTimer.current)
@@ -91,10 +115,18 @@ export default function DeliveryScanScreen() {
     setBanner(result)
     if (bannerTimer.current) clearTimeout(bannerTimer.current)
     bannerTimer.current = setTimeout(() => setBanner(null), BANNER_MS)
-    if (result.outcome === 'wrong') {
+    // One alert at a time: a refusal while one is open shows in the banner and the list only.
+    if (result.outcome === 'wrong' && !paused.current) {
       paused.current = true
-      NativeAlert.alert('Tabung tidak sesuai', `${result.message ?? result.text}\n\nKeluarkan tabung ini dari muatan. Tabung tidak dihitung.`, [
-        { text: 'Mengerti', onPress: () => (paused.current = false) },
+      pausedKey.current = result.key
+      NativeAlert.alert('Tabung tidak sesuai', [result.message ?? result.text, result.advice].filter(Boolean).join('\n\n'), [
+        {
+          text: 'Mengerti',
+          onPress: () => {
+            paused.current = false
+            pausedKey.current = null
+          },
+        },
       ], { cancelable: false })
     }
   }
@@ -109,13 +141,17 @@ export default function DeliveryScanScreen() {
         ...(params.stop_id ? { stop_id: params.stop_id } : {}),
         ...(await deliveryMeta()),
       })
+      answered.current = true
       keepDelivery(r.data)
       const item = r.data.items?.find((i) => i.asset_id === r.meta.asset_id)
-      const text = item ? itemText(item) : base.code
+      // Loaded on this screen but for another customer of the trip: say for whom.
+      const elsewhere = item && params.stop_id && item.stop_id !== params.stop_id ? r.data.stops?.find((s) => s.id === item.stop_id)?.customer.name : undefined
+      const text = item ? `${itemText(item)}${elsewhere ? ` (untuk ${elsewhere})` : ''}` : base.code
       show(r.meta.already ? { ...base, text, outcome: 'duplicate', message: duplicateMessage() } : { ...base, text, outcome: 'ok' })
     } catch (e) {
-      const wrong = e instanceof ApiError && (e.code === 'NOT_IN_DELIVERY' || e.code === 'NOT_LOADED' || e.code === 'OTHER_CUSTOMER' || e.code === 'CYLINDER_NOT_FOUND')
-      show({ ...base, outcome: wrong ? 'wrong' : 'error', message: errorMessage(e) })
+      const advice = e instanceof ApiError ? adviceFor(e.code, phase) : null
+      const retry = !(e instanceof ApiError) || e.status === 0 || e.status >= 500
+      show({ ...base, outcome: advice ? 'wrong' : 'error', message: errorMessage(e), advice: advice ?? undefined, retry })
     } finally {
       sending.current.delete(base.key)
     }
@@ -126,12 +162,8 @@ export default function DeliveryScanScreen() {
     const key = code.toLowerCase()
     if (!code || sending.current.has(key)) return
     const base: ScanResult = { id: nextId.current++, key, code, text: code, outcome: 'sending' }
-    // Already counted here: told at once, without asking the server again.
+    // Always asked of the server: another phone on the trip may have changed the load since.
     const known = findItem(deliveryRef.current, code)
-    if (known && isScanned(known, phase)) {
-      show({ ...base, text: itemText(known), outcome: 'duplicate', message: duplicateMessage() })
-      return
-    }
     sending.current.add(key)
     show({ ...base, text: known ? itemText(known) : code })
     queue.current = queue.current.then(() => send(base))
@@ -140,9 +172,13 @@ export default function DeliveryScanScreen() {
   const onCamera = ({ data }: BarcodeScanningResult) => {
     const key = data.trim().toLowerCase()
     const now = Date.now()
+    if (paused.current) {
+      if (key === pausedKey.current) lastSeen.current.set(key, now)
+      return
+    }
     const before = lastSeen.current.get(key) ?? 0
     lastSeen.current.set(key, now)
-    if (!paused.current && now - before > OUT_OF_VIEW_MS) scan(data)
+    if (now - before > OUT_OF_VIEW_MS) scan(data)
   }
 
   const submitManual = () => {
@@ -155,7 +191,9 @@ export default function DeliveryScanScreen() {
   const done = own.length - left.length
   const phaseLabel = phase === 'load' ? 'MUAT' : 'BONGKAR'
   const verb = phase === 'load' ? 'dimuat' : 'dibongkar'
-  const complete = own.length > 0 && left.length === 0
+  // A pick-up without chosen cylinders has no total: whatever is scanned joins.
+  const openEnded = !own.some((i) => i.planned)
+  const complete = !openEnded && own.length > 0 && left.length === 0
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
@@ -184,7 +222,7 @@ export default function DeliveryScanScreen() {
               {banner.outcome === 'ok' ? `${banner.text} ${verb}` : banner.outcome === 'duplicate' ? 'Tabung sudah di-scan' : banner.outcome === 'wrong' ? 'Tabung tidak sesuai' : 'Belum tercatat'}
             </Text>
             <Text style={styles.bannerText} numberOfLines={2}>
-              {banner.outcome === 'ok' ? `${done} dari ${own.length} tabung` : banner.outcome === 'duplicate' ? `${banner.text} · tidak dihitung lagi` : banner.message}
+              {banner.outcome === 'ok' ? (openEnded ? `${done} tabung ${verb}` : `${done} dari ${own.length} tabung`) : banner.outcome === 'duplicate' ? `${banner.text} · tidak dihitung lagi` : banner.message}
             </Text>
           </View>
         )}
@@ -206,16 +244,18 @@ export default function DeliveryScanScreen() {
         <Button title="Catat" variant="secondary" onPress={submitManual} disabled={!manual.trim()} />
       </View>
 
-      <Pressable style={styles.summary} onPress={() => setShowLeft((v) => !v)} disabled={left.length === 0} accessibilityRole="button" accessibilityLiveRegion="polite" accessibilityLabel={`${done} dari ${own.length} tabung ${verb}`}>
+      <Pressable style={styles.summary} onPress={() => setShowLeft((v) => !v)} disabled={left.length === 0} accessibilityRole="button" accessibilityLiveRegion="polite" accessibilityLabel={openEnded ? `${done} tabung ${verb}` : `${done} dari ${own.length} tabung ${verb}`}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryCount}>
             {done}
-            <Text style={styles.summaryOf}>{` / ${own.length}`}</Text>
+            {!openEnded && <Text style={styles.summaryOf}>{` / ${own.length}`}</Text>}
           </Text>
-          <Text style={[styles.summaryText, complete && { color: colors.ok }]}>{complete ? `Semua tabung ${verb}` : `tabung ${verb}`}</Text>
+          <Text style={[styles.summaryText, complete && { color: colors.ok }]}>
+            {complete ? `Semua tabung ${verb}` : openEnded ? `tabung ${verb} · tanpa tabung terpilih` : `tabung ${verb}`}
+          </Text>
           {left.length > 0 && <Text style={styles.link}>{showLeft ? 'Tutup' : `Belum (${left.length})`}</Text>}
         </View>
-        <ProgressBar value={own.length ? done / own.length : 0} tone={complete ? 'ok' : 'brand'} />
+        {!openEnded && <ProgressBar value={own.length ? done / own.length : 0} tone={complete ? 'ok' : 'brand'} />}
         {showLeft && left.length > 0 && (
           <View style={styles.chips}>
             {left.map((i) => (
@@ -243,10 +283,10 @@ export default function DeliveryScanScreen() {
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={styles.itemText}>{r.text}</Text>
                 <Text style={{ color: r.outcome === 'ok' || r.outcome === 'sending' ? colors.muted : OUTCOME[r.outcome].fg, fontSize: 13 }}>
-                  {r.outcome === 'sending' ? 'Mengirim…' : r.outcome === 'ok' ? `${phase === 'load' ? 'Termuat' : 'Terbongkar'} · dihitung` : r.message}
+                  {r.outcome === 'sending' ? 'Mengirim…' : r.outcome === 'ok' ? `${phase === 'load' ? 'Termuat' : 'Terbongkar'} · dihitung` : [r.message, r.advice].filter(Boolean).join(' ')}
                 </Text>
               </View>
-              {r.outcome === 'error' && (
+              {r.outcome === 'error' && r.retry && (
                 <Pressable onPress={() => scan(r.code)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Kirim ulang ${r.text}`}>
                   <Text style={{ color: colors.brand, fontWeight: '700' }}>Ulangi</Text>
                 </Pressable>
@@ -257,7 +297,7 @@ export default function DeliveryScanScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Button title={complete ? 'Selesai' : 'Kembali'} variant={complete ? 'primary' : 'secondary'} onPress={() => router.back()} />
+        <Button title={complete || openEnded ? 'Selesai' : 'Kembali'} variant={complete ? 'primary' : 'secondary'} onPress={() => router.back()} />
       </View>
     </SafeAreaView>
   )

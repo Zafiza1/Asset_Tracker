@@ -128,6 +128,6 @@ export function progressStep(d: Delivery): number {
 }
 
 export const PROGRESS_LABELS: Record<Delivery['direction'], string[]> = {
-  outgoing: ['Disiapkan', 'Muat di gudang', 'Perjalanan', 'Bongkar', 'Selesai'],
+  outgoing: ['Disiapkan', 'Muat di gudang', 'Perjalanan', 'Bongkar di customer', 'Selesai'],
   incoming: ['Disiapkan', 'Muat di customer', 'Perjalanan', 'Bongkar di gudang', 'Selesai'],
 }

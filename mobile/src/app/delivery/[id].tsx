@@ -385,7 +385,7 @@ export default function DeliveryScreen() {
                   {count.length > 0 ? (
                     <StopProgress items={count} />
                   ) : (
-                    <Text style={styles.muted}>Tanpa tabung terpilih: tabung yang di-scan ikut tercatat.</Text>
+                    <Text style={styles.muted}>{outgoing ? 'Tanpa tabung terpilih.' : 'Tanpa tabung terpilih: tabung yang di-scan di customer ini ikut tercatat.'}</Text>
                   )}
                   {s.receiver_name ? <Text style={styles.muted}>Penerima: {s.receiver_name}</Text> : null}
                   {s.note ? <Text style={styles.muted}>Catatan: {s.note}</Text> : null}
@@ -526,11 +526,14 @@ export default function DeliveryScreen() {
 function StopProgress({ items }: { items: { state: string }[] }) {
   const loaded = items.filter((i) => i.state === 'loaded').length
   const unloaded = items.filter((i) => i.state === 'unloaded').length
-  const total = items.filter((i) => i.state !== 'not_loaded' && i.state !== 'cancelled').length || items.length
+  // Left behind or cancelled no longer count; returned or missing count as finished.
+  const counted = items.filter((i) => i.state !== 'not_loaded' && i.state !== 'cancelled')
+  const finished = counted.filter((i) => i.state === 'unloaded' || i.state === 'returned' || i.state === 'missing').length
+  const total = counted.length
   return (
     <View style={{ gap: 4 }}>
-      <Text style={styles.muted}>{`${loaded} termuat · ${unloaded} dibongkar · ${items.length} tabung`}</Text>
-      <ProgressBar value={(loaded + unloaded) / total} tone={unloaded === total ? 'ok' : 'brand'} />
+      <Text style={styles.muted}>{`${loaded} termuat · ${unloaded} dibongkar · ${total} tabung`}</Text>
+      <ProgressBar value={total ? (loaded + finished) / total : 0} tone={total > 0 && finished === total ? 'ok' : 'brand'} />
     </View>
   )
 }
