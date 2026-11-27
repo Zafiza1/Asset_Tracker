@@ -244,7 +244,7 @@ function Step2() {
           <p>Klik tombol <Label>Tambah</Label> di tiap menu, lalu pilih <Label>Isi formulir</Label> atau <Label>Import dari Excel</Label>. Untuk mengubah banyak data sekaligus, pakai <Label>Multiple Edit</Label>.</p>
         </PathCard>
         <PathCard title="Data yang tidak dipakai lagi">
-          <p>Master Data tidak dihapus atau diarsipkan, agar riwayat transaksi tetap utuh. Karyawan yang keluar atau customer yang tidak dilayani lagi cukup dinonaktifkan.</p>
+          <p>Kategori, karyawan, kendaraan, dan customer tidak dihapus atau diarsipkan, agar riwayat transaksi tetap utuh. Karyawan yang keluar atau customer yang tidak dilayani lagi cukup dinonaktifkan.</p>
         </PathCard>
       </div>
     </StepSection>
@@ -425,7 +425,7 @@ function Step7() {
 function ScanChecks() {
   const rows: { icon: LucideIcon; tone: keyof typeof FLOW_TONES; title: string; text: string }[] = [
     { icon: CheckCircle2, tone: 'green', title: 'Hijau: tercatat', text: 'Tabung termasuk transaksi dan dihitung. HP bergetar singkat.' },
-    { icon: XCircle, tone: 'red', title: 'Merah: Tabung tidak sesuai', text: 'Tabung tidak dipilih di transaksi ini (atau untuk customer ini), atau tidak ada di muatan. Muncul peringatan yang harus ditutup; tabung tidak dihitung. Keluarkan tabung itu.' },
+    { icon: XCircle, tone: 'red', title: 'Merah: Tabung tidak sesuai', text: 'Tabung tidak dipilih di transaksi ini (atau untuk customer ini), tidak ada di muatan, atau kodenya tidak dikenal. Muncul peringatan yang harus ditutup, berisi apa yang harus dilakukan; tabung tidak dihitung.' },
     { icon: Clock, tone: 'amber', title: 'Kuning: Tabung sudah di-scan', text: 'Tabung ini sudah tercatat sebelumnya. Scan ulang tidak dihitung lagi; lanjutkan ke tabung berikutnya.' },
   ]
   return (
@@ -468,13 +468,13 @@ const PROBLEMS: { q: string; a: ReactNode }[] = [
   { q: 'Perubahan yang saya simpan belum terlihat.', a: <>Kemungkinan masih menunggu persetujuan. Periksa statusnya di menu <MenuLink to="/notifikasi">Pengajuan Saya</MenuLink>.</> },
   { q: 'Saya tidak menemukan aset tertentu.', a: 'Aset itu mungkin berada di luar cakupan data Anda, atau sudah nonaktif. Untuk melihat aset nonaktif, ubah filter di Data Aset menjadi "Aset nonaktif". Kendaraan ada di Master Data › Kendaraan, bukan di Data Aset.' },
   { q: 'Tabung tidak muncul saat membuat transaksi.', a: 'Untuk transaksi keluar, tabung harus berstatus Di Gudang dan tidak sedang dipakai transaksi lain. Untuk transaksi masuk, tabung harus tercatat berada di customer itu.' },
-  { q: 'Saat scan muncul "Tabung tidak sesuai".', a: 'Tabung itu tidak dipilih di transaksi ini, atau dipilih untuk customer lain, sehingga tidak dihitung. Keluarkan tabung itu dari muatan. Bila tabung memang harus ikut, minta admin mengubah transaksinya di web sebelum ada tabung yang di-scan muat.' },
+  { q: 'Saat scan muncul "Tabung tidak sesuai".', a: 'Tabung itu tidak dipilih di transaksi ini, atau dipilih untuk customer lain, sehingga tidak dihitung. Saat muat, keluarkan tabung itu dari muatan; saat bongkar, biarkan di kendaraan. Bila tabung memang harus ikut: transaksi keluar dapat diubah di web selama belum ada tabung yang di-scan muat; untuk transaksi masuk, buat transaksi masuk baru untuk tabung itu.' },
   { q: 'Saat scan muncul "Tabung sudah di-scan".', a: 'Tabung itu sudah tercatat. Scan ulang tidak menambah hitungan, jadi lanjutkan ke tabung berikutnya. Lihat sisa tabung yang belum di-scan dengan menekan Belum di layar scan.' },
   { q: 'Saya salah scan muat.', a: 'Di mobile, pilih Batal muat pada tabungnya di daftar Tabung selama kendaraan belum berangkat (transaksi keluar) atau customer belum diselesaikan (transaksi masuk).' },
   { q: 'Tidak bisa menekan Berangkat.', a: 'Pastikan kendaraan dan supir sudah diisi, minimal satu tabung sudah dimuat (transaksi keluar), dan kendaraan maupun krunya tidak sedang dalam perjalanan lain.' },
   { q: 'Posisi kendaraan tidak bergerak di Tracking.', a: 'Posisi terkirim selama aplikasi mobile terbuka dan izin lokasi aktif. Minta supir membuka transaksinya di aplikasi.' },
   { q: 'Tombol cetak barcode tidak muncul.', a: 'Pastikan Modul Barcode sudah aktif dan kategori aset itu (atau kategori induknya) sudah dicentang pada halaman Modul Barcode.' },
-  { q: 'Tidak ada tombol Arsipkan di Master Data.', a: 'Master Data tidak diarsipkan agar riwayat transaksi tetap utuh. Karyawan, customer, atau kategori yang tidak dipakai lagi cukup dinonaktifkan. Status kendaraan diatur sistem dari transaksi.' },
+  { q: 'Tidak ada tombol Arsipkan di Kategori, Karyawan, Kendaraan, atau Customer.', a: 'Data itu tidak diarsipkan agar riwayat transaksi tetap utuh. Karyawan, customer, atau kategori yang tidak dipakai lagi cukup dinonaktifkan. Status kendaraan diatur sistem dari transaksi.' },
   { q: 'Supir atau kernet tidak muncul di mobile.', a: 'Pastikan karyawan itu masuk divisi Supir atau Kernet di Master Data › Karyawan, aktif, dan tidak sedang dalam perjalanan lain.' },
   { q: 'Import Excel gagal.', a: 'Baca daftar baris yang salah pada pesan error, perbaiki file, lalu unggah ulang. Selama masih ada baris yang salah, tidak ada data yang disimpan.' },
   { q: 'Saya lupa password.', a: 'Minta Super Admin atau Supervisor mengatur password sementara dari halaman detail pengguna. Anda akan diminta menggantinya saat masuk.' },
